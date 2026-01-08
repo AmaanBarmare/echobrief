@@ -22,7 +22,9 @@ import {
   CheckCircle, 
   XCircle,
   Loader2,
-  ExternalLink
+  ExternalLink,
+  Send,
+  Sparkles
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -51,6 +53,7 @@ export default function Settings() {
   const [slackChannelId, setSlackChannelId] = useState('');
   const [slackChannelName, setSlackChannelName] = useState('');
   const [connectingSlack, setConnectingSlack] = useState(false);
+  const [testingSlack, setTestingSlack] = useState(false);
 
   // Google Calendar connection
   const [connectingGoogle, setConnectingGoogle] = useState(false);
@@ -177,6 +180,45 @@ export default function Settings() {
     setConnectingSlack(false);
   };
 
+  const handleTestSlackConnection = async () => {
+    if (!profile?.slack_channel_id || !session?.access_token) return;
+
+    setTestingSlack(true);
+    try {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/test-slack-connection`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          channelId: profile.slack_channel_id,
+          channelName: profile.slack_channel_name,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      toast({
+        title: 'Test Successful! 🎉',
+        description: 'Check your Slack channel for the test message',
+      });
+    } catch (err) {
+      console.error('Test Slack error:', err);
+      toast({
+        title: 'Test Failed',
+        description: err instanceof Error ? err.message : 'Failed to send test message',
+        variant: 'destructive',
+      });
+    } finally {
+      setTestingSlack(false);
+    }
+  };
+
   const handleDisconnectSlack = async () => {
     if (!user) return;
 
@@ -292,7 +334,10 @@ export default function Settings() {
     <DashboardLayout>
       <div className="p-8 max-w-4xl">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground">Settings</h1>
+          <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
+            <Sparkles className="w-8 h-8 text-accent" />
+            Settings
+          </h1>
           <p className="text-muted-foreground mt-1">
             Manage your account and integrations
           </p>
@@ -300,10 +345,12 @@ export default function Settings() {
 
         <div className="space-y-6">
           {/* Profile Settings */}
-          <Card>
+          <Card className="glass-card-liquid overflow-hidden">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <User className="w-5 h-5" />
+                <div className="p-2 rounded-lg bg-accent/10">
+                  <User className="w-5 h-5 text-accent" />
+                </div>
                 Profile
               </CardTitle>
               <CardDescription>
@@ -318,6 +365,7 @@ export default function Settings() {
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="Your name"
+                  className="bg-white/50"
                 />
               </div>
               <div className="space-y-2">
@@ -326,10 +374,10 @@ export default function Settings() {
                   id="email"
                   value={user?.email || ''}
                   disabled
-                  className="bg-muted"
+                  className="bg-muted/50"
                 />
               </div>
-              <Button onClick={handleSaveProfile} disabled={saving}>
+              <Button onClick={handleSaveProfile} disabled={saving} variant="glassAccent">
                 {saving ? (
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />
                 ) : null}
@@ -339,10 +387,12 @@ export default function Settings() {
           </Card>
 
           {/* Google Calendar Integration */}
-          <Card>
+          <Card className="glass-card-liquid overflow-hidden">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Calendar className="w-5 h-5" />
+                <div className="p-2 rounded-lg bg-accent/10">
+                  <Calendar className="w-5 h-5 text-accent" />
+                </div>
                 Google Calendar
               </CardTitle>
               <CardDescription>
@@ -354,18 +404,22 @@ export default function Settings() {
                 <div className="flex items-center gap-3">
                   {profile?.google_calendar_connected ? (
                     <>
-                      <CheckCircle className="w-5 h-5 text-green-500" />
-                      <span className="text-foreground">Connected</span>
+                      <div className="p-2 rounded-full bg-success/10">
+                        <CheckCircle className="w-5 h-5 text-success" />
+                      </div>
+                      <span className="text-foreground font-medium">Connected</span>
                     </>
                   ) : (
                     <>
-                      <XCircle className="w-5 h-5 text-muted-foreground" />
+                      <div className="p-2 rounded-full bg-muted">
+                        <XCircle className="w-5 h-5 text-muted-foreground" />
+                      </div>
                       <span className="text-muted-foreground">Not connected</span>
                     </>
                   )}
                 </div>
                 <Button 
-                  variant="outline" 
+                  variant={profile?.google_calendar_connected ? "outline" : "glassAccent"}
                   className="gap-2"
                   disabled={connectingGoogle}
                   onClick={() => {
@@ -391,10 +445,12 @@ export default function Settings() {
           </Card>
 
           {/* Slack Integration */}
-          <Card>
+          <Card className="glass-card-liquid overflow-hidden">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Slack className="w-5 h-5" />
+                <div className="p-2 rounded-lg bg-accent/10">
+                  <Slack className="w-5 h-5 text-accent" />
+                </div>
                 Slack
               </CardTitle>
               <CardDescription>
@@ -406,11 +462,13 @@ export default function Settings() {
                 <div className="flex items-center gap-3">
                   {profile?.slack_connected ? (
                     <>
-                      <CheckCircle className="w-5 h-5 text-green-500" />
+                      <div className="p-2 rounded-full bg-success/10">
+                        <CheckCircle className="w-5 h-5 text-success" />
+                      </div>
                       <div>
-                        <span className="text-foreground">Connected</span>
+                        <span className="text-foreground font-medium">Connected</span>
                         {profile.slack_channel_name && (
-                          <span className="text-muted-foreground ml-2">
+                          <span className="text-muted-foreground ml-2 text-sm">
                             #{profile.slack_channel_name}
                           </span>
                         )}
@@ -418,25 +476,44 @@ export default function Settings() {
                     </>
                   ) : (
                     <>
-                      <XCircle className="w-5 h-5 text-muted-foreground" />
+                      <div className="p-2 rounded-full bg-muted">
+                        <XCircle className="w-5 h-5 text-muted-foreground" />
+                      </div>
                       <span className="text-muted-foreground">Not connected</span>
                     </>
                   )}
                 </div>
-                <Button 
-                  variant="outline" 
-                  className="gap-2"
-                  onClick={() => {
-                    if (profile?.slack_connected) {
-                      handleDisconnectSlack();
-                    } else {
-                      setSlackDialogOpen(true);
-                    }
-                  }}
-                >
-                  <ExternalLink className="w-4 h-4" />
-                  {profile?.slack_connected ? 'Disconnect' : 'Connect'}
-                </Button>
+                <div className="flex items-center gap-2">
+                  {profile?.slack_connected && (
+                    <Button 
+                      variant="outline" 
+                      className="gap-2"
+                      onClick={handleTestSlackConnection}
+                      disabled={testingSlack}
+                    >
+                      {testingSlack ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Send className="w-4 h-4" />
+                      )}
+                      {testingSlack ? 'Sending...' : 'Test'}
+                    </Button>
+                  )}
+                  <Button 
+                    variant={profile?.slack_connected ? "outline" : "glassAccent"}
+                    className="gap-2"
+                    onClick={() => {
+                      if (profile?.slack_connected) {
+                        handleDisconnectSlack();
+                      } else {
+                        setSlackDialogOpen(true);
+                      }
+                    }}
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    {profile?.slack_connected ? 'Disconnect' : 'Connect'}
+                  </Button>
+                </div>
               </div>
               <p className="text-sm text-muted-foreground mt-4">
                 After each meeting, we'll send a formatted summary with action items, decisions, and key points to your chosen channel.
@@ -445,15 +522,20 @@ export default function Settings() {
           </Card>
 
           {/* Notification Preferences */}
-          <Card>
+          <Card className="glass-card-liquid overflow-hidden">
             <CardHeader>
-              <CardTitle>Notifications</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-accent/10">
+                  <Sparkles className="w-5 h-5 text-accent" />
+                </div>
+                Notifications
+              </CardTitle>
               <CardDescription>
                 Configure how you receive updates
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
                 <div>
                   <p className="font-medium text-foreground">Meeting reminders</p>
                   <p className="text-sm text-muted-foreground">
@@ -462,7 +544,7 @@ export default function Settings() {
                 </div>
                 <Switch defaultChecked />
               </div>
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
                 <div>
                   <p className="font-medium text-foreground">Processing complete</p>
                   <p className="text-sm text-muted-foreground">
@@ -471,7 +553,7 @@ export default function Settings() {
                 </div>
                 <Switch defaultChecked />
               </div>
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
                 <div>
                   <p className="font-medium text-foreground">Weekly summary</p>
                   <p className="text-sm text-muted-foreground">
@@ -487,10 +569,12 @@ export default function Settings() {
 
       {/* Slack Connection Dialog */}
       <Dialog open={slackDialogOpen} onOpenChange={setSlackDialogOpen}>
-        <DialogContent>
+        <DialogContent className="glass-card-liquid">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Slack className="w-5 h-5" />
+              <div className="p-2 rounded-lg bg-accent/10">
+                <Slack className="w-5 h-5 text-accent" />
+              </div>
               Connect Slack
             </DialogTitle>
             <DialogDescription>
@@ -505,6 +589,7 @@ export default function Settings() {
                 value={slackChannelId}
                 onChange={(e) => setSlackChannelId(e.target.value)}
                 placeholder="C01234567AB"
+                className="bg-white/50"
               />
               <p className="text-xs text-muted-foreground">
                 Find this by right-clicking your channel → View channel details → Copy channel ID
@@ -517,6 +602,7 @@ export default function Settings() {
                 value={slackChannelName}
                 onChange={(e) => setSlackChannelName(e.target.value)}
                 placeholder="general"
+                className="bg-white/50"
               />
             </div>
           </div>
@@ -524,14 +610,13 @@ export default function Settings() {
             <Button variant="outline" onClick={() => setSlackDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleConnectSlack} disabled={connectingSlack || !slackChannelId.trim()}>
+            <Button variant="glassAccent" onClick={handleConnectSlack} disabled={connectingSlack || !slackChannelId.trim()}>
               {connectingSlack && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
               Connect
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
     </DashboardLayout>
   );
 }

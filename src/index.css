@@ -145,6 +145,111 @@
     box-shadow: var(--shadow-lg);
   }
 
+  /* Liquid glass button effect */
+  .glass-button {
+    @apply relative overflow-hidden;
+    background: linear-gradient(135deg, rgba(255,255,255,0.25), rgba(255,255,255,0.1));
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.3);
+    box-shadow: 
+      0 8px 32px rgba(0,0,0,0.1),
+      inset 0 1px 0 rgba(255,255,255,0.4),
+      inset 0 -1px 0 rgba(255,255,255,0.1);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .glass-button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255,255,255,0.4),
+      transparent
+    );
+    transition: left 0.5s ease;
+  }
+
+  .glass-button:hover::before {
+    left: 100%;
+  }
+
+  .glass-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 
+      0 12px 40px rgba(0,0,0,0.15),
+      inset 0 1px 0 rgba(255,255,255,0.5),
+      inset 0 -1px 0 rgba(255,255,255,0.15);
+    border-color: rgba(255,255,255,0.5);
+  }
+
+  /* Liquid glass card */
+  .glass-card-liquid {
+    background: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(255,255,255,0.7));
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.5);
+    box-shadow: 
+      0 8px 32px rgba(0,0,0,0.08),
+      inset 0 1px 0 rgba(255,255,255,0.8);
+    transition: all 0.3s ease;
+  }
+
+  .glass-card-liquid:hover {
+    transform: translateY(-4px);
+    box-shadow: 
+      0 16px 48px rgba(0,0,0,0.12),
+      inset 0 1px 0 rgba(255,255,255,0.9);
+  }
+
+  /* Interactive card with glow */
+  .interactive-card {
+    @apply relative transition-all duration-300 cursor-pointer;
+  }
+
+  .interactive-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    box-shadow: 0 0 30px hsl(172 66% 45% / 0.3);
+    pointer-events: none;
+  }
+
+  .interactive-card:hover::after {
+    opacity: 1;
+  }
+
+  .interactive-card:hover {
+    transform: translateY(-2px) scale(1.01);
+  }
+
+  /* Gradient border effect */
+  .gradient-border {
+    position: relative;
+    background: linear-gradient(135deg, hsl(172 66% 45% / 0.1), hsl(200 70% 50% / 0.1));
+  }
+
+  .gradient-border::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    padding: 1px;
+    border-radius: inherit;
+    background: linear-gradient(135deg, hsl(172 66% 45%), hsl(200 70% 50%));
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+  }
+
   /* Recording pulse animation */
   .recording-pulse {
     animation: recording-pulse 2s ease-in-out infinite;
@@ -195,6 +300,33 @@
     background-clip: text;
   }
 
+  /* Shimmer effect */
+  .shimmer {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .shimmer::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 50%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255,255,255,0.3),
+      transparent
+    );
+    animation: shimmer 2s infinite;
+  }
+
+  @keyframes shimmer {
+    0% { left: -100%; }
+    100% { left: 200%; }
+  }
+
   /* Status badges */
   .status-recording {
     @apply bg-recording text-recording-foreground;
@@ -213,6 +345,16 @@
     background-image: 
       radial-gradient(circle at 25% 25%, hsl(172 66% 45% / 0.1) 0%, transparent 50%),
       radial-gradient(circle at 75% 75%, hsl(200 70% 50% / 0.1) 0%, transparent 50%);
+  }
+
+  /* Mesh gradient background */
+  .mesh-gradient {
+    background: 
+      radial-gradient(at 40% 20%, hsl(172 66% 45% / 0.15) 0px, transparent 50%),
+      radial-gradient(at 80% 0%, hsl(200 70% 50% / 0.1) 0px, transparent 50%),
+      radial-gradient(at 0% 50%, hsl(25 95% 53% / 0.05) 0px, transparent 50%),
+      radial-gradient(at 80% 50%, hsl(222 47% 20% / 0.05) 0px, transparent 50%),
+      radial-gradient(at 0% 100%, hsl(172 66% 45% / 0.1) 0px, transparent 50%);
   }
 }
 

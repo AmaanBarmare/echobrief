@@ -3,8 +3,28 @@ import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Calendar as CalendarIcon, ExternalLink, Video, Loader2, RefreshCw, Clock, Link as LinkIcon, AlertCircle } from 'lucide-react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { 
+  Calendar as CalendarIcon, 
+  ExternalLink, 
+  Video, 
+  Loader2, 
+  RefreshCw, 
+  Clock, 
+  Link as LinkIcon, 
+  AlertCircle,
+  Mic,
+  Sparkles,
+  MapPin
+} from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { format, isToday, parseISO, isTomorrow } from 'date-fns';
@@ -27,6 +47,7 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 export default function CalendarPage() {
   const { user, session } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,6 +56,10 @@ export default function CalendarPage() {
   const [isSampleData, setIsSampleData] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [connectingGoogle, setConnectingGoogle] = useState(false);
+  
+  // Event detail modal
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  const [eventDialogOpen, setEventDialogOpen] = useState(false);
 
   // Handle success/error from backend OAuth redirect
   const handleOAuthResult = useCallback(async () => {
@@ -109,6 +134,10 @@ export default function CalendarPage() {
     setSyncing(true);
     await fetchCalendarEvents();
     setSyncing(false);
+    toast({
+      title: 'Synced!',
+      description: 'Calendar events refreshed',
+    });
   };
 
   const initiateGoogleOAuth = async () => {
@@ -150,6 +179,31 @@ export default function CalendarPage() {
       });
       setConnectingGoogle(false);
     }
+  };
+
+  const handleEventClick = (event: CalendarEvent) => {
+    setSelectedEvent(event);
+    setEventDialogOpen(true);
+  };
+
+  const handleRecordMeeting = async () => {
+    if (!selectedEvent) return;
+    
+    // Navigate to dashboard with the meeting title pre-filled
+    setEventDialogOpen(false);
+    navigate('/dashboard', { 
+      state: { 
+        prefillMeeting: {
+          title: selectedEvent.title,
+          calendarEventId: selectedEvent.id,
+          meetingLink: selectedEvent.meetingLink,
+        }
+      }
+    });
+    toast({
+      title: 'Ready to Record',
+      description: `Recording for "${selectedEvent.title}" is ready to start`,
+    });
   };
 
   useEffect(() => {
@@ -224,7 +278,10 @@ export default function CalendarPage() {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center min-h-[400px]">
-          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+          <div className="text-center">
+            <Loader2 className="w-10 h-10 animate-spin text-accent mx-auto mb-4" />
+            <p className="text-muted-foreground">Loading your calendar...</p>
+          </div>
         </div>
       </DashboardLayout>
     );
@@ -232,16 +289,19 @@ export default function CalendarPage() {
 
   return (
     <DashboardLayout>
-      <div className="p-8">
+      <div className="p-8 mesh-gradient min-h-screen">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Calendar</h1>
+            <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
+              <Sparkles className="w-8 h-8 text-accent" />
+              Calendar
+            </h1>
             <p className="text-muted-foreground mt-1">
-              View and manage your upcoming meetings
+              Click any meeting to record and capture insights
             </p>
           </div>
           {isConnected && (
-            <Button variant="outline" onClick={handleSync} disabled={syncing} className="gap-2">
+            <Button variant="glassAccent" onClick={handleSync} disabled={syncing} className="gap-2">
               <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
               Sync
             </Button>
@@ -261,34 +321,32 @@ export default function CalendarPage() {
         )}
 
         {!isConnected ? (
-          <Card className="lg:col-span-2">
-            <CardContent className="py-12 text-center">
-              <div className="w-16 h-16 rounded-full bg-muted mx-auto mb-4 flex items-center justify-center">
-                <CalendarIcon className="w-8 h-8 text-muted-foreground" />
+          <Card className="glass-card-liquid lg:col-span-2">
+            <CardContent className="py-16 text-center">
+              <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-accent/20 to-accent/10 mx-auto mb-6 flex items-center justify-center">
+                <CalendarIcon className="w-10 h-10 text-accent" />
               </div>
-              <h3 className="text-xl font-semibold text-foreground mb-2">
+              <h3 className="text-2xl font-bold text-foreground mb-3">
                 Connect Your Calendar
               </h3>
-              <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+              <p className="text-muted-foreground mb-8 max-w-md mx-auto">
                 Link your Google Calendar to automatically see your upcoming meetings and get reminders to start recording.
               </p>
-              <div className="flex items-center justify-center gap-4">
-                <Button onClick={initiateGoogleOAuth} disabled={connectingGoogle} className="gap-2">
-                  {connectingGoogle ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <ExternalLink className="w-4 h-4" />
-                  )}
-                  {connectingGoogle ? 'Connecting...' : 'Connect Google Calendar'}
-                </Button>
-              </div>
+              <Button variant="glassAccent" size="lg" onClick={initiateGoogleOAuth} disabled={connectingGoogle} className="gap-2">
+                {connectingGoogle ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <ExternalLink className="w-5 h-5" />
+                )}
+                {connectingGoogle ? 'Connecting...' : 'Connect Google Calendar'}
+              </Button>
             </CardContent>
           </Card>
         ) : (
           <>
             {isSampleData && (
-              <div className="mb-6 p-4 bg-muted/50 rounded-lg border border-border">
-                <p className="text-sm text-muted-foreground">
+              <div className="mb-6 p-4 bg-accent/10 rounded-lg border border-accent/20">
+                <p className="text-sm text-accent-foreground">
                   📅 Showing sample calendar events. Your actual Google Calendar events will appear once OAuth is configured.
                 </p>
               </div>
@@ -296,10 +354,12 @@ export default function CalendarPage() {
 
             <div className="grid gap-6 lg:grid-cols-2">
               {/* Today's Meetings */}
-              <Card>
+              <Card className="glass-card-liquid overflow-hidden">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Video className="w-5 h-5 text-primary" />
+                    <div className="p-2 rounded-lg bg-recording/10">
+                      <Video className="w-5 h-5 text-recording" />
+                    </div>
                     Today's Meetings
                   </CardTitle>
                   <CardDescription>
@@ -308,41 +368,42 @@ export default function CalendarPage() {
                 </CardHeader>
                 <CardContent>
                   {todayEvents.length === 0 ? (
-                    <div className="py-8 text-center text-muted-foreground">
-                      <p>No meetings scheduled for today</p>
+                    <div className="py-12 text-center">
+                      <div className="w-16 h-16 rounded-full bg-muted/50 mx-auto mb-4 flex items-center justify-center">
+                        <CalendarIcon className="w-8 h-8 text-muted-foreground" />
+                      </div>
+                      <p className="text-muted-foreground">No meetings scheduled for today</p>
                     </div>
                   ) : (
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                       {todayEvents.map((event) => (
                         <div
                           key={event.id}
-                          className="p-4 rounded-lg border border-border bg-card hover:bg-muted/50 transition-colors"
+                          onClick={() => handleEventClick(event)}
+                          className="p-4 rounded-xl border border-border bg-white/50 hover:bg-white/80 transition-all duration-300 cursor-pointer interactive-card group"
                         >
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
-                              <h4 className="font-medium text-foreground">{event.title}</h4>
-                              <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
-                                <Clock className="w-3.5 h-3.5" />
+                              <h4 className="font-semibold text-foreground group-hover:text-accent transition-colors">{event.title}</h4>
+                              <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
+                                <Clock className="w-4 h-4" />
                                 {formatEventTime(event.start, event.end)}
                               </div>
                               {event.location && (
-                                <p className="text-sm text-muted-foreground mt-1">{event.location}</p>
-                              )}
-                              {event.meetingLink && (
-                                <a 
-                                  href={event.meetingLink}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex items-center gap-1.5 mt-2 text-sm text-primary hover:underline"
-                                >
-                                  <LinkIcon className="w-3.5 h-3.5" />
-                                  Join meeting
-                                </a>
+                                <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
+                                  <MapPin className="w-4 h-4" />
+                                  {event.location}
+                                </div>
                               )}
                             </div>
-                            <Badge variant="outline" className="text-xs">
-                              {event.source === 'google_calendar' ? 'Google' : 'Manual'}
-                            </Badge>
+                            <div className="flex flex-col items-end gap-2">
+                              <Badge variant="outline" className="text-xs bg-white/50">
+                                {event.source === 'google_calendar' ? 'Google' : 'Manual'}
+                              </Badge>
+                              <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Mic className="w-5 h-5 text-recording" />
+                              </div>
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -352,10 +413,12 @@ export default function CalendarPage() {
               </Card>
 
               {/* This Week */}
-              <Card>
+              <Card className="glass-card-liquid overflow-hidden">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <CalendarIcon className="w-5 h-5 text-primary" />
+                    <div className="p-2 rounded-lg bg-accent/10">
+                      <CalendarIcon className="w-5 h-5 text-accent" />
+                    </div>
                     This Week
                   </CardTitle>
                   <CardDescription>
@@ -364,44 +427,45 @@ export default function CalendarPage() {
                 </CardHeader>
                 <CardContent>
                   {upcomingEvents.length === 0 ? (
-                    <div className="py-8 text-center text-muted-foreground">
-                      <p>No upcoming meetings this week</p>
+                    <div className="py-12 text-center">
+                      <div className="w-16 h-16 rounded-full bg-muted/50 mx-auto mb-4 flex items-center justify-center">
+                        <CalendarIcon className="w-8 h-8 text-muted-foreground" />
+                      </div>
+                      <p className="text-muted-foreground">No upcoming meetings this week</p>
                     </div>
                   ) : (
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                       {upcomingEvents.map((event) => (
                         <div
                           key={event.id}
-                          className="p-4 rounded-lg border border-border bg-card hover:bg-muted/50 transition-colors"
+                          onClick={() => handleEventClick(event)}
+                          className="p-4 rounded-xl border border-border bg-white/50 hover:bg-white/80 transition-all duration-300 cursor-pointer interactive-card group"
                         >
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
-                              <h4 className="font-medium text-foreground">{event.title}</h4>
-                              <p className="text-sm text-muted-foreground mt-0.5">
+                              <h4 className="font-semibold text-foreground group-hover:text-accent transition-colors">{event.title}</h4>
+                              <p className="text-sm text-accent font-medium mt-1">
                                 {getEventDateLabel(event.start)}
                               </p>
                               <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
-                                <Clock className="w-3.5 h-3.5" />
+                                <Clock className="w-4 h-4" />
                                 {formatEventTime(event.start, event.end)}
                               </div>
                               {event.location && (
-                                <p className="text-sm text-muted-foreground mt-1">{event.location}</p>
-                              )}
-                              {event.meetingLink && (
-                                <a 
-                                  href={event.meetingLink}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex items-center gap-1.5 mt-2 text-sm text-primary hover:underline"
-                                >
-                                  <LinkIcon className="w-3.5 h-3.5" />
-                                  Join meeting
-                                </a>
+                                <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
+                                  <MapPin className="w-4 h-4" />
+                                  {event.location}
+                                </div>
                               )}
                             </div>
-                            <Badge variant="outline" className="text-xs">
-                              {event.source === 'google_calendar' ? 'Google' : 'Manual'}
-                            </Badge>
+                            <div className="flex flex-col items-end gap-2">
+                              <Badge variant="outline" className="text-xs bg-white/50">
+                                {event.source === 'google_calendar' ? 'Google' : 'Manual'}
+                              </Badge>
+                              <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Mic className="w-5 h-5 text-recording" />
+                              </div>
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -413,6 +477,63 @@ export default function CalendarPage() {
           </>
         )}
       </div>
+
+      {/* Event Detail Dialog */}
+      <Dialog open={eventDialogOpen} onOpenChange={setEventDialogOpen}>
+        <DialogContent className="glass-card-liquid sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3 text-xl">
+              <div className="p-2 rounded-lg bg-accent/10">
+                <Video className="w-5 h-5 text-accent" />
+              </div>
+              {selectedEvent?.title}
+            </DialogTitle>
+            <DialogDescription asChild>
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center gap-2 text-sm">
+                  <Clock className="w-4 h-4 text-muted-foreground" />
+                  <span>
+                    {selectedEvent && getEventDateLabel(selectedEvent.start)} • {selectedEvent && formatEventTime(selectedEvent.start, selectedEvent.end)}
+                  </span>
+                </div>
+                {selectedEvent?.location && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <MapPin className="w-4 h-4 text-muted-foreground" />
+                    <span>{selectedEvent.location}</span>
+                  </div>
+                )}
+                {selectedEvent?.meetingLink && (
+                  <a 
+                    href={selectedEvent.meetingLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-sm text-accent hover:underline"
+                  >
+                    <LinkIcon className="w-4 h-4" />
+                    Join meeting link
+                  </a>
+                )}
+                {selectedEvent?.description && (
+                  <div className="pt-3 border-t border-border">
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                      {selectedEvent.description}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-6 flex gap-2">
+            <Button variant="outline" onClick={() => setEventDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="recording" onClick={handleRecordMeeting} className="gap-2">
+              <Mic className="w-4 h-4" />
+              Record This Meeting
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }
