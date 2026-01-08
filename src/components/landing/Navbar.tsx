@@ -12,7 +12,7 @@ export function Navbar() {
             <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center">
               <Mic className="w-4 h-4 text-accent-foreground" />
             </div>
-            <span className="text-lg font-bold text-white">MeetingAI</span>
+            <span className="text-lg font-bold text-white">Echo Brief</span>
           </Link>
 
           {/* CTA */}

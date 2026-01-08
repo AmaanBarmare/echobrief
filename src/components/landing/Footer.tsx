@@ -11,12 +11,12 @@ export function Footer() {
             <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center">
               <Mic className="w-4 h-4 text-accent-foreground" />
             </div>
-            <span className="text-lg font-bold text-foreground">MeetingAI</span>
+            <span className="text-lg font-bold text-foreground">Echo Brief</span>
           </Link>
 
           {/* Copyright */}
           <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} MeetingAI. All rights reserved.
+            © {new Date().getFullYear()} Echo Brief. All rights reserved.
           </p>
         </div>
       </div>

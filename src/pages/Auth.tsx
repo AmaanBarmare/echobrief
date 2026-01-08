@@ -27,7 +27,7 @@ export default function Auth() {
         if (error) throw error;
         toast({
           title: 'Account created!',
-          description: 'Welcome to MeetingAI. Let\'s get started.',
+          description: 'Welcome to Echo Brief. Let\'s get started.',
         });
       } else {
         const { error } = await signIn(email, password);
@@ -59,7 +59,7 @@ export default function Auth() {
             <div className="w-12 h-12 rounded-xl bg-accent flex items-center justify-center">
               <Mic className="w-6 h-6 text-accent-foreground" />
             </div>
-            <span className="text-2xl font-bold text-white">MeetingAI</span>
+            <span className="text-2xl font-bold text-white">Echo Brief</span>
           </Link>
 
           <h1 className="text-4xl font-bold text-white mb-4">
@@ -79,7 +79,7 @@ export default function Auth() {
             <div className="w-10 h-10 rounded-lg bg-accent flex items-center justify-center">
               <Mic className="w-5 h-5 text-accent-foreground" />
             </div>
-            <span className="text-xl font-bold text-foreground">MeetingAI</span>
+            <span className="text-xl font-bold text-foreground">Echo Brief</span>
           </Link>
 
           <div className="text-center mb-8">

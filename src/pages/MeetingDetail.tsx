@@ -55,7 +55,11 @@ export default function MeetingDetail() {
           .single();
 
         if (transcriptData) {
-          setTranscript(transcriptData as Transcript);
+          setTranscript({
+            ...transcriptData,
+            speakers: (transcriptData.speakers as any) || [],
+            word_timestamps: (transcriptData.word_timestamps as any) || [],
+          } as Transcript);
         }
 
         // Fetch insights
@@ -66,7 +70,16 @@ export default function MeetingDetail() {
           .single();
 
         if (insightsData) {
-          setInsights(insightsData as MeetingInsights);
+          setInsights({
+            ...insightsData,
+            key_points: (insightsData.key_points as any) || [],
+            action_items: (insightsData.action_items as any) || [],
+            decisions: (insightsData.decisions as any) || [],
+            risks: (insightsData.risks as any) || [],
+            follow_ups: (insightsData.follow_ups as any) || [],
+            summary_short: insightsData.summary_short || '',
+            summary_detailed: insightsData.summary_detailed || '',
+          } as MeetingInsights);
         }
       }
 
