@@ -91,6 +91,16 @@ export function RecordingButton({ onRecordingComplete }: RecordingButtonProps) {
         title: 'Recording saved',
         description: 'Your meeting is being processed...',
       });
+      
+      // Trigger processing
+      try {
+        await supabase.functions.invoke('process-meeting', {
+          body: { meetingId: currentMeetingId }
+        });
+      } catch (err) {
+        console.error('Processing error:', err);
+      }
+      
       onRecordingComplete?.(currentMeetingId);
     }
     
