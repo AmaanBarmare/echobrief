@@ -1,19 +1,21 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
-  Home,
-  Inbox, 
+  Home, 
   Calendar, 
   CheckSquare, 
-  Search, 
   Settings, 
   LogOut,
   ChevronLeft,
-  Menu
+  Menu,
+  Mic
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
-import { Input } from '@/components/ui/input';
+
+interface SidebarProps {
+  onCollapsedChange?: (collapsed: boolean) => void;
+}
 
 const navItems = [
   { icon: Home, label: 'Home', path: '/dashboard' },
@@ -22,16 +24,28 @@ const navItems = [
   { icon: Settings, label: 'Settings', path: '/settings' },
 ];
 
-export function Sidebar() {
+export function Sidebar({ onCollapsedChange }: SidebarProps) {
   const location = useLocation();
   const { signOut, user } = useAuth();
-  const [collapsed, setCollapsed] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [collapsed, setCollapsed] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('sidebar-collapsed') === 'true';
+    }
+    return false;
+  });
+
+  const handleCollapsedChange = (newCollapsed: boolean) => {
+    setCollapsed(newCollapsed);
+    localStorage.setItem('sidebar-collapsed', String(newCollapsed));
+    onCollapsedChange?.(newCollapsed);
+    // Dispatch storage event for other components
+    window.dispatchEvent(new Event('storage'));
+  };
 
   return (
     <aside 
       className={cn(
-        "fixed left-0 top-0 bottom-0 bg-sidebar border-r border-sidebar-border flex flex-col transition-all duration-200",
+        "fixed left-0 top-0 bottom-0 bg-sidebar border-r border-sidebar-border flex flex-col transition-all duration-200 z-50",
         collapsed ? "w-14" : "w-56"
       )}
     >
@@ -42,32 +56,20 @@ export function Sidebar() {
       )}>
         {!collapsed && (
           <Link to="/dashboard" className="flex items-center gap-2">
-            <span className="text-base font-semibold text-sidebar-foreground">EchoBrief</span>
+            <div className="w-6 h-6 rounded bg-accent/10 flex items-center justify-center">
+              <Mic className="w-3.5 h-3.5 text-accent" />
+            </div>
+            <span className="text-sm font-semibold text-sidebar-foreground">EchoBrief</span>
           </Link>
         )}
         <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="p-1 rounded hover:bg-sidebar-accent text-muted-foreground hover:text-sidebar-foreground transition-colors"
+          onClick={() => handleCollapsedChange(!collapsed)}
+          className="p-1.5 rounded-md hover:bg-sidebar-accent text-muted-foreground hover:text-sidebar-foreground transition-colors"
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           {collapsed ? <Menu className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
         </button>
       </div>
-
-      {/* Search */}
-      {!collapsed && (
-        <div className="p-2">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Search..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-8 pl-8 text-sm bg-sidebar-accent border-0 focus-visible:ring-1"
-            />
-          </div>
-        </div>
-      )}
 
       {/* Navigation */}
       <nav className="flex-1 p-2 space-y-0.5">
@@ -98,8 +100,8 @@ export function Sidebar() {
       )}>
         {!collapsed && (
           <div className="flex items-center gap-2 px-2.5 py-1.5 mb-1">
-            <div className="w-6 h-6 rounded-full bg-sidebar-accent flex items-center justify-center flex-shrink-0">
-              <span className="text-xs font-medium text-sidebar-foreground">
+            <div className="w-6 h-6 rounded-full bg-accent/10 flex items-center justify-center flex-shrink-0">
+              <span className="text-xs font-medium text-accent">
                 {user?.email?.[0].toUpperCase()}
               </span>
             </div>

@@ -69,20 +69,20 @@
   }
 
   .dark {
-    --background: 220 20% 8%;
-    --foreground: 220 10% 92%;
+    --background: 220 16% 8%;
+    --foreground: 220 10% 90%;
 
-    --card: 220 20% 10%;
-    --card-foreground: 220 10% 92%;
+    --card: 220 16% 10%;
+    --card-foreground: 220 10% 90%;
 
-    --popover: 220 20% 10%;
-    --popover-foreground: 220 10% 92%;
+    --popover: 220 16% 10%;
+    --popover-foreground: 220 10% 90%;
 
-    --primary: 220 10% 92%;
-    --primary-foreground: 220 20% 8%;
+    --primary: 220 10% 90%;
+    --primary-foreground: 220 16% 8%;
 
     --secondary: 220 14% 14%;
-    --secondary-foreground: 220 10% 92%;
+    --secondary-foreground: 220 10% 90%;
 
     --muted: 220 14% 14%;
     --muted-foreground: 220 10% 55%;
@@ -97,12 +97,12 @@
     --input: 220 14% 18%;
     --ring: 220 80% 60%;
 
-    --sidebar-background: 220 20% 8%;
-    --sidebar-foreground: 220 10% 92%;
+    --sidebar-background: 220 16% 8%;
+    --sidebar-foreground: 220 10% 90%;
     --sidebar-primary: 220 80% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 220 14% 14%;
-    --sidebar-accent-foreground: 220 10% 92%;
+    --sidebar-accent-foreground: 220 10% 90%;
     --sidebar-border: 220 14% 18%;
     --sidebar-ring: 220 80% 60%;
   }
@@ -111,6 +111,10 @@
 @layer base {
   * {
     @apply border-border;
+  }
+
+  html {
+    transition: background-color 0.2s ease, color 0.2s ease;
   }
 
   body {
@@ -169,6 +173,14 @@
   /* Status indicators - small, subtle dots */
   .status-dot {
     @apply w-2 h-2 rounded-full flex-shrink-0;
+  }
+
+  .status-dot.scheduled {
+    @apply bg-muted-foreground;
+  }
+
+  .status-dot.upcoming {
+    @apply bg-accent;
   }
 
   .status-dot.recording {
@@ -281,7 +293,38 @@
   }
 
   .empty-state-description {
-    @apply text-sm text-muted-foreground;
+    @apply text-sm text-muted-foreground max-w-sm mx-auto;
+  }
+
+  /* Refined card - lighter borders, more whitespace */
+  .card-refined {
+    @apply bg-card border border-border/60 rounded-lg shadow-sm;
+  }
+
+  /* Section header */
+  .section-header {
+    @apply text-xs font-medium uppercase tracking-wider text-muted-foreground;
+  }
+
+  /* Inline tag/badge */
+  .tag {
+    @apply inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full;
+  }
+
+  .tag-accent {
+    @apply bg-accent/10 text-accent;
+  }
+
+  .tag-success {
+    @apply bg-success/10 text-success;
+  }
+
+  .tag-warning {
+    @apply bg-warning/10 text-warning;
+  }
+
+  .tag-muted {
+    @apply bg-muted text-muted-foreground;
   }
 }
 
@@ -304,5 +347,10 @@
       opacity: 1;
       transform: translateY(0);
     }
+  }
+
+  /* Theme transition */
+  .theme-transition {
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
   }
 }

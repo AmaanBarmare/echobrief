@@ -2,17 +2,15 @@ import { useEffect, useState, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { RecordingButton } from '@/components/dashboard/RecordingButton';
-import { StatsCards } from '@/components/dashboard/StatsCards';
-import { MeetingsChart } from '@/components/dashboard/MeetingsChart';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Meeting } from '@/types/meeting';
-import { Input } from '@/components/ui/input';
-import { Search, Clock, ChevronRight, Sparkles } from 'lucide-react';
+import { Clock, ChevronRight, Sparkles, Mic } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
+import { MeetingStatusBadge } from '@/components/dashboard/MeetingStatusBadge';
 
 interface CalendarAttendee {
   email: string;
@@ -33,7 +31,6 @@ export default function Dashboard() {
   const location = useLocation();
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
   const [insightCounts, setInsightCounts] = useState<Record<string, boolean>>({});
   
   const prefillMeeting = (location.state as { prefillMeeting?: PrefillMeeting })?.prefillMeeting;
@@ -97,18 +94,13 @@ export default function Dashboard() {
     };
   }, [user]);
 
-  const filteredMeetings = meetings.filter((meeting) =>
-    meeting.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
   // Calculate stats
   const stats = useMemo(() => {
     const totalMeetings = meetings.length;
     const totalDuration = meetings.reduce((sum, m) => sum + (m.duration_seconds || 0), 0);
     const transcriptCount = Object.keys(insightCounts).length;
-    const completedCount = meetings.filter(m => m.status === 'completed').length;
     
-    return { totalMeetings, totalDuration, transcriptCount, completedCount };
+    return { totalMeetings, totalDuration, transcriptCount };
   }, [meetings, insightCounts]);
 
   // Estimate time saved (avg 15 min per meeting summary)
@@ -120,13 +112,20 @@ export default function Dashboard() {
     return `${mins}m`;
   };
 
+  const formatTotalDuration = (seconds: number) => {
+    const hours = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    if (hours > 0) return `${hours}h ${mins}m`;
+    return `${mins}m`;
+  };
+
   return (
     <DashboardLayout>
-      <div className="max-w-5xl mx-auto px-6 py-8">
+      <div className="max-w-4xl mx-auto px-6 py-8">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-start justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-semibold text-foreground">Dashboard</h1>
+            <h1 className="text-2xl font-semibold text-foreground">Meetings</h1>
             <p className="text-sm text-muted-foreground mt-1">
               Your meeting intelligence hub
             </p>
@@ -139,90 +138,69 @@ export default function Dashboard() {
           />
         </div>
 
-        {/* Stats Cards */}
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            {[1, 2, 3, 4].map((i) => (
-              <Skeleton key={i} className="h-24 rounded-lg" />
-            ))}
-          </div>
-        ) : (
-          <div className="mb-8">
-            <StatsCards 
-              totalMeetings={stats.totalMeetings}
-              totalDuration={stats.totalDuration}
-              transcriptCount={stats.transcriptCount}
-              completedCount={stats.completedCount}
-            />
-            {/* Time Saved Banner */}
-            {timeSavedMinutes > 0 && (
-              <div className="mt-4 p-4 rounded-lg bg-success/10 border border-success/20 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-success/20 flex items-center justify-center">
-                  <Sparkles className="w-5 h-5 text-success" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-foreground">
-                    ~{Math.floor(timeSavedMinutes / 60)}h {timeSavedMinutes % 60}m saved
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Time saved on meeting summaries with AI
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Weekly Chart */}
+        {/* Stats Row - Compact */}
         {!loading && meetings.length > 0 && (
-          <div className="mb-8">
-            <MeetingsChart meetings={meetings} />
+          <div className="grid grid-cols-3 gap-4 mb-8">
+            <div className="p-4 rounded-lg bg-secondary/50">
+              <p className="text-2xl font-semibold text-foreground">{stats.totalMeetings}</p>
+              <p className="text-xs text-muted-foreground">Meetings</p>
+            </div>
+            <div className="p-4 rounded-lg bg-secondary/50">
+              <p className="text-2xl font-semibold text-foreground">{formatTotalDuration(stats.totalDuration)}</p>
+              <p className="text-xs text-muted-foreground">Recorded</p>
+            </div>
+            <div className="p-4 rounded-lg bg-secondary/50">
+              <p className="text-2xl font-semibold text-foreground">{stats.transcriptCount}</p>
+              <p className="text-xs text-muted-foreground">Summaries</p>
+            </div>
           </div>
         )}
 
-        {/* Search */}
-        <div className="relative mb-6">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Search meetings..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 h-9 bg-secondary border-0"
-          />
-        </div>
+        {/* Time Saved Banner */}
+        {!loading && timeSavedMinutes > 0 && (
+          <div className="mb-8 p-4 rounded-lg bg-success/5 border border-success/20 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center flex-shrink-0">
+              <Sparkles className="w-5 h-5 text-success" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-foreground">
+                ~{Math.floor(timeSavedMinutes / 60)}h {timeSavedMinutes % 60}m saved
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Time saved on meeting summaries with AI
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Section Title */}
-        <h2 className="text-sm font-medium text-muted-foreground mb-3">
-          Recent Meetings
-        </h2>
+        <h2 className="section-header mb-3">Recent Meetings</h2>
 
         {/* Meetings List */}
         {loading ? (
           <div className="space-y-2">
             {[1, 2, 3, 4, 5].map((i) => (
-              <Skeleton key={i} className="h-14 rounded-lg" />
+              <Skeleton key={i} className="h-16 rounded-lg" />
             ))}
           </div>
-        ) : filteredMeetings.length === 0 ? (
+        ) : meetings.length === 0 ? (
           <div className="empty-state">
-            <Search className="empty-state-icon" />
-            <p className="empty-state-title">
-              {searchQuery ? 'No meetings found' : 'No meetings yet'}
-            </p>
+            <Mic className="empty-state-icon" />
+            <p className="empty-state-title">No meetings yet</p>
             <p className="empty-state-description">
-              {searchQuery ? 'Try a different search term' : 'Click Record to capture your first meeting'}
+              Click Record to capture your first meeting. Your AI-powered summaries will appear here.
             </p>
           </div>
         ) : (
-          <div className="space-y-0.5">
-            {filteredMeetings.map((meeting) => (
+          <div className="space-y-1">
+            {meetings.map((meeting) => (
               <Link
                 key={meeting.id}
                 to={`/meeting/${meeting.id}`}
                 className="list-row group"
               >
                 {/* Status dot */}
-                <div className={cn('status-dot', meeting.status)} />
+                <MeetingStatusBadge status={meeting.status || 'scheduled'} />
                 
                 {/* Content */}
                 <div className="flex-1 min-w-0">
@@ -233,9 +211,7 @@ export default function Dashboard() {
 
                 {/* Insights badge */}
                 {insightCounts[meeting.id] && (
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-accent/10 text-accent">
-                    AI Summary
-                  </span>
+                  <span className="tag tag-accent">Summary</span>
                 )}
 
                 {/* Metadata */}
