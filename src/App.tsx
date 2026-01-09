@@ -12,6 +12,7 @@ import Recordings from "./pages/Recordings";
 import MeetingDetail from "./pages/MeetingDetail";
 import Settings from "./pages/Settings";
 import CalendarPage from "./pages/Calendar";
+import ActionItems from "./pages/ActionItems";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -64,6 +65,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <CalendarPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/action-items"
+        element={
+          <ProtectedRoute>
+            <ActionItems />
           </ProtectedRoute>
         }
       />

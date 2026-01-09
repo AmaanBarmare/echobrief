@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
+  Home,
   Inbox, 
   Calendar, 
   CheckSquare, 
@@ -8,16 +9,14 @@ import {
   Settings, 
   LogOut,
   ChevronLeft,
-  ChevronRight,
   Menu
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
 const navItems = [
-  { icon: Inbox, label: 'Inbox', path: '/dashboard' },
+  { icon: Home, label: 'Home', path: '/dashboard' },
   { icon: Calendar, label: 'Calendar', path: '/calendar' },
   { icon: CheckSquare, label: 'Action Items', path: '/action-items' },
   { icon: Settings, label: 'Settings', path: '/settings' },
