@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { RecordingButton } from '@/components/dashboard/RecordingButton';
-import { MeetingCard } from '@/components/dashboard/MeetingCard';
-import { StatsCards } from '@/components/dashboard/StatsCards';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Meeting } from '@/types/meeting';
 import { Input } from '@/components/ui/input';
-import { Search, Loader2 } from 'lucide-react';
+import { Search, Loader2, Clock, ChevronRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 interface PrefillMeeting {
   title: string;
@@ -23,7 +24,6 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   
-  // Get prefilled meeting data from calendar navigation
   const prefillMeeting = (location.state as { prefillMeeting?: PrefillMeeting })?.prefillMeeting;
 
   useEffect(() => {
@@ -44,7 +44,6 @@ export default function Dashboard() {
 
     fetchMeetings();
 
-    // Subscribe to real-time updates
     const channel = supabase
       .channel('meetings-changes')
       .on(
@@ -78,29 +77,27 @@ export default function Dashboard() {
     meeting.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const stats = {
-    totalMeetings: meetings.length,
-    totalDuration: meetings.reduce((acc, m) => acc + (m.duration_seconds || 0), 0),
-    transcriptCount: meetings.filter((m) => m.status === 'completed').length,
-    completedCount: meetings.filter((m) => m.status === 'completed').length,
-  };
-
   const handleRecordingComplete = (meetingId: string) => {
-    // Trigger processing via edge function
     supabase.functions.invoke('process-meeting', {
       body: { meetingId },
     });
   };
 
+  const formatDuration = (seconds?: number) => {
+    if (!seconds) return '';
+    const mins = Math.floor(seconds / 60);
+    return `${mins}m`;
+  };
+
   return (
     <DashboardLayout>
-      <div className="p-8">
+      <div className="max-w-4xl mx-auto px-6 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
-            <p className="text-muted-foreground mt-1">
-              Record meetings and get AI-powered insights
+            <h1 className="text-2xl font-semibold text-foreground">Inbox</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              {meetings.length} meeting{meetings.length !== 1 ? 's' : ''}
             </p>
           </div>
           <RecordingButton 
@@ -111,52 +108,65 @@ export default function Dashboard() {
           />
         </div>
 
-        {/* Stats */}
-        <div className="mb-8">
-          <StatsCards {...stats} />
+        {/* Search */}
+        <div className="relative mb-6">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Search meetings..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9 h-9 bg-secondary border-0"
+          />
         </div>
 
-        {/* Recent Meetings */}
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-foreground">Recent Meetings</h2>
-            <div className="relative w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Search meetings..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
-            </div>
+        {/* Meetings List */}
+        {loading ? (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
           </div>
+        ) : filteredMeetings.length === 0 ? (
+          <div className="empty-state">
+            <Search className="empty-state-icon" />
+            <p className="empty-state-title">
+              {searchQuery ? 'No meetings found' : 'No meetings yet'}
+            </p>
+            <p className="empty-state-description">
+              {searchQuery ? 'Try a different search term' : 'Click Record to capture your first meeting'}
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-0.5">
+            {filteredMeetings.map((meeting) => (
+              <Link
+                key={meeting.id}
+                to={`/meeting/${meeting.id}`}
+                className="list-row group"
+              >
+                {/* Status dot */}
+                <div className={cn('status-dot', meeting.status)} />
+                
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  <span className="font-medium text-foreground truncate block">
+                    {meeting.title}
+                  </span>
+                </div>
 
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-            </div>
-          ) : filteredMeetings.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="w-16 h-16 rounded-full bg-muted mx-auto mb-4 flex items-center justify-center">
-                <Search className="w-8 h-8 text-muted-foreground" />
-              </div>
-              <h3 className="text-lg font-medium text-foreground mb-2">
-                {searchQuery ? 'No meetings found' : 'No meetings yet'}
-              </h3>
-              <p className="text-muted-foreground">
-                {searchQuery
-                  ? 'Try a different search term'
-                  : 'Start recording to capture your first meeting'}
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {filteredMeetings.map((meeting) => (
-                <MeetingCard key={meeting.id} meeting={meeting} />
-              ))}
-            </div>
-          )}
-        </div>
+                {/* Metadata */}
+                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                  {meeting.duration_seconds && (
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-3.5 h-3.5" />
+                      {formatDuration(meeting.duration_seconds)}
+                    </span>
+                  )}
+                  <span>{format(new Date(meeting.start_time), 'MMM d')}</span>
+                  <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
     </DashboardLayout>
   );

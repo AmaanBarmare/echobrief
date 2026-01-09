@@ -377,7 +377,7 @@ export default function Settings() {
                   className="bg-muted/50"
                 />
               </div>
-              <Button onClick={handleSaveProfile} disabled={saving} variant="glassAccent">
+              <Button onClick={handleSaveProfile} disabled={saving} variant="accent">
                 {saving ? (
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />
                 ) : null}
@@ -419,7 +419,7 @@ export default function Settings() {
                   )}
                 </div>
                 <Button 
-                  variant={profile?.google_calendar_connected ? "outline" : "glassAccent"}
+                  variant={profile?.google_calendar_connected ? "outline" : "accent"}
                   className="gap-2"
                   disabled={connectingGoogle}
                   onClick={() => {
@@ -500,7 +500,7 @@ export default function Settings() {
                     </Button>
                   )}
                   <Button 
-                    variant={profile?.slack_connected ? "outline" : "glassAccent"}
+                    variant={profile?.slack_connected ? "outline" : "accent"}
                     className="gap-2"
                     onClick={() => {
                       if (profile?.slack_connected) {
@@ -610,7 +610,7 @@ export default function Settings() {
             <Button variant="outline" onClick={() => setSlackDialogOpen(false)}>
               Cancel
             </Button>
-            <Button variant="glassAccent" onClick={handleConnectSlack} disabled={connectingSlack || !slackChannelId.trim()}>
+            <Button variant="accent" onClick={handleConnectSlack} disabled={connectingSlack || !slackChannelId.trim()}>
               {connectingSlack && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
               Connect
             </Button>

@@ -4,11 +4,11 @@ import { Link } from 'react-router-dom';
 
 export function CTA() {
   return (
-    <section className="py-24 bg-gradient-to-br from-primary via-primary/95 to-primary/80 relative overflow-hidden">
+    <section className="py-24 bg-primary relative overflow-hidden">
       {/* Background decorations */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-1/2 left-1/4 w-64 h-64 bg-accent/20 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 right-1/4 w-48 h-48 bg-accent/10 rounded-full blur-3xl" />
+        <div className="absolute top-1/2 left-1/4 w-64 h-64 bg-accent/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 right-1/4 w-48 h-48 bg-accent/5 rounded-full blur-3xl" />
       </div>
 
       <div className="container relative z-10 mx-auto px-6">
@@ -28,9 +28,9 @@ export function CTA() {
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link to="/auth">
-              <Button variant="hero" size="xl" className="group">
+              <Button size="xl" className="bg-white text-primary hover:bg-white/90 gap-2">
                 Get Started Free
-                <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
+                <ArrowRight className="w-5 h-5" />
               </Button>
             </Link>
           </div>

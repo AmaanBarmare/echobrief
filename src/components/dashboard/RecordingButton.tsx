@@ -47,7 +47,6 @@ export function RecordingButton({
     resumeRecording,
     error,
     permissionStatus,
-    requestPermissions,
   } = useAudioRecorder();
 
   // Auto-open dialog if prefillTitle is provided
@@ -70,7 +69,6 @@ export function RecordingButton({
     setIsStarting(true);
     
     try {
-      // Create meeting record with calendar event data if available
       const { data: meeting, error: meetingError } = await supabase
         .from('meetings')
         .insert({
@@ -102,7 +100,7 @@ export function RecordingButton({
   };
 
   const handleStopRecording = async () => {
-    const audioUrl = await stopRecording();
+    await stopRecording();
     
     if (currentMeetingId) {
       toast({
@@ -110,7 +108,6 @@ export function RecordingButton({
         description: 'Your meeting is being processed...',
       });
       
-      // Trigger processing
       try {
         await supabase.functions.invoke('process-meeting', {
           body: { meetingId: currentMeetingId }
@@ -129,27 +126,24 @@ export function RecordingButton({
   if (isRecording) {
     return (
       <div className="fixed bottom-6 right-6 z-50">
-        <div className="bg-card rounded-2xl shadow-xl border border-border p-4 min-w-[280px]">
+        <div className="bg-card rounded-lg shadow-lg border border-border p-4 min-w-[260px]">
           {/* Recording indicator */}
-          <div className="flex items-center gap-3 mb-4">
-            <div className="relative">
-              <div className="w-3 h-3 bg-recording rounded-full animate-pulse" />
-              <div className="absolute inset-0 w-3 h-3 bg-recording rounded-full animate-ping" />
-            </div>
+          <div className="flex items-center gap-3 mb-3">
+            <div className="status-dot recording" />
             <span className="text-sm font-medium text-foreground">Recording</span>
-            <span className="ml-auto font-mono text-lg font-bold text-foreground">
+            <span className="ml-auto font-mono text-base font-semibold text-foreground">
               {formatDuration(duration)}
             </span>
           </div>
 
           {/* Audio level visualization */}
-          <div className="flex items-end justify-center gap-1 h-8 mb-4">
-            {[...Array(20)].map((_, i) => (
+          <div className="flex items-end justify-center gap-0.5 h-6 mb-3">
+            {[...Array(16)].map((_, i) => (
               <div
                 key={i}
                 className={cn(
-                  'w-1.5 rounded-full transition-all duration-75',
-                  audioLevel * 20 > i ? 'bg-accent' : 'bg-muted'
+                  'w-1 rounded-full transition-all duration-75',
+                  audioLevel * 16 > i ? 'bg-recording' : 'bg-muted'
                 )}
                 style={{
                   height: `${Math.max(4, Math.random() * audioLevel * 100)}%`,
@@ -159,9 +153,9 @@ export function RecordingButton({
           </div>
 
           {/* Controls */}
-          <div className="flex items-center justify-center gap-3">
+          <div className="flex items-center justify-center gap-2">
             <Button
-              variant="outline"
+              variant="ghost"
               size="icon"
               onClick={isPaused ? resumeRecording : pauseRecording}
             >
@@ -173,11 +167,11 @@ export function RecordingButton({
             </Button>
             <Button
               variant="recording"
-              size="iconLg"
+              size="lg"
               onClick={handleStopRecording}
-              className="recording-pulse"
             >
-              <Square className="w-5 h-5" />
+              <Square className="w-4 h-4 mr-2" />
+              Stop
             </Button>
           </div>
         </div>
@@ -189,12 +183,11 @@ export function RecordingButton({
     <>
       <Button
         variant="recording"
-        size="xl"
         onClick={() => setShowDialog(true)}
-        className="gap-3"
+        className="gap-2"
       >
-        <Mic className="w-5 h-5" />
-        Start Recording
+        <Mic className="w-4 h-4" />
+        Record
       </Button>
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
@@ -218,31 +211,31 @@ export function RecordingButton({
             </div>
 
             {permissionStatus === 'denied' && (
-              <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
+              <div className="p-3 rounded-md bg-destructive/10 text-destructive text-sm">
                 Microphone access is required. Please enable it in your browser settings.
               </div>
             )}
 
             {error && (
-              <div className="p-3 rounded-lg bg-destructive/10 text-destructive text-sm">
+              <div className="p-3 rounded-md bg-destructive/10 text-destructive text-sm">
                 {error}
               </div>
             )}
 
-            <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+            <div className="bg-secondary rounded-md p-3 space-y-1">
               <h4 className="font-medium text-sm">What we'll capture:</h4>
-              <ul className="text-sm text-muted-foreground space-y-1">
+              <ul className="text-sm text-muted-foreground space-y-0.5">
                 <li>• Microphone audio (your voice)</li>
                 <li>• System audio (meeting participants)*</li>
               </ul>
-              <p className="text-xs text-muted-foreground">
-                *System audio requires screen sharing permission in your browser.
+              <p className="text-xs text-muted-foreground mt-2">
+                *System audio requires screen sharing permission.
               </p>
             </div>
           </div>
 
-          <div className="flex justify-end gap-3">
-            <Button variant="outline" onClick={() => setShowDialog(false)}>
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setShowDialog(false)}>
               Cancel
             </Button>
             <Button 

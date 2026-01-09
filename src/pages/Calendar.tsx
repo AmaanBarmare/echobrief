@@ -301,7 +301,7 @@ export default function CalendarPage() {
             </p>
           </div>
           {isConnected && (
-            <Button variant="glassAccent" onClick={handleSync} disabled={syncing} className="gap-2">
+            <Button variant="accent" onClick={handleSync} disabled={syncing} className="gap-2">
               <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
               Sync
             </Button>
@@ -332,7 +332,7 @@ export default function CalendarPage() {
               <p className="text-muted-foreground mb-8 max-w-md mx-auto">
                 Link your Google Calendar to automatically see your upcoming meetings and get reminders to start recording.
               </p>
-              <Button variant="glassAccent" size="lg" onClick={initiateGoogleOAuth} disabled={connectingGoogle} className="gap-2">
+              <Button variant="accent" size="lg" onClick={initiateGoogleOAuth} disabled={connectingGoogle} className="gap-2">
                 {connectingGoogle ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
                 ) : (
