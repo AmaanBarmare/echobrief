@@ -113,19 +113,33 @@ serve(async (req) => {
       const expiryDate = new Date();
       expiryDate.setSeconds(expiryDate.getSeconds() + (tokenData.expires_in || 3600));
 
-      // Store tokens in profile
-      const { error: updateError } = await supabase
-        .from("profiles")
-        .update({
-          google_calendar_connected: true,
+      // Store tokens in secure user_oauth_tokens table (service role only)
+      const { error: tokenError } = await supabase
+        .from("user_oauth_tokens")
+        .upsert({
+          user_id: stateData.user_id,
           google_access_token: tokenData.access_token,
           google_refresh_token: tokenData.refresh_token || null,
           google_token_expiry: expiryDate.toISOString(),
-        })
+        }, { onConflict: 'user_id' });
+
+      if (tokenError) {
+        console.error("Token storage error:", tokenError);
+        await supabase.from("google_oauth_states").delete().eq("state", state);
+        return new Response(null, {
+          status: 302,
+          headers: { Location: `${frontendUrl}${returnTo}?error=save_failed` },
+        });
+      }
+
+      // Update profile to mark calendar as connected (no tokens here)
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({ google_calendar_connected: true })
         .eq("user_id", stateData.user_id);
 
-      if (updateError) {
-        console.error("Profile update error:", updateError);
+      if (profileError) {
+        console.error("Profile update error:", profileError);
         await supabase.from("google_oauth_states").delete().eq("state", state);
         return new Response(null, {
           status: 302,

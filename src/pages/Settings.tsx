@@ -293,29 +293,35 @@ export default function Settings() {
   };
 
   const handleDisconnectGoogle = async () => {
-    if (!user) return;
+    if (!user || !session?.access_token) return;
 
-    const { error } = await supabase
-      .from('profiles')
-      .update({ 
-        google_calendar_connected: false,
-        google_access_token: null,
-        google_refresh_token: null,
-        google_token_expiry: null,
-      })
-      .eq('user_id', user.id);
-
-    if (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to disconnect Google Calendar',
-        variant: 'destructive',
+    try {
+      // Call edge function to securely delete tokens
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/disconnect-google`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
       });
-    } else {
+
+      const data = await response.json();
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
       setProfile(prev => prev ? { ...prev, google_calendar_connected: false } : null);
       toast({
         title: 'Disconnected',
         description: 'Google Calendar integration has been removed',
+      });
+    } catch (err) {
+      console.error('Disconnect error:', err);
+      toast({
+        title: 'Error',
+        description: err instanceof Error ? err.message : 'Failed to disconnect Google Calendar',
+        variant: 'destructive',
       });
     }
   };
