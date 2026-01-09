@@ -47,12 +47,16 @@ export function MeetingCard({ meeting }: MeetingCardProps) {
 
   return (
     <Link to={`/meeting/${meeting.id}`}>
-      <Card className="group hover:shadow-lg hover:border-accent/30 transition-all duration-200 cursor-pointer">
+      <Card className={cn(
+        "group transition-all duration-150 cursor-pointer border border-border bg-card",
+        "hover:bg-secondary hover:border-border",
+        meeting.status === 'recording' && "border-l-2 border-l-recording"
+      )}>
         <CardContent className="p-4">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-start gap-3 flex-1 min-w-0">
               {/* Source icon */}
-              <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+              <div className="w-10 h-10 rounded-lg bg-secondary flex items-center justify-center flex-shrink-0">
                 <SourceIcon className="w-5 h-5 text-muted-foreground" />
               </div>
 

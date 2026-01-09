@@ -141,15 +141,15 @@ export default function Dashboard() {
         {/* Stats Row - Compact */}
         {!loading && meetings.length > 0 && (
           <div className="grid grid-cols-3 gap-4 mb-8">
-            <div className="p-4 rounded-lg bg-secondary/50">
+            <div className="p-4 rounded-lg bg-card border border-border">
               <p className="text-2xl font-semibold text-foreground">{stats.totalMeetings}</p>
               <p className="text-xs text-muted-foreground">Meetings</p>
             </div>
-            <div className="p-4 rounded-lg bg-secondary/50">
+            <div className="p-4 rounded-lg bg-card border border-border">
               <p className="text-2xl font-semibold text-foreground">{formatTotalDuration(stats.totalDuration)}</p>
               <p className="text-xs text-muted-foreground">Recorded</p>
             </div>
-            <div className="p-4 rounded-lg bg-secondary/50">
+            <div className="p-4 rounded-lg bg-card border border-border">
               <p className="text-2xl font-semibold text-foreground">{stats.transcriptCount}</p>
               <p className="text-xs text-muted-foreground">Summaries</p>
             </div>

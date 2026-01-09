@@ -6,7 +6,7 @@
 
 @layer base {
   :root {
-    /* Notion × Linear inspired: calm, minimal, content-first */
+    /* Light Mode - Clean, Notion-inspired */
     
     /* Background - Soft off-white */
     --background: 40 20% 98%;
@@ -31,11 +31,11 @@
     --muted: 220 14% 96%;
     --muted-foreground: 220 10% 50%;
 
-    /* Accent - Subtle blue, Linear-inspired */
-    --accent: 220 80% 55%;
+    /* Accent - EchoBrief Blue (#4C7DFF) */
+    --accent: 224 100% 65%;
     --accent-foreground: 0 0% 100%;
 
-    /* Recording state - Warm red indicator */
+    /* Recording state - Red indicator */
     --recording: 0 72% 51%;
     --recording-foreground: 0 0% 100%;
 
@@ -53,58 +53,79 @@
     /* Borders - Very subtle */
     --border: 220 14% 92%;
     --input: 220 14% 92%;
-    --ring: 220 80% 55%;
+    --ring: 224 100% 65%;
 
     --radius: 0.5rem;
 
     /* Sidebar - Clean white with subtle border */
     --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 220 20% 14%;
-    --sidebar-primary: 220 80% 55%;
+    --sidebar-primary: 224 100% 65%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 220 14% 96%;
     --sidebar-accent-foreground: 220 20% 14%;
     --sidebar-border: 220 14% 92%;
-    --sidebar-ring: 220 80% 55%;
+    --sidebar-ring: 224 100% 65%;
   }
 
   .dark {
-    --background: 220 16% 8%;
-    --foreground: 220 10% 90%;
+    /* Dark Mode - GitHub/Linear inspired: #0D1117 base */
+    
+    /* Background (App): #0D1117 -> hsl(215, 28%, 7%) */
+    --background: 215 28% 7%;
+    /* Primary Text: #E6EDF3 -> hsl(210, 25%, 93%) */
+    --foreground: 210 25% 93%;
 
-    --card: 220 16% 10%;
-    --card-foreground: 220 10% 90%;
+    /* Surface / Cards: #161B22 -> hsl(215, 19%, 11%) */
+    --card: 215 19% 11%;
+    --card-foreground: 210 25% 93%;
 
-    --popover: 220 16% 10%;
-    --popover-foreground: 220 10% 90%;
+    --popover: 215 19% 11%;
+    --popover-foreground: 210 25% 93%;
 
-    --primary: 220 10% 90%;
-    --primary-foreground: 220 16% 8%;
+    /* Primary text */
+    --primary: 210 25% 93%;
+    --primary-foreground: 215 28% 7%;
 
-    --secondary: 220 14% 14%;
-    --secondary-foreground: 220 10% 90%;
+    /* Hover Surface: #1F2630 -> hsl(215, 20%, 15%) */
+    --secondary: 215 20% 15%;
+    --secondary-foreground: 210 25% 93%;
 
-    --muted: 220 14% 14%;
-    --muted-foreground: 220 10% 55%;
+    /* Muted backgrounds */
+    --muted: 215 20% 15%;
+    /* Secondary Text: #9BA4AE -> hsl(212, 10%, 64%) */
+    --muted-foreground: 212 10% 64%;
 
-    --accent: 220 80% 60%;
+    /* Accent - EchoBrief Blue (#4C7DFF) */
+    --accent: 224 100% 65%;
     --accent-foreground: 0 0% 100%;
+
+    --recording: 0 65% 50%;
+    --recording-foreground: 0 0% 100%;
+
+    --success: 142 52% 45%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 80% 50%;
+    --warning-foreground: 0 0% 100%;
 
     --destructive: 0 63% 45%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 14% 18%;
-    --input: 220 14% 18%;
-    --ring: 220 80% 60%;
+    /* Borders / Dividers: #2A2F36 -> hsl(215, 13%, 19%) */
+    --border: 215 13% 19%;
+    --input: 215 13% 19%;
+    --ring: 224 100% 65%;
 
-    --sidebar-background: 220 16% 8%;
-    --sidebar-foreground: 220 10% 90%;
-    --sidebar-primary: 220 80% 60%;
+    /* Sidebar - Same as app background for cohesion */
+    --sidebar-background: 215 28% 7%;
+    --sidebar-foreground: 210 25% 93%;
+    --sidebar-primary: 224 100% 65%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 14% 14%;
-    --sidebar-accent-foreground: 220 10% 90%;
-    --sidebar-border: 220 14% 18%;
-    --sidebar-ring: 220 80% 60%;
+    --sidebar-accent: 215 20% 15%;
+    --sidebar-accent-foreground: 210 25% 93%;
+    --sidebar-border: 215 13% 19%;
+    --sidebar-ring: 224 100% 65%;
   }
 }
 
@@ -114,7 +135,7 @@
   }
 
   html {
-    transition: background-color 0.2s ease, color 0.2s ease;
+    transition: background-color 0.15s ease, color 0.15s ease;
   }
 
   body {
@@ -296,9 +317,41 @@
     @apply text-sm text-muted-foreground max-w-sm mx-auto;
   }
 
-  /* Refined card - lighter borders, more whitespace */
+  /* Card styles - proper contrast in dark mode */
   .card-refined {
-    @apply bg-card border border-border/60 rounded-lg shadow-sm;
+    @apply bg-card border border-border rounded-lg;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  }
+
+  .dark .card-refined {
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.2);
+  }
+
+  /* Glass card - works in both light and dark mode */
+  .glass-card-liquid {
+    @apply bg-card border border-border rounded-lg;
+  }
+
+  .glass-card-liquid:hover {
+    @apply border-border;
+  }
+
+  /* Meeting card with proper hover state */
+  .meeting-card {
+    @apply bg-card border border-border rounded-lg p-4 transition-all duration-150;
+  }
+
+  .meeting-card:hover {
+    @apply bg-secondary border-border;
+  }
+
+  .meeting-card:hover {
+    @apply bg-secondary border-border;
+  }
+
+  /* Recording state card - subtle left border accent */
+  .meeting-card.recording {
+    @apply border-l-2 border-l-recording;
   }
 
   /* Section header */
@@ -326,6 +379,15 @@
   .tag-muted {
     @apply bg-muted text-muted-foreground;
   }
+
+  /* Logo container */
+  .logo-container {
+    @apply flex items-center gap-2;
+  }
+
+  .logo-container img {
+    @apply rounded-lg object-contain;
+  }
 }
 
 @layer utilities {
@@ -351,6 +413,6 @@
 
   /* Theme transition */
   .theme-transition {
-    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
   }
 }

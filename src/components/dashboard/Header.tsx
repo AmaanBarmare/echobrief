@@ -1,5 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import { Sun, Moon, Search, Command } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -33,13 +32,13 @@ export function Header() {
 
   return (
     <>
-      <header className="h-12 border-b border-border bg-background/80 backdrop-blur-sm flex items-center justify-end gap-2 px-4 sticky top-0 z-40">
+      <header className="h-12 border-b border-border bg-background flex items-center justify-end gap-2 px-4 sticky top-0 z-40">
         {/* Search trigger */}
         <Button
           variant="ghost"
           size="sm"
           onClick={() => setSearchOpen(true)}
-          className="h-8 gap-2 text-muted-foreground hover:text-foreground"
+          className="h-8 gap-2 text-muted-foreground hover:text-foreground hover:bg-secondary"
         >
           <Search className="w-4 h-4" />
           <span className="hidden sm:inline text-sm">Search</span>
@@ -53,7 +52,7 @@ export function Header() {
           variant="ghost"
           size="icon"
           onClick={toggleTheme}
-          className="h-8 w-8 text-muted-foreground hover:text-foreground"
+          className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-secondary"
         >
           <Sun className={cn(
             "h-4 w-4 transition-all",

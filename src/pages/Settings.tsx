@@ -371,7 +371,7 @@ export default function Settings() {
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="Your name"
-                  className="bg-white/50"
+                  className="bg-card"
                 />
               </div>
               <div className="space-y-2">

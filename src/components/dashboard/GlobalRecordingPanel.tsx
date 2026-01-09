@@ -54,7 +54,7 @@ export function GlobalRecordingPanel({ onRecordingComplete }: GlobalRecordingPan
 
   return (
     <div className="fixed bottom-6 right-6 z-50 animate-in">
-      <div className="bg-card rounded-lg shadow-lg border border-border p-4 min-w-[280px]">
+      <div className="bg-card rounded-lg shadow-lg border border-border border-l-2 border-l-accent p-4 min-w-[280px]">
         {/* Recording title */}
         {meetingTitle && (
           <p className="text-sm font-medium text-foreground truncate mb-2">
@@ -64,7 +64,7 @@ export function GlobalRecordingPanel({ onRecordingComplete }: GlobalRecordingPan
         
         {/* Recording indicator */}
         <div className="flex items-center gap-3 mb-3">
-          <div className="status-dot recording" />
+          <div className="w-2 h-2 rounded-full bg-recording animate-pulse" />
           <span className="text-sm font-medium text-foreground">
             {isPaused ? 'Paused' : 'Recording'}
           </span>
@@ -80,7 +80,7 @@ export function GlobalRecordingPanel({ onRecordingComplete }: GlobalRecordingPan
               key={i}
               className={cn(
                 'w-1 rounded-full transition-all duration-75',
-                !isPaused && audioLevel * 16 > i ? 'bg-recording' : 'bg-muted'
+                !isPaused && audioLevel * 16 > i ? 'bg-accent' : 'bg-muted'
               )}
               style={{
                 height: isPaused ? '16%' : `${Math.max(16, Math.random() * audioLevel * 100)}%`,
@@ -95,6 +95,7 @@ export function GlobalRecordingPanel({ onRecordingComplete }: GlobalRecordingPan
             variant="ghost"
             size="icon"
             onClick={isPaused ? resumeRecording : pauseRecording}
+            className="hover:bg-secondary"
           >
             {isPaused ? (
               <Play className="w-4 h-4" />
@@ -103,11 +104,12 @@ export function GlobalRecordingPanel({ onRecordingComplete }: GlobalRecordingPan
             )}
           </Button>
           <Button
-            variant="recording"
-            size="lg"
+            variant="destructive"
+            size="default"
             onClick={handleStopRecording}
+            className="gap-2"
           >
-            <Square className="w-4 h-4 mr-2" />
+            <Square className="w-4 h-4" />
             Stop Recording
           </Button>
         </div>

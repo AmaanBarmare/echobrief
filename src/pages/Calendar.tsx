@@ -389,7 +389,7 @@ export default function CalendarPage() {
                         <div
                           key={event.id}
                           onClick={() => handleEventClick(event)}
-                          className="p-4 rounded-xl border border-border bg-white/50 hover:bg-white/80 transition-all duration-300 cursor-pointer interactive-card group"
+                          className="p-4 rounded-xl border border-border bg-card hover:bg-secondary transition-all duration-150 cursor-pointer group"
                         >
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
@@ -406,7 +406,7 @@ export default function CalendarPage() {
                               )}
                             </div>
                             <div className="flex flex-col items-end gap-2">
-                              <Badge variant="outline" className="text-xs bg-white/50">
+                              <Badge variant="outline" className="text-xs">
                                 {event.source === 'google_calendar' ? 'Google' : 'Manual'}
                               </Badge>
                               <div className="opacity-0 group-hover:opacity-100 transition-opacity">
@@ -448,7 +448,7 @@ export default function CalendarPage() {
                         <div
                           key={event.id}
                           onClick={() => handleEventClick(event)}
-                          className="p-4 rounded-xl border border-border bg-white/50 hover:bg-white/80 transition-all duration-300 cursor-pointer interactive-card group"
+                          className="p-4 rounded-xl border border-border bg-card hover:bg-secondary transition-all duration-150 cursor-pointer group"
                         >
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
@@ -468,7 +468,7 @@ export default function CalendarPage() {
                               )}
                             </div>
                             <div className="flex flex-col items-end gap-2">
-                              <Badge variant="outline" className="text-xs bg-white/50">
+                              <Badge variant="outline" className="text-xs">
                                 {event.source === 'google_calendar' ? 'Google' : 'Manual'}
                               </Badge>
                               <div className="opacity-0 group-hover:opacity-100 transition-opacity">

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
   Home, 
@@ -7,11 +7,11 @@ import {
   Settings, 
   LogOut,
   ChevronLeft,
-  Menu,
-  Mic
+  Menu
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
+import echoBriefLogo from '@/assets/echobrief-logo.png';
 
 interface SidebarProps {
   onCollapsedChange?: (collapsed: boolean) => void;
@@ -38,7 +38,6 @@ export function Sidebar({ onCollapsedChange }: SidebarProps) {
     setCollapsed(newCollapsed);
     localStorage.setItem('sidebar-collapsed', String(newCollapsed));
     onCollapsedChange?.(newCollapsed);
-    // Dispatch storage event for other components
     window.dispatchEvent(new Event('storage'));
   };
 
@@ -49,27 +48,61 @@ export function Sidebar({ onCollapsedChange }: SidebarProps) {
         collapsed ? "w-14" : "w-56"
       )}
     >
-      {/* Header */}
+      {/* Header with Logo */}
       <div className={cn(
-        "h-12 flex items-center border-b border-sidebar-border px-3",
+        "h-14 flex items-center border-b border-sidebar-border px-3",
         collapsed ? "justify-center" : "justify-between"
       )}>
         {!collapsed && (
-          <Link to="/dashboard" className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded bg-accent/10 flex items-center justify-center">
-              <Mic className="w-3.5 h-3.5 text-accent" />
-            </div>
+          <Link to="/dashboard" className="logo-container">
+            <img 
+              src={echoBriefLogo} 
+              alt="EchoBrief" 
+              className="w-7 h-7"
+              onError={(e) => {
+                console.error('Logo failed to load');
+                e.currentTarget.style.display = 'none';
+              }}
+            />
             <span className="text-sm font-semibold text-sidebar-foreground">EchoBrief</span>
           </Link>
         )}
-        <button
-          onClick={() => handleCollapsedChange(!collapsed)}
-          className="p-1.5 rounded-md hover:bg-sidebar-accent text-muted-foreground hover:text-sidebar-foreground transition-colors"
-          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          {collapsed ? <Menu className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-        </button>
+        {collapsed && (
+          <Link to="/dashboard">
+            <img 
+              src={echoBriefLogo} 
+              alt="EchoBrief" 
+              className="w-7 h-7 rounded-lg"
+              onError={(e) => {
+                console.error('Logo failed to load');
+                e.currentTarget.style.display = 'none';
+              }}
+            />
+          </Link>
+        )}
+        {!collapsed && (
+          <button
+            onClick={() => handleCollapsedChange(!collapsed)}
+            className="p-1.5 rounded-md hover:bg-sidebar-accent text-muted-foreground hover:text-sidebar-foreground transition-colors"
+            title="Collapse sidebar"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+        )}
       </div>
+
+      {/* Expand button when collapsed */}
+      {collapsed && (
+        <div className="p-2">
+          <button
+            onClick={() => handleCollapsedChange(false)}
+            className="w-full p-1.5 rounded-md hover:bg-sidebar-accent text-muted-foreground hover:text-sidebar-foreground transition-colors flex items-center justify-center"
+            title="Expand sidebar"
+          >
+            <Menu className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Navigation */}
       <nav className="flex-1 p-2 space-y-0.5">

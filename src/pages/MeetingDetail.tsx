@@ -252,7 +252,7 @@ export default function MeetingDetail() {
 
         {/* Attendees */}
         {attendees.length > 0 && (
-          <div className="mb-8 p-4 rounded-lg bg-secondary/50">
+          <div className="mb-8 p-4 rounded-lg bg-card border border-border">
             <div className="flex items-center gap-2 mb-3">
               <Users className="w-4 h-4 text-muted-foreground" />
               <span className="text-sm font-medium text-foreground">
@@ -263,7 +263,7 @@ export default function MeetingDetail() {
               {attendees.map((attendee, i) => (
                 <div 
                   key={i}
-                  className="flex items-center gap-2 px-2 py-1 rounded-full bg-background border border-border"
+                  className="flex items-center gap-2 px-2 py-1 rounded-full bg-secondary border border-border"
                 >
                   <Avatar className="w-6 h-6">
                     <AvatarFallback className="text-xs bg-accent/10 text-accent">
