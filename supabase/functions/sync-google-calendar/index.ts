@@ -190,6 +190,12 @@ serve(async (req) => {
       status: "scheduled",
       description: item.description || null,
       location: item.location || null,
+      attendees: (item.attendees || []).map((a: any) => ({
+        email: a.email,
+        displayName: a.displayName || null,
+        responseStatus: a.responseStatus || null,
+        organizer: a.organizer || false,
+      })),
     }));
 
     return new Response(

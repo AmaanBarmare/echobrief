@@ -107,8 +107,18 @@ serve(async (req) => {
       }
     }
 
+    // Format attendees for the AI prompt
+    const attendeesList = (meeting.attendees || [])
+      .map((a: any) => a.displayName || a.email)
+      .filter(Boolean);
+    const attendeesContext = attendeesList.length > 0 
+      ? `\n\nMEETING PARTICIPANTS:\n${attendeesList.join(', ')}`
+      : '';
+
     // Generate AI insights
     const insightsPrompt = `Analyze the following meeting transcript and extract structured insights.
+
+MEETING TITLE: ${meeting.title}${attendeesContext}
 
 TRANSCRIPT:
 ${transcript || "No transcript available"}
@@ -117,10 +127,10 @@ Please provide:
 1. A brief summary (2-3 sentences)
 2. A detailed summary (1-2 paragraphs)
 3. Key discussion points (bullet points)
-4. Action items with owners if identifiable
+4. Action items with owners if identifiable (use participant names when possible: ${attendeesList.join(', ') || 'Unknown participants'})
 5. Decisions made
 6. Risks or blockers mentioned
-7. Follow-up items
+7. Follow-up items with assignees if identifiable
 
 Format your response as JSON with the following structure:
 {

@@ -11,10 +11,18 @@ import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
+interface CalendarAttendee {
+  email: string;
+  displayName?: string | null;
+  responseStatus?: string | null;
+  organizer?: boolean;
+}
+
 interface PrefillMeeting {
   title: string;
   calendarEventId?: string;
   meetingLink?: string;
+  attendees?: CalendarAttendee[];
 }
 
 export default function Dashboard() {
@@ -105,6 +113,7 @@ export default function Dashboard() {
             prefillTitle={prefillMeeting?.title}
             calendarEventId={prefillMeeting?.calendarEventId}
             meetingLink={prefillMeeting?.meetingLink}
+            attendees={prefillMeeting?.attendees}
           />
         </div>
 

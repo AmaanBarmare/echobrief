@@ -15,19 +15,29 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import type { Json } from '@/integrations/supabase/types';
+
+interface CalendarAttendee {
+  email: string;
+  displayName?: string | null;
+  responseStatus?: string | null;
+  organizer?: boolean;
+}
 
 interface RecordingButtonProps {
   onRecordingComplete?: (meetingId: string) => void;
   prefillTitle?: string;
   calendarEventId?: string;
   meetingLink?: string;
+  attendees?: CalendarAttendee[];
 }
 
 export function RecordingButton({ 
   onRecordingComplete, 
   prefillTitle, 
   calendarEventId, 
-  meetingLink 
+  meetingLink,
+  attendees 
 }: RecordingButtonProps) {
   const [showDialog, setShowDialog] = useState(false);
   const [meetingTitle, setMeetingTitle] = useState(prefillTitle || '');
@@ -69,17 +79,20 @@ export function RecordingButton({
     setIsStarting(true);
     
     try {
+      const meetingData = {
+        user_id: user.id,
+        title: meetingTitle || `Meeting ${new Date().toLocaleDateString()}`,
+        source: calendarEventId ? 'calendar' : 'manual',
+        calendar_event_id: calendarEventId || null,
+        meeting_link: meetingLink || null,
+        attendees: (attendees || []) as unknown as Json,
+        status: 'recording',
+        start_time: new Date().toISOString(),
+      };
+      
       const { data: meeting, error: meetingError } = await supabase
         .from('meetings')
-        .insert({
-          user_id: user.id,
-          title: meetingTitle || `Meeting ${new Date().toLocaleDateString()}`,
-          source: calendarEventId ? 'calendar' : 'manual',
-          calendar_event_id: calendarEventId || null,
-          meeting_link: meetingLink || null,
-          status: 'recording',
-          start_time: new Date().toISOString(),
-        })
+        .insert(meetingData)
         .select()
         .single();
 

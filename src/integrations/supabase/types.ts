@@ -90,6 +90,7 @@ export type Database = {
       }
       meetings: {
         Row: {
+          attendees: Json | null
           audio_url: string | null
           calendar_event_id: string | null
           created_at: string
@@ -105,6 +106,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          attendees?: Json | null
           audio_url?: string | null
           calendar_event_id?: string | null
           created_at?: string
@@ -120,6 +122,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          attendees?: Json | null
           audio_url?: string | null
           calendar_event_id?: string | null
           created_at?: string

@@ -30,6 +30,13 @@ import { useAuth } from '@/contexts/AuthContext';
 import { format, isToday, parseISO, isTomorrow } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 
+interface CalendarAttendee {
+  email: string;
+  displayName?: string | null;
+  responseStatus?: string | null;
+  organizer?: boolean;
+}
+
 interface CalendarEvent {
   id: string;
   title: string;
@@ -40,6 +47,7 @@ interface CalendarEvent {
   status: string;
   description?: string | null;
   location?: string | null;
+  attendees?: CalendarAttendee[];
 }
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -197,6 +205,7 @@ export default function CalendarPage() {
           title: selectedEvent.title,
           calendarEventId: selectedEvent.id,
           meetingLink: selectedEvent.meetingLink,
+          attendees: selectedEvent.attendees || [],
         }
       }
     });
