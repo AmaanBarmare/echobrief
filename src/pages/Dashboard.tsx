@@ -1,15 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { RecordingButton } from '@/components/dashboard/RecordingButton';
+import { StatsCards } from '@/components/dashboard/StatsCards';
+import { MeetingsChart } from '@/components/dashboard/MeetingsChart';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Meeting } from '@/types/meeting';
 import { Input } from '@/components/ui/input';
-import { Search, Loader2, Clock, ChevronRight } from 'lucide-react';
+import { Search, Clock, ChevronRight, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface CalendarAttendee {
   email: string;
@@ -31,6 +34,7 @@ export default function Dashboard() {
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [insightCounts, setInsightCounts] = useState<Record<string, boolean>>({});
   
   const prefillMeeting = (location.state as { prefillMeeting?: PrefillMeeting })?.prefillMeeting;
 
@@ -46,6 +50,18 @@ export default function Dashboard() {
 
       if (!error && data) {
         setMeetings(data as Meeting[]);
+        
+        // Fetch which meetings have insights
+        const { data: insights } = await supabase
+          .from('meeting_insights')
+          .select('meeting_id')
+          .in('meeting_id', data.map(m => m.id));
+        
+        if (insights) {
+          const counts: Record<string, boolean> = {};
+          insights.forEach(i => { counts[i.meeting_id] = true; });
+          setInsightCounts(counts);
+        }
       }
       setLoading(false);
     };
@@ -85,11 +101,18 @@ export default function Dashboard() {
     meeting.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleRecordingComplete = (meetingId: string) => {
-    supabase.functions.invoke('process-meeting', {
-      body: { meetingId },
-    });
-  };
+  // Calculate stats
+  const stats = useMemo(() => {
+    const totalMeetings = meetings.length;
+    const totalDuration = meetings.reduce((sum, m) => sum + (m.duration_seconds || 0), 0);
+    const transcriptCount = Object.keys(insightCounts).length;
+    const completedCount = meetings.filter(m => m.status === 'completed').length;
+    
+    return { totalMeetings, totalDuration, transcriptCount, completedCount };
+  }, [meetings, insightCounts]);
+
+  // Estimate time saved (avg 15 min per meeting summary)
+  const timeSavedMinutes = stats.transcriptCount * 15;
 
   const formatDuration = (seconds?: number) => {
     if (!seconds) return '';
@@ -99,23 +122,63 @@ export default function Dashboard() {
 
   return (
     <DashboardLayout>
-      <div className="max-w-4xl mx-auto px-6 py-8">
+      <div className="max-w-5xl mx-auto px-6 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-semibold text-foreground">Inbox</h1>
+            <h1 className="text-2xl font-semibold text-foreground">Dashboard</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              {meetings.length} meeting{meetings.length !== 1 ? 's' : ''}
+              Your meeting intelligence hub
             </p>
           </div>
           <RecordingButton 
-            onRecordingComplete={handleRecordingComplete}
             prefillTitle={prefillMeeting?.title}
             calendarEventId={prefillMeeting?.calendarEventId}
             meetingLink={prefillMeeting?.meetingLink}
             attendees={prefillMeeting?.attendees}
           />
         </div>
+
+        {/* Stats Cards */}
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            {[1, 2, 3, 4].map((i) => (
+              <Skeleton key={i} className="h-24 rounded-lg" />
+            ))}
+          </div>
+        ) : (
+          <div className="mb-8">
+            <StatsCards 
+              totalMeetings={stats.totalMeetings}
+              totalDuration={stats.totalDuration}
+              transcriptCount={stats.transcriptCount}
+              completedCount={stats.completedCount}
+            />
+            {/* Time Saved Banner */}
+            {timeSavedMinutes > 0 && (
+              <div className="mt-4 p-4 rounded-lg bg-success/10 border border-success/20 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-success/20 flex items-center justify-center">
+                  <Sparkles className="w-5 h-5 text-success" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">
+                    ~{Math.floor(timeSavedMinutes / 60)}h {timeSavedMinutes % 60}m saved
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Time saved on meeting summaries with AI
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Weekly Chart */}
+        {!loading && meetings.length > 0 && (
+          <div className="mb-8">
+            <MeetingsChart meetings={meetings} />
+          </div>
+        )}
 
         {/* Search */}
         <div className="relative mb-6">
@@ -128,10 +191,17 @@ export default function Dashboard() {
           />
         </div>
 
+        {/* Section Title */}
+        <h2 className="text-sm font-medium text-muted-foreground mb-3">
+          Recent Meetings
+        </h2>
+
         {/* Meetings List */}
         {loading ? (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+          <div className="space-y-2">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <Skeleton key={i} className="h-14 rounded-lg" />
+            ))}
           </div>
         ) : filteredMeetings.length === 0 ? (
           <div className="empty-state">
@@ -160,6 +230,13 @@ export default function Dashboard() {
                     {meeting.title}
                   </span>
                 </div>
+
+                {/* Insights badge */}
+                {insightCounts[meeting.id] && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-accent/10 text-accent">
+                    AI Summary
+                  </span>
+                )}
 
                 {/* Metadata */}
                 <div className="flex items-center gap-4 text-sm text-muted-foreground">

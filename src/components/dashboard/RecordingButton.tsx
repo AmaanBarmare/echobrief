@@ -9,12 +9,11 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Mic, Square, Pause, Play, Loader2 } from 'lucide-react';
-import { useAudioRecorder } from '@/hooks/useAudioRecorder';
+import { Mic, Loader2 } from 'lucide-react';
+import { useRecording } from '@/contexts/RecordingContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
 import type { Json } from '@/integrations/supabase/types';
 
 interface CalendarAttendee {
@@ -33,7 +32,6 @@ interface RecordingButtonProps {
 }
 
 export function RecordingButton({ 
-  onRecordingComplete, 
   prefillTitle, 
   calendarEventId, 
   meetingLink,
@@ -41,23 +39,16 @@ export function RecordingButton({
 }: RecordingButtonProps) {
   const [showDialog, setShowDialog] = useState(false);
   const [meetingTitle, setMeetingTitle] = useState(prefillTitle || '');
-  const [currentMeetingId, setCurrentMeetingId] = useState<string | null>(null);
   const [isStarting, setIsStarting] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
 
   const {
     isRecording,
-    isPaused,
-    duration,
-    audioLevel,
     startRecording,
-    stopRecording,
-    pauseRecording,
-    resumeRecording,
     error,
     permissionStatus,
-  } = useAudioRecorder();
+  } = useRecording();
 
   // Auto-open dialog if prefillTitle is provided
   useEffect(() => {
@@ -67,21 +58,16 @@ export function RecordingButton({
     }
   }, [prefillTitle, isRecording]);
 
-  const formatDuration = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-
   const handleStartRecording = async () => {
     if (!user) return;
     
     setIsStarting(true);
     
     try {
+      const title = meetingTitle || `Meeting ${new Date().toLocaleDateString()}`;
       const meetingData = {
         user_id: user.id,
-        title: meetingTitle || `Meeting ${new Date().toLocaleDateString()}`,
+        title,
         source: calendarEventId ? 'calendar' : 'manual',
         calendar_event_id: calendarEventId || null,
         meeting_link: meetingLink || null,
@@ -98,9 +84,9 @@ export function RecordingButton({
 
       if (meetingError) throw meetingError;
 
-      setCurrentMeetingId(meeting.id);
-      await startRecording(meeting.id);
+      await startRecording(meeting.id, title);
       setShowDialog(false);
+      setMeetingTitle('');
     } catch (err: any) {
       toast({
         title: 'Error',
@@ -112,84 +98,9 @@ export function RecordingButton({
     }
   };
 
-  const handleStopRecording = async () => {
-    await stopRecording();
-    
-    if (currentMeetingId) {
-      toast({
-        title: 'Recording saved',
-        description: 'Your meeting is being processed...',
-      });
-      
-      try {
-        await supabase.functions.invoke('process-meeting', {
-          body: { meetingId: currentMeetingId }
-        });
-      } catch (err) {
-        console.error('Processing error:', err);
-      }
-      
-      onRecordingComplete?.(currentMeetingId);
-    }
-    
-    setCurrentMeetingId(null);
-    setMeetingTitle('');
-  };
-
+  // Don't show the button if already recording
   if (isRecording) {
-    return (
-      <div className="fixed bottom-6 right-6 z-50">
-        <div className="bg-card rounded-lg shadow-lg border border-border p-4 min-w-[260px]">
-          {/* Recording indicator */}
-          <div className="flex items-center gap-3 mb-3">
-            <div className="status-dot recording" />
-            <span className="text-sm font-medium text-foreground">Recording</span>
-            <span className="ml-auto font-mono text-base font-semibold text-foreground">
-              {formatDuration(duration)}
-            </span>
-          </div>
-
-          {/* Audio level visualization */}
-          <div className="flex items-end justify-center gap-0.5 h-6 mb-3">
-            {[...Array(16)].map((_, i) => (
-              <div
-                key={i}
-                className={cn(
-                  'w-1 rounded-full transition-all duration-75',
-                  audioLevel * 16 > i ? 'bg-recording' : 'bg-muted'
-                )}
-                style={{
-                  height: `${Math.max(4, Math.random() * audioLevel * 100)}%`,
-                }}
-              />
-            ))}
-          </div>
-
-          {/* Controls */}
-          <div className="flex items-center justify-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={isPaused ? resumeRecording : pauseRecording}
-            >
-              {isPaused ? (
-                <Play className="w-4 h-4" />
-              ) : (
-                <Pause className="w-4 h-4" />
-              )}
-            </Button>
-            <Button
-              variant="recording"
-              size="lg"
-              onClick={handleStopRecording}
-            >
-              <Square className="w-4 h-4 mr-2" />
-              Stop
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   return (

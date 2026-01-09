@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -7,17 +7,42 @@ import { Meeting, Transcript, MeetingInsights } from '@/types/meeting';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ArrowLeft, Calendar, Clock, Loader2, ChevronRight } from 'lucide-react';
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { ArrowLeft, Calendar, Clock, Loader2, ChevronRight, Trash2, Users } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
+import { Skeleton } from '@/components/ui/skeleton';
+
+interface Attendee {
+  email: string;
+  displayName?: string | null;
+  responseStatus?: string | null;
+  organizer?: boolean;
+}
 
 export default function MeetingDetail() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
   const [meeting, setMeeting] = useState<Meeting | null>(null);
+  const [attendees, setAttendees] = useState<Attendee[]>([]);
   const [transcript, setTranscript] = useState<Transcript | null>(null);
   const [insights, setInsights] = useState<MeetingInsights | null>(null);
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
   const [transcriptOpen, setTranscriptOpen] = useState(false);
 
   useEffect(() => {
@@ -33,6 +58,11 @@ export default function MeetingDetail() {
 
       if (meetingData) {
         setMeeting(meetingData as Meeting);
+        
+        // Parse attendees from meeting data
+        if (meetingData.attendees && Array.isArray(meetingData.attendees)) {
+          setAttendees(meetingData.attendees as unknown as Attendee[]);
+        }
 
         const { data: transcriptData } = await supabase
           .from('transcripts')
@@ -74,11 +104,69 @@ export default function MeetingDetail() {
     fetchMeetingData();
   }, [user, id]);
 
+  const handleDelete = async () => {
+    if (!meeting || !user) return;
+    
+    setDeleting(true);
+    try {
+      // Delete related data first
+      await supabase.from('meeting_insights').delete().eq('meeting_id', meeting.id);
+      await supabase.from('transcripts').delete().eq('meeting_id', meeting.id);
+      await supabase.from('slack_messages').delete().eq('meeting_id', meeting.id);
+      
+      // Delete audio file from storage if exists
+      if (meeting.audio_url) {
+        await supabase.storage.from('recordings').remove([meeting.audio_url]);
+      }
+      
+      // Delete the meeting
+      const { error } = await supabase
+        .from('meetings')
+        .delete()
+        .eq('id', meeting.id)
+        .eq('user_id', user.id);
+      
+      if (error) throw error;
+      
+      toast({
+        title: 'Meeting deleted',
+        description: 'The meeting and all related data have been removed.',
+      });
+      
+      navigate('/dashboard');
+    } catch (err: any) {
+      toast({
+        title: 'Error',
+        description: err.message || 'Failed to delete meeting',
+        variant: 'destructive',
+      });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const getInitials = (name?: string | null, email?: string) => {
+    if (name) {
+      return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+    }
+    if (email) {
+      return email.slice(0, 2).toUpperCase();
+    }
+    return '??';
+  };
+
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="flex items-center justify-center min-h-[400px]">
-          <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+        <div className="max-w-3xl mx-auto px-6 py-8">
+          <Skeleton className="h-6 w-16 mb-6" />
+          <Skeleton className="h-8 w-64 mb-2" />
+          <Skeleton className="h-5 w-48 mb-8" />
+          <div className="space-y-6">
+            <Skeleton className="h-32" />
+            <Skeleton className="h-48" />
+            <Skeleton className="h-24" />
+          </div>
         </div>
       </DashboardLayout>
     );
@@ -104,16 +192,47 @@ export default function MeetingDetail() {
     <DashboardLayout>
       <div className="max-w-3xl mx-auto px-6 py-8">
         {/* Back button */}
-        <Link to="/dashboard" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6">
-          <ArrowLeft className="w-4 h-4" />
-          Back
-        </Link>
+        <div className="flex items-center justify-between mb-6">
+          <Link to="/dashboard" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+            <ArrowLeft className="w-4 h-4" />
+            Back
+          </Link>
+          
+          {/* Delete button */}
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-destructive">
+                <Trash2 className="w-4 h-4 mr-1" />
+                Delete
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete Meeting</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete this meeting, including its transcript, insights, and audio recording. This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction 
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  {deleting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
 
         {/* Title */}
         <h1 className="text-2xl font-semibold text-foreground mb-2">{meeting.title}</h1>
         
         {/* Metadata */}
-        <div className="flex items-center gap-4 text-sm text-muted-foreground mb-8">
+        <div className="flex items-center gap-4 text-sm text-muted-foreground mb-6">
           <span className="flex items-center gap-1.5">
             <Calendar className="w-4 h-4" />
             {format(new Date(meeting.start_time), 'MMMM d, yyyy · h:mm a')}
@@ -130,6 +249,38 @@ export default function MeetingDetail() {
           )} />
           <span className="capitalize">{meeting.status}</span>
         </div>
+
+        {/* Attendees */}
+        {attendees.length > 0 && (
+          <div className="mb-8 p-4 rounded-lg bg-secondary/50">
+            <div className="flex items-center gap-2 mb-3">
+              <Users className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm font-medium text-foreground">
+                {attendees.length} Participant{attendees.length !== 1 ? 's' : ''}
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {attendees.map((attendee, i) => (
+                <div 
+                  key={i}
+                  className="flex items-center gap-2 px-2 py-1 rounded-full bg-background border border-border"
+                >
+                  <Avatar className="w-6 h-6">
+                    <AvatarFallback className="text-xs bg-accent/10 text-accent">
+                      {getInitials(attendee.displayName, attendee.email)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="text-sm text-foreground">
+                    {attendee.displayName || attendee.email}
+                  </span>
+                  {attendee.organizer && (
+                    <span className="text-xs text-muted-foreground">(organizer)</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Content */}
         {insights ? (
@@ -166,12 +317,17 @@ export default function MeetingDetail() {
                   {insights.action_items.map((item: any, i: number) => (
                     <div key={i} className="action-item">
                       <Checkbox id={`action-${i}`} className="action-item-checkbox" />
-                      <label htmlFor={`action-${i}`} className="action-item-text cursor-pointer">
-                        {item.task}
+                      <div className="flex-1">
+                        <label htmlFor={`action-${i}`} className="action-item-text cursor-pointer block">
+                          {typeof item === 'string' ? item : item.task}
+                        </label>
                         {item.owner && (
-                          <span className="text-muted-foreground ml-2">— {item.owner}</span>
+                          <span className="text-sm text-muted-foreground">
+                            Assigned to {item.owner}
+                            {item.priority && ` · ${item.priority} priority`}
+                          </span>
                         )}
-                      </label>
+                      </div>
                     </div>
                   ))}
                 </div>

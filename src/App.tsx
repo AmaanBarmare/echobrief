@@ -4,7 +4,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { RecordingProvider } from "@/contexts/RecordingContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { GlobalRecordingPanel } from "@/components/dashboard/GlobalRecordingPanel";
 import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
@@ -25,59 +27,63 @@ function AppRoutes() {
   }
 
   return (
-    <Routes>
-      <Route path="/" element={user ? <Navigate to="/dashboard" /> : <Landing />} />
-      <Route path="/auth" element={user ? <Navigate to="/dashboard" /> : <Auth />} />
-      <Route
-        path="/dashboard"
-        element={
-          <ProtectedRoute>
-            <Dashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/recordings"
-        element={
-          <ProtectedRoute>
-            <Recordings />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/meeting/:id"
-        element={
-          <ProtectedRoute>
-            <MeetingDetail />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/settings"
-        element={
-          <ProtectedRoute>
-            <Settings />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/calendar"
-        element={
-          <ProtectedRoute>
-            <CalendarPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/action-items"
-        element={
-          <ProtectedRoute>
-            <ActionItems />
-          </ProtectedRoute>
-        }
-      />
-      <Route path="*" element={<NotFound />} />
-    </Routes>
+    <>
+      <Routes>
+        <Route path="/" element={user ? <Navigate to="/dashboard" /> : <Landing />} />
+        <Route path="/auth" element={user ? <Navigate to="/dashboard" /> : <Auth />} />
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/recordings"
+          element={
+            <ProtectedRoute>
+              <Recordings />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/meeting/:id"
+          element={
+            <ProtectedRoute>
+              <MeetingDetail />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <Settings />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/calendar"
+          element={
+            <ProtectedRoute>
+              <CalendarPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/action-items"
+          element={
+            <ProtectedRoute>
+              <ActionItems />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+      {/* Global recording panel - always visible when recording */}
+      {user && <GlobalRecordingPanel />}
+    </>
   );
 }
 
@@ -88,7 +94,9 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <AppRoutes />
+          <RecordingProvider>
+            <AppRoutes />
+          </RecordingProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
