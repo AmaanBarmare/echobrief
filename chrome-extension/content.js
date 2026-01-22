@@ -251,4 +251,32 @@ window.addEventListener('beforeunload', () => {
   stopDurationTimer();
 });
 
+// Listen for messages from the web app (for status checks)
+window.addEventListener('message', (event) => {
+  if (event.source !== window) return;
+  
+  if (event.data?.type === 'ECHOBRIEF_EXTENSION_PING') {
+    window.postMessage({ 
+      type: 'ECHOBRIEF_EXTENSION_PONG',
+      extensionId: chrome.runtime.id
+    }, '*');
+  }
+  
+  if (event.data?.type === 'ECHOBRIEF_GET_STATUS') {
+    chrome.runtime.sendMessage({ type: 'GET_RECORDING_STATUS' }, (response) => {
+      window.postMessage({
+        type: 'ECHOBRIEF_STATUS_RESPONSE',
+        status: response || { isRecording: false }
+      }, '*');
+    });
+  }
+});
+
+// Inject a marker element so the web app can detect the extension
+const marker = document.createElement('div');
+marker.id = 'echobrief-extension-marker';
+marker.style.display = 'none';
+marker.dataset.extensionId = chrome.runtime.id;
+document.body.appendChild(marker);
+
 console.log('EchoBrief content script loaded');
