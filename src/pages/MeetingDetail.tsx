@@ -115,6 +115,8 @@ export default function MeetingDetail() {
             strategic_insights: (insightsData.strategic_insights as any) || [],
             speaker_highlights: (insightsData.speaker_highlights as any) || [],
             open_questions: (insightsData.open_questions as any) || [],
+            timeline_entries: (insightsData.timeline_entries as any) || [],
+            meeting_metrics: (insightsData.meeting_metrics as any) || {},
             summary_short: insightsData.summary_short || '',
             summary_detailed: insightsData.summary_detailed || '',
           } as MeetingInsights);

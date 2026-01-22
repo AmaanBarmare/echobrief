@@ -8,6 +8,7 @@ import { RecordingProvider } from "@/contexts/RecordingContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { GlobalRecordingPanel } from "@/components/dashboard/GlobalRecordingPanel";
+import { PreMeetingNotification } from "@/components/dashboard/PreMeetingNotification";
 import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
@@ -88,6 +89,8 @@ function AppRoutes() {
       </Routes>
       {/* Global recording panel - always visible when recording */}
       {user && <GlobalRecordingPanel />}
+      {/* Pre-meeting notifications */}
+      {user && <PreMeetingNotification notetakerName="Khush's Notetaker" notificationMinutes={5} />}
     </>
   );
 }

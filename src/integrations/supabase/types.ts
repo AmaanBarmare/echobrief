@@ -14,6 +14,47 @@ export type Database = {
   }
   public: {
     Tables: {
+      action_item_completions: {
+        Row: {
+          action_item_index: number
+          completed: boolean
+          completed_at: string | null
+          created_at: string
+          id: string
+          meeting_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          action_item_index: number
+          completed?: boolean
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          meeting_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          action_item_index?: number
+          completed?: boolean
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          meeting_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "action_item_completions_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "meetings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       google_oauth_states: {
         Row: {
           created_at: string
@@ -50,12 +91,14 @@ export type Database = {
           id: string
           key_points: Json | null
           meeting_id: string
+          meeting_metrics: Json | null
           open_questions: Json | null
           risks: Json | null
           speaker_highlights: Json | null
           strategic_insights: Json | null
           summary_detailed: string | null
           summary_short: string | null
+          timeline_entries: Json | null
         }
         Insert: {
           action_items?: Json | null
@@ -65,12 +108,14 @@ export type Database = {
           id?: string
           key_points?: Json | null
           meeting_id: string
+          meeting_metrics?: Json | null
           open_questions?: Json | null
           risks?: Json | null
           speaker_highlights?: Json | null
           strategic_insights?: Json | null
           summary_detailed?: string | null
           summary_short?: string | null
+          timeline_entries?: Json | null
         }
         Update: {
           action_items?: Json | null
@@ -80,16 +125,62 @@ export type Database = {
           id?: string
           key_points?: Json | null
           meeting_id?: string
+          meeting_metrics?: Json | null
           open_questions?: Json | null
           risks?: Json | null
           speaker_highlights?: Json | null
           strategic_insights?: Json | null
           summary_detailed?: string | null
           summary_short?: string | null
+          timeline_entries?: Json | null
         }
         Relationships: [
           {
             foreignKeyName: "meeting_insights_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "meetings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meeting_notifications: {
+        Row: {
+          calendar_event_id: string | null
+          created_at: string
+          id: string
+          meeting_id: string | null
+          notification_type: string
+          scheduled_for: string
+          sent_at: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          calendar_event_id?: string | null
+          created_at?: string
+          id?: string
+          meeting_id?: string | null
+          notification_type?: string
+          scheduled_for: string
+          sent_at?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          calendar_event_id?: string | null
+          created_at?: string
+          id?: string
+          meeting_id?: string | null
+          notification_type?: string
+          scheduled_for?: string
+          sent_at?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meeting_notifications_meeting_id_fkey"
             columns: ["meeting_id"]
             isOneToOne: false
             referencedRelation: "meetings"
@@ -148,14 +239,59 @@ export type Database = {
         }
         Relationships: []
       }
+      notion_connections: {
+        Row: {
+          access_token: string | null
+          bot_id: string | null
+          connected: boolean
+          created_at: string
+          id: string
+          reports_database_id: string | null
+          tasks_database_id: string | null
+          updated_at: string
+          user_id: string
+          workspace_id: string | null
+          workspace_name: string | null
+        }
+        Insert: {
+          access_token?: string | null
+          bot_id?: string | null
+          connected?: boolean
+          created_at?: string
+          id?: string
+          reports_database_id?: string | null
+          tasks_database_id?: string | null
+          updated_at?: string
+          user_id: string
+          workspace_id?: string | null
+          workspace_name?: string | null
+        }
+        Update: {
+          access_token?: string | null
+          bot_id?: string | null
+          connected?: boolean
+          created_at?: string
+          id?: string
+          reports_database_id?: string | null
+          tasks_database_id?: string | null
+          updated_at?: string
+          user_id?: string
+          workspace_id?: string | null
+          workspace_name?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
+          auto_join_enabled: boolean | null
           avatar_url: string | null
           created_at: string
           email: string | null
           full_name: string | null
           google_calendar_connected: boolean | null
           id: string
+          notetaker_name: string | null
+          pre_meeting_notification_minutes: number | null
           slack_channel_id: string | null
           slack_channel_name: string | null
           slack_connected: boolean | null
@@ -163,12 +299,15 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          auto_join_enabled?: boolean | null
           avatar_url?: string | null
           created_at?: string
           email?: string | null
           full_name?: string | null
           google_calendar_connected?: boolean | null
           id?: string
+          notetaker_name?: string | null
+          pre_meeting_notification_minutes?: number | null
           slack_channel_id?: string | null
           slack_channel_name?: string | null
           slack_connected?: boolean | null
@@ -176,12 +315,15 @@ export type Database = {
           user_id: string
         }
         Update: {
+          auto_join_enabled?: boolean | null
           avatar_url?: string | null
           created_at?: string
           email?: string | null
           full_name?: string | null
           google_calendar_connected?: boolean | null
           id?: string
+          notetaker_name?: string | null
+          pre_meeting_notification_minutes?: number | null
           slack_channel_id?: string | null
           slack_channel_name?: string | null
           slack_connected?: boolean | null

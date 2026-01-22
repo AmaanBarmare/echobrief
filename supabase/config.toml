@@ -20,3 +20,18 @@ verify_jwt = false
 
 [functions.google-oauth-redirect]
 verify_jwt = false
+
+[functions.disconnect-google]
+verify_jwt = false
+
+[functions.test-slack-connection]
+verify_jwt = false
+
+[functions.notion-oauth-start]
+verify_jwt = false
+
+[functions.notion-oauth-callback]
+verify_jwt = false
+
+[functions.sync-notion]
+verify_jwt = false

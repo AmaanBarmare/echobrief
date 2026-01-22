@@ -54,6 +54,7 @@ export interface ActionItem {
   priority?: 'low' | 'medium' | 'high';
   confidence?: 'low' | 'medium' | 'high';
   outcome?: string;
+  source_timestamp?: number;
 }
 
 export interface FollowUp {
@@ -61,6 +62,26 @@ export interface FollowUp {
   assignee?: string;
   deadline?: string;
   type?: 'meeting' | 'research' | 'validation';
+}
+
+export interface TimelineEntry {
+  timestamp: number;
+  type: 'topic' | 'question' | 'decision' | 'action' | 'risk';
+  content: string;
+  speaker?: string;
+}
+
+export interface MeetingMetrics {
+  engagement_score?: number;
+  sentiment_score?: number;
+  speaker_participation?: {
+    speaker: string;
+    percentage: number;
+    duration_seconds: number;
+  }[];
+  total_duration_seconds?: number;
+  speaking_time_seconds?: number;
+  silence_percentage?: number;
 }
 
 export interface MeetingInsights {
@@ -76,6 +97,8 @@ export interface MeetingInsights {
   strategic_insights: StrategicInsight[];
   speaker_highlights: SpeakerHighlight[];
   open_questions: string[];
+  timeline_entries?: TimelineEntry[];
+  meeting_metrics?: MeetingMetrics;
   created_at: string;
 }
 
@@ -89,6 +112,9 @@ export interface Profile {
   slack_connected: boolean;
   slack_channel_id?: string;
   slack_channel_name?: string;
+  auto_join_enabled?: boolean;
+  notetaker_name?: string;
+  pre_meeting_notification_minutes?: number;
   created_at: string;
   updated_at: string;
 }

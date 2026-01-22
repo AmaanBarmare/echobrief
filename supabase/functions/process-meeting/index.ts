@@ -253,6 +253,21 @@ Provide a comprehensive analysis with the following structure:
    - Research tasks
    - Decisions that need validation
 
+8. TIMELINE ENTRIES (Timestamped)
+   Create a chronological timeline of key moments in the meeting:
+   - Topics discussed
+   - Key questions raised
+   - Decisions made
+   - Action items identified
+   - Risks mentioned
+   Each entry should have an estimated timestamp (in seconds from start).
+
+9. MEETING METRICS
+   Analyze the meeting and provide:
+   - Engagement score (0-100): How engaged were participants?
+   - Sentiment score (-1 to 1): Overall tone of the meeting
+   - Speaker participation breakdown if multiple speakers
+
 ---
 
 Format your response as JSON with this exact structure:
@@ -272,7 +287,8 @@ Format your response as JSON with this exact structure:
       "owner": "Person name or null",
       "priority": "high|medium|low",
       "confidence": "high|medium|low",
-      "outcome": "What success looks like"
+      "outcome": "What success looks like",
+      "source_timestamp": 0
     }
   ],
   "decisions": [
@@ -282,7 +298,15 @@ Format your response as JSON with this exact structure:
   "open_questions": ["Unresolved concerns, dependencies, areas needing clarification"],
   "follow_ups": [
     {"description": "Follow-up action", "assignee": "Person or null", "type": "meeting|research|validation"}
-  ]
+  ],
+  "timeline_entries": [
+    {"timestamp": 0, "type": "topic|question|decision|action|risk", "content": "What happened", "speaker": "Name or null"}
+  ],
+  "meeting_metrics": {
+    "engagement_score": 75,
+    "sentiment_score": 0.5,
+    "speaker_participation": [{"speaker": "Name", "percentage": 50, "duration_seconds": 300}]
+  }
 }`;
 
     const completion = await openai.chat.completions.create({
@@ -326,6 +350,8 @@ Format your response as JSON with this exact structure:
         risks: [],
         open_questions: [],
         follow_ups: [],
+        timeline_entries: [],
+        meeting_metrics: {},
       };
     }
 
@@ -350,6 +376,8 @@ Format your response as JSON with this exact structure:
         strategic_insights: insights.strategic_insights || [],
         open_questions: insights.open_questions || [],
         speaker_highlights: insights.speaker_highlights || [],
+        timeline_entries: insights.timeline_entries || [],
+        meeting_metrics: insights.meeting_metrics || {},
       });
     }
 
