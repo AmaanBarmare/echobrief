@@ -221,6 +221,8 @@ async function processRecording() {
     const { authToken } = await chrome.storage.local.get('authToken');
     if (!authToken) {
       console.error('No auth token for upload');
+      notifyError('Please log in to EchoBrief first');
+      resetState();
       return;
     }
     
@@ -233,6 +235,21 @@ async function processRecording() {
       duration: durationSeconds,
       size: audioBlob.size
     });
+
+    // Check for empty or too short recording
+    if (audioBlob.size < 1000) {
+      console.error('Recording is empty or too small:', audioBlob.size);
+      notifyError('Recording failed - no audio captured');
+      resetState();
+      return;
+    }
+
+    if (durationSeconds < 5) {
+      console.error('Recording too short:', durationSeconds);
+      notifyError('Recording too short - minimum 5 seconds');
+      resetState();
+      return;
+    }
     
     // Upload to EchoBrief
     const formData = new FormData();
@@ -251,6 +268,8 @@ async function processRecording() {
     });
     
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Upload failed:', response.status, errorText);
       throw new Error(`Upload failed: ${response.status}`);
     }
     
@@ -267,25 +286,33 @@ async function processRecording() {
     
   } catch (error) {
     console.error('Failed to process recording:', error);
-    
-    // Notify content script of error
-    if (recordingState.tabId) {
-      chrome.tabs.sendMessage(recordingState.tabId, { 
-        type: 'RECORDING_ERROR', 
-        error: 'Failed to upload recording'
-      }).catch(() => {});
-    }
+    notifyError('Failed to upload recording');
   } finally {
-    // Reset state
-    recordingState = {
-      isRecording: false,
-      tabId: null,
-      meetingId: null,
-      mediaRecorder: null,
-      audioChunks: [],
-      startTime: null,
-      meetingTitle: '',
-      meetingUrl: ''
-    };
+    resetState();
   }
+}
+
+// Helper to notify errors
+function notifyError(message) {
+  if (recordingState.tabId) {
+    chrome.tabs.sendMessage(recordingState.tabId, { 
+      type: 'RECORDING_ERROR', 
+      error: message
+    }).catch(() => {});
+  }
+}
+
+// Reset recording state
+function resetState() {
+  recordingState = {
+    isRecording: false,
+    tabId: null,
+    meetingId: null,
+    mediaRecorder: null,
+    audioChunks: [],
+    startTime: null,
+    meetingTitle: '',
+    meetingUrl: '',
+    stream: null
+  };
 }

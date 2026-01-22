@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "EchoBrief - Auto Meeting Recorder",
+  "name": "EchoBrief - Meeting Recorder",
   "version": "1.0.0",
-  "description": "Automatically record Google Meet and Zoom Web meetings",
+  "description": "Automatically record Google Meet and Zoom Web meetings with AI summaries",
   "permissions": [
     "activeTab",
     "tabCapture",
@@ -15,7 +15,8 @@
     "https://*.zoom.us/*"
   ],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
   "content_scripts": [
     {
