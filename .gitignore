@@ -1,3 +1,16 @@
+# Dependencies
+node_modules
+
+# Build outputs
+dist
+dist-ssr
+*.local
+
+# Environment variables (contains secrets)
+.env
+.env.local
+.env.*.local
+
 # Logs
 logs
 *.log
@@ -6,11 +19,11 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+bun-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
+# Supabase
+.supabase
+supabase/.temp
 
 # Editor directories and files
 .vscode/*
@@ -22,3 +35,14 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# OS
+Thumbs.db
+
+# Testing
+coverage
+*.lcov
+
+# Misc
+*.tgz
+.cache

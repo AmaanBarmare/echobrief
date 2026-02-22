@@ -1,7 +1,7 @@
 // EchoBrief Background Service Worker
 // Handles tab audio capture and communication with the web app
 
-const ECHOBRIEF_API_URL = 'https://zuljmldniwynmnilnffu.supabase.co/functions/v1';
+const ECHOBRIEF_API_URL = 'https://hxwweanctnkmgjvkxsql.supabase.co/functions/v1';
 const MEETING_URL_PATTERNS = [
   /^https:\/\/meet\.google\.com\/.+/,
   /^https:\/\/.*\.zoom\.us\/wc\/.+/,

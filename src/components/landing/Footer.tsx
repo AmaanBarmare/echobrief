@@ -6,13 +6,15 @@ export function Footer() {
     <footer className="py-12 bg-card border-t border-border">
       <div className="container mx-auto px-6">
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-          {/* Logo */}
-          <Link to="/" className="flex items-center gap-2">
-            <img src={echoBriefLogo} alt="EchoBrief" className="h-10 w-10 rounded-lg object-cover" />
+          <Link to="/" className="flex items-center gap-2.5">
+            <img
+              src={echoBriefLogo}
+              alt="EchoBrief"
+              className="h-9 w-9 rounded-lg object-cover"
+            />
             <span className="text-lg font-bold text-foreground">EchoBrief</span>
           </Link>
 
-          {/* Copyright */}
           <p className="text-sm text-muted-foreground">
             © {new Date().getFullYear()} EchoBrief. All rights reserved.
           </p>

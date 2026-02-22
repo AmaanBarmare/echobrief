@@ -191,18 +191,5 @@ CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- Create storage bucket for audio files
-INSERT INTO storage.buckets (id, name, public) VALUES ('recordings', 'recordings', false);
-
--- Storage policies for recordings bucket
-CREATE POLICY "Users can upload their own recordings"
-  ON storage.objects FOR INSERT
-  WITH CHECK (bucket_id = 'recordings' AND auth.uid()::text = (storage.foldername(name))[1]);
-
-CREATE POLICY "Users can view their own recordings"
-  ON storage.objects FOR SELECT
-  USING (bucket_id = 'recordings' AND auth.uid()::text = (storage.foldername(name))[1]);
-
-CREATE POLICY "Users can delete their own recordings"
-  ON storage.objects FOR DELETE
-  USING (bucket_id = 'recordings' AND auth.uid()::text = (storage.foldername(name))[1]);
+-- Storage bucket "recordings" must be created in Supabase Dashboard: Storage > New bucket > name: recordings (private)
+-- Storage policies are applied in a later migration once the bucket exists

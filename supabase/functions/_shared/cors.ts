@@ -2,17 +2,17 @@
 // Only allows requests from the production app and local development
 
 const ALLOWED_ORIGINS = [
-  // Production - custom domain
+  // Production - custom domain (update when deployed)
   "https://echobrief.lovable.app",
-  // Production - project URL
-  "https://zuljmldniwynmnilnffu.lovableproject.com",
-  // Preview URLs (dynamic subdomains)
-  "https://a66dce5b-0d54-4748-a8dd-c5eb8e39a3f8.lovableproject.com",
+  // Production - project URL (update with your Lovable/deployment URL)
+  "https://hxwweanctnkmgjvkxsql.lovableproject.com",
   // Local development
   "http://localhost:5173",
   "http://localhost:3000",
+  "http://localhost:8080",
   "http://127.0.0.1:5173",
   "http://127.0.0.1:3000",
+  "http://127.0.0.1:8080",
 ];
 
 export function getCorsHeaders(origin: string | null): Record<string, string> {
