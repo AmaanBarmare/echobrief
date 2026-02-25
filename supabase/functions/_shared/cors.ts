@@ -2,11 +2,7 @@
 // Only allows requests from the production app and local development
 
 const ALLOWED_ORIGINS = [
-  // Production - custom domain (update when deployed)
   "https://echobrief.lovable.app",
-  // Production - project URL (update with your Lovable/deployment URL)
-  "https://hxwweanctnkmgjvkxsql.lovableproject.com",
-  // Local development
   "http://localhost:5173",
   "http://localhost:3000",
   "http://localhost:8080",
@@ -16,8 +12,11 @@ const ALLOWED_ORIGINS = [
 ];
 
 export function getCorsHeaders(origin: string | null): Record<string, string> {
-  // Check if the origin is in our allowed list
-  const allowedOrigin = origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  const isAllowed = origin && (
+    ALLOWED_ORIGINS.includes(origin) ||
+    origin.startsWith("chrome-extension://")
+  );
+  const allowedOrigin = isAllowed ? origin : ALLOWED_ORIGINS[0];
   
   return {
     "Access-Control-Allow-Origin": allowedOrigin,

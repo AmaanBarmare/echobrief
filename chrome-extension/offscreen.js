@@ -1,7 +1,7 @@
 // EchoBrief Offscreen Document - Records tab audio via getMediaStreamId
 // Runs in extension context, can use getUserMedia with chromeMediaSourceId
 
-const ECHOBRIEF_API_URL = 'https://hxwweanctnkmgjvkxsql.supabase.co/functions/v1';
+const ECHOBRIEF_API_URL = 'https://qjhysesjocanowmdkeme.supabase.co/functions/v1';
 
 let recorderState = {
   stream: null,

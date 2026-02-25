@@ -65,6 +65,26 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    const timestamp = Date.now();
+    const fileName = `${user.id}/${timestamp}_recording.webm`;
+
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from("recordings")
+      .upload(fileName, audioFile, {
+        contentType: audioFile.type || "audio/webm",
+        upsert: false
+      });
+
+    if (uploadError) {
+      console.error("Storage upload error:", uploadError);
+      return new Response(
+        JSON.stringify({ error: "Failed to upload audio file" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log("Audio uploaded to storage:", uploadData.path);
+
     const startTime = new Date(Date.now() - (durationSeconds * 1000));
     const endTime = new Date();
 
@@ -75,6 +95,7 @@ serve(async (req) => {
         title,
         source,
         meeting_link: meetingUrl,
+        audio_url: `recordings/${fileName}`,
         status: "uploaded",
         start_time: startTime.toISOString(),
         end_time: endTime.toISOString(),
@@ -86,18 +107,28 @@ serve(async (req) => {
     if (meetingError) {
       console.error("Meeting insert error:", meetingError);
       return new Response(
-        JSON.stringify({ error: "Failed to create meeting record", details: meetingError.message }),
+        JSON.stringify({ error: "Failed to create meeting record" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
     console.log("Meeting created:", meeting.id);
 
+    const processUrl = `${supabaseUrl}/functions/v1/process-meeting`;
+    fetch(processUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${supabaseServiceKey}`
+      },
+      body: JSON.stringify({ meetingId: meeting.id, sendEmail: true })
+    }).catch(err => console.error("Failed to trigger processing:", err));
+
     return new Response(
       JSON.stringify({
         success: true,
         meetingId: meeting.id,
-        message: "Recording saved"
+        message: "Recording uploaded, processing started"
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

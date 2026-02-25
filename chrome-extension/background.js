@@ -1,7 +1,7 @@
 // EchoBrief Background Service Worker
 // Uses getMediaStreamId + offscreen document for tab capture (MV3 compatible)
 
-const ECHOBRIEF_API_URL = 'https://hxwweanctnkmgjvkxsql.supabase.co/functions/v1';
+const ECHOBRIEF_API_URL = 'https://qjhysesjocanowmdkeme.supabase.co/functions/v1';
 const MEETING_URL_PATTERNS = [
   /^https:\/\/meet\.google\.com\/.+/,
   /^https:\/\/.*\.zoom\.us\/wc\/.+/,
