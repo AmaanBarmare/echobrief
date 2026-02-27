@@ -25,6 +25,7 @@
 - [Getting Started](#getting-started)
 - [Environment Variables](#environment-variables)
 - [Scripts](#scripts)
+- [Bugs Encountered and Fixed](#bugs-encountered-and-fixed)
 - [Technical Highlights](#technical-highlights)
 
 ---
@@ -462,6 +463,70 @@ npm run functions:serve
 | `npm run preview` | `vite preview` | Preview production build locally |
 | `npm run lint` | `eslint .` | Run ESLint |
 | `npm run functions:serve` | `supabase functions serve --env-file ./supabase/.env.local` | Serve Edge Functions locally |
+
+---
+
+## Bugs Encountered and Fixed
+
+Building a Chrome extension that records live meetings surfaced several non-trivial bugs — most rooted in Chrome's Manifest V3 service worker lifecycle and the coordination between four separate execution contexts (popup, content script, service worker, offscreen document).
+
+### 1. Recording dies after ~3 minutes
+
+**Problem:** Recordings silently stopped working after a few minutes.
+
+**Root cause:** Chrome MV3 kills background service workers after ~30s of inactivity. All recording state (`isRecording`, `tabId`) was stored in-memory, so when the worker restarted, everything reset to `false`. The offscreen document kept recording, but nothing knew about it.
+
+**Fix:** Persisted all recording state to `chrome.storage.local` and restored it on worker restart. Added `chrome.alarms` keepalive (fires every 25s) and offscreen heartbeat messages (every 20s) to prevent the worker from being killed. On restore, validates the offscreen document still exists — if gone, cleans up stale state.
+
+---
+
+### 2. Red "Recording" dot persists after stopping
+
+**Problem:** The recording indicator stayed on screen permanently after clicking stop.
+
+**Root cause:** The `RECORDING_STOPPED` handler updated the status text but never cleared the `setInterval` duration timer. After `hideStatus()` removed the DOM element 3 seconds later, the interval's next tick saw `statusIndicator === null` and recreated it.
+
+**Fix:** Created a single `cleanupRecordingUI()` function that stops the duration timer and state check interval *before* updating the UI. Every recording-end handler (`RECORDING_STOPPED`, `RECORDING_UPLOADED`, `RECORDING_ERROR`) calls it.
+
+---
+
+### 3. Extension shows "Ready" while still recording
+
+**Problem:** The popup showed "Ready to record" even though the offscreen document was actively recording.
+
+**Root cause:** After the service worker died and restarted with a blank slate, the popup queried `GET_RECORDING_STATUS` and got `isRecording: false` — even though the offscreen document was still recording audio.
+
+**Fix:** The content script now runs a periodic state check (every 15s) that queries the background for recording status. If there's a mismatch (background says stopped, content still showing recording UI), it surfaces "Recording stopped unexpectedly." Combined with Bug 1's storage persistence fix, the background now returns correct status after restarts.
+
+---
+
+### 4. Race condition losing the tab ID on stop
+
+**Problem:** After stopping a recording, the audio upload would succeed but the content script never received confirmation — the recording banner just hung.
+
+**Root cause:** `stopRecording()` called `resetState()` immediately, which set `tabId = null`. When the offscreen document later sent `RECORDING_COMPLETED`, the background couldn't forward the result to the content script because it no longer knew which tab to message.
+
+**Fix:** `stopRecording()` now only sets `isRecording = false` but preserves `tabId`. Full state reset only happens when `RECORDING_COMPLETED` / `RECORDING_FAILED` arrives (or after a 30s safety timeout).
+
+---
+
+### 5. Garbage transcript from solo test recordings
+
+**Problem:** Testing by playing a YouTube video in another tab during a solo Google Meet produced a nonsensical transcript.
+
+**Root cause:** `tabCapture` only captures the Meet tab's audio output — other participants' voices arriving via WebRTC. In a solo meeting there are no participants, so the tab outputs near-silence. The YouTube audio plays in a different tab entirely. Additionally, the user's own microphone was never captured — only remote audio was.
+
+**Fix:** The offscreen document now requests microphone access in addition to tab audio. If granted, both streams are mixed using the Web Audio API (`AudioContext` + `MediaStreamDestination`). If microphone permission is denied, it falls back gracefully to tab-only audio.
+
+---
+
+### 6. Can't hear meeting audio while recording
+
+**Problem:** During recording, the user couldn't hear any meeting audio through their speakers.
+
+**Root cause:** Chrome's `tabCapture` API mutes the captured tab's audio output by default to prevent feedback loops. The audio was being recorded correctly (transcripts confirmed this), but playback to speakers was suppressed.
+
+**Fix:** This is Chrome's intentional behavior and not a code bug. Documented as a known behavior. The audio is fully captured in the recording — users just need to be aware that tab audio is muted during capture.
 
 ---
 
