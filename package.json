@@ -1,7 +1,7 @@
 {
-  "name": "vite_react_shadcn_ts",
+  "name": "echobrief",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,7 +9,8 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
-    "functions:serve": "supabase functions serve --env-file ./supabase/.env.local"
+    "functions:serve": "supabase functions serve --env-file ./supabase/.env.local",
+    "extension:zip": "cd chrome-extension && zip -r ../echobrief-extension.zip . -x '*.DS_Store' 'README.md'"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -76,7 +77,6 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^15.15.0",
-    "lovable-tagger": "^1.1.13",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.8.3",

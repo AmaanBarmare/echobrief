@@ -23,11 +23,11 @@ serve(async (req) => {
       .single();
 
     if (stateError || !stateData) {
-      const redirectUrl = stateData?.origin || "https://echobrief.lovable.app";
+      const redirectUrl = stateData?.origin || "https://echobrief-ten.vercel.app";
       return Response.redirect(`${redirectUrl}/settings?error=invalid_state`, 302);
     }
 
-    const redirectOrigin = stateData.origin || "https://echobrief.lovable.app";
+    const redirectOrigin = stateData.origin || "https://echobrief-ten.vercel.app";
     const returnTo = stateData.return_to || "/settings";
 
     // Clean up state
@@ -85,6 +85,6 @@ serve(async (req) => {
     return Response.redirect(`${redirectOrigin}${returnTo}?notion_connected=true`, 302);
   } catch (error) {
     console.error("Notion OAuth callback error:", error);
-    return Response.redirect("https://echobrief.lovable.app/settings?error=server_error", 302);
+    return Response.redirect("https://echobrief-ten.vercel.app/settings?error=server_error", 302);
   }
 });

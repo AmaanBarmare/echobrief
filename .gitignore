@@ -43,6 +43,9 @@ Thumbs.db
 coverage
 *.lcov
 
+# Chrome extension build
+echobrief-extension.zip
+
 # Misc
 *.tgz
 .cache

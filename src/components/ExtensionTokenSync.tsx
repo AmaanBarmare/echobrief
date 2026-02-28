@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 /**
  * Syncs the Supabase session token to the EchoBrief Chrome extension
  * so it can authenticate uploads. The content script must be injected
- * into the web app (localhost, echobrief.lovable.app) to receive this.
+ * into the web app to receive this.
  */
 export function ExtensionTokenSync() {
   const { session } = useAuth();

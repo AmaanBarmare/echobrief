@@ -1,6 +1,5 @@
 // EchoBrief Popup Script
-// Use localhost for local development; change to production URL when needed
-const ECHOBRIEF_URL = 'http://localhost:8080';
+const ECHOBRIEF_URL = 'https://echobrief-ten.vercel.app';
 
 document.addEventListener('DOMContentLoaded', async () => {
   const contentEl = document.getElementById('content');

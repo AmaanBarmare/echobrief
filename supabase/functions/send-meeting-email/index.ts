@@ -196,7 +196,7 @@ function buildEmailHtml(data: EmailData): string {
     ? (metrics.sentiment_score > 0 ? "Positive" : metrics.sentiment_score < 0 ? "Negative" : "Neutral")
     : "N/A";
 
-  const appUrl = "https://echobrief.lovable.app";
+  const appUrl = "https://echobrief-ten.vercel.app";
 
   return `
 <!DOCTYPE html>

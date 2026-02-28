@@ -305,5 +305,4 @@ npm run functions:serve   # Serve Edge Functions with OPENAI_API_KEY from supaba
 
 - Build succeeds; minor lint warning about `@import` order in CSS
 - 19 npm audit vulnerabilities (5 moderate, 14 high) – consider `npm audit fix`
-- Lovable.dev is used for some code generation (componentTagger in Vite)
 - Extension uses Supabase URL in background.js – update if switching projects

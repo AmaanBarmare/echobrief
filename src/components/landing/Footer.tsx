@@ -15,9 +15,17 @@ export function Footer() {
             <span className="text-lg font-bold text-foreground">EchoBrief</span>
           </Link>
 
-          <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} EchoBrief. All rights reserved.
-          </p>
+          <div className="flex items-center gap-6">
+            <Link
+              to="/privacy-policy"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Privacy Policy
+            </Link>
+            <p className="text-sm text-muted-foreground">
+              © {new Date().getFullYear()} EchoBrief. All rights reserved.
+            </p>
+          </div>
         </div>
       </div>
     </footer>
