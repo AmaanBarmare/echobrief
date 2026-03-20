@@ -368,47 +368,13 @@ function isExtensionContextValid() {
   }
 }
 
-// Listen for messages from the web app (for status checks)
-window.addEventListener('message', (event) => {
-  if (event.source !== window) return;
-  if (!isExtensionContextValid()) return;
-  
-  if (event.data?.type === 'ECHOBRIEF_EXTENSION_PING') {
-    window.postMessage({ 
-      type: 'ECHOBRIEF_EXTENSION_PONG',
-      extensionId: chrome.runtime.id
-    }, '*');
-  }
-  
-  if (event.data?.type === 'ECHOBRIEF_GET_STATUS') {
-    try {
-      chrome.runtime.sendMessage({ type: 'GET_RECORDING_STATUS' }, (response) => {
-        window.postMessage({
-          type: 'ECHOBRIEF_STATUS_RESPONSE',
-          status: response || { isRecording: false }
-        }, '*');
-      });
-    } catch {
-      window.postMessage({
-        type: 'ECHOBRIEF_STATUS_RESPONSE',
-        status: { isRecording: false }
-      }, '*');
-    }
-  }
-
-  if (event.data?.type === 'ECHOBRIEF_SET_TOKEN' && event.data.token) {
-    try {
-      chrome.runtime.sendMessage({ type: 'SET_AUTH_TOKEN', token: event.data.token });
-    } catch {}
-  }
-});
-
+// Notify background that we're on a meeting page (replaces tabs.onUpdated scanning)
 if (isExtensionContextValid()) {
-  const marker = document.createElement('div');
-  marker.id = 'echobrief-extension-marker';
-  marker.style.display = 'none';
-  marker.dataset.extensionId = chrome.runtime.id;
-  document.body.appendChild(marker);
+  const url = window.location.href;
+  chrome.runtime.sendMessage({
+    type: 'MEETING_PAGE_LOADED',
+    url: url
+  }).catch(() => {});
 }
 
 console.log('EchoBrief content script loaded');

@@ -102,16 +102,8 @@ function getMeetingTitle(url) {
 
 // --- Tab Listeners ---
 
-chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-  await stateReady;
-  if (changeInfo.status === 'complete' && tab?.url && isMeetingUrl(tab.url) && !recordingState.isRecording) {
-    chrome.tabs.sendMessage(tabId, {
-      type: 'MEETING_DETECTED',
-      url: tab.url,
-      title: getMeetingTitle(tab.url)
-    }).catch(() => {});
-  }
-});
+// Meeting detection is now done by the content script (MEETING_PAGE_LOADED message)
+// instead of scanning every tab update — no `tabs` permission needed.
 
 chrome.tabs.onRemoved.addListener(async (tabId) => {
   await stateReady;
@@ -193,6 +185,16 @@ async function handleMessage(message, sender, sendResponse) {
         chrome.tabs.sendMessage(recordingState.tabId, {
           type: 'MIC_UNAVAILABLE',
           error: message.error
+        }).catch(() => {});
+      }
+      break;
+
+    case 'MEETING_PAGE_LOADED':
+      if (!recordingState.isRecording && sender.tab?.id && isMeetingUrl(message.url)) {
+        chrome.tabs.sendMessage(sender.tab.id, {
+          type: 'MEETING_DETECTED',
+          url: message.url,
+          title: getMeetingTitle(message.url)
         }).catch(() => {});
       }
       break;

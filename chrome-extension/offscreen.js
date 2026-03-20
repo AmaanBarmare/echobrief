@@ -4,6 +4,9 @@
 
 const ECHOBRIEF_API_URL = 'https://qjhysesjocanowmdkeme.supabase.co/functions/v1';
 const HEARTBEAT_INTERVAL_MS = 20000;
+const CHUNK_FLUSH_COUNT = 30; // Flush to IndexedDB every ~30 seconds of audio
+const IDB_NAME = 'echobrief-audio';
+const IDB_STORE = 'chunks';
 
 let recorderState = {
   stream: null,
@@ -11,12 +14,63 @@ let recorderState = {
   micStream: null,
   audioContext: null,
   mediaRecorder: null,
-  audioChunks: [],
+  chunkBuffer: [],   // Small in-memory buffer, flushed periodically
+  chunkIndex: 0,     // Monotonic index for ordering chunks in IndexedDB
   startTime: null,
   meetingTitle: '',
   meetingUrl: '',
   authToken: null
 };
+
+// --- IndexedDB helpers (moves audio data off the JS heap to disk) ---
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore(IDB_STORE, { keyPath: 'id' });
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function flushChunks(chunks, startIndex) {
+  if (chunks.length === 0) return;
+  const db = await openDB();
+  const tx = db.transaction(IDB_STORE, 'readwrite');
+  const store = tx.objectStore(IDB_STORE);
+  for (let i = 0; i < chunks.length; i++) {
+    store.put({ id: startIndex + i, data: chunks[i] });
+  }
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => { db.close(); resolve(); };
+    tx.onerror = () => { db.close(); reject(tx.error); };
+  });
+}
+
+async function getAllChunks() {
+  const db = await openDB();
+  const tx = db.transaction(IDB_STORE, 'readonly');
+  const store = tx.objectStore(IDB_STORE);
+  const req = store.getAll();
+  return new Promise((resolve, reject) => {
+    req.onsuccess = () => {
+      db.close();
+      const rows = req.result.sort((a, b) => a.id - b.id);
+      resolve(rows.map((r) => r.data));
+    };
+    req.onerror = () => { db.close(); reject(req.error); };
+  });
+}
+
+async function clearChunks() {
+  const db = await openDB();
+  const tx = db.transaction(IDB_STORE, 'readwrite');
+  tx.objectStore(IDB_STORE).clear();
+  return new Promise((resolve, reject) => {
+    tx.oncomplete = () => { db.close(); resolve(); };
+    tx.onerror = () => { db.close(); reject(tx.error); };
+  });
+}
 
 let heartbeatInterval = null;
 
@@ -90,13 +144,17 @@ async function startRecording({ streamId, meetingTitle, meetingUrl, authToken })
     chrome.runtime.sendMessage({ type: 'MIC_PERMISSION_FAILED', error: err.name }).catch(() => {});
   }
 
+  // Clear any stale chunks from a previous recording
+  await clearChunks().catch(() => {});
+
   recorderState = {
     stream: tabStream,
     tabPlayback,
     micStream,
     audioContext,
     mediaRecorder: null,
-    audioChunks: [],
+    chunkBuffer: [],
+    chunkIndex: 0,
     startTime: Date.now(),
     meetingTitle,
     meetingUrl,
@@ -107,7 +165,19 @@ async function startRecording({ streamId, meetingTitle, meetingUrl, authToken })
   recorderState.mediaRecorder = mediaRecorder;
 
   mediaRecorder.ondataavailable = (e) => {
-    if (e.data.size > 0) recorderState.audioChunks.push(e.data);
+    if (e.data.size > 0) {
+      recorderState.chunkBuffer.push(e.data);
+      // Flush to IndexedDB periodically to keep JS heap small
+      if (recorderState.chunkBuffer.length >= CHUNK_FLUSH_COUNT) {
+        const toFlush = recorderState.chunkBuffer;
+        const startIdx = recorderState.chunkIndex;
+        recorderState.chunkBuffer = [];
+        recorderState.chunkIndex += toFlush.length;
+        flushChunks(toFlush, startIdx).catch((err) => {
+          console.error('[EchoBrief] Failed to flush audio chunks to IndexedDB:', err);
+        });
+      }
+    }
   };
 
   mediaRecorder.onstop = () => handleRecordingStopped();
@@ -116,6 +186,7 @@ async function startRecording({ streamId, meetingTitle, meetingUrl, authToken })
     console.error('MediaRecorder error:', event.error);
     stopHeartbeat();
     cleanupStreams();
+    clearChunks().catch(() => {});
     chrome.runtime.sendMessage({ type: 'RECORDING_FAILED' }).catch(() => {});
     requestClose();
   };
@@ -169,15 +240,37 @@ async function handleRecordingStopped() {
 
   const authToken = recorderState.authToken;
   if (!authToken) {
+    await clearChunks().catch(() => {});
     chrome.runtime.sendMessage({ type: 'RECORDING_FAILED' }).catch(() => {});
     requestClose();
     return;
   }
 
-  const audioBlob = new Blob(recorderState.audioChunks, { type: 'audio/webm' });
+  // Flush any remaining in-memory chunks to IndexedDB
+  if (recorderState.chunkBuffer.length > 0) {
+    await flushChunks(recorderState.chunkBuffer, recorderState.chunkIndex).catch((err) => {
+      console.error('[EchoBrief] Failed to flush final chunks:', err);
+    });
+    recorderState.chunkBuffer = [];
+  }
+
+  // Read all chunks back from IndexedDB (disk-backed, not in JS heap)
+  let allChunks;
+  try {
+    allChunks = await getAllChunks();
+  } catch (err) {
+    console.error('[EchoBrief] Failed to read chunks from IndexedDB:', err);
+    await clearChunks().catch(() => {});
+    chrome.runtime.sendMessage({ type: 'RECORDING_FAILED' }).catch(() => {});
+    requestClose();
+    return;
+  }
+
+  const audioBlob = new Blob(allChunks, { type: 'audio/webm' });
   const durationSeconds = Math.floor((Date.now() - recorderState.startTime) / 1000);
 
   if (audioBlob.size < 1000 || durationSeconds < 5) {
+    await clearChunks().catch(() => {});
     chrome.runtime.sendMessage({ type: 'RECORDING_FAILED' }).catch(() => {});
     requestClose();
     return;
@@ -205,6 +298,7 @@ async function handleRecordingStopped() {
     console.error('Upload error:', err);
     chrome.runtime.sendMessage({ type: 'RECORDING_FAILED' }).catch(() => {});
   } finally {
+    await clearChunks().catch(() => {});
     requestClose();
   }
 }

@@ -238,10 +238,11 @@ echobrief/
 │   └── types/meeting.ts             # Shared TypeScript interfaces
 ├── chrome-extension/
 │   ├── manifest.json                # MV3 manifest with permissions
-│   ├── background.js                # Service worker (tab detection, capture, upload)
-│   ├── content.js                   # Injected script (recording banner UI)
+│   ├── background.js                # Service worker (state, capture, alarms)
+│   ├── content.js                   # Meeting pages: recording banner UI + detection
+│   ├── web-bridge.js                # Web app: extension marker + token/status relay
 │   ├── popup.html / popup.js        # Extension popup (auth, controls, status)
-│   ├── offscreen.html / offscreen.js# Offscreen document for MediaRecorder
+│   ├── offscreen.html / offscreen.js# Offscreen document (MediaRecorder + IndexedDB buffer)
 │   └── icons/                       # Extension icons (16, 48, 128px)
 ├── supabase/
 │   ├── functions/                   # 15 Deno Edge Functions
@@ -343,8 +344,8 @@ All tables have **Row Level Security** enabled, restricting access so users can 
 
 ```json
 {
-  "permissions": ["activeTab", "tabCapture", "storage", "tabs", "scripting", "offscreen"],
-  "host_permissions": ["https://meet.google.com/*", "https://*.zoom.us/*"]
+  "permissions": ["activeTab", "tabCapture", "storage", "offscreen", "alarms"],
+  "host_permissions": ["https://meet.google.com/*", "https://*.zoom.us/*", "https://*.supabase.co/*"]
 }
 ```
 
@@ -353,19 +354,19 @@ All tables have **Row Level Security** enabled, restricting access so users can 
 ```
 ┌──────────────┐    messages     ┌──────────────┐    chrome.storage    ┌──────────┐
 │  content.js  │ ◄────────────► │ background.js│ ◄──────────────────► │ popup.js │
-│              │                │(service worker)│                     │          │
-│ • Banner UI  │                │ • Tab detect   │                     │ • Login  │
-│ • Status     │                │ • Tab capture  │                     │ • Status │
-│ • Listeners  │                │ • Upload       │                     │ • Controls│
+│ (meet/zoom)  │                │(service worker)│                     │          │
+│ • Banner UI  │                │ • Tab capture  │                     │ • Login  │
+│ • Status     │                │ • State mgmt   │                     │ • Status │
+│ • Detection  │                │ • Alarms       │                     │ • Controls│
 └──────────────┘                └───────┬────────┘                     └──────────┘
                                         │
-                                        │ stream
-                                        ▼
-                                ┌──────────────┐
-                                │ offscreen.js │
-                                │              │
-                                │ • MediaRec.  │
-                                │ • Audio buf  │
+┌──────────────┐                        │ stream
+│web-bridge.js │                        ▼
+│ (web app)    │                ┌──────────────┐
+│ • Marker     │                │ offscreen.js │
+│ • Token sync │                │              │
+│ • Status     │                │ • MediaRec.  │
+└──────────────┘                │ • IndexedDB  │
                                 │ • WebM out   │
                                 └──────────────┘
 ```
@@ -375,7 +376,7 @@ All tables have **Row Level Security** enabled, restricting access so users can 
 - **Tab Capture API**. Records tab audio without joining the meeting as a bot participant. No meeting attendee sees any notification of recording.
 - **Offscreen Document**. Required by Manifest V3 since service workers can't access DOM APIs. The offscreen document runs `MediaRecorder` to encode the captured audio stream as WebM.
 - **Token Sync**. The web app writes the Supabase auth token to `chrome.storage.local`. The extension reads this token to authenticate uploads, avoiding a separate login flow.
-- **Auto-detection**. The background service worker listens for tab updates and injects `content.js` when Meet/Zoom URLs are detected.
+- **Auto-detection**. The content script runs only on Meet/Zoom pages (declared in manifest `content_scripts`) and notifies the background service worker when a meeting is detected. This avoids needing the `tabs` permission, which would scan every tab update browser-wide.
 
 ---
 
@@ -540,6 +541,26 @@ Building a Chrome extension that records live meetings surfaced several non-triv
 
 ---
 
+### 7. High memory usage during long recordings
+
+**Problem:** Users reported the extension consuming excessive memory (100-300+ MB) during long meetings, causing browser sluggishness.
+
+**Root cause:** The offscreen document's `MediaRecorder` fired `ondataavailable` every 1 second, pushing audio Blobs into an in-memory array (`audioChunks[]`). This array grew unbounded for the entire recording duration -- a 1-hour meeting accumulated 3,600 chunks (36-180 MB) all sitting in the JavaScript heap until the recording stopped.
+
+**Fix:** Replaced the unbounded in-memory array with a periodic **IndexedDB flush** strategy. Audio chunks are buffered in a small array (max ~30 chunks / ~30 seconds), then flushed to IndexedDB (disk-backed browser storage) and cleared from memory. On stop, all chunks are read back from IndexedDB, assembled into the final WebM blob for upload, and the store is cleared. Peak JS heap usage is now capped at ~10-15 MB regardless of recording length.
+
+---
+
+### 8. Unnecessary battery drain from `tabs` permission
+
+**Problem:** The extension contributed to noticeable battery drain even when no meeting was active.
+
+**Root cause:** The `tabs` permission granted the background service worker a `chrome.tabs.onUpdated` listener that fired on **every single tab navigation** across the entire browser. Each event woke the service worker to run URL pattern matching, even for completely unrelated pages. This caused hundreds of unnecessary service worker wake-ups per browsing session.
+
+**Fix:** Removed the `tabs` permission entirely. Meeting detection now relies on the content script (which Chrome only injects on matching Meet/Zoom URLs declared in the manifest). When the content script loads on a meeting page, it sends a single `MEETING_PAGE_LOADED` message to the background. The service worker only wakes when actually needed. Additionally, split the content script so the EchoBrief web app gets a lightweight `web-bridge.js` (~50 lines for extension detection and token sync) instead of the full recording UI script (~380 lines).
+
+---
+
 ## Technical Highlights
 
 ### AI Pipeline Design
@@ -573,8 +594,8 @@ Manifest V3 service workers can't access DOM APIs like `MediaRecorder`. EchoBrie
 
 - `background.js` calls `chrome.offscreen.createDocument()` when recording starts
 - `offscreen.js` receives the audio stream and runs `MediaRecorder`
-- Encoded WebM chunks are accumulated in memory
-- On stop, the complete blob is sent back to the service worker for upload
+- Encoded WebM chunks are periodically flushed from the in-memory buffer to **IndexedDB** (disk-backed), keeping peak JS heap usage at ~10-15 MB regardless of recording length
+- On stop, all chunks are read back from IndexedDB, assembled into a single WebM blob, uploaded, and the IndexedDB store is cleared
 
 ### Security Model
 
