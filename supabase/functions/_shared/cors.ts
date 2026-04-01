@@ -3,6 +3,7 @@
 
 const ALLOWED_ORIGINS = [
   "https://echobrief.in",
+  "https://www.echobrief.in",
   "http://localhost:5173",
   "http://localhost:3000",
   "http://localhost:8080",
@@ -11,6 +12,7 @@ const ALLOWED_ORIGINS = [
 export function getCorsHeaders(origin: string | null): Record<string, string> {
   const isAllowed = origin && (
     ALLOWED_ORIGINS.includes(origin) ||
+    origin.endsWith(".vercel.app") ||
     origin.startsWith("chrome-extension://")
   );
   const allowedOrigin = isAllowed ? origin : ALLOWED_ORIGINS[0];
