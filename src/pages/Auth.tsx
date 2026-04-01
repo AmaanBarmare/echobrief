@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Mail, Lock, User, ArrowRight, ArrowLeft, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import echoBriefLogo from '@/assets/echobrief-logo.png';
+import echoBriefLogo from '@/assets/echobrief-logo-light.svg';
 
 export default function Auth() {
   const [isSignUp, setIsSignUp] = useState(false);

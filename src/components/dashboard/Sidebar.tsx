@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
-import echoBriefLogo from '@/assets/echobrief-logo.png';
+import echoBriefLogo from '@/assets/echobrief-logo-light.svg';
 
 interface SidebarProps {
   onCollapsedChange?: (collapsed: boolean) => void;
