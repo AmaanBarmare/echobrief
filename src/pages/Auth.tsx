@@ -8,8 +8,6 @@ import { Mail, Lock, User, ArrowRight, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import echoBriefLogo from '@/assets/echobrief-logo.png';
 
-const ALLOWED_EMAIL_DOMAIN = 'oltaflock.ai';
-
 export default function Auth() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
@@ -26,12 +24,6 @@ export default function Auth() {
 
     try {
       if (isSignUp) {
-        // Validate email domain for signup
-        const emailDomain = email.split('@')[1]?.toLowerCase();
-        if (emailDomain !== ALLOWED_EMAIL_DOMAIN) {
-          throw new Error(`Only @${ALLOWED_EMAIL_DOMAIN} email addresses are allowed to sign up.`);
-        }
-        
         const { error } = await signUp(email, password, fullName);
         if (error) throw error;
         toast({
