@@ -2,8 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useEffect } from "react";
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { RecordingProvider } from "@/contexts/RecordingContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
@@ -27,22 +26,27 @@ const queryClient = new QueryClient();
 
 function AppRoutes() {
   const { user, loading } = useAuth();
-  const navigate = useNavigate();
 
-  // Intercept password recovery hash on ANY page and redirect to /auth
-  useEffect(() => {
-    const hash = window.location.hash;
-    if (hash && hash.includes('type=recovery')) {
-      // Preserve the hash so Auth page can detect it
-      navigate('/auth' + hash, { replace: true });
-    }
-  }, [navigate]);
+  // Check for recovery hash SYNCHRONOUSLY before any render
+  const isRecovery = window.location.hash.includes('type=recovery');
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
       </div>
+    );
+  }
+
+  // If recovery flow, always show Auth page regardless of user state
+  if (isRecovery) {
+    return (
+      <>
+        <ExtensionTokenSync />
+        <Routes>
+          <Route path="*" element={<Auth />} />
+        </Routes>
+      </>
     );
   }
 
