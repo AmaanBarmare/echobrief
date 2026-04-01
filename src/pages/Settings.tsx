@@ -24,7 +24,8 @@ import {
   Loader2,
   ExternalLink,
   Send,
-  Sparkles
+  Sparkles,
+  Lock
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -48,6 +49,38 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [fullName, setFullName] = useState('');
   
+  // Change password
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [changingPassword, setChangingPassword] = useState(false);
+
+  const handleChangePassword = async () => {
+    if (!newPassword || !confirmNewPassword) {
+      toast({ title: 'Error', description: 'Please fill in both fields.', variant: 'destructive' });
+      return;
+    }
+    if (newPassword !== confirmNewPassword) {
+      toast({ title: 'Error', description: 'Passwords do not match.', variant: 'destructive' });
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast({ title: 'Error', description: 'Password must be at least 6 characters.', variant: 'destructive' });
+      return;
+    }
+    setChangingPassword(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      toast({ title: 'Password updated', description: 'Your password has been changed successfully.' });
+      setNewPassword('');
+      setConfirmNewPassword('');
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message || 'Failed to update password', variant: 'destructive' });
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
   // Slack connection dialog
   const [slackDialogOpen, setSlackDialogOpen] = useState(false);
   const [slackChannelId, setSlackChannelId] = useState('');
@@ -389,6 +422,54 @@ export default function Settings() {
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />
                 ) : null}
                 Save Changes
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Change Password */}
+          <Card className="glass-card-liquid overflow-hidden">
+            <CardHeader className="relative">
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-orange-500 to-amber-500" />
+              <CardTitle className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-orange-500/10">
+                  <Lock className="w-5 h-5 text-orange-500" />
+                </div>
+                Change Password
+              </CardTitle>
+              <CardDescription>
+                Update your account password
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="new-password">New Password</Label>
+                <Input
+                  id="new-password"
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Enter new password"
+                  className="bg-card"
+                  minLength={6}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirm-new-password">Confirm New Password</Label>
+                <Input
+                  id="confirm-new-password"
+                  type="password"
+                  value={confirmNewPassword}
+                  onChange={(e) => setConfirmNewPassword(e.target.value)}
+                  placeholder="Confirm new password"
+                  className="bg-card"
+                  minLength={6}
+                />
+              </div>
+              <Button onClick={handleChangePassword} disabled={changingPassword} variant="accent">
+                {changingPassword ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : null}
+                Update Password
               </Button>
             </CardContent>
           </Card>

@@ -24,7 +24,15 @@ export default function Auth() {
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
 
-  // Handle password recovery redirect
+  // Check URL hash for recovery token on mount (runs before auth state change)
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash && (hash.includes('type=recovery') || hash.includes('type=magiclink'))) {
+      setIsResetPassword(true);
+    }
+  }, []);
+
+  // Handle password recovery redirect from auth state
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
