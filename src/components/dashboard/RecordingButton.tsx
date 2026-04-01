@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Mic, Loader2 } from 'lucide-react';
+import { Mic, Loader2, Bot } from 'lucide-react';
 import { useRecording } from '@/contexts/RecordingContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -34,12 +34,14 @@ interface RecordingButtonProps {
 export function RecordingButton({ 
   prefillTitle, 
   calendarEventId, 
-  meetingLink,
+  meetingLink: propMeetingLink,
   attendees 
 }: RecordingButtonProps) {
   const [showDialog, setShowDialog] = useState(false);
   const [meetingTitle, setMeetingTitle] = useState(prefillTitle || '');
   const [isStarting, setIsStarting] = useState(false);
+  const [recordingMode, setRecordingMode] = useState<'browser' | 'bot'>('browser');
+  const [meetingUrl, setMeetingUrl] = useState(propMeetingLink || '');
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -50,7 +52,6 @@ export function RecordingButton({
     permissionStatus,
   } = useRecording();
 
-  // Auto-open dialog if prefillTitle is provided
   useEffect(() => {
     if (prefillTitle && !isRecording) {
       setMeetingTitle(prefillTitle);
@@ -65,28 +66,40 @@ export function RecordingButton({
     
     try {
       const title = meetingTitle || `Meeting ${new Date().toLocaleDateString()}`;
-      const meetingData = {
-        user_id: user.id,
-        title,
-        source: calendarEventId ? 'calendar' : 'manual',
-        calendar_event_id: calendarEventId || null,
-        meeting_link: meetingLink || null,
-        attendees: (attendees || []) as unknown as Json,
-        status: 'recording',
-        start_time: new Date().toISOString(),
-      };
-      
-      const { data: meeting, error: meetingError } = await supabase
-        .from('meetings')
-        .insert(meetingData)
-        .select()
-        .single();
 
-      if (meetingError) throw meetingError;
+      if (recordingMode === 'bot') {
+        const { data, error: botError } = await supabase.functions.invoke('start-bot', {
+          body: { meeting_url: meetingUrl, bot_name: 'EchoBrief Bot', language: 'en' }
+        });
 
-      await startRecording(meeting.id, title);
-      setShowDialog(false);
-      setMeetingTitle('');
+        if (botError) throw botError;
+        
+        toast({ title: 'Bot started', description: 'Joining meeting...' });
+        setShowDialog(false);
+      } else {
+        const meetingData = {
+          user_id: user.id,
+          title,
+          source: calendarEventId ? 'calendar' : 'manual',
+          calendar_event_id: calendarEventId || null,
+          meeting_link: meetingUrl || null,
+          attendees: (attendees || []) as unknown as Json,
+          status: 'recording',
+          start_time: new Date().toISOString(),
+        };
+        
+        const { data: meeting, error: meetingError } = await supabase
+          .from('meetings')
+          .insert(meetingData)
+          .select()
+          .single();
+
+        if (meetingError) throw meetingError;
+
+        await startRecording(meeting.id, title);
+        setShowDialog(false);
+        setMeetingTitle('');
+      }
     } catch (err: any) {
       toast({
         title: 'Error',
@@ -98,7 +111,6 @@ export function RecordingButton({
     }
   };
 
-  // Don't show the button if already recording
   if (isRecording) {
     return null;
   }
@@ -119,11 +131,28 @@ export function RecordingButton({
           <DialogHeader>
             <DialogTitle>Start New Recording</DialogTitle>
             <DialogDescription>
-              Give your meeting a name and we'll start capturing audio.
+              Choose how you want to record your meeting.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
+            <div className="flex gap-2">
+              <Button 
+                variant={recordingMode === 'browser' ? 'default' : 'outline'}
+                className="flex-1"
+                onClick={() => setRecordingMode('browser')}
+              >
+                Browser
+              </Button>
+              <Button 
+                variant={recordingMode === 'bot' ? 'default' : 'outline'}
+                className="flex-1"
+                onClick={() => setRecordingMode('bot')}
+              >
+                Bot (No screen share)
+              </Button>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="meeting-title">Meeting Title</Label>
               <Input
@@ -134,7 +163,19 @@ export function RecordingButton({
               />
             </div>
 
-            {permissionStatus === 'denied' && (
+            {recordingMode === 'bot' && (
+              <div className="space-y-2">
+                <Label htmlFor="meeting-url">Meeting URL</Label>
+                <Input
+                  id="meeting-url"
+                  placeholder="https://meet.google.com/..."
+                  value={meetingUrl}
+                  onChange={(e) => setMeetingUrl(e.target.value)}
+                />
+              </div>
+            )}
+
+            {recordingMode === 'browser' && permissionStatus === 'denied' && (
               <div className="p-3 rounded-md bg-destructive/10 text-destructive text-sm">
                 Microphone access is required. Please enable it in your browser settings.
               </div>
@@ -145,17 +186,6 @@ export function RecordingButton({
                 {error}
               </div>
             )}
-
-            <div className="bg-secondary rounded-md p-3 space-y-1">
-              <h4 className="font-medium text-sm">What we'll capture:</h4>
-              <ul className="text-sm text-muted-foreground space-y-0.5">
-                <li>• Microphone audio (your voice)</li>
-                <li>• System audio (meeting participants)*</li>
-              </ul>
-              <p className="text-xs text-muted-foreground mt-2">
-                *System audio requires screen sharing permission.
-              </p>
-            </div>
           </div>
 
           <div className="flex justify-end gap-2">
@@ -172,7 +202,7 @@ export function RecordingButton({
               ) : (
                 <Mic className="w-4 h-4 mr-2" />
               )}
-              Start Recording
+              Start
             </Button>
           </div>
         </DialogContent>
