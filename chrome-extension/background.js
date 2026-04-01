@@ -2,7 +2,7 @@
 // Uses getMediaStreamId + offscreen document for tab capture (MV3 compatible)
 // State is persisted to chrome.storage.local to survive service worker restarts
 
-const ECHOBRIEF_API_URL = 'https://qjhysesjocanowmdkeme.supabase.co/functions/v1';
+const ECHOBRIEF_API_URL = 'https://lekkpfpojlspbuwrtmzt.supabase.co/functions/v1';
 const MEETING_URL_PATTERNS = [
   /^https:\/\/meet\.google\.com\/.+/,
   /^https:\/\/.*\.zoom\.us\/wc\/.+/,

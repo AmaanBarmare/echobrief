@@ -2,7 +2,7 @@
 // Runs in extension context, can use getUserMedia with chromeMediaSourceId
 // Sends periodic heartbeat to keep the background service worker alive
 
-const ECHOBRIEF_API_URL = 'https://qjhysesjocanowmdkeme.supabase.co/functions/v1';
+const ECHOBRIEF_API_URL = 'https://lekkpfpojlspbuwrtmzt.supabase.co/functions/v1';
 const HEARTBEAT_INTERVAL_MS = 20000;
 const CHUNK_FLUSH_COUNT = 30; // Flush to IndexedDB every ~30 seconds of audio
 const IDB_NAME = 'echobrief-audio';
