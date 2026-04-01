@@ -111,7 +111,7 @@ serve(async (req) => {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        from: "EchoBrief <notifications@resend.dev>",
+        from: "EchoBrief <noreply@oltaflock.ai>",
         to: [toEmail],
         subject: `[EchoBrief] Meeting Summary – ${meeting.title}`,
         html: emailHtml
