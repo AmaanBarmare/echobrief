@@ -68,13 +68,18 @@ export function RecordingButton({
       const title = meetingTitle || `Meeting ${new Date().toLocaleDateString()}`;
 
       if (recordingMode === 'bot') {
+        if (!meetingUrl) {
+          throw new Error('Please enter a meeting URL');
+        }
+        
         const { data, error: botError } = await supabase.functions.invoke('start-bot', {
           body: { meeting_url: meetingUrl, bot_name: 'EchoBrief Bot', language: 'en' }
         });
 
         if (botError) throw botError;
+        if (data?.error) throw new Error(data.error);
         
-        toast({ title: 'Bot started', description: 'Joining meeting...' });
+        toast({ title: 'Bot started', description: `Bot is joining the meeting (ID: ${data?.bot_id || 'unknown'})` });
         setShowDialog(false);
       } else {
         const meetingData = {

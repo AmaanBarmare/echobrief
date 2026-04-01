@@ -12,6 +12,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { Logo, LogoMark } from '@/components/ui/Logo';
+import { T } from '@/lib/theme';
 
 interface SidebarProps {
   onCollapsedChange?: (collapsed: boolean) => void;
@@ -46,15 +47,21 @@ export function Sidebar({ onCollapsedChange }: SidebarProps) {
   return (
     <aside 
       className={cn(
-        "fixed left-0 top-0 bottom-0 bg-sidebar border-r border-sidebar-border flex flex-col transition-all duration-200 z-50",
+        "fixed left-0 top-0 bottom-0 flex flex-col transition-all duration-200 z-50",
         collapsed ? "w-14" : "w-[220px]"
       )}
+      style={{ 
+        background: T.bg, 
+        borderRight: `1px solid ${T.border}` 
+      }}
     >
       {/* Header with Logo */}
       <div className={cn(
-        "flex items-center px-3 border-b border-sidebar-border",
+        "flex items-center px-3",
         collapsed ? "h-14 justify-center" : "h-14 justify-between"
-      )}>
+      )}
+      style={{ borderBottom: `1px solid ${T.border}` }}
+      >
         {!collapsed && (
           <Logo size="md" linkTo="/dashboard" className="px-2" />
         )}
@@ -66,7 +73,10 @@ export function Sidebar({ onCollapsedChange }: SidebarProps) {
         {!collapsed && (
           <button
             onClick={() => handleCollapsedChange(!collapsed)}
-            className="p-1.5 rounded-md hover:bg-sidebar-accent text-muted-foreground hover:text-sidebar-foreground transition-colors"
+            className="p-1.5 rounded-md transition-colors"
+            style={{ color: T.textM }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = T.bgCardH; e.currentTarget.style.color = T.text; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = T.textM; }}
             title="Collapse sidebar"
           >
             <ChevronLeft className="w-4 h-4" />
@@ -79,7 +89,10 @@ export function Sidebar({ onCollapsedChange }: SidebarProps) {
         <div className="p-2">
           <button
             onClick={() => handleCollapsedChange(false)}
-            className="w-full p-1.5 rounded-md hover:bg-sidebar-accent text-muted-foreground hover:text-sidebar-foreground transition-colors flex items-center justify-center"
+            className="w-full p-1.5 rounded-md transition-colors flex items-center justify-center"
+            style={{ color: T.textM }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = T.bgCardH; e.currentTarget.style.color = T.text; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = T.textM; }}
             title="Expand sidebar"
           >
             <Menu className="w-4 h-4" />
@@ -87,8 +100,8 @@ export function Sidebar({ onCollapsedChange }: SidebarProps) {
         </div>
       )}
 
-      {/* Navigation */}
-      <nav className="flex-1 p-3 space-y-0.5 mt-4">
+      {/* Navigation — prototype exact match */}
+      <nav className="flex-1 p-3 mt-4" style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         {navItems.map((item) => {
           const isActive = location.pathname === item.path;
           return (
@@ -96,12 +109,32 @@ export function Sidebar({ onCollapsedChange }: SidebarProps) {
               key={item.path}
               to={item.path}
               className={cn(
-                "flex items-center gap-2.5 px-3 py-2.5 rounded-[10px] text-sm font-medium transition-all duration-150",
-                isActive 
-                  ? "text-orange-300 bg-orange-500/[0.08]" 
-                  : "text-muted-foreground hover:text-foreground hover:bg-secondary",
+                "flex items-center gap-2.5 text-sm font-medium transition-all duration-150",
                 collapsed && "justify-center px-0"
               )}
+              style={{
+                padding: '10px 12px',
+                borderRadius: 10,
+                background: isActive ? 'rgba(249,115,22,0.08)' : 'transparent',
+                color: isActive ? T.orangeL : T.textS,
+                border: 'none',
+                width: '100%',
+                textAlign: 'left' as const,
+                marginBottom: 2,
+                fontFamily: "'DM Sans', sans-serif",
+              }}
+              onMouseEnter={(e) => {
+                if (!isActive) {
+                  e.currentTarget.style.color = T.text;
+                  e.currentTarget.style.background = T.bgCardH;
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isActive) {
+                  e.currentTarget.style.color = T.textS;
+                  e.currentTarget.style.background = 'transparent';
+                }
+              }}
               title={collapsed ? item.label : undefined}
             >
               <item.icon className="w-4 h-4 flex-shrink-0" />
@@ -113,18 +146,20 @@ export function Sidebar({ onCollapsedChange }: SidebarProps) {
 
       {/* User Section */}
       <div className={cn(
-        "p-3 border-t border-sidebar-border",
+        "p-3",
         collapsed && "flex flex-col items-center"
-      )}>
+      )}
+      style={{ borderTop: `1px solid ${T.border}` }}
+      >
         {!collapsed && (
           <div className="flex items-center gap-2.5 px-3 py-2 mb-1">
             <div 
               className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-semibold text-white"
-              style={{ background: 'linear-gradient(135deg, #F97316, #F59E0B)' }}
+              style={{ background: T.gradient }}
             >
               {userInitial}
             </div>
-            <span className="text-sm text-muted-foreground truncate flex-1">
+            <span className="text-sm truncate flex-1" style={{ color: T.textS }}>
               {user?.email?.split('@')[0]}
             </span>
           </div>
@@ -132,10 +167,26 @@ export function Sidebar({ onCollapsedChange }: SidebarProps) {
         <button
           onClick={signOut}
           className={cn(
-            "flex items-center gap-2.5 px-3 py-2.5 rounded-[10px] text-sm font-medium w-full transition-all duration-150",
-            "text-muted-foreground hover:text-foreground hover:bg-secondary",
+            "flex items-center gap-2.5 text-sm font-medium w-full transition-all duration-150",
             collapsed && "justify-center px-0"
           )}
+          style={{
+            padding: '10px 12px',
+            borderRadius: 10,
+            background: 'transparent',
+            color: T.textS,
+            border: 'none',
+            cursor: 'pointer',
+            fontFamily: "'DM Sans', sans-serif",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.color = T.text;
+            e.currentTarget.style.background = T.bgCardH;
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = T.textS;
+            e.currentTarget.style.background = 'transparent';
+          }}
           title={collapsed ? "Sign out" : undefined}
         >
           <LogOut className="w-4 h-4" />
