@@ -113,7 +113,17 @@ export default function Settings() {
     const error = urlParams.get('error');
 
     if (googleConnected === 'true') {
-      setProfile(prev => prev ? { ...prev, google_calendar_connected: true } : null);
+      // Refetch profile from DB to get actual connection state
+      if (user) {
+        const { data } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+        if (data) {
+          setProfile(data);
+        }
+      }
       toast({
         title: 'Connected!',
         description: 'Google Calendar is now syncing your events',
@@ -137,7 +147,7 @@ export default function Settings() {
       window.history.replaceState({}, '', '/settings');
     }
     setConnectingGoogle(false);
-  }, [toast]);
+  }, [toast, user]);
 
   useEffect(() => {
     // Check for OAuth result from backend redirect
