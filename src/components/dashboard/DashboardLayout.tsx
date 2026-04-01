@@ -19,7 +19,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         sidebarCollapsed ? "ml-14" : "ml-[220px]"
       )}>
         <Header />
-        <main className="p-6">
+        <main className="p-0">
           <PageTransition>
             {children}
           </PageTransition>

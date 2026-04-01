@@ -5,10 +5,8 @@ import { SlackDeliverySelector } from '@/components/dashboard/SlackDeliverySelec
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Meeting, Transcript, MeetingInsights, StrategicInsight, SpeakerHighlight, ActionItem, FollowUp } from '@/types/meeting';
-import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -20,8 +18,11 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { ArrowLeft, Calendar, Clock, Loader2, ChevronRight, Trash2, Users, Send, Lightbulb, AlertTriangle, HelpCircle, RefreshCw } from 'lucide-react';
+import { 
+  ArrowLeft, Calendar, Clock, Loader2, ChevronRight, Trash2, Users, Send, 
+  Lightbulb, AlertTriangle, HelpCircle, RefreshCw, Zap, CheckCircle2, 
+  FileText, Globe, MessageCircle, Mail, Languages, Bot, Chrome 
+} from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -41,6 +42,47 @@ interface Attendee {
   organizer?: boolean;
 }
 
+// ─── Reusable badge components matching prototype ───
+function StatusBadge({ status }: { status: string }) {
+  const map: Record<string, { bg: string; color: string; label: string }> = {
+    completed: { bg: '#FFF7ED', color: '#C2410C', label: 'Completed' },
+    processing: { bg: '#DBEAFE', color: '#1D4ED8', label: 'Processing' },
+    recording: { bg: '#DCFCE7', color: '#15803D', label: 'Recording' },
+    failed: { bg: '#FEE2E2', color: '#B91C1C', label: 'Failed' },
+    scheduled: { bg: 'rgba(168,168,168,0.1)', color: '#A8A29E', label: 'Scheduled' },
+  };
+  const s = map[status] || map.scheduled;
+  return (
+    <span style={{ padding: '3px 10px', borderRadius: 100, fontSize: 11, fontWeight: 600, color: s.color, background: s.bg, letterSpacing: '0.02em', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+      {status === 'recording' && <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />}
+      {s.label}
+    </span>
+  );
+}
+
+function SourceBadge({ source }: { source: string }) {
+  const isBot = source === 'manual' || source === 'calendar';
+  return (
+    <span style={{ padding: '3px 10px', borderRadius: 100, fontSize: 11, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4, color: isBot ? '#A855F7' : '#FB923C', background: isBot ? 'rgba(168,85,247,0.12)' : 'rgba(249,115,22,0.1)' }}>
+      {isBot ? <Bot size={11} /> : <Chrome size={11} />}
+      {isBot ? 'Bot' : 'Extension'}
+    </span>
+  );
+}
+
+// ─── Prototype-style Card ───
+function ProtoCard({ children, style, className }: { children: React.ReactNode; style?: React.CSSProperties; className?: string }) {
+  return (
+    <div className={className} style={{ background: '#1C1917', border: '1px solid #292524', borderRadius: 16, padding: 20, ...style }}>
+      {children}
+    </div>
+  );
+}
+
+function GradientBar() {
+  return <div style={{ height: 3, background: 'linear-gradient(135deg, #F97316, #F59E0B)', borderRadius: 2, marginBottom: 16 }} />;
+}
+
 export default function MeetingDetail() {
   const { id } = useParams<{ id: string }>();
   const { user, session } = useAuth();
@@ -53,10 +95,11 @@ export default function MeetingDetail() {
   const [insights, setInsights] = useState<MeetingInsights | null>(null);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
-  const [transcriptOpen, setTranscriptOpen] = useState(false);
   const [slackDialogOpen, setSlackDialogOpen] = useState(false);
   const [slackChannelId, setSlackChannelId] = useState<string | undefined>();
   const [slackChannelName, setSlackChannelName] = useState<string | undefined>();
+  const [activeTab, setActiveTab] = useState('summary');
+  const [summaryLang, setSummaryLang] = useState('English');
 
   const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
@@ -74,7 +117,6 @@ export default function MeetingDetail() {
       if (meetingData) {
         setMeeting(meetingData as Meeting);
         
-        // Parse attendees from meeting data
         if (meetingData.attendees && Array.isArray(meetingData.attendees)) {
           setAttendees(meetingData.attendees as unknown as Attendee[]);
         }
@@ -92,7 +134,6 @@ export default function MeetingDetail() {
             word_timestamps: (transcriptData.word_timestamps as any) || [],
           } as Transcript);
           
-          // Set speaker segments if available
           if (transcriptData.speakers && Array.isArray(transcriptData.speakers)) {
             setSpeakerSegments(transcriptData.speakers as unknown as SpeakerSegment[]);
           }
@@ -122,7 +163,6 @@ export default function MeetingDetail() {
           } as MeetingInsights);
         }
 
-        // Get Slack settings
         const { data: profile } = await supabase
           .from('profiles')
           .select('slack_channel_id, slack_channel_name')
@@ -143,87 +183,45 @@ export default function MeetingDetail() {
 
   const handleDelete = async () => {
     if (!meeting || !user) return;
-    
     setDeleting(true);
     try {
-      // Delete related data first
       await supabase.from('meeting_insights').delete().eq('meeting_id', meeting.id);
       await supabase.from('transcripts').delete().eq('meeting_id', meeting.id);
       await supabase.from('slack_messages').delete().eq('meeting_id', meeting.id);
-      
-      // Delete audio file from storage if exists
       if (meeting.audio_url) {
         await supabase.storage.from('recordings').remove([meeting.audio_url]);
       }
-      
-      // Delete the meeting
-      const { error } = await supabase
-        .from('meetings')
-        .delete()
-        .eq('id', meeting.id)
-        .eq('user_id', user.id);
-      
+      const { error } = await supabase.from('meetings').delete().eq('id', meeting.id).eq('user_id', user.id);
       if (error) throw error;
-      
-      toast({
-        title: 'Meeting deleted',
-        description: 'The meeting and all related data have been removed.',
-      });
-      
+      toast({ title: 'Meeting deleted', description: 'The meeting and all related data have been removed.' });
       navigate('/dashboard');
     } catch (err: any) {
-      toast({
-        title: 'Error',
-        description: err.message || 'Failed to delete meeting',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: err.message || 'Failed to delete meeting', variant: 'destructive' });
     } finally {
       setDeleting(false);
     }
   };
 
   const getInitials = (name?: string | null, email?: string) => {
-    if (name) {
-      return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
-    }
-    if (email) {
-      return email.slice(0, 2).toUpperCase();
-    }
+    if (name) return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+    if (email) return email.slice(0, 2).toUpperCase();
     return '??';
   };
 
   const handleSendToSlack = async (destination: { type: 'dm' | 'channel'; channelId: string; channelName?: string }) => {
     if (!meeting || !session?.access_token) return;
-
     try {
       const response = await fetch(`${SUPABASE_URL}/functions/v1/process-meeting`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          meetingId: meeting.id,
-          slackDestination: destination,
-        }),
+        headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ meetingId: meeting.id, slackDestination: destination }),
       });
-
       const data = await response.json();
-
       if (data.slackSent) {
-        toast({
-          title: 'Sent to Slack',
-          description: `Summary sent to ${destination.channelName || destination.channelId}`,
-        });
-      } else {
-        throw new Error('Failed to send');
-      }
+        toast({ title: 'Sent to Slack', description: `Summary sent to ${destination.channelName || destination.channelId}` });
+      } else throw new Error('Failed to send');
     } catch (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to send summary to Slack',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: 'Failed to send summary to Slack', variant: 'destructive' });
     }
   };
 
@@ -231,46 +229,27 @@ export default function MeetingDetail() {
     switch (priority) {
       case 'high': return 'bg-destructive/10 text-destructive border-destructive/20';
       case 'medium': return 'bg-warning/10 text-warning border-warning/20';
-      case 'low': return 'bg-muted text-muted-foreground border-border';
       default: return 'bg-muted text-muted-foreground border-border';
     }
   };
 
-  const getConfidenceBadge = (confidence?: string) => {
-    if (!confidence) return null;
-    // Confidence badges are AI-specific → keep purple per brand spec
-    const colors = {
-      high: 'bg-purple-500/10 text-purple-500',
-      medium: 'bg-warning/10 text-warning',
-      low: 'bg-muted text-muted-foreground',
-    };
-    return (
-      <Badge variant="outline" className={cn('text-xs', colors[confidence as keyof typeof colors])}>
-        {confidence} confidence
-      </Badge>
-    );
-  };
-
-  const getCategoryIcon = (category?: string) => {
-    switch (category) {
-      case 'risk': return <AlertTriangle className="w-4 h-4 text-destructive" />;
-      case 'opportunity': return <Lightbulb className="w-4 h-4 text-orange-500" />;
-      case 'market': return <RefreshCw className="w-4 h-4 text-primary" />;
-      default: return <Lightbulb className="w-4 h-4 text-muted-foreground" />;
-    }
+  const formatDuration = (seconds?: number) => {
+    if (!seconds) return '';
+    const mins = Math.floor(seconds / 60);
+    return `${mins} min`;
   };
 
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="max-w-3xl mx-auto px-6 py-8">
+        <div className="max-w-3xl mx-auto px-8 py-8">
           <Skeleton className="h-6 w-16 mb-6" />
           <Skeleton className="h-8 w-64 mb-2" />
           <Skeleton className="h-5 w-48 mb-8" />
           <div className="space-y-6">
-            <Skeleton className="h-32" />
-            <Skeleton className="h-48" />
-            <Skeleton className="h-24" />
+            <Skeleton className="h-32 rounded-2xl" />
+            <Skeleton className="h-48 rounded-2xl" />
+            <Skeleton className="h-24 rounded-2xl" />
           </div>
         </div>
       </DashboardLayout>
@@ -280,66 +259,89 @@ export default function MeetingDetail() {
   if (!meeting) {
     return (
       <DashboardLayout>
-        <div className="max-w-3xl mx-auto px-6 py-8">
-          <p className="text-muted-foreground">Meeting not found</p>
+        <div className="max-w-3xl mx-auto px-8 py-8">
+          <p style={{ color: '#A8A29E' }}>Meeting not found</p>
         </div>
       </DashboardLayout>
     );
   }
 
-  const formatDuration = (seconds?: number) => {
-    if (!seconds) return '';
-    const mins = Math.floor(seconds / 60);
-    return `${mins} min`;
-  };
+  const actionItemCount = insights?.action_items?.length || 0;
+
+  const tabs = [
+    { id: 'summary', label: 'Summary', icon: <Zap size={14} /> },
+    { id: 'actions', label: `Actions (${actionItemCount})`, icon: <CheckCircle2 size={14} /> },
+    { id: 'transcript', label: 'Transcript', icon: <FileText size={14} /> },
+  ];
 
   return (
     <DashboardLayout>
-      <div className="max-w-3xl mx-auto px-6 py-8">
-        {/* Back button */}
-        <div className="flex items-center justify-between mb-6">
-          <Link to="/dashboard" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-orange-400">
-            <ArrowLeft className="w-4 h-4" />
-            Back
+      <div className="max-w-3xl mx-auto px-8 py-8">
+        {/* Header */}
+        <div className="mb-6">
+          <Link 
+            to="/dashboard" 
+            className="inline-flex items-center gap-1 text-[13px] mb-3 transition-colors"
+            style={{ color: '#A8A29E' }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = '#FB923C')}
+            onMouseLeave={(e) => (e.currentTarget.style.color = '#A8A29E')}
+          >
+            <ChevronRight size={14} style={{ transform: 'rotate(180deg)' }} /> Back to meetings
           </Link>
-          
-          <div className="flex items-center gap-2">
-            {/* Send to Slack button */}
-            {insights && (
-              <Button variant="outline" size="sm" onClick={() => setSlackDialogOpen(true)}>
-                <Send className="w-4 h-4 mr-1" />
-                Send to Slack
-              </Button>
-            )}
-            
-            {/* Delete button */}
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-destructive">
-                  <Trash2 className="w-4 h-4 mr-1" />
-                  Delete
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Delete Meeting</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This will permanently delete this meeting, including its transcript, insights, and audio recording. This action cannot be undone.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction 
-                    onClick={handleDelete}
-                    disabled={deleting}
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  >
-                    {deleting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                    Delete
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+
+          <div className="flex items-start justify-between flex-wrap gap-3">
+            <div>
+              <h1 
+                className="text-2xl font-semibold text-foreground mb-2"
+                style={{ fontFamily: 'Outfit, sans-serif', letterSpacing: '-0.02em' }}
+              >
+                {meeting.title}
+              </h1>
+              <div className="flex gap-2 items-center flex-wrap">
+                <StatusBadge status={meeting.status || 'scheduled'} />
+                <SourceBadge source={meeting.source || 'manual'} />
+                <span style={{ padding: '3px 10px', borderRadius: 100, fontSize: 11, fontWeight: 600, color: '#A8A29E', background: 'rgba(168,168,168,0.1)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <Globe size={11} /> {meeting.language || 'English'}
+                </span>
+                <span className="text-[13px]" style={{ color: '#78716C' }}>
+                  {format(new Date(meeting.start_time), 'MMMM d, yyyy')} at {format(new Date(meeting.start_time), 'h:mm a')}
+                  {meeting.duration_seconds ? ` · ${formatDuration(meeting.duration_seconds)}` : ''}
+                </span>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              {insights && (
+                <button
+                  onClick={() => setSlackDialogOpen(true)}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-[10px] text-[13px] font-medium transition-colors"
+                  style={{ background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.15)', color: '#FB923C' }}
+                >
+                  <Send size={14} /> Send to Slack
+                </button>
+              )}
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <button className="flex items-center gap-1.5 px-4 py-2 rounded-[10px] text-[13px] font-medium transition-colors" style={{ color: '#A8A29E' }}>
+                    <Trash2 size={14} /> Delete
+                  </button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete Meeting</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently delete this meeting, including its transcript, insights, and audio recording. This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDelete} disabled={deleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                      {deleting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                      Delete
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
           </div>
         </div>
 
@@ -353,274 +355,330 @@ export default function MeetingDetail() {
           onSend={handleSendToSlack}
         />
 
-        {/* Title */}
-        <h1 className="text-2xl font-semibold text-foreground mb-2">{meeting.title}</h1>
-        
-        {/* Metadata */}
-        <div className="flex items-center gap-4 text-sm text-muted-foreground mb-6">
-          <span className="flex items-center gap-1.5">
-            <Calendar className="w-4 h-4" />
-            {format(new Date(meeting.start_time), 'MMMM d, yyyy · h:mm a')}
-          </span>
-          {meeting.duration_seconds && (
-            <span className="flex items-center gap-1.5">
-              <Clock className="w-4 h-4" />
-              {formatDuration(meeting.duration_seconds)}
-            </span>
-          )}
-          <span className={cn(
-            'status-dot',
-            meeting.status
-          )} />
-          <span className="capitalize">{meeting.status}</span>
-        </div>
-
-        {/* Attendees */}
-        {attendees.length > 0 && (
-          <div className="mb-8 p-4 rounded-lg bg-card border border-border overflow-hidden relative">
-            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-orange-500 to-amber-500" />
-            <div className="flex items-center gap-2 mb-3 mt-1">
-              <Users className="w-4 h-4 text-muted-foreground" />
-              <span className="text-sm font-medium text-foreground">
-                {attendees.length} Participant{attendees.length !== 1 ? 's' : ''}
-              </span>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {attendees.map((attendee, i) => (
-                <div 
-                  key={i}
-                  className="flex items-center gap-2 px-2 py-1 rounded-full bg-secondary border border-border"
-                >
-                  <Avatar className="w-6 h-6">
-                    <AvatarFallback className="text-xs bg-orange-500/10 text-orange-500">
-                      {getInitials(attendee.displayName, attendee.email)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="text-sm text-foreground">
-                    {attendee.displayName || attendee.email}
-                  </span>
-                  {attendee.organizer && (
-                    <span className="text-xs text-muted-foreground">(organizer)</span>
-                  )}
-                </div>
-              ))}
-            </div>
+        {/* Stats row */}
+        {insights && (
+          <div className="grid grid-cols-4 gap-3 mb-6">
+            {[
+              { label: 'Speakers', value: attendees.length || '—', icon: <Users size={16} style={{ color: '#3B82F6' }} /> },
+              { label: 'Action Items', value: actionItemCount, icon: <CheckCircle2 size={16} style={{ color: '#22C55E' }} /> },
+              { label: 'Decisions', value: insights.decisions?.length || 0, icon: <Zap size={16} style={{ color: '#FB923C' }} /> },
+              { label: 'Risks', value: insights.risks?.length || 0, icon: <AlertTriangle size={16} style={{ color: (insights.risks?.length || 0) > 0 ? '#EF4444' : '#78716C' }} /> },
+            ].map((s, i) => (
+              <ProtoCard key={i} style={{ textAlign: 'center', padding: 16 }}>
+                <div className="mb-1.5">{s.icon}</div>
+                <div className="text-[22px] font-bold text-foreground" style={{ fontFamily: 'Outfit, sans-serif' }}>{s.value}</div>
+                <div className="text-xs" style={{ color: '#78716C' }}>{s.label}</div>
+              </ProtoCard>
+            ))}
           </div>
         )}
 
         {/* Content */}
         {insights ? (
-          <div className="space-y-8">
-            {/* Executive Summary */}
-            <section className="doc-section">
-              <h2 className="doc-section-title">📝 Executive Summary</h2>
-              <p className="doc-content">{insights.summary_short}</p>
-              {insights.summary_detailed && (
-                <p className="doc-content mt-3 text-muted-foreground text-sm">{insights.summary_detailed}</p>
+          <div>
+            {/* Tabs */}
+            <div className="flex gap-1 mb-5" style={{ borderBottom: '1px solid #292524' }}>
+              {tabs.map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className="flex items-center gap-1.5 px-4 py-2.5 text-[13px] font-medium transition-all"
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: activeTab === tab.id ? '#FB923C' : '#78716C',
+                    borderBottom: `2px solid ${activeTab === tab.id ? '#F97316' : 'transparent'}`,
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  {tab.icon} {tab.label}
+                </button>
+              ))}
+
+              {/* Language selector */}
+              {activeTab === 'summary' && (
+                <div className="ml-auto flex items-center gap-1.5 pb-1">
+                  <Languages size={14} style={{ color: '#78716C' }} />
+                  <select
+                    value={summaryLang}
+                    onChange={e => setSummaryLang(e.target.value)}
+                    className="text-xs py-1.5 px-2.5 rounded-lg outline-none"
+                    style={{ background: '#1C1917', border: '1px solid #292524', color: '#FAFAF9', fontFamily: 'inherit' }}
+                  >
+                    {['English', 'Hindi', 'Tamil', 'Telugu', 'Bengali', 'Kannada', 'Marathi', 'Malayalam', 'Gujarati', 'Punjabi'].map(l => (
+                      <option key={l} value={l}>{l}</option>
+                    ))}
+                  </select>
+                </div>
               )}
-            </section>
+            </div>
 
-            {/* Strategic Insights */}
-            {insights.strategic_insights && insights.strategic_insights.length > 0 && (
-              <section className="doc-section">
-                <h2 className="doc-section-title">🧠 Strategic Insights</h2>
-                <div className="space-y-3">
-                  {(insights.strategic_insights as StrategicInsight[]).map((item, i) => (
-                    <div key={i} className="flex items-start gap-3 p-3 rounded-lg bg-secondary/50 border border-border">
-                      {getCategoryIcon(item.category)}
-                      <p className="doc-content flex-1">{item.insight}</p>
-                      <Badge variant="outline" className="text-xs capitalize">
-                        {item.category || 'insight'}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {/* Speaker Highlights */}
-            {insights.speaker_highlights && insights.speaker_highlights.length > 0 && (
-              <section className="doc-section">
-                <h2 className="doc-section-title">💬 Speaker Highlights</h2>
-                <div className="space-y-3">
-                  {(insights.speaker_highlights as SpeakerHighlight[]).map((item, i) => (
-                    <div key={i} className="p-3 rounded-lg bg-card border border-border">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium text-foreground">{item.speaker}</span>
-                      </div>
-                      <p className="doc-content text-foreground">{item.highlight}</p>
-                      <p className="text-sm text-muted-foreground mt-1">→ {item.context}</p>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {/* Key Points */}
-            {insights.key_points && insights.key_points.length > 0 && (
-              <section className="doc-section">
-                <h2 className="doc-section-title">🎯 Key Points</h2>
-                <ul className="space-y-2">
-                  {insights.key_points.map((point: string, i: number) => (
-                    <li key={i} className="flex items-start gap-2 doc-content">
-                      <span className="w-1.5 h-1.5 rounded-full bg-orange-500 mt-2 flex-shrink-0" />
-                      {point}
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            )}
-
-            {/* Action Items */}
-            {insights.action_items && insights.action_items.length > 0 && (
-              <section className="doc-section">
-                <h2 className="doc-section-title">✅ Action Items</h2>
-                <div className="space-y-3">
-                  {(insights.action_items as ActionItem[]).map((item, i) => (
-                    <div key={i} className="action-item p-3 rounded-lg bg-card border border-border">
-                      <div className="flex items-start gap-3">
-                        <Checkbox id={`action-${i}`} className="action-item-checkbox mt-1" />
-                        <div className="flex-1">
-                          <label htmlFor={`action-${i}`} className="action-item-text cursor-pointer block font-medium">
-                            {typeof item === 'string' ? item : item.task}
-                          </label>
-                          <div className="flex flex-wrap items-center gap-2 mt-2">
-                            {item.owner && (
-                              <Badge variant="secondary" className="text-xs">
-                                → {item.owner}
-                              </Badge>
-                            )}
-                            {item.priority && (
-                              <Badge variant="outline" className={cn('text-xs', getPriorityColor(item.priority))}>
-                                {item.priority}
-                              </Badge>
-                            )}
-                            {getConfidenceBadge(item.confidence)}
-                          </div>
-                          {item.outcome && (
-                            <p className="text-sm text-muted-foreground mt-2">
-                              Expected outcome: {item.outcome}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {/* Decisions */}
-            {insights.decisions && insights.decisions.length > 0 && (
-              <section className="doc-section">
-                <h2 className="doc-section-title">📋 Decisions & Commitments</h2>
-                <ul className="space-y-2">
-                  {insights.decisions.map((decision: string, i: number) => (
-                    <li key={i} className="flex items-start gap-2 doc-content">
-                      <span className="w-1.5 h-1.5 rounded-full bg-warning mt-2 flex-shrink-0" />
-                      {decision}
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            )}
-
-            {/* Risks & Open Questions */}
-            {((insights.risks && insights.risks.length > 0) || (insights.open_questions && insights.open_questions.length > 0)) && (
-              <section className="doc-section">
-                <h2 className="doc-section-title">⚠️ Risks & Open Questions</h2>
-                <div className="space-y-3">
-                  {insights.risks?.map((risk: string, i: number) => (
-                    <div key={`risk-${i}`} className="flex items-start gap-3 p-3 rounded-lg bg-destructive/5 border border-destructive/20">
-                      <AlertTriangle className="w-4 h-4 text-destructive mt-0.5 flex-shrink-0" />
-                      <p className="doc-content">{risk}</p>
-                    </div>
-                  ))}
-                  {insights.open_questions?.map((question: string, i: number) => (
-                    <div key={`question-${i}`} className="flex items-start gap-3 p-3 rounded-lg bg-warning/5 border border-warning/20">
-                      <HelpCircle className="w-4 h-4 text-warning mt-0.5 flex-shrink-0" />
-                      <p className="doc-content">{question}</p>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {/* Follow-Ups */}
-            {insights.follow_ups && insights.follow_ups.length > 0 && (
-              <section className="doc-section">
-                <h2 className="doc-section-title">🔁 Follow-Ups & Next Touchpoints</h2>
-                <div className="space-y-2">
-                  {(insights.follow_ups as FollowUp[]).map((item, i) => (
-                    <div key={i} className="flex items-start gap-3 p-3 rounded-lg bg-card border border-border">
-                      <RefreshCw className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                      <div className="flex-1">
-                        <p className="doc-content">{item.description}</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          {item.assignee && (
-                            <Badge variant="secondary" className="text-xs">
-                              → {item.assignee}
-                            </Badge>
-                          )}
-                          {item.type && (
-                            <Badge variant="outline" className="text-xs capitalize">
-                              {item.type}
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {/* Transcript (collapsible) */}
-            {transcript && (
-              <Collapsible open={transcriptOpen} onOpenChange={setTranscriptOpen}>
-                <CollapsibleTrigger className="collapsible-trigger">
-                  <ChevronRight className="w-4 h-4" />
-                  <span className="text-xs font-semibold uppercase tracking-wider">Full Transcript</span>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="mt-4">
-                  {speakerSegments.length > 0 ? (
-                    <div className="space-y-3">
-                      {speakerSegments.map((seg, i) => {
-                        const prevSpeaker = i > 0 ? speakerSegments[i - 1].speaker : null;
-                        const isNewSpeaker = seg.speaker !== prevSpeaker;
-                        return (
-                          <div key={i} className={cn(isNewSpeaker && i > 0 && "pt-2")}>
-                            {isNewSpeaker && (
-                              <span className="text-xs font-semibold text-orange-400 uppercase tracking-wide">
-                                {seg.speaker}
-                              </span>
-                            )}
-                            <p className="doc-content text-muted-foreground mt-0.5">
-                              {seg.text}
-                            </p>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <p className="doc-content whitespace-pre-wrap text-muted-foreground">
-                      {transcript.content}
+            {/* ═══ SUMMARY TAB ═══ */}
+            {activeTab === 'summary' && (
+              <div className="space-y-4">
+                {/* Executive Summary */}
+                <ProtoCard>
+                  <GradientBar />
+                  <h3 className="text-[15px] font-semibold text-foreground mb-2" style={{ fontFamily: 'Outfit, sans-serif' }}>
+                    Executive Summary
+                  </h3>
+                  <p className="text-sm leading-relaxed" style={{ color: '#A8A29E' }}>
+                    {insights.summary_short}
+                  </p>
+                  {insights.summary_detailed && (
+                    <p className="text-sm leading-relaxed mt-3" style={{ color: '#78716C' }}>
+                      {insights.summary_detailed}
                     </p>
                   )}
-                </CollapsibleContent>
-              </Collapsible>
+                </ProtoCard>
+
+                {/* Key Decisions */}
+                {insights.decisions && insights.decisions.length > 0 && (
+                  <ProtoCard>
+                    <h3 className="text-[15px] font-semibold text-foreground mb-3 flex items-center gap-2" style={{ fontFamily: 'Outfit, sans-serif' }}>
+                      <Zap size={16} style={{ color: '#FB923C' }} /> Key Decisions
+                    </h3>
+                    {insights.decisions.map((d: string, i: number) => (
+                      <div key={i} className="flex gap-2 text-sm" style={{ padding: '8px 0', borderTop: i > 0 ? '1px solid #292524' : 'none', color: '#A8A29E' }}>
+                        <span className="text-xs font-semibold min-w-[20px]" style={{ color: '#FB923C' }}>{i + 1}.</span> {d}
+                      </div>
+                    ))}
+                  </ProtoCard>
+                )}
+
+                {/* Strategic Insights */}
+                {insights.strategic_insights && insights.strategic_insights.length > 0 && (
+                  <ProtoCard>
+                    <h3 className="text-[15px] font-semibold text-foreground mb-3 flex items-center gap-2" style={{ fontFamily: 'Outfit, sans-serif' }}>
+                      <Lightbulb size={16} style={{ color: '#F59E0B' }} /> Strategic Insights
+                    </h3>
+                    <div className="space-y-3">
+                      {(insights.strategic_insights as StrategicInsight[]).map((item, i) => (
+                        <div key={i} className="flex items-start gap-3 p-3 rounded-xl" style={{ background: 'rgba(249,115,22,0.04)', border: '1px solid #292524' }}>
+                          <p className="text-sm flex-1" style={{ color: '#A8A29E' }}>{item.insight}</p>
+                          <span className="text-xs px-2 py-0.5 rounded-full capitalize" style={{ background: 'rgba(168,168,168,0.08)', color: '#78716C' }}>
+                            {item.category || 'insight'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </ProtoCard>
+                )}
+
+                {/* Key Points */}
+                {insights.key_points && insights.key_points.length > 0 && (
+                  <ProtoCard>
+                    <h3 className="text-[15px] font-semibold text-foreground mb-3" style={{ fontFamily: 'Outfit, sans-serif' }}>
+                      🎯 Key Points
+                    </h3>
+                    <ul className="space-y-2">
+                      {insights.key_points.map((point: string, i: number) => (
+                        <li key={i} className="flex items-start gap-2 text-sm" style={{ color: '#A8A29E' }}>
+                          <span className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0" style={{ background: '#F97316' }} />
+                          {point}
+                        </li>
+                      ))}
+                    </ul>
+                  </ProtoCard>
+                )}
+
+                {/* Risks */}
+                {insights.risks && insights.risks.length > 0 && (
+                  <ProtoCard style={{ borderColor: 'rgba(239,68,68,0.2)' }}>
+                    <h3 className="text-[15px] font-semibold mb-3 flex items-center gap-2" style={{ fontFamily: 'Outfit, sans-serif', color: '#EF4444' }}>
+                      <AlertTriangle size={16} /> Risk Flags
+                    </h3>
+                    {insights.risks.map((r: string, i: number) => (
+                      <div key={i} className="text-sm leading-relaxed" style={{ color: '#A8A29E' }}>{r}</div>
+                    ))}
+                  </ProtoCard>
+                )}
+
+                {/* Open Questions */}
+                {insights.open_questions && insights.open_questions.length > 0 && (
+                  <ProtoCard>
+                    <h3 className="text-[15px] font-semibold text-foreground mb-3 flex items-center gap-2" style={{ fontFamily: 'Outfit, sans-serif' }}>
+                      <HelpCircle size={16} style={{ color: '#F59E0B' }} /> Open Questions
+                    </h3>
+                    {insights.open_questions.map((q: string, i: number) => (
+                      <div key={i} className="flex items-start gap-3 p-3 rounded-xl" style={{ background: 'rgba(245,158,11,0.04)', border: '1px solid rgba(245,158,11,0.15)' }}>
+                        <HelpCircle size={14} className="mt-0.5 flex-shrink-0" style={{ color: '#F59E0B' }} />
+                        <p className="text-sm" style={{ color: '#A8A29E' }}>{q}</p>
+                      </div>
+                    ))}
+                  </ProtoCard>
+                )}
+
+                {/* Follow-Ups */}
+                {insights.follow_ups && insights.follow_ups.length > 0 && (
+                  <ProtoCard>
+                    <h3 className="text-[15px] font-semibold text-foreground mb-3 flex items-center gap-2" style={{ fontFamily: 'Outfit, sans-serif' }}>
+                      <RefreshCw size={16} style={{ color: '#3B82F6' }} /> Follow-Ups
+                    </h3>
+                    <div className="space-y-2">
+                      {(insights.follow_ups as FollowUp[]).map((item, i) => (
+                        <div key={i} className="flex items-start gap-3 p-3 rounded-xl" style={{ background: '#1C1917', border: '1px solid #292524' }}>
+                          <RefreshCw size={14} className="mt-0.5 flex-shrink-0" style={{ color: '#3B82F6' }} />
+                          <div className="flex-1">
+                            <p className="text-sm" style={{ color: '#A8A29E' }}>{item.description}</p>
+                            <div className="flex items-center gap-2 mt-1.5">
+                              {item.assignee && (
+                                <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(168,168,168,0.08)', color: '#A8A29E' }}>
+                                  → {item.assignee}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </ProtoCard>
+                )}
+
+                {/* Speakers */}
+                {attendees.length > 0 && (
+                  <ProtoCard>
+                    <h3 className="text-[15px] font-semibold text-foreground mb-3 flex items-center gap-2" style={{ fontFamily: 'Outfit, sans-serif' }}>
+                      <Users size={16} style={{ color: '#3B82F6' }} /> Speakers
+                    </h3>
+                    <div className="flex gap-2 flex-wrap">
+                      {attendees.map((a, i) => (
+                        <div key={i} className="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-[13px]" style={{ background: 'rgba(59,130,246,0.08)', color: '#FAFAF9' }}>
+                          <div 
+                            className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-semibold text-white"
+                            style={{ background: 'linear-gradient(135deg, #F97316, #F59E0B)' }}
+                          >
+                            {getInitials(a.displayName, a.email)}
+                          </div>
+                          {a.displayName || a.email}
+                          {a.organizer && <span className="text-[11px]" style={{ color: '#78716C' }}>(organizer)</span>}
+                        </div>
+                      ))}
+                    </div>
+                  </ProtoCard>
+                )}
+
+                {/* Speaker Highlights */}
+                {insights.speaker_highlights && insights.speaker_highlights.length > 0 && (
+                  <ProtoCard>
+                    <h3 className="text-[15px] font-semibold text-foreground mb-3 flex items-center gap-2" style={{ fontFamily: 'Outfit, sans-serif' }}>
+                      💬 Speaker Highlights
+                    </h3>
+                    <div className="space-y-3">
+                      {(insights.speaker_highlights as SpeakerHighlight[]).map((item, i) => (
+                        <div key={i} className="p-3 rounded-xl" style={{ border: '1px solid #292524' }}>
+                          <span className="font-medium text-foreground text-sm">{item.speaker}</span>
+                          <p className="text-sm text-foreground mt-1">{item.highlight}</p>
+                          <p className="text-xs mt-1" style={{ color: '#78716C' }}>→ {item.context}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </ProtoCard>
+                )}
+              </div>
+            )}
+
+            {/* ═══ ACTIONS TAB ═══ */}
+            {activeTab === 'actions' && (
+              <div className="space-y-2">
+                {insights.action_items && (insights.action_items as ActionItem[]).map((item, i) => (
+                  <ProtoCard key={i} style={{ padding: 16 }}>
+                    <div className="flex items-center gap-3">
+                      <div 
+                        className="w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0"
+                        style={{ border: `2px solid ${item.done ? '#22C55E' : '#292524'}`, background: item.done ? '#22C55E' : 'transparent' }}
+                      >
+                        {item.done && <CheckCircle2 size={12} color="#fff" />}
+                      </div>
+                      <div className="flex-1">
+                        <div className={cn("text-sm", item.done && "line-through")} style={{ color: item.done ? '#78716C' : '#FAFAF9' }}>
+                          {typeof item === 'string' ? item : item.task}
+                        </div>
+                        {item.owner && (
+                          <div className="text-xs mt-0.5" style={{ color: '#78716C' }}>Assigned to {item.owner}</div>
+                        )}
+                      </div>
+                      {item.owner && (
+                        <span style={{ padding: '3px 10px', borderRadius: 100, fontSize: 11, fontWeight: 600, color: '#A8A29E', background: 'rgba(168,168,168,0.1)' }}>
+                          {item.owner}
+                        </span>
+                      )}
+                      {item.priority && (
+                        <Badge variant="outline" className={cn('text-xs', getPriorityColor(item.priority))}>
+                          {item.priority}
+                        </Badge>
+                      )}
+                    </div>
+                  </ProtoCard>
+                ))}
+                {(!insights.action_items || insights.action_items.length === 0) && (
+                  <ProtoCard style={{ textAlign: 'center', padding: 40 }}>
+                    <CheckCircle2 size={32} style={{ color: '#78716C', margin: '0 auto 12px' }} />
+                    <p className="text-sm" style={{ color: '#78716C' }}>No action items for this meeting</p>
+                  </ProtoCard>
+                )}
+              </div>
+            )}
+
+            {/* ═══ TRANSCRIPT TAB ═══ */}
+            {activeTab === 'transcript' && (
+              <div>
+                {speakerSegments.length > 0 ? speakerSegments.map((seg, i) => {
+                  const prevSpeaker = i > 0 ? speakerSegments[i - 1].speaker : null;
+                  const isNewSpeaker = seg.speaker !== prevSpeaker;
+                  return (
+                    <div key={i} className="flex gap-3 py-3" style={{ borderBottom: '1px solid #292524' }}>
+                      {isNewSpeaker ? (
+                        <div 
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold text-white flex-shrink-0"
+                          style={{ background: 'linear-gradient(135deg, #F97316, #F59E0B)' }}
+                        >
+                          {seg.speaker[0]}
+                        </div>
+                      ) : (
+                        <div className="w-8 flex-shrink-0" />
+                      )}
+                      <div>
+                        {isNewSpeaker && (
+                          <div className="flex gap-2 items-center mb-1">
+                            <span className="text-[13px] font-medium text-foreground">{seg.speaker}</span>
+                            {seg.start !== undefined && (
+                              <span className="text-[11px] font-mono" style={{ color: '#78716C' }}>
+                                {Math.floor((seg.start || 0) / 60)}:{String(Math.floor((seg.start || 0) % 60)).padStart(2, '0')}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        <p className="text-sm leading-relaxed" style={{ color: '#A8A29E' }}>{seg.text}</p>
+                      </div>
+                    </div>
+                  );
+                }) : transcript ? (
+                  <p className="text-sm whitespace-pre-wrap leading-relaxed" style={{ color: '#A8A29E' }}>
+                    {transcript.content}
+                  </p>
+                ) : (
+                  <ProtoCard style={{ textAlign: 'center', padding: 40 }}>
+                    <FileText size={32} style={{ color: '#78716C', margin: '0 auto 12px' }} />
+                    <p className="text-sm" style={{ color: '#78716C' }}>Transcript will appear here after processing</p>
+                  </ProtoCard>
+                )}
+              </div>
             )}
           </div>
         ) : meeting.status === 'processing' ? (
-          <div className="empty-state">
-            <Loader2 className="empty-state-icon animate-spin" />
-            <p className="empty-state-title">Processing meeting...</p>
-            <p className="empty-state-description">AI is analyzing your recording. This usually takes a few minutes.</p>
+          <div className="text-center py-16">
+            <Loader2 className="w-12 h-12 mx-auto mb-4 animate-spin" style={{ color: '#78716C' }} />
+            <p className="text-base font-medium text-foreground mb-1">Processing meeting...</p>
+            <p className="text-sm max-w-sm mx-auto" style={{ color: '#A8A29E' }}>
+              AI is analyzing your recording. This usually takes a few minutes.
+            </p>
           </div>
         ) : (
-          <div className="empty-state">
-            <p className="empty-state-title">No insights available</p>
-            <p className="empty-state-description">This meeting hasn't been processed yet.</p>
+          <div className="text-center py-16">
+            <p className="text-base font-medium text-foreground mb-1">No insights available</p>
+            <p className="text-sm" style={{ color: '#A8A29E' }}>This meeting hasn't been processed yet.</p>
           </div>
         )}
       </div>

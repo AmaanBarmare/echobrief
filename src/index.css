@@ -77,32 +77,32 @@
   }
 
   .dark {
-    /* Dark Mode - GitHub/Linear inspired: #0D1117 base */
+    /* Dark Mode - Warm Ember / Stone palette */
     
-    /* Background (App): #0D1117 -> hsl(215, 28%, 7%) */
-    --background: 215 28% 7%;
-    /* Primary Text: #E6EDF3 -> hsl(210, 25%, 93%) */
-    --foreground: 210 25% 93%;
+    /* Background (App): #0C0A09 Stone-950 */
+    --background: 20 14% 4%;
+    /* Primary Text: #FAFAF9 Stone-50 */
+    --foreground: 60 9% 98%;
 
-    /* Surface / Cards: #161B22 -> hsl(215, 19%, 11%) */
-    --card: 215 19% 11%;
-    --card-foreground: 210 25% 93%;
+    /* Surface / Cards: #1C1917 Stone-900 */
+    --card: 24 10% 10%;
+    --card-foreground: 60 9% 98%;
 
-    --popover: 215 19% 11%;
-    --popover-foreground: 210 25% 93%;
+    --popover: 24 10% 10%;
+    --popover-foreground: 60 9% 98%;
 
     /* Primary text */
-    --primary: 210 25% 93%;
-    --primary-foreground: 215 28% 7%;
+    --primary: 60 9% 98%;
+    --primary-foreground: 20 14% 4%;
 
-    /* Hover Surface: #1F2630 -> hsl(215, 20%, 15%) */
-    --secondary: 215 20% 15%;
-    --secondary-foreground: 210 25% 93%;
+    /* Hover Surface: #292524 Stone-800 */
+    --secondary: 12 6% 15%;
+    --secondary-foreground: 60 9% 98%;
 
     /* Muted backgrounds */
-    --muted: 215 20% 15%;
-    /* Secondary Text: #9BA4AE -> hsl(212, 10%, 64%) */
-    --muted-foreground: 212 10% 64%;
+    --muted: 12 6% 15%;
+    /* Secondary Text: #A8A29E Stone-400 */
+    --muted-foreground: 30 4% 64%;
 
     /* Accent - Warm Ember Orange (#F97316) */
     --accent: 24 95% 53%;
@@ -111,28 +111,28 @@
     --recording: 0 65% 50%;
     --recording-foreground: 0 0% 100%;
 
-    --success: 142 52% 45%;
+    --success: 142 71% 45%;
     --success-foreground: 0 0% 100%;
 
-    --warning: 38 80% 50%;
+    --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
 
-    --destructive: 0 63% 45%;
+    --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    /* Borders / Dividers: #2A2F36 -> hsl(215, 13%, 19%) */
-    --border: 215 13% 19%;
-    --input: 215 13% 19%;
+    /* Borders / Dividers: #292524 Stone-800 */
+    --border: 12 6% 15%;
+    --input: 12 6% 15%;
     --ring: 24 95% 53%;
 
-    /* Sidebar - Same as app background for cohesion */
-    --sidebar-background: 215 28% 7%;
-    --sidebar-foreground: 210 25% 93%;
+    /* Sidebar */
+    --sidebar-background: 20 14% 4%;
+    --sidebar-foreground: 60 9% 98%;
     --sidebar-primary: 24 95% 53%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 215 20% 15%;
-    --sidebar-accent-foreground: 210 25% 93%;
-    --sidebar-border: 215 13% 19%;
+    --sidebar-accent: 12 6% 15%;
+    --sidebar-accent-foreground: 60 9% 98%;
+    --sidebar-border: 12 6% 15%;
     --sidebar-ring: 24 95% 53%;
   }
 }
@@ -198,11 +198,15 @@
 
   /* List row - clean, minimal */
   .list-row {
-    @apply flex items-center gap-3 py-3 px-3 -mx-3 rounded-md transition-colors duration-150 cursor-pointer;
+    @apply flex items-center gap-3 py-3 px-4 rounded-2xl transition-all duration-200 cursor-pointer;
+    background: #1C1917;
+    border: 1px solid #292524;
   }
 
   .list-row:hover {
-    @apply bg-secondary;
+    background: #292524;
+    border-color: #44403C;
+    transform: translateY(-1px);
   }
 
   .list-row.active {
@@ -245,12 +249,13 @@
   }
 
   .nav-item.active {
-    @apply text-white;
-    background-color: #F97316;
+    color: #FB923C;
+    background-color: rgba(249, 115, 22, 0.08);
   }
 
   .nav-item.active:hover {
-    background-color: #EA6C0A;
+    color: #FB923C;
+    background-color: rgba(249, 115, 22, 0.12);
   }
 
   /* Document section - Notion blocks style */
@@ -353,7 +358,8 @@
 
   /* Glass card - works in both light and dark mode */
   .glass-card-liquid {
-    @apply bg-card border border-border rounded-lg;
+    @apply bg-card border border-border;
+    border-radius: 16px;
   }
 
   .glass-card-liquid:hover {
@@ -532,5 +538,28 @@
 
   .transcript-segment:hover {
     @apply bg-secondary/30 -mx-3 px-3 rounded-md border-transparent;
+  }
+
+  /* Scrollbar - matches prototype */
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #44403C;
+    border-radius: 3px;
+  }
+
+  /* Input placeholder color for dark mode */
+  .dark input::placeholder {
+    color: #78716C;
+  }
+
+  /* Select option backgrounds for dark mode */
+  .dark select option {
+    background: #1C1917;
+    color: #FAFAF9;
   }
 }

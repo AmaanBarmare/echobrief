@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { Logo } from '@/components/ui/Logo';
 
 export function Navbar() {
   return (
@@ -15,22 +16,7 @@ export function Navbar() {
       <div className="mx-auto max-w-[1100px] px-6">
         <div className="flex items-center justify-between">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-[10px] no-underline" style={{ textDecoration: 'none' }}>
-            <svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true" style={{ flexShrink: 0 }}>
-              <defs>
-                <linearGradient id="nav-ng" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stopColor="#F97316" />
-                  <stop offset="100%" stopColor="#F59E0B" />
-                </linearGradient>
-              </defs>
-              <circle cx="16" cy="16" r="14" fill="none" stroke="url(#nav-ng)" strokeWidth="1.2" opacity="0.25" />
-              <circle cx="16" cy="16" r="9" fill="none" stroke="url(#nav-ng)" strokeWidth="1.2" opacity="0.55" />
-              <circle cx="16" cy="16" r="4.5" fill="url(#nav-ng)" />
-            </svg>
-            <span style={{ fontFamily: "'Outfit', sans-serif", fontWeight: 600, fontSize: '18px', color: '#FAFAF9', letterSpacing: '-0.3px' }}>
-              echo<em style={{ fontStyle: 'normal', color: '#FB923C' }}>brief</em>
-            </span>
-          </Link>
+          <Logo size="lg" linkTo="/" />
 
           {/* Nav links — hidden on mobile */}
           <div className="hidden md:flex items-center gap-7">

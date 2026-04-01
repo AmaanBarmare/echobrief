@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
-import { Sun, Moon, Search, Command } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { useTheme } from '@/contexts/ThemeContext';
+import { Search, Bell } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 import { GlobalSearch } from './GlobalSearch';
-import { cn } from '@/lib/utils';
 
 export function Header() {
-  const { theme, setTheme, resolvedTheme } = useTheme();
+  const { user } = useAuth();
   const [searchOpen, setSearchOpen] = useState(false);
+
+  const userInitial = user?.email?.[0]?.toUpperCase() || '?';
 
   // Keyboard shortcut for search (Cmd/Ctrl + K)
   useEffect(() => {
@@ -22,54 +22,36 @@ export function Header() {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const toggleTheme = () => {
-    if (theme === 'system') {
-      setTheme(resolvedTheme === 'light' ? 'dark' : 'light');
-    } else {
-      setTheme(theme === 'light' ? 'dark' : 'light');
-    }
-  };
-
   return (
     <>
-      <header className="h-12 border-b border-border bg-background flex items-center justify-between gap-2 px-4 sticky top-0 z-40">
-        {/* Logo text for narrow/collapsed sidebar contexts */}
-        <div className="flex items-center">
-          <span className="text-sm font-semibold font-heading" style={{ fontFamily: 'Outfit, sans-serif' }}>
-            <span className="text-foreground">echo</span><span className="text-orange-400">brief</span>
-          </span>
+      <header className="h-14 border-b border-border bg-background flex items-center justify-between gap-4 px-8 sticky top-0 z-40">
+        {/* Search bar */}
+        <div className="flex items-center flex-1 max-w-[360px]">
+          <div className="relative w-full">
+            <Search className="w-[15px] h-[15px] text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Search meetings, people, decisions..."
+              className="w-full py-2 pl-9 pr-3 rounded-[10px] border border-border bg-card text-foreground text-[13px] font-sans outline-none placeholder:text-muted-foreground focus:border-orange-500/40 focus:ring-1 focus:ring-orange-500/20 transition-all"
+              onFocus={() => setSearchOpen(true)}
+              readOnly
+            />
+          </div>
         </div>
-        {/* Search trigger */}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setSearchOpen(true)}
-          className="h-8 gap-2 text-muted-foreground hover:text-foreground hover:bg-secondary"
-        >
-          <Search className="w-4 h-4" />
-          <span className="hidden sm:inline text-sm">Search</span>
-          <kbd className="hidden sm:inline-flex h-5 items-center gap-1 rounded border border-border bg-muted px-1.5 text-[10px] font-medium text-muted-foreground">
-            <Command className="w-3 h-3" />K
-          </kbd>
-        </Button>
 
-        {/* Theme toggle */}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={toggleTheme}
-          className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-secondary"
-        >
-          <Sun className={cn(
-            "h-4 w-4 transition-all",
-            resolvedTheme === 'dark' ? "rotate-90 scale-0" : "rotate-0 scale-100"
-          )} />
-          <Moon className={cn(
-            "absolute h-4 w-4 transition-all",
-            resolvedTheme === 'dark' ? "rotate-0 scale-100" : "-rotate-90 scale-0"
-          )} />
-          <span className="sr-only">Toggle theme</span>
-        </Button>
+        {/* Right side: notification + avatar */}
+        <div className="flex items-center gap-3">
+          <button className="relative p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors">
+            <Bell className="w-[18px] h-[18px]" />
+            <span className="absolute top-1.5 right-1.5 w-[7px] h-[7px] rounded-full bg-orange-500" />
+          </button>
+          <div 
+            className="w-8 h-8 rounded-full flex items-center justify-center text-[13px] font-semibold text-white cursor-pointer"
+            style={{ background: 'linear-gradient(135deg, #F97316, #F59E0B)' }}
+          >
+            {userInitial}
+          </div>
+        </div>
       </header>
 
       {/* Global Search Modal */}

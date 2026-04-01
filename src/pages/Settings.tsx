@@ -435,13 +435,15 @@ export default function Settings() {
 
   return (
     <DashboardLayout>
-      <div className="p-8 max-w-4xl">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground flex items-center gap-3">
-            <Sparkles className="w-8 h-8 text-orange-500" />
+      <div className="px-8 py-8 max-w-4xl">
+        <div className="mb-6">
+          <h1 
+            className="text-[26px] font-semibold text-foreground"
+            style={{ fontFamily: 'Outfit, sans-serif', letterSpacing: '-0.02em' }}
+          >
             Settings
           </h1>
-          <p className="text-muted-foreground mt-1">
+          <p className="text-sm mt-1" style={{ color: '#A8A29E' }}>
             Manage your account and integrations
           </p>
         </div>
