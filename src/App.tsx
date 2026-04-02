@@ -17,7 +17,7 @@ import Dashboard from "./pages/Dashboard";
 import Recordings from "./pages/Recordings";
 import MeetingDetail from "./pages/MeetingDetail";
 import Settings from "./pages/Settings";
-import CalendarPage from "./pages/CalendarPolished";
+import Calendar from "./pages/Calendar";
 import ActionItems from "./pages/ActionItems";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import Terms from "./pages/Terms";
@@ -107,7 +107,7 @@ function AppRoutes() {
           path="/calendar"
           element={
             <ProtectedRoute>
-              <CalendarPage />
+              <Calendar />
             </ProtectedRoute>
           }
         />
