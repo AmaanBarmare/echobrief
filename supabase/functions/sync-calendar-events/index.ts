@@ -110,6 +110,8 @@ serve(async (req) => {
                 start_time: event.start?.dateTime || event.start?.date,
                 end_time: event.end?.dateTime || event.end?.date,
                 is_all_day: !event.start?.dateTime,
+                attendees: event.attendees ? JSON.stringify(event.attendees) : null,
+                organizer: event.organizer ? JSON.stringify(event.organizer) : null,
               }))
             );
           }
