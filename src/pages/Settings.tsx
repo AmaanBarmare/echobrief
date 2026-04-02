@@ -5,8 +5,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Loader2, Lock, Mail, Bell, LogOut } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Loader2, Lock, Mail, Bell, LogOut, X, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface Profile {
@@ -17,6 +17,14 @@ interface Profile {
   slack_connected: boolean;
   slack_channel_id: string | null;
   slack_channel_name: string | null;
+}
+
+interface GoogleCalendar {
+  id: string;
+  email: string;
+  name: string;
+  is_primary: boolean;
+  connected_at: string;
 }
 
 type SettingsTab = 'account' | 'bot' | 'integrations' | 'security';
@@ -42,6 +50,12 @@ export default function Settings() {
   const [connectingSlack, setConnectingSlack] = useState(false);
   const [slackChannelId, setSlackChannelId] = useState('');
   const [slackChannelName, setSlackChannelName] = useState('');
+  const [googleCalendars, setGoogleCalendars] = useState<GoogleCalendar[]>([]);
+
+  // Delete account
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState('');
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
@@ -118,6 +132,37 @@ export default function Settings() {
     try {
       await supabase.auth.signOut();
       toast({ title: 'Signed out', description: 'You have been signed out.' });
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmation !== 'DELETE') {
+      toast({ title: 'Error', description: 'Please type DELETE to confirm', variant: 'destructive' });
+      return;
+    }
+
+    setDeletingAccount(true);
+    try {
+      // Delete user account
+      const { error } = await supabase.auth.admin.deleteUser(user?.id || '');
+      if (error) throw error;
+
+      // Sign out
+      await supabase.auth.signOut();
+      toast({ title: 'Account deleted', description: 'Your account has been permanently deleted.' });
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } finally {
+      setDeletingAccount(false);
+    }
+  };
+
+  const handleDisconnectGoogleCalendar = async (calendarId: string) => {
+    try {
+      setGoogleCalendars(prev => prev.filter(cal => cal.id !== calendarId));
+      toast({ title: 'Disconnected', description: 'Google Calendar has been removed.' });
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     }
@@ -292,7 +337,7 @@ export default function Settings() {
           <div className="space-y-6">
             {/* Google Calendar */}
             <div style={{ background: '#1C1917', border: '1px solid #292524', borderRadius: 16, padding: 24 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1 }}>
                   {/* Google Calendar Icon */}
                   <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -305,30 +350,56 @@ export default function Settings() {
                   <div>
                     <h3 style={{ fontSize: 15, fontWeight: 600, color: '#FAFAF9', marginBottom: 4 }}>Google Calendar</h3>
                     <p style={{ fontSize: 13, color: '#78716C' }}>
-                      Automatically detect and record meetings from your calendar
+                      Connect multiple calendars to detect and record meetings
                     </p>
                   </div>
                 </div>
-                {profile?.google_calendar_connected ? (
-                  <Button
-                    onClick={handleDisconnectGoogle}
-                    style={{ background: 'transparent', border: '1px solid #292524', color: '#A8A29E' }}
-                  >
-                    Disconnect
-                  </Button>
-                ) : (
-                  <Button
-                    onClick={handleConnectGoogle}
-                    disabled={connectingGoogle}
-                    style={{ background: '#FB923C', color: 'white' }}
-                  >
-                    {connectingGoogle ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                    Connect
-                  </Button>
-                )}
+                <Button
+                  onClick={handleConnectGoogle}
+                  disabled={connectingGoogle}
+                  style={{ background: '#FB923C', color: 'white' }}
+                >
+                  {connectingGoogle ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                  Add Calendar
+                </Button>
               </div>
-              {profile?.google_calendar_connected && (
-                <p style={{ fontSize: 12, color: '#22C55E', marginTop: 12 }}>✓ Connected</p>
+
+              {googleCalendars.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {googleCalendars.map(cal => (
+                    <div
+                      key={cal.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '12px',
+                        borderRadius: 8,
+                        background: '#0C0A09',
+                        border: '1px solid #292524',
+                      }}
+                    >
+                      <div>
+                        <p style={{ fontSize: 13, color: '#FAFAF9', margin: 0 }}>{cal.name}</p>
+                        <p style={{ fontSize: 11, color: '#78716C', margin: '4px 0 0 0' }}>{cal.email}</p>
+                      </div>
+                      <button
+                        onClick={() => handleDisconnectGoogleCalendar(cal.id)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: '#EF4444',
+                          cursor: 'pointer',
+                          padding: '4px',
+                        }}
+                      >
+                        <X size={18} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p style={{ fontSize: 12, color: '#78716C' }}>No calendars connected. Add one to get started.</p>
               )}
             </div>
 
@@ -444,12 +515,73 @@ export default function Settings() {
               <p style={{ fontSize: 13, color: '#78716C', marginBottom: 16 }}>Sign out of your account on this device</p>
               <Button
                 onClick={handleSignOut}
-                style={{ background: 'transparent', border: '1px solid #EF4444', color: '#EF4444' }}
+                style={{ background: 'transparent', border: '1px solid #292524', color: '#A8A29E' }}
               >
                 <LogOut size={14} className="mr-2" />
                 Sign Out
               </Button>
             </div>
+
+            {/* Delete Account */}
+            <div style={{ background: '#1C1917', border: '1px solid #292524', borderRadius: 16, padding: 24 }}>
+              <h3 style={{ fontSize: 15, fontWeight: 600, color: '#FAFAF9', marginBottom: 8 }}>Delete Account</h3>
+              <p style={{ fontSize: 13, color: '#78716C', marginBottom: 16 }}>
+                Permanently delete your account and all associated data. This action cannot be undone.
+              </p>
+              <Button
+                onClick={() => setDeleteDialogOpen(true)}
+                style={{ background: 'transparent', border: '1px solid #EF4444', color: '#EF4444' }}
+              >
+                <Trash2 size={14} className="mr-2" />
+                Delete Account
+              </Button>
+            </div>
+
+            {/* Delete Account Confirmation Dialog */}
+            <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle style={{ color: '#EF4444' }}>Delete Account</DialogTitle>
+                  <DialogDescription style={{ color: '#78716C' }}>
+                    This will permanently delete your account, all meetings, transcripts, and data. This cannot be undone.
+                  </DialogDescription>
+                </DialogHeader>
+                <div style={{ margin: '20px 0' }}>
+                  <p style={{ fontSize: 13, color: '#FAFAF9', marginBottom: 8 }}>
+                    Type <strong>DELETE</strong> to confirm:
+                  </p>
+                  <Input
+                    value={deleteConfirmation}
+                    onChange={(e) => setDeleteConfirmation(e.target.value)}
+                    placeholder="Type DELETE"
+                    style={{ background: '#1C1917', border: '1px solid #292524', color: '#FAFAF9' }}
+                  />
+                </div>
+                <DialogFooter>
+                  <Button
+                    onClick={() => {
+                      setDeleteDialogOpen(false);
+                      setDeleteConfirmation('');
+                    }}
+                    style={{ background: 'transparent', border: '1px solid #292524', color: '#A8A29E' }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleDeleteAccount}
+                    disabled={deletingAccount || deleteConfirmation !== 'DELETE'}
+                    style={{
+                      background: '#EF4444',
+                      color: 'white',
+                      opacity: deleteConfirmation !== 'DELETE' ? 0.5 : 1,
+                    }}
+                  >
+                    {deletingAccount ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                    Delete Account
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
         )}
       </div>
