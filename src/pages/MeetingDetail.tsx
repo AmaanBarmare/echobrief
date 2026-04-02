@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { SlackDeliverySelector } from '@/components/dashboard/SlackDeliverySelector';
 import { WhatsAppDeliverySelector } from '@/components/dashboard/WhatsAppDeliverySelector';
+import { EmailReportSelector } from '@/components/dashboard/EmailReportSelector';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Meeting, Transcript, MeetingInsights, StrategicInsight, SpeakerHighlight, ActionItem, FollowUp } from '@/types/meeting';
@@ -22,7 +23,7 @@ import {
 import { 
   ArrowLeft, Calendar, Clock, Loader2, ChevronRight, Trash2, Users, Send, 
   Lightbulb, AlertTriangle, HelpCircle, RefreshCw, Zap, CheckCircle2, 
-  FileText, Globe, MessageCircle, Mail, Languages, Bot, Chrome 
+  FileText, Globe, MessageCircle, Mail, Languages, Bot, Chrome
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -100,6 +101,7 @@ export default function MeetingDetail() {
   const [slackChannelId, setSlackChannelId] = useState<string | undefined>();
   const [slackChannelName, setSlackChannelName] = useState<string | undefined>();
   const [whatsappDialogOpen, setWhatsappDialogOpen] = useState(false);
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('summary');
   const [summaryLang, setSummaryLang] = useState('English');
 
@@ -249,6 +251,27 @@ export default function MeetingDetail() {
     }
   };
 
+  const handleSendEmail = async (emailAddress: string) => {
+    if (!meeting || !user || !session?.access_token) return;
+    try {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/send-email-report`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          meeting_id: meeting.id, 
+          user_id: user.id,
+          recipient_email: emailAddress,
+        }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        toast({ title: 'Sent', description: `Report sent to ${emailAddress}` });
+      } else throw new Error(data.error || 'Failed to send');
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message || 'Failed to send email', variant: 'destructive' });
+    }
+  };
+
   const getPriorityColor = (priority?: string) => {
     switch (priority) {
       case 'high': return 'bg-destructive/10 text-destructive border-destructive/20';
@@ -333,7 +356,7 @@ export default function MeetingDetail() {
                 </span>
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               {insights && (
                 <>
                   <button
@@ -341,14 +364,21 @@ export default function MeetingDetail() {
                     className="flex items-center gap-1.5 px-4 py-2 rounded-[10px] text-[13px] font-medium transition-colors"
                     style={{ background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.15)', color: '#FB923C' }}
                   >
-                    <Send size={14} /> Send to Slack
+                    <Send size={14} /> Slack
+                  </button>
+                  <button
+                    onClick={() => setEmailDialogOpen(true)}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-[10px] text-[13px] font-medium transition-colors"
+                    style={{ background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.15)', color: '#3B82F6' }}
+                  >
+                    <Mail size={14} /> Email
                   </button>
                   <button
                     onClick={() => setWhatsappDialogOpen(true)}
                     className="flex items-center gap-1.5 px-4 py-2 rounded-[10px] text-[13px] font-medium transition-colors"
                     style={{ background: 'rgba(37, 211, 102, 0.08)', border: '1px solid rgba(37, 211, 102, 0.15)', color: '#25D366' }}
                   >
-                    <MessageCircle size={14} /> Send to WhatsApp
+                    <MessageCircle size={14} /> WhatsApp
                   </button>
                 </>
               )}
@@ -386,6 +416,15 @@ export default function MeetingDetail() {
           defaultChannel={slackChannelId}
           defaultChannelName={slackChannelName}
           onSend={handleSendToSlack}
+        />
+
+        {/* Email Report Selector */}
+        <EmailReportSelector
+          open={emailDialogOpen}
+          onOpenChange={setEmailDialogOpen}
+          meetingTitle={meeting.title}
+          userEmail={user?.email || undefined}
+          onSend={handleSendEmail}
         />
 
         {/* WhatsApp Delivery Selector */}
