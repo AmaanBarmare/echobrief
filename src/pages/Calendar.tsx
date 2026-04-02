@@ -11,12 +11,45 @@ import { useToast } from '@/hooks/use-toast';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
+function extractMeetingUrl(event: any): string | null {
+  // 1. Check conferenceData (Google Meet native)
+  if (event.conferenceData?.entryPoints) {
+    const videoEntry = event.conferenceData.entryPoints.find(
+      (e: any) => e.entryPointType === 'video'
+    );
+    if (videoEntry?.uri) return videoEntry.uri;
+  }
+
+  // 2. Check hangoutLink (older Google Meet format)
+  if (event.hangoutLink) return event.hangoutLink;
+
+  // 3. Check location field
+  if (event.location) {
+    const urlMatch = event.location.match(
+      /https?:\/\/(meet\.google\.com|zoom\.us|teams\.microsoft\.com|webex\.com)[^\s]*/i
+    );
+    if (urlMatch) return urlMatch[0];
+  }
+
+  // 4. Check description field
+  if (event.description) {
+    const urlMatch = event.description.match(
+      /https?:\/\/(meet\.google\.com|zoom\.us|teams\.microsoft\.com|webex\.com)[^\s<"]*/i
+    );
+    if (urlMatch) return urlMatch[0];
+  }
+
+  return null;
+}
+
 interface CalendarEvent {
   id: string;
   title: string;
   start_time: string;
   end_time: string;
   is_all_day: boolean;
+  meetingUrl?: string;
+  hasMeetingLink?: boolean;
 }
 
 export default function Calendar() {
@@ -66,13 +99,18 @@ export default function Calendar() {
             if (response.ok) {
               const { items } = await response.json();
               if (items) {
-                allEvents.push(...items.map((e: any) => ({
-                  id: e.id,
-                  title: e.summary || 'No title',
-                  start_time: e.start?.dateTime || e.start?.date,
-                  end_time: e.end?.dateTime || e.end?.date,
-                  is_all_day: !e.start?.dateTime,
-                })));
+                allEvents.push(...items.map((e: any) => {
+                  const meetingUrl = extractMeetingUrl(e);
+                  return {
+                    id: e.id,
+                    title: e.summary || 'No title',
+                    start_time: e.start?.dateTime || e.start?.date,
+                    end_time: e.end?.dateTime || e.end?.date,
+                    is_all_day: !e.start?.dateTime,
+                    meetingUrl,
+                    hasMeetingLink: !!meetingUrl,
+                  };
+                }));
               }
             }
           } catch (err) {
@@ -111,19 +149,10 @@ export default function Calendar() {
   }, {} as Record<string, CalendarEvent[]>);
 
   const handleRecordNow = async (event: CalendarEvent) => {
-    if (!user) return;
+    if (!user || !event.hasMeetingLink || !event.meetingUrl) return;
     setRecordingEventId(event.id);
 
     try {
-      // Extract meeting URL from event title or description
-      const urlMatch = event.title?.match(/(https:\/\/\S+)/);
-      const meetingUrl = urlMatch ? urlMatch[1] : null;
-
-      if (!meetingUrl) {
-        toast({ title: 'Error', description: 'No meeting URL found in event', variant: 'destructive' });
-        return;
-      }
-
       const { data: session } = await supabase.auth.getSession();
       if (!session?.session?.access_token) throw new Error('Not authenticated');
 
@@ -135,7 +164,7 @@ export default function Calendar() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          meeting_url: meetingUrl,
+          meeting_url: event.meetingUrl,
           user_id: user.id,
           calendar_event_id: event.id,
           title: event.title,
@@ -234,6 +263,7 @@ export default function Calendar() {
     const isEventToday = isToday(parseISO(event.start_time));
     const borderColor = isEventToday ? '#F97316' : '#78716C';
     const isRecording = recordingEventId === event.id;
+    const hasMeetingLink = event.hasMeetingLink ?? false;
 
     return (
       <div
@@ -262,34 +292,43 @@ export default function Calendar() {
           <h3 style={{ fontSize: 15, fontWeight: 600, color: '#FAFAF9', margin: 0, marginBottom: 8, fontFamily: 'Outfit, sans-serif' }}>
             {event.title}
           </h3>
-          <p style={{ fontSize: 13, color: '#A8A29E', margin: 0, fontFamily: 'DM Sans, sans-serif' }}>
-            {!event.is_all_day ? (
-              `${format(parseISO(event.start_time), 'h:mm a')} – ${format(parseISO(event.end_time), 'h:mm a')}`
-            ) : (
-              'All day'
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <p style={{ fontSize: 13, color: '#A8A29E', margin: 0, fontFamily: 'DM Sans, sans-serif' }}>
+              {!event.is_all_day ? (
+                `${format(parseISO(event.start_time), 'h:mm a')} – ${format(parseISO(event.end_time), 'h:mm a')}`
+              ) : (
+                'All day'
+              )}
+            </p>
+            {!hasMeetingLink && (
+              <p style={{ fontSize: 11, color: '#78716C', margin: 0, fontFamily: 'DM Sans, sans-serif' }}>
+                No meeting link
+              </p>
             )}
-          </p>
+          </div>
         </div>
         <button
           onClick={(e) => {
             e.stopPropagation();
-            handleRecordNow(event);
+            if (hasMeetingLink) handleRecordNow(event);
           }}
-          disabled={isRecording}
+          disabled={isRecording || !hasMeetingLink}
+          title={!hasMeetingLink ? 'No meeting link found in this event' : ''}
           style={{
-            background: '#FB923C',
-            color: 'white',
+            background: hasMeetingLink ? '#FB923C' : '#44403C',
+            color: hasMeetingLink ? 'white' : '#78716C',
             border: 'none',
             borderRadius: 6,
             padding: '8px 14px',
             fontSize: 12,
             fontWeight: 600,
-            cursor: isRecording ? 'not-allowed' : 'pointer',
+            cursor: isRecording || !hasMeetingLink ? 'not-allowed' : 'pointer',
             display: 'flex',
             alignItems: 'center',
             gap: 6,
             marginRight: 12,
-            opacity: isRecording ? 0.7 : 1,
+            opacity: isRecording || !hasMeetingLink ? 0.5 : 1,
+            transition: 'all 0.2s',
           }}
         >
           {isRecording ? <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} /> : '●'}
