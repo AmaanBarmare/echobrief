@@ -21,11 +21,44 @@ export default function Recordings() {
   const { user } = useAuth();
   const { startRecording } = useRecording();
   const navigate = useNavigate();
-  const [meetings] = useState<Meeting[]>([]);
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
-  // Hardcoded empty meetings — no state updates, no effects, no loading
+  useEffect(() => {
+    if (!user?.id) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    const timeout = setTimeout(() => {
+      console.warn('[meetings] Timeout, showing empty');
+      setLoading(false);
+      setMeetings([]);
+    }, 2000); // 2 second max wait
+
+    supabase
+      .from('meetings')
+      .select('id, title, status, created_at, start_time, duration_seconds, summary')
+      .eq('user_id', user.id)
+      .limit(50)
+      .then(({ data, error }) => {
+        clearTimeout(timeout);
+        setLoading(false);
+        if (!error) {
+          setMeetings(data || []);
+        }
+      })
+      .catch(() => {
+        clearTimeout(timeout);
+        setLoading(false);
+        setMeetings([]);
+      });
+
+    return () => clearTimeout(timeout);
+  }, [user?.id]);
 
   const filteredMeetings = meetings.filter((meeting) => {
     const matchesSearch = meeting.title.toLowerCase().includes(searchQuery.toLowerCase());
@@ -116,9 +149,9 @@ export default function Recordings() {
         {/* Stats Row — ALWAYS render, shows 0s when empty */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 16 }}>
           {[
-            { value: meetings.length, label: 'Meetings' },
-            { value: recordedTimeString, label: 'Recorded' },
-            { value: summariesCount, label: 'Summaries' },
+            { value: loading ? '—' : meetings.length, label: 'Meetings' },
+            { value: loading ? '—' : recordedTimeString, label: 'Recorded' },
+            { value: loading ? '—' : summariesCount, label: 'Summaries' },
           ].map((stat, i) => (
             <div
               key={i}
@@ -185,7 +218,7 @@ export default function Recordings() {
                 margin: 0,
               }}
             >
-              ~{timeSavedString} saved
+              {loading ? '—' : `~${timeSavedString} saved`}
             </div>
             <div style={{ fontSize: 12, color: '#78716C', marginTop: 2, fontFamily: 'DM Sans, sans-serif' }}>
               Time saved on meeting summaries with AI
@@ -195,8 +228,29 @@ export default function Recordings() {
 
         {/* Meetings List Area — changes based on state */}
 
+        {/* Loading State */}
+        {loading && (
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 12,
+            padding: '60px 20px',
+          }}>
+            <div style={{
+              width: 32,
+              height: 32,
+              borderRadius: '50%',
+              border: '2px solid #292524',
+              borderTopColor: '#F97316',
+              animation: 'spin 0.8s linear infinite',
+            }} />
+            <p style={{ color: '#78716C', fontSize: 13, fontFamily: 'DM Sans, sans-serif' }}>Loading meetings...</p>
+          </div>
+        )}
+
         {/* Empty State */}
-        {meetings.length === 0 && (
+        {!loading && meetings.length === 0 && (
           <div style={{
             display: 'flex',
             flexDirection: 'column',
@@ -267,7 +321,7 @@ export default function Recordings() {
         )}
 
         {/* Meetings List (when not empty) */}
-        {meetings.length > 0 && (
+        {!loading && meetings.length > 0 && (
           <>
             {/* Recent Meetings Label */}
             <div
