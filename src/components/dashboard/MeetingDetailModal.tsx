@@ -4,6 +4,44 @@ import { Button } from '@/components/ui/button';
 import { format, formatDistance } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 
+interface Attendee {
+  name: string;
+  email: string;
+  isOrganizer: boolean;
+  responseStatus: string;
+}
+
+const extractAttendees = (event: any): Attendee[] => {
+  // Check primary location — standard Google Calendar API
+  if (event.attendees && Array.isArray(event.attendees) && event.attendees.length > 0) {
+    return event.attendees.map((a: any) => ({
+      name: a.displayName || a.email?.split('@')[0] || 'Unknown',
+      email: a.email || '',
+      isOrganizer: a.organizer || false,
+      responseStatus: a.responseStatus || 'needsAction',
+    }));
+  }
+
+  // Fallback — check if stored as JSON string (from DB)
+  if (typeof event.attendees === 'string' && event.attendees.length > 0) {
+    try {
+      const parsed = JSON.parse(event.attendees);
+      if (Array.isArray(parsed)) {
+        return parsed.map((a: any) => ({
+          name: a.displayName || a.email?.split('@')[0] || 'Unknown',
+          email: a.email || '',
+          isOrganizer: a.organizer || false,
+          responseStatus: a.responseStatus || 'needsAction',
+        }));
+      }
+    } catch (e) {
+      console.log('[extractAttendees] Failed to parse attendees string:', e);
+    }
+  }
+
+  return [];
+};
+
 interface CalendarEvent {
   id: string;
   title: string;
@@ -226,71 +264,87 @@ export function MeetingDetailModal({ event, onClose, onRecordWithBot }: MeetingD
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#78716C', marginBottom: 12 }}>
             Attendees
           </div>
-          {event.attendees && event.attendees.length > 0 ? (
-            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-              {event.attendees.slice(0, 6).map((attendee, idx) => {
-                const initials = (attendee.displayName || attendee.email)
-                  .split(' ')
-                  .map(n => n[0])
-                  .join('')
-                  .toUpperCase()
-                  .slice(0, 2);
-                
-                return (
+          {(() => {
+            const attendees = extractAttendees(event);
+            return attendees.length > 0 ? (
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                {attendees.slice(0, 6).map((attendee, idx) => {
+                  const initials = attendee.name
+                    .split(' ')
+                    .map(n => n[0])
+                    .join('')
+                    .toUpperCase()
+                    .slice(0, 2);
+                  
+                  return (
+                    <div
+                      key={idx}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        padding: '6px 12px',
+                        background: 'rgba(59,130,246,0.08)',
+                        borderRadius: 100,
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: 24,
+                          height: 24,
+                          borderRadius: '50%',
+                          background: 'linear-gradient(135deg, #F97316, #F59E0B)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: 'white',
+                          fontSize: 10,
+                          fontWeight: 'bold',
+                          flexShrink: 0,
+                        }}
+                      >
+                        {initials}
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <p style={{ fontSize: 12, color: '#FAFAF9', margin: 0, fontWeight: 500, fontFamily: 'DM Sans, sans-serif' }}>
+                          {attendee.name}
+                        </p>
+                        {attendee.isOrganizer && (
+                          <p style={{ fontSize: 10, color: '#FB923C', margin: 0, fontFamily: 'DM Sans, sans-serif' }}>
+                            Organizer
+                          </p>
+                        )}
+                        {!attendee.isOrganizer && attendee.responseStatus && (
+                          <p style={{ fontSize: 10, color: '#78716C', margin: 0, fontFamily: 'DM Sans, sans-serif' }}>
+                            {attendee.responseStatus === 'accepted' ? '✓ Accepted' : attendee.responseStatus === 'declined' ? '✗ Declined' : 'Awaiting response'}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+                {attendees.length > 6 && (
                   <div
-                    key={idx}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
-                      gap: 8,
+                      padding: '6px 12px',
+                      borderRadius: 100,
+                      background: '#292524',
+                      color: '#78716C',
+                      fontSize: 12,
                     }}
                   >
-                    <div
-                      style={{
-                        width: 32,
-                        height: 32,
-                        borderRadius: '50%',
-                        background: 'linear-gradient(135deg, #F97316, #F59E0B)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: 'white',
-                        fontSize: 11,
-                        fontWeight: 'bold',
-                      }}
-                    >
-                      {initials}
-                    </div>
-                    <div>
-                      <p style={{ fontSize: 12, color: '#D4D4D4', margin: 0, fontFamily: 'DM Sans, sans-serif' }}>
-                        {attendee.displayName || attendee.email.split('@')[0]}
-                      </p>
-                      <p style={{ fontSize: 11, color: '#78716C', margin: 0, fontFamily: 'DM Sans, sans-serif' }}>
-                        {attendee.responseStatus || 'no response'}
-                      </p>
-                    </div>
+                    +{attendees.length - 6} more
                   </div>
-                );
-              })}
-              {event.attendees.length > 6 && (
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    padding: '4px 12px',
-                    background: '#44403C',
-                    borderRadius: 6,
-                    fontSize: 12,
-                    color: '#D4D4D4',
-                  }}
-                >
-                  +{event.attendees.length - 6} more
-                </div>
-              )}
-            </div>
-          ) : (
-            <p style={{ fontSize: 13, color: '#78716C', margin: 0 }}>No attendee info available</p>
-          )}
+                )}
+              </div>
+            ) : (
+              <p style={{ fontSize: 13, color: '#78716C', margin: 0, fontStyle: 'italic' }}>
+                No attendee info available
+              </p>
+            );
+          })()}
         </div>
 
         {/* Divider */}

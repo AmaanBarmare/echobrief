@@ -105,6 +105,8 @@ export default function Calendar() {
               if (items) {
                 allEvents.push(...items.map((e: any) => {
                   const meetingUrl = extractMeetingUrl(e);
+                  // Store full attendee object for modal rendering
+                  const attendees = e.attendees && Array.isArray(e.attendees) ? e.attendees : [];
                   return {
                     id: e.id,
                     title: e.summary || 'No title',
@@ -113,7 +115,7 @@ export default function Calendar() {
                     is_all_day: !e.start?.dateTime,
                     meetingUrl,
                     hasMeetingLink: !!meetingUrl,
-                    attendees: e.attendees || [],
+                    attendees: attendees,
                   };
                 }));
               }
