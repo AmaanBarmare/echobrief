@@ -144,29 +144,41 @@ serve(async (req) => {
       }
 
       // Fetch calendars from Google and save them
-      const calendarResponse = await fetch("https://www.googleapis.com/calendar/v3/users/me/calendarList", {
-        headers: {
-          "Authorization": `Bearer ${tokenData.access_token}`,
-        },
-      });
+      try {
+        const calendarResponse = await fetch("https://www.googleapis.com/calendar/v3/users/me/calendarList", {
+          headers: {
+            "Authorization": `Bearer ${tokenData.access_token}`,
+          },
+        });
 
-      if (calendarResponse.ok) {
+        if (!calendarResponse.ok) {
+          console.error(`Google API failed: ${calendarResponse.status}`);
+          throw new Error(`Google API error`);
+        }
+
         const { items: calendars } = await calendarResponse.json();
+
         if (calendars && calendars.length > 0) {
           const calendarInserts = calendars.map((cal: any) => ({
             user_id: stateData.user_id,
             provider: "google",
             calendar_id: cal.id,
-            calendar_name: cal.summary,
+            calendar_name: cal.summary || "Unnamed",
             email: cal.id,
             is_primary: cal.primary || false,
             is_active: true,
           }));
 
-          await supabase
+          const { error: saveError } = await supabase
             .from("calendars")
             .upsert(calendarInserts, { onConflict: "user_id,calendar_id" });
+
+          if (saveError) {
+            console.error(`DB save error: ${saveError.message}`);
+          }
         }
+      } catch (err) {
+        console.error("Calendar sync failed:", err);
       }
 
       // Update profile to mark calendar as connected
