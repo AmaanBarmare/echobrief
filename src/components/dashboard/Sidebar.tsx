@@ -5,7 +5,6 @@ import {
   Calendar, 
   CheckSquare, 
   Settings, 
-  LogOut,
   ChevronLeft,
   Menu
 } from 'lucide-react';
@@ -27,7 +26,6 @@ const navItems = [
 
 export function Sidebar({ onCollapsedChange }: SidebarProps) {
   const location = useLocation();
-  const { signOut, user } = useAuth();
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('sidebar-collapsed') === 'true';
@@ -41,8 +39,6 @@ export function Sidebar({ onCollapsedChange }: SidebarProps) {
     onCollapsedChange?.(newCollapsed);
     window.dispatchEvent(new Event('storage'));
   };
-
-  const userInitial = user?.email?.[0]?.toUpperCase() || '?';
 
   return (
     <aside 
@@ -144,55 +140,7 @@ export function Sidebar({ onCollapsedChange }: SidebarProps) {
         })}
       </nav>
 
-      {/* User Section */}
-      <div className={cn(
-        "p-3",
-        collapsed && "flex flex-col items-center"
-      )}
-      style={{ borderTop: `1px solid ${T.border}` }}
-      >
-        {!collapsed && (
-          <div className="flex items-center gap-2.5 px-3 py-2 mb-1">
-            <div 
-              className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-semibold text-white"
-              style={{ background: T.gradient }}
-            >
-              {userInitial}
-            </div>
-            <span className="text-sm truncate flex-1" style={{ color: T.textS }}>
-              {user?.email?.split('@')[0]}
-            </span>
-          </div>
-        )}
-        <button
-          onClick={signOut}
-          className={cn(
-            "flex items-center gap-2.5 text-sm font-medium w-full transition-all duration-150",
-            collapsed && "justify-center px-0"
-          )}
-          style={{
-            padding: '10px 12px',
-            borderRadius: 10,
-            background: 'transparent',
-            color: T.textS,
-            border: 'none',
-            cursor: 'pointer',
-            fontFamily: "'DM Sans', sans-serif",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.color = T.text;
-            e.currentTarget.style.background = T.bgCardH;
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.color = T.textS;
-            e.currentTarget.style.background = 'transparent';
-          }}
-          title={collapsed ? "Sign out" : undefined}
-        >
-          <LogOut className="w-4 h-4" />
-          {!collapsed && <span>Sign out</span>}
-        </button>
-      </div>
+
     </aside>
   );
 }
