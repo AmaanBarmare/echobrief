@@ -64,91 +64,52 @@ export default function Calendar() {
     try {
       if (!user) throw new Error('Not logged in');
 
-      // Get Google access token from DB
-      const { data: tokenData, error: tokenError } = await supabase
+      // Get Google access token
+      const { data: tokenData } = await supabase
         .from('user_oauth_tokens')
         .select('google_access_token')
         .eq('user_id', user.id)
         .single();
 
-      if (tokenError || !tokenData?.google_access_token) {
+      if (!tokenData?.google_access_token) {
         throw new Error('Google Calendar not connected');
       }
 
-      // Get user's calendars
-      const { data: calendars, error: calError } = await supabase
-        .from('calendars')
-        .select('id, calendar_id')
-        .eq('user_id', user.id)
-        .eq('is_active', true);
+      // Call fetch function
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/fetch-calendar-events`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: user.id,
+          access_token: tokenData.google_access_token,
+        }),
+      });
 
-      if (calError || !calendars || calendars.length === 0) {
-        throw new Error('No calendars found');
-      }
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error);
 
-      const now = new Date();
-      const maxDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-
-      let allEvents: any[] = [];
-
-      // Fetch events from each calendar
-      for (const cal of calendars) {
-        try {
-          const response = await fetch(
-            `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal.calendar_id)}/events?` +
-            `timeMin=${now.toISOString()}&timeMax=${maxDate.toISOString()}&singleEvents=true&orderBy=startTime`,
-            {
-              headers: {
-                'Authorization': `Bearer ${tokenData.google_access_token}`,
-              },
-            }
-          );
-
-          if (response.ok) {
-            const { items } = await response.json();
-            if (items) {
-              allEvents.push(
-                ...items.map((event: any) => ({
-                  user_id: user.id,
-                  calendar_id: cal.id,
-                  event_id: event.id,
-                  title: event.summary || 'No title',
-                  description: event.description || null,
-                  start_time: event.start?.dateTime || event.start?.date,
-                  end_time: event.end?.dateTime || event.end?.date,
-                  is_all_day: !event.start?.dateTime,
-                }))
-              );
-            }
-          }
-        } catch (err) {
-          console.error(`Failed to fetch from calendar:`, err);
-        }
-      }
+      const { events } = result;
 
       // Save to DB
-      if (allEvents.length > 0) {
+      if (events.length > 0) {
+        const eventsToSave = events.map((e: any) => ({
+          user_id: user.id,
+          event_id: e.id,
+          title: e.title,
+          start_time: e.start_time,
+          end_time: e.end_time,
+          is_all_day: e.is_all_day,
+        }));
+
         await supabase
           .from('calendar_events')
-          .upsert(allEvents, { onConflict: 'user_id,event_id' });
+          .upsert(eventsToSave, { onConflict: 'user_id,event_id' });
       }
 
-      toast({ title: 'Synced!', description: `${allEvents.length} events updated` });
-
-      // Refetch and display
-      const { data, error } = await supabase
-        .from('calendar_events')
-        .select('*')
-        .eq('user_id', user.id)
-        .gte('start_time', new Date().toISOString())
-        .order('start_time', { ascending: true })
-        .limit(50);
-
-      if (!error) {
-        setEvents(data || []);
-      }
+      toast({ title: 'Synced!', description: `${events.length} events found` });
+      setEvents(events);
     } catch (err: any) {
-      toast({ title: 'Error', description: err?.message || 'Failed to sync calendar', variant: 'destructive' });
+      toast({ title: 'Error', description: err?.message || 'Failed to sync', variant: 'destructive' });
     } finally {
       setSyncing(false);
     }
