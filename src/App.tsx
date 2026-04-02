@@ -6,8 +6,9 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { RecordingProvider } from "@/contexts/RecordingContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
-import { CalendarProvider } from "@/contexts/CalendarContext";
+import { CalendarProvider, useCalendar } from "@/contexts/CalendarContext";
 import { useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ExtensionTokenSync } from "@/components/ExtensionTokenSync";
 import { GlobalRecordingPanel } from "@/components/dashboard/GlobalRecordingPanel";
@@ -38,8 +39,6 @@ function CalendarAutoSync() {
 
     const fetchCalendarEvents = async () => {
       try {
-        const { supabase } = await import("@/integrations/supabase/client");
-
         // Check if Google is connected
         const { data: tokenData } = await supabase
           .from('user_oauth_tokens')
@@ -94,7 +93,7 @@ function CalendarAutoSync() {
     };
 
     fetchCalendarEvents();
-  }, [user]);
+  }, [user, setEvents, setSynced]);
 
   return null;
 }
