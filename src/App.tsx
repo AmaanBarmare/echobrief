@@ -12,6 +12,7 @@ import { GlobalRecordingPanel } from "@/components/dashboard/GlobalRecordingPane
 import { PreMeetingNotification } from "@/components/dashboard/PreMeetingNotification";
 import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
+import Onboarding from "./pages/Onboarding";
 import Dashboard from "./pages/Dashboard";
 import Recordings from "./pages/Recordings";
 import MeetingDetail from "./pages/MeetingDetail";
@@ -57,6 +58,14 @@ function AppRoutes() {
         <Route path="/" element={user ? <Navigate to="/dashboard" /> : <Landing />} />
         <Route path="/auth" element={<Auth />} />
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+        <Route
+          path="/onboarding"
+          element={
+            <ProtectedRoute>
+              <Onboarding />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/dashboard"
           element={

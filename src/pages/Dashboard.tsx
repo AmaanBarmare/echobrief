@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { RecordingButton } from '@/components/dashboard/RecordingButton';
 import { ExtensionStatus } from '@/components/dashboard/ExtensionStatus';
@@ -83,6 +83,7 @@ function GradientBar() {
 export default function Dashboard() {
   const { user, session } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [loading, setLoading] = useState(true);
   const [insightCounts, setInsightCounts] = useState<Record<string, boolean>>({});
@@ -94,31 +95,45 @@ export default function Dashboard() {
   useEffect(() => {
     if (!user) return;
 
-    const fetchMeetings = async () => {
-      const { data, error } = await supabase
-        .from('meetings')
-        .select('*')
+    const checkOnboardingAndFetch = async () => {
+      // Check if onboarding is completed
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('onboarding_completed')
         .eq('user_id', user.id)
-        .order('start_time', { ascending: false });
+        .single();
 
-      if (!error && data) {
-        setMeetings(data as Meeting[]);
-        
-        const { data: insights } = await supabase
-          .from('meeting_insights')
-          .select('meeting_id')
-          .in('meeting_id', data.map(m => m.id));
-        
-        if (insights) {
-          const counts: Record<string, boolean> = {};
-          insights.forEach(i => { counts[i.meeting_id] = true; });
-          setInsightCounts(counts);
-        }
+      if (profile && !profile.onboarding_completed) {
+        navigate('/onboarding');
+        return;
       }
-      setLoading(false);
-    };
 
-    fetchMeetings();
+      const fetchMeetings = async () => {
+        const { data, error } = await supabase
+          .from('meetings')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('start_time', { ascending: false });
+
+        if (!error && data) {
+          setMeetings(data as Meeting[]);
+          
+          const { data: insights } = await supabase
+            .from('meeting_insights')
+            .select('meeting_id')
+            .in('meeting_id', data.map(m => m.id));
+          
+          if (insights) {
+            const counts: Record<string, boolean> = {};
+            insights.forEach(i => { counts[i.meeting_id] = true; });
+            setInsightCounts(counts);
+          }
+        }
+        setLoading(false);
+      };
+
+      fetchMeetings();
+    };
 
     const channel = supabase
       .channel('meetings-changes')
