@@ -99,11 +99,29 @@ serve(async (req) => {
   }
 
   try {
-    const { user_id, calendar_ids }: { user_id: string; calendar_ids?: string[] } = await req.json()
+    const body = await req.json()
+    let user_id = body?.user_id
+
+    // If no user_id in body, try to get from auth header
+    if (!user_id) {
+      const authHeader = req.headers.get('authorization')
+      if (authHeader) {
+        const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+        const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+        const supabase = createClient(supabaseUrl, supabaseServiceKey)
+        const token = authHeader.replace('Bearer ', '')
+        const { data: { user }, error: userError } = await supabase.auth.getUser(token)
+        if (!userError && user) {
+          user_id = user.id
+        }
+      }
+    }
 
     if (!user_id) {
-      return new Response(JSON.stringify({ error: 'Missing user_id' }), { status: 400 })
+      return new Response(JSON.stringify({ error: 'Missing or invalid user_id' }), { status: 400 })
     }
+
+    const calendar_ids = body?.calendar_ids
 
     console.log(`Starting calendar sync for user ${user_id}`)
 
