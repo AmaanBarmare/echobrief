@@ -34,15 +34,13 @@ function AppRoutes() {
   // Check for recovery hash SYNCHRONOUSLY before any render
   const isRecovery = window.location.hash.includes('type=recovery');
 
-  // TEMP: Force loading = false to see what's behind the spinner
-  console.log('[app] loading:', loading, 'forcing to false for debugging');
-  // if (loading) {
-  //   return (
-  //     <div className="min-h-screen flex items-center justify-center bg-background">
-  //       <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-  //     </div>
-  //   );
-  // }
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   // If recovery flow, always show Auth page regardless of user state
   if (isRecovery) {

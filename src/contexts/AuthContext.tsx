@@ -16,43 +16,50 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Start as false, not true
 
   useEffect(() => {
-    console.log('[auth] Initializing...');
+    console.log('[auth] Starting auth init...');
     
-    // Hard timeout — if auth doesn't respond in 5s, give up
-    const authTimeoutId = setTimeout(() => {
-      console.warn('[auth] Timeout after 5s, forcing loading=false');
-      setLoading(false);
-    }, 5000);
+    // Try to get session but don't wait more than 1 second
+    let isMounted = true;
+    const timeout = setTimeout(() => {
+      console.warn('[auth] 1s timeout, continuing anyway');
+      if (isMounted) setLoading(false);
+    }, 1000);
 
-    // Set up auth state listener BEFORE getting session
+    // Set up listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        console.log('[auth] State change:', event, session?.user?.email);
-        clearTimeout(authTimeoutId);
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
+        console.log('[auth] Auth change:', event);
+        if (isMounted) {
+          setSession(session);
+          setUser(session?.user ?? null);
+          setLoading(false);
+        }
       }
     );
 
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('[auth] Got session:', session?.user?.email);
-      clearTimeout(authTimeoutId);
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    }).catch((err) => {
-      console.error('[auth] Error getting session:', err.message);
-      clearTimeout(authTimeoutId);
-      setLoading(false);
-    });
+    // Try to get session (non-blocking)
+    Promise.race([
+      supabase.auth.getSession(),
+      new Promise((_, reject) => setTimeout(() => reject('timeout'), 500))
+    ])
+      .then(({ data: { session } }) => {
+        if (isMounted) {
+          setSession(session);
+          setUser(session?.user ?? null);
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
+        console.log('[auth] Session error (continuing anyway):', err);
+        if (isMounted) setLoading(false);
+      });
 
     return () => {
-      clearTimeout(authTimeoutId);
+      isMounted = false;
+      clearTimeout(timeout);
       subscription.unsubscribe();
     };
   }, []);
