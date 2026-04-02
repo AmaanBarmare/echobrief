@@ -5,7 +5,8 @@
 [![React](https://img.shields.io/badge/React-18-61dafb)](https://react.dev/)
 [![Supabase](https://img.shields.io/badge/Backend-Supabase-green)](https://supabase.com/)
 
-## What is EchoBrief?
+## What is EchoBrief? 
+echobrief
 
 **EchoBrief** is an AI-powered meeting intelligence platform that automatically records, transcribes, summarizes, and delivers meeting insights via email or Slack.
 
