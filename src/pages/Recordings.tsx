@@ -25,25 +25,61 @@ export default function Recordings() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user) return;
+    if (user === undefined) return; // Auth still loading
 
     const fetchMeetings = async () => {
-      const { data, error } = await supabase
-        .from('meetings')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('start_time', { ascending: false });
-
-      if (!error && data) {
-        setMeetings(data as Meeting[]);
+      if (!user?.id) {
+        setLoading(false);
+        setMeetings([]);
+        return;
       }
-      setLoading(false);
+
+      setLoading(true);
+      setFetchError(null);
+
+      // Hard timeout — if Supabase doesn't respond in 8s, give up
+      const timeoutId = setTimeout(() => {
+        console.warn('[meetings] Fetch timed out after 8s');
+        setLoading(false);
+        setMeetings([]);
+        setFetchError('Request timed out. Please refresh.');
+      }, 8000);
+
+      try {
+        const { data, error } = await supabase
+          .from('meetings')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('start_time', { ascending: false });
+
+        clearTimeout(timeoutId);
+
+        console.log('[meetings] Fetch result:', { data, error, count: data?.length });
+
+        if (error) {
+          console.error('[meetings] Supabase error:', error);
+          setFetchError(error.message);
+          setMeetings([]);
+        } else {
+          // data is [] when there are no meetings — this is NOT an error
+          setMeetings(data ?? []);
+        }
+      } catch (err: any) {
+        clearTimeout(timeoutId);
+        console.error('[meetings] Unexpected error:', err);
+        setFetchError(err.message || 'Failed to load meetings');
+        setMeetings([]);
+      } finally {
+        clearTimeout(timeoutId);
+        setLoading(false); // ALWAYS runs
+      }
     };
 
     fetchMeetings();
-  }, [user]);
+  }, [user?.id]);
 
   const filteredMeetings = meetings.filter((meeting) => {
     const matchesSearch = meeting.title.toLowerCase().includes(searchQuery.toLowerCase());
@@ -371,6 +407,60 @@ export default function Recordings() {
             <p style={{ fontSize: 14, color: '#78716C', margin: 0, fontFamily: 'DM Sans, sans-serif' }}>
               Loading your meetings...
             </p>
+          </div>
+        ) : fetchError ? (
+          // Error State
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '80px 24px',
+            textAlign: 'center',
+          }}>
+            <div
+              style={{
+                width: 56,
+                height: 56,
+                borderRadius: 12,
+                background: 'rgba(239,68,68,0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: 20,
+              }}
+            >
+              <Mic size={28} color="#EF4444" />
+            </div>
+            <h3 style={{ fontSize: 18, fontWeight: 600, color: '#FAFAF9', margin: 0, marginBottom: 12, fontFamily: 'Outfit, sans-serif' }}>
+              Error loading meetings
+            </h3>
+            <p style={{
+              fontSize: 14,
+              color: '#78716C',
+              margin: 0,
+              marginBottom: 32,
+              maxWidth: 340,
+              lineHeight: 1.6,
+              fontFamily: 'DM Sans, sans-serif',
+            }}>
+              {fetchError}
+            </p>
+            <Button
+              onClick={() => window.location.reload()}
+              style={{
+                background: 'linear-gradient(135deg, #F97316, #F59E0B)',
+                color: 'white',
+                borderRadius: 10,
+                padding: '10px 20px',
+                fontSize: 13,
+                fontWeight: 600,
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              Try Again
+            </Button>
           </div>
         ) : meetings.length === 0 ? (
           // Empty State
