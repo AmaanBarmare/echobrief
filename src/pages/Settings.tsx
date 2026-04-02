@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Lock, Mail, Bell, Calendar, Slack, LogOut } from 'lucide-react';
+import { Loader2, Lock, Mail, Bell, LogOut } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface Profile {
@@ -293,11 +293,21 @@ export default function Settings() {
             {/* Google Calendar */}
             <div style={{ background: '#1C1917', border: '1px solid #292524', borderRadius: 16, padding: 24 }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div>
-                  <h3 style={{ fontSize: 15, fontWeight: 600, color: '#FAFAF9', marginBottom: 4 }}>Google Calendar</h3>
-                  <p style={{ fontSize: 13, color: '#78716C' }}>
-                    Automatically detect and record meetings from your calendar
-                  </p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1 }}>
+                  {/* Google Calendar Icon */}
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="2" y="3" width="20" height="20" rx="2" fill="#4285F4" />
+                    <rect x="3" y="3" width="18" height="4" fill="#FFFFFF" />
+                    <line x1="8" y1="8" x2="8" y2="21" stroke="#FFFFFF" strokeWidth="1" />
+                    <line x1="16" y1="8" x2="16" y2="21" stroke="#FFFFFF" strokeWidth="1" />
+                    <rect x="3" y="12" width="18" height="1" fill="#E8E8E8" />
+                  </svg>
+                  <div>
+                    <h3 style={{ fontSize: 15, fontWeight: 600, color: '#FAFAF9', marginBottom: 4 }}>Google Calendar</h3>
+                    <p style={{ fontSize: 13, color: '#78716C' }}>
+                      Automatically detect and record meetings from your calendar
+                    </p>
+                  </div>
                 </div>
                 {profile?.google_calendar_connected ? (
                   <Button
@@ -324,7 +334,22 @@ export default function Settings() {
 
             {/* Slack */}
             <div style={{ background: '#1C1917', border: '1px solid #292524', borderRadius: 16, padding: 24 }}>
-              <h3 style={{ fontSize: 15, fontWeight: 600, color: '#FAFAF9', marginBottom: 16 }}>Slack</h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+                {/* Slack Icon */}
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <g clipPath="url(#clip0)">
+                    <path d="M5.042 15.165a2.528 2.528 0 01-2.52 2.52H2.281a2.528 2.528 0 010-5.056h2.241a2.528 2.528 0 012.52 2.536z" fill="#E01E5A" />
+                    <path d="M6.604 15.165a2.528 2.528 0 015.056 0v2.241a2.528 2.528 0 01-5.056 2.52v-4.761z" fill="#E01E5A" />
+                    <path d="M6.604 5.042a2.528 2.528 0 01-2.52-2.52V2.281a2.528 2.528 0 015.056 0v2.241a2.528 2.528 0 01-2.536 2.52z" fill="#36C5F0" />
+                    <path d="M6.604 6.604a2.528 2.528 0 000 5.056h4.761a2.528 2.528 0 002.52-2.52 2.528 2.528 0 00-2.52-2.536H6.604z" fill="#36C5F0" />
+                    <path d="M16.727 6.604a2.528 2.528 0 012.52-2.52h2.241a2.528 2.528 0 010 5.056h-2.241a2.528 2.528 0 01-2.52-2.536z" fill="#2EB67D" />
+                    <path d="M15.165 6.604a2.528 2.528 0 01-5.056 0v-4.761a2.528 2.528 0 015.056-2.52v4.761a2.528 2.528 0 010 2.52z" fill="#2EB67D" />
+                    <path d="M15.165 16.727a2.528 2.528 0 010 5.056H10.404a2.528 2.528 0 01-2.52-2.52 2.528 2.528 0 012.52-2.536h4.761z" fill="#ECB22E" />
+                    <path d="M16.727 15.165a2.528 2.528 0 015.056 0v4.761a2.528 2.528 0 01-5.056 2.52v-4.761a2.528 2.528 0 010-2.52z" fill="#ECB22E" />
+                  </g>
+                </svg>
+                <h3 style={{ fontSize: 15, fontWeight: 600, color: '#FAFAF9' }}>Slack</h3>
+              </div>
               {!profile?.slack_connected ? (
                 <div style={{ display: 'flex', gap: 12, flexDirection: 'column' }}>
                   <div>
