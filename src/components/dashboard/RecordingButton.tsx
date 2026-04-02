@@ -89,14 +89,14 @@ export function RecordingButton({
           throw new Error('Please enter a meeting URL');
         }
         
-        const { data, error: botError } = await supabase.functions.invoke('start-bot', {
-          body: { meeting_url: meetingUrl, bot_name: notetakerName, language: 'en' }
+        const { data, error: botError } = await supabase.functions.invoke('start-recall-recording', {
+          body: { meeting_url: meetingUrl, user_id: user.id, title: title }
         });
 
         if (botError) throw botError;
         if (data?.error) throw new Error(data.error);
-        
-        toast({ title: 'Bot started', description: `Bot is joining the meeting (ID: ${data?.bot_id || 'unknown'})` });
+
+        toast({ title: 'Bot started', description: `Bot is joining the meeting` });
         setShowDialog(false);
       } else {
         const meetingData = {

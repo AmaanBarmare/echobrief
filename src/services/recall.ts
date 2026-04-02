@@ -31,17 +31,10 @@ export class RecallService {
       body: JSON.stringify({
         meeting_url: config.meeting_url,
         bot_name: config.bot_name || 'EchoBrief Bot',
-        capture_video: config.capture_video ?? true,
-        video_codec: 'h264',
-        audio_codec: 'aac',
-        chunk_size: 3600,
-        real_time_transcription: {
-          provider: 'sarvam',
-          language: 'en',
+        recording_config: {
+          audio: { enabled: true },
+          video: { enabled: false },
         },
-        stop_real_time_transcription_on_silence: true,
-        real_time_transcription_language: 'en',
-        wait_for_ready: true,
       }),
     });
 

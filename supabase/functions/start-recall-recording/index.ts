@@ -25,7 +25,8 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Missing meeting_url or user_id' }), { status: 400 });
     }
 
-    // Call Recall API to start recording
+    // Call Recall API to start recording (audio only — transcription handled by Sarvam post-recording)
+    const webhookUrl = `${supabaseUrl}/functions/v1/recall-webhook`;
     const recallResponse = await fetch(`${RECALL_API_URL}/recordingbots`, {
       method: 'POST',
       headers: {
@@ -35,17 +36,11 @@ serve(async (req) => {
       body: JSON.stringify({
         meeting_url: meeting_url,
         bot_name: 'EchoBrief Bot',
-        capture_video: true,
-        video_codec: 'h264',
-        audio_codec: 'aac',
-        chunk_size: 3600,
-        real_time_transcription: {
-          provider: 'sarvam',
-          language: 'en',
+        recording_config: {
+          audio: { enabled: true },
+          video: { enabled: false },
         },
-        stop_real_time_transcription_on_silence: true,
-        real_time_transcription_language: 'en',
-        wait_for_ready: true,
+        status_callback_url: webhookUrl,
       }),
     });
 
