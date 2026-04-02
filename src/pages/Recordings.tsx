@@ -21,11 +21,11 @@ export default function Recordings() {
   const { user } = useAuth();
   const { startRecording } = useRecording();
   const navigate = useNavigate();
-  const [meetings, setMeetings] = useState<Meeting[]>([]);
+  const [meetings] = useState<Meeting[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
-  // Remove loading state entirely — just show empty state
+  // Hardcoded empty meetings — no state updates, no effects, no loading
 
   const filteredMeetings = meetings.filter((meeting) => {
     const matchesSearch = meeting.title.toLowerCase().includes(searchQuery.toLowerCase());
