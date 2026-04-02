@@ -144,13 +144,13 @@ serve(async (req) => {
     }
 
     // Get access token from user's Google OAuth
-    const { data: profile, error: profileError } = await supabaseClient
-      .from('profiles')
+    const { data: tokenData, error: tokenError } = await supabaseClient
+      .from('user_oauth_tokens')
       .select('google_access_token')
       .eq('user_id', user_id)
       .single()
 
-    if (profileError || !profile?.google_access_token) {
+    if (tokenError || !tokenData?.google_access_token) {
       throw new Error('Google access token not found')
     }
 
@@ -159,7 +159,7 @@ serve(async (req) => {
     const results: any[] = []
 
     for (const calendar of calendarsToSync) {
-      const result = await syncGoogleCalendar(user_id, calendar.calendar_id, profile.google_access_token)
+      const result = await syncGoogleCalendar(user_id, calendar.calendar_id, tokenData.google_access_token)
       if (result.success) {
         totalEvents += result.eventsAdded
       }

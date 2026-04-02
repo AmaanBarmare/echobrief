@@ -229,15 +229,16 @@ export default function Settings() {
     }
   };
 
-  // After OAuth redirect, fetch calendars
+  // After OAuth redirect, fetch calendars and sync events
   useEffect(() => {
     const awaitingCalendarFetch = sessionStorage.getItem('awaiting-calendar-fetch');
     if (awaitingCalendarFetch && user && session?.access_token) {
       sessionStorage.removeItem('awaiting-calendar-fetch');
       
-      const fetchCalendars = async () => {
+      const fetchAndSyncCalendars = async () => {
         try {
-          const response = await fetch(`${SUPABASE_URL}/functions/v1/fetch-google-calendars`, {
+          // Step 1: Fetch calendars from Google
+          const fetchResponse = await fetch(`${SUPABASE_URL}/functions/v1/fetch-google-calendars`, {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${session.access_token}`,
@@ -245,12 +246,12 @@ export default function Settings() {
             },
           });
 
-          if (!response.ok) throw new Error('Failed to fetch calendars');
+          if (!fetchResponse.ok) throw new Error('Failed to fetch calendars');
           
-          const data = await response.json();
-          if (data.success && data.calendars) {
+          const fetchData = await fetchResponse.json();
+          if (fetchData.success && fetchData.calendars) {
             setGoogleCalendars(
-              data.calendars.map((cal: any) => ({
+              fetchData.calendars.map((cal: any) => ({
                 id: cal.id,
                 email: cal.email || '',
                 name: cal.calendar_name || 'Unnamed Calendar',
@@ -258,14 +259,33 @@ export default function Settings() {
                 connected_at: new Date().toISOString(),
               }))
             );
-            toast({ title: 'Success!', description: 'Google Calendar connected.' });
+
+            // Step 2: Sync events for all calendars
+            try {
+              await fetch(`${SUPABASE_URL}/functions/v1/sync-calendars`, {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${session.access_token}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  user_id: user?.id,
+                  calendar_ids: fetchData.calendars.map((cal: any) => cal.id),
+                }),
+              });
+            } catch (syncError) {
+              console.error('Failed to sync calendars:', syncError);
+            }
+
+            toast({ title: 'Success!', description: 'Google Calendar connected and events synced.' });
           }
         } catch (error: any) {
           console.error('Fetch calendars error:', error);
+          toast({ title: 'Error', description: 'Failed to connect calendar', variant: 'destructive' });
         }
       };
 
-      fetchCalendars();
+      fetchAndSyncCalendars();
     }
   }, [user, session?.access_token]);
 
