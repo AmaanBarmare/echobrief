@@ -1,6 +1,29 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { displayNameFromUserMetadata } from '@/lib/userDisplayName';
+
+/**
+ * If auth has a display name but profiles.full_name is empty, copy it into profiles.
+ * Fixes users who signed up before we synced both metadata keys / trigger handled `name`.
+ */
+async function syncProfileFullNameFromAuth(user: User): Promise<void> {
+  const fromAuth = displayNameFromUserMetadata(user);
+  if (!fromAuth) return;
+
+  const { data: row, error } = await supabase
+    .from('profiles')
+    .select('full_name')
+    .eq('user_id', user.id)
+    .maybeSingle();
+
+  if (error || !row) return;
+
+  const existing = typeof row.full_name === 'string' ? row.full_name.trim() : '';
+  if (existing) return;
+
+  await supabase.from('profiles').update({ full_name: fromAuth }).eq('user_id', user.id);
+}
 
 interface AuthContextType {
   user: User | null;
@@ -18,16 +41,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   /** True until we resolve the initial session (getSession + listener). Avoids routing before auth is known. */
   const [loading, setLoading] = useState(true);
+  const profileNameSyncedForUserId = useRef<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
 
+    const applySession = (nextSession: Session | null) => {
+      const nextUser = nextSession?.user ?? null;
+      setSession(nextSession);
+      setUser(nextUser);
+      setLoading(false);
+
+      if (nextUser && profileNameSyncedForUserId.current !== nextUser.id) {
+        profileNameSyncedForUserId.current = nextUser.id;
+        void syncProfileFullNameFromAuth(nextUser);
+      }
+      if (!nextUser) {
+        profileNameSyncedForUserId.current = null;
+      }
+    };
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, nextSession) => {
         if (!isMounted) return;
-        setSession(nextSession);
-        setUser(nextSession?.user ?? null);
-        setLoading(false);
+        applySession(nextSession);
       }
     );
 
@@ -35,9 +72,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .getSession()
       .then(({ data: { session: initialSession } }) => {
         if (!isMounted) return;
-        setSession(initialSession);
-        setUser(initialSession?.user ?? null);
-        setLoading(false);
+        applySession(initialSession);
       })
       .catch((err) => {
         console.error('[auth] getSession failed:', err);
@@ -51,11 +86,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signUp = async (email: string, password: string, fullName: string) => {
+    const trimmed = fullName.trim();
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: { full_name: fullName },
+        // GoTrue / dashboards often use `name`; our DB trigger reads both `full_name` and `name`.
+        data: {
+          full_name: trimmed,
+          name: trimmed,
+        },
         emailRedirectTo: window.location.origin,
       },
     });

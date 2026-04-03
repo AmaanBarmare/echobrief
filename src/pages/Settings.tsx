@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Loader2, Lock, Mail, Bell, LogOut, X, Trash2, Calendar, MessageCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { displayNameFromUserMetadata } from '@/lib/userDisplayName';
 
 interface Profile {
   id: string;
@@ -85,7 +86,17 @@ export default function Settings() {
 
       if (!profileError && profileData) {
         setProfile(profileData as Profile);
-        setFullName(profileData.full_name || '');
+        const fromProfile = (profileData.full_name || '').trim();
+        const fromAuthMeta = displayNameFromUserMetadata(user);
+        const resolvedName = fromProfile || fromAuthMeta;
+        setFullName(resolvedName);
+
+        if (!fromProfile && fromAuthMeta) {
+          await supabase
+            .from('profiles')
+            .update({ full_name: fromAuthMeta })
+            .eq('user_id', user.id);
+        }
         setSlackChannelId(profileData.slack_channel_id || '');
         setSlackChannelName(profileData.slack_channel_name || '');
       }
@@ -121,12 +132,21 @@ export default function Settings() {
     if (!user) return;
     setSaving(true);
     try {
+      const trimmed = fullName.trim();
       const { error } = await supabase
         .from('profiles')
-        .update({ full_name: fullName })
+        .update({ full_name: trimmed })
         .eq('user_id', user.id);
 
       if (error) throw error;
+
+      const { error: authErr } = await supabase.auth.updateUser({
+        data: { full_name: trimmed, name: trimmed },
+      });
+      if (authErr) {
+        console.warn('[Settings] Auth display name sync:', authErr);
+      }
+
       toast({ title: 'Saved', description: 'Your profile has been updated.' });
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
