@@ -260,7 +260,7 @@ export default function Dashboard() {
         .from('profiles')
         .select('email')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (!profile?.email) {
         alert('No email found in profile');

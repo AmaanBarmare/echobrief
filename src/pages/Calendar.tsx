@@ -77,7 +77,7 @@ export default function Calendar() {
           .from('user_oauth_tokens')
           .select('google_access_token')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
 
         if (!tokenData?.google_access_token) return;
 
@@ -188,7 +188,7 @@ export default function Calendar() {
         .from('user_oauth_tokens')
         .select('google_access_token')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (!tokenData?.google_access_token) {
         throw new Error('Google Calendar not connected');
