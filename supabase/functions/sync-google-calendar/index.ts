@@ -212,7 +212,16 @@ serve(async (req) => {
 
     console.log(`[sync-google-calendar] Successfully saved ${calendarInserts.length} calendars`);
 
-    // Fetch events for all calendars (also build `upcomingEvents` for the web app — client cannot read OAuth tokens when RLS blocks `user_oauth_tokens`)
+    // Fetch events only from user-owned calendars (skip holiday, birthdays, and other read-only auto-added calendars)
+    const ownedCalendars = calendars.filter((cal: any) => {
+      const id: string = cal.id || "";
+      if (id.includes("#holiday@group.v.calendar.google.com")) return false;
+      if (id.includes("#contacts@group.v.calendar.google.com")) return false;
+      if (id.includes("#other@group.v.calendar.google.com")) return false;
+      return true;
+    });
+    console.log(`[sync-google-calendar] Fetching events from ${ownedCalendars.length}/${calendars.length} calendars (skipped holiday/contacts)`);
+
     let totalEvents = 0;
     const upcomingEvents: Record<string, unknown>[] = [];
     const now = new Date();
@@ -220,7 +229,7 @@ serve(async (req) => {
     const timeMin = encodeURIComponent(now.toISOString());
     const timeMax = encodeURIComponent(maxDate.toISOString());
 
-    for (const cal of calendars) {
+    for (const cal of ownedCalendars) {
       try {
         const eventsResponse = await fetch(
           `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal.id)}/events?maxResults=100&orderBy=startTime&singleEvents=true&timeMin=${timeMin}&timeMax=${timeMax}`,

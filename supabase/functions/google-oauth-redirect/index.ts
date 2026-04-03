@@ -163,7 +163,16 @@ serve(async (req) => {
         const { items: calendars } = await calendarResponse.json();
 
         if (calendars && calendars.length > 0) {
-          const calendarInserts = calendars.map((cal: any) => ({
+          // Filter out holiday, contacts, and other auto-added read-only calendars
+          const ownedCalendars = calendars.filter((cal: any) => {
+            const id: string = cal.id || "";
+            if (id.includes("#holiday@group.v.calendar.google.com")) return false;
+            if (id.includes("#contacts@group.v.calendar.google.com")) return false;
+            if (id.includes("#other@group.v.calendar.google.com")) return false;
+            return true;
+          });
+
+          const calendarInserts = ownedCalendars.map((cal: any) => ({
             user_id: stateData.user_id,
             provider: "google",
             calendar_id: cal.id,
