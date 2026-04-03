@@ -125,14 +125,18 @@ serve(async (req) => {
       expiryDate.setSeconds(expiryDate.getSeconds() + (tokenData.expires_in || 3600));
 
       // Store tokens in secure user_oauth_tokens table (service role only)
+      // Preserve existing refresh token if Google didn't send a new one
+      const tokenUpsertData: Record<string, unknown> = {
+        user_id: stateData.user_id,
+        google_access_token: tokenData.access_token,
+        google_token_expiry: expiryDate.toISOString(),
+      };
+      if (tokenData.refresh_token) {
+        tokenUpsertData.google_refresh_token = tokenData.refresh_token;
+      }
       const { error: tokenError } = await supabase
         .from("user_oauth_tokens")
-        .upsert({
-          user_id: stateData.user_id,
-          google_access_token: tokenData.access_token,
-          google_refresh_token: tokenData.refresh_token || null,
-          google_token_expiry: expiryDate.toISOString(),
-        }, { onConflict: 'user_id' });
+        .upsert(tokenUpsertData, { onConflict: 'user_id' });
 
       if (tokenError) {
         console.error("Token storage error:", tokenError);

@@ -81,13 +81,14 @@ serve(async (req) => {
     const expiry = tokenData.google_token_expiry
       ? new Date(tokenData.google_token_expiry)
       : null;
-    const needsRefresh =
-      expiry && expiry.getTime() < Date.now() + 60_000 &&
-      !!tokenData.google_refresh_token;
-    if (needsRefresh) {
+    const isExpired = !expiry || expiry.getTime() < Date.now() + 60_000;
+
+    // Always try to refresh if we have a refresh token and the token is expired or about to expire
+    if (isExpired && tokenData.google_refresh_token) {
       const googleClientId = Deno.env.get("GOOGLE_CLIENT_ID");
       const googleClientSecret = Deno.env.get("GOOGLE_CLIENT_SECRET");
       if (googleClientId && googleClientSecret) {
+        console.log(`[sync-google-calendar] Token expired, attempting refresh for user ${user.id}`);
         const refreshRes = await fetch("https://oauth2.googleapis.com/token", {
           method: "POST",
           headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -113,8 +114,38 @@ serve(async (req) => {
             },
             { onConflict: "user_id" },
           );
+          console.log(`[sync-google-calendar] Token refreshed successfully`);
+        } else {
+          console.error(`[sync-google-calendar] Token refresh failed:`, refreshed);
+          return new Response(
+            JSON.stringify({
+              error: "Google token expired and refresh failed",
+              code: "TOKEN_REFRESH_FAILED",
+              hint: "Please reconnect your Google Calendar in Settings → Integrations.",
+            }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
         }
+      } else {
+        console.error(`[sync-google-calendar] Missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET`);
+        return new Response(
+          JSON.stringify({
+            error: "Server configuration error",
+            hint: "Google OAuth credentials are not configured.",
+          }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
       }
+    } else if (isExpired && !tokenData.google_refresh_token) {
+      console.error(`[sync-google-calendar] Token expired and no refresh token available`);
+      return new Response(
+        JSON.stringify({
+          error: "Google token expired",
+          code: "TOKEN_EXPIRED",
+          hint: "Please reconnect your Google Calendar in Settings → Integrations.",
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     console.log(`[sync-google-calendar] Fetching calendars for user ${user.id}`);
@@ -201,6 +232,12 @@ serve(async (req) => {
           }
         );
 
+        if (!eventsResponse.ok) {
+          const errText = await eventsResponse.text();
+          console.error(`[sync-google-calendar] Events API error for calendar ${cal.id}: ${eventsResponse.status} ${errText}`);
+          continue;
+        }
+
         if (eventsResponse.ok) {
           const { items: events } = await eventsResponse.json();
 
@@ -262,11 +299,13 @@ serve(async (req) => {
       }
     }
 
+    console.log(`[sync-google-calendar] Done. ${calendarInserts.length} calendars, ${upcomingEvents.length} upcoming events (${totalEvents} saved to DB)`);
+
     return new Response(
       JSON.stringify({
         success: true,
         calendars: calendarInserts.length,
-        events: totalEvents,
+        events: upcomingEvents.length,
         upcomingEvents,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
