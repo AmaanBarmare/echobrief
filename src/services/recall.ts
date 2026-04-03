@@ -1,5 +1,6 @@
-const RECALL_API_KEY = '6d5b5f5bf401869ffc061797ba5cd9f2e2f7f020';
-const RECALL_API_URL = 'https://api.recall.ai/api/v2';
+// Note: All actual Recall API calls go through Supabase Edge Functions (server-side).
+// This URL is not used in practice because getApiKey() throws on the client.
+const RECALL_API_URL = 'https://us-east-1.recall.ai/api/v1';
 
 export interface RecallBotConfig {
   meeting_url: string;
@@ -18,14 +19,19 @@ export interface RecordingBot {
 }
 
 export class RecallService {
-  private apiKey = RECALL_API_KEY;
   private baseUrl = RECALL_API_URL;
+
+  private getApiKey(): never {
+    throw new Error(
+      'Recall API access must stay server-side. Use the Supabase Edge Functions instead of calling Recall directly from the browser.'
+    );
+  }
 
   async joinMeeting(config: RecallBotConfig): Promise<RecordingBot> {
     const response = await fetch(`${this.baseUrl}/recordingbots`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${this.apiKey}`,
+        'Authorization': `Bearer ${this.getApiKey()}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -48,7 +54,7 @@ export class RecallService {
   async getBotStatus(botId: string): Promise<RecordingBot> {
     const response = await fetch(`${this.baseUrl}/recordingbots/${botId}`, {
       headers: {
-        'Authorization': `Bearer ${this.apiKey}`,
+        'Authorization': `Bearer ${this.getApiKey()}`,
       },
     });
 
@@ -63,7 +69,7 @@ export class RecallService {
     const response = await fetch(`${this.baseUrl}/recordingbots/${botId}`, {
       method: 'DELETE',
       headers: {
-        'Authorization': `Bearer ${this.apiKey}`,
+        'Authorization': `Bearer ${this.getApiKey()}`,
       },
     });
 
@@ -75,7 +81,7 @@ export class RecallService {
   async getTranscript(botId: string): Promise<string> {
     const response = await fetch(`${this.baseUrl}/recordingbots/${botId}/transcript`, {
       headers: {
-        'Authorization': `Bearer ${this.apiKey}`,
+        'Authorization': `Bearer ${this.getApiKey()}`,
       },
     });
 

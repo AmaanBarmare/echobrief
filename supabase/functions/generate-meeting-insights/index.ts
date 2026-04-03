@@ -7,7 +7,6 @@ const supabaseClient = createClient(
 )
 
 const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY')
-const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY')
 
 interface InsightRequest {
   meeting_id: string
@@ -86,71 +85,6 @@ Keep language clear and professional. Focus on business value.`,
   }
 }
 
-async function generateInsightsWithAnthropic(transcript: string): Promise<any> {
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'x-api-key': ANTHROPIC_API_KEY!,
-      'anthropic-version': '2023-06-01',
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'claude-opus-4-5',
-      max_tokens: 3000,
-      messages: [
-        {
-          role: 'user',
-          content: `Analyze this meeting transcript and provide structured insights as JSON:
-
-${transcript.substring(0, 12000)}
-
-Return a JSON object with:
-- summary_short: (2-3 sentence executive summary)
-- summary_detailed: (5-7 sentence detailed summary)
-- key_points: (array of 3-5 key discussion points)
-- decisions: (array of decisions made)
-- action_items: (array of {task, owner, priority} objects)
-- risks: (array of risks or concerns)
-- open_questions: (array of unresolved questions)
-- strategic_insights: (array of {insight, category} objects)`,
-        },
-      ],
-    }),
-  })
-
-  if (!response.ok) {
-    const error = await response.text()
-    throw new Error(`Anthropic API error: ${response.status} ${error}`)
-  }
-
-  const data = await response.json()
-  const content = data.content?.[0]?.text
-
-  if (!content) {
-    throw new Error('No content in Anthropic response')
-  }
-
-  try {
-    const jsonMatch = content.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) {
-      throw new Error('No JSON found in response')
-    }
-    return JSON.parse(jsonMatch[0])
-  } catch (parseError) {
-    console.warn('Failed to parse insights JSON from Anthropic')
-    return {
-      summary_short: 'Meeting analyzed.',
-      summary_detailed: content.substring(0, 500),
-      key_points: [],
-      decisions: [],
-      action_items: [],
-      risks: [],
-      open_questions: [],
-      strategic_insights: [],
-    }
-  }
-}
-
 serve(async (req) => {
   if (req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 })
@@ -165,14 +99,7 @@ serve(async (req) => {
 
     console.log(`Generating insights for meeting ${meeting_id}`)
 
-    // Try GPT first, fall back to Anthropic if needed
-    let insights: any
-    try {
-      insights = await generateInsightsWithGPT(transcript_content)
-    } catch (gptError) {
-      console.warn('GPT generation failed, trying Anthropic:', gptError)
-      insights = await generateInsightsWithAnthropic(transcript_content)
-    }
+    const insights = await generateInsightsWithGPT(transcript_content)
 
     // Normalize insights structure
     const normalizedInsights = {

@@ -2,7 +2,9 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const RECALL_API_KEY = Deno.env.get("RECALL_API_KEY")!;
-const RECALL_API_URL = "https://api.recall.ai/api/v2";
+const RECALL_API_BASE_URL =
+  Deno.env.get("RECALL_API_BASE_URL") || "https://us-east-1.recall.ai";
+const RECALL_API_URL = `${RECALL_API_BASE_URL}/api/v1`;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -25,22 +27,21 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Missing meeting_url or user_id' }), { status: 400 });
     }
 
-    // Call Recall API to start recording (audio only — transcription handled by Sarvam post-recording)
-    const webhookUrl = `${supabaseUrl}/functions/v1/recall-webhook`;
-    const recallResponse = await fetch(`${RECALL_API_URL}/recordingbots`, {
+    // Create a bot and request an async mixed-audio artifact.
+    // Recall status webhooks should be configured in the Recall dashboard and point to recall-webhook.
+    const recallResponse = await fetch(`${RECALL_API_URL}/bot/`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${RECALL_API_KEY}`,
+        'Authorization': RECALL_API_KEY,
+        'Accept': 'application/json',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         meeting_url: meeting_url,
         bot_name: 'EchoBrief Bot',
         recording_config: {
-          audio: { enabled: true },
-          video: { enabled: false },
+          audio_mixed_mp3: {},
         },
-        status_callback_url: webhookUrl,
       }),
     });
 

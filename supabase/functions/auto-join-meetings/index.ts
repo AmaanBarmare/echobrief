@@ -2,7 +2,9 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
 const RECALL_API_KEY = Deno.env.get('RECALL_API_KEY')
-const RECALL_BASE_URL = 'https://ap-northeast-1.recall.ai/api/v1'
+const RECALL_API_BASE_URL =
+  Deno.env.get('RECALL_API_BASE_URL') || 'https://us-east-1.recall.ai'
+const RECALL_BASE_URL = `${RECALL_API_BASE_URL}/api/v1`
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
@@ -116,12 +118,16 @@ serve(async (req) => {
         const botResponse = await fetch(`${RECALL_BASE_URL}/bot/`, {
           method: 'POST',
           headers: {
-            'Authorization': `Token ${RECALL_API_KEY}`,
+            'Authorization': RECALL_API_KEY || '',
+            'Accept': 'application/json',
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
             meeting_url: meetingUrl,
             bot_name: pref.notetaker_name || 'EchoBrief Notetaker',
+            recording_config: {
+              audio_mixed_mp3: {},
+            },
           })
         })
 

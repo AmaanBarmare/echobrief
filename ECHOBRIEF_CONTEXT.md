@@ -23,12 +23,12 @@
 - **Resend** — Email delivery (noreply@echobrief.in)
 
 ### Third-Party APIs
-- **Recall AI** — Bot meeting recording (Teams/Zoom)
-  - API Key: `6d5b5f5bf401869ffc061797ba5cd9f2e2f7f020`
-  - Endpoint: `https://api.recall.ai/api/v2`
+- **Recall AI** — Bot meeting recording (Teams/Zoom/Google Meet)
+  - API Key: stored in Supabase secrets
+  - Endpoint: `https://<region>.recall.ai/api/v1` (region set via RECALL_API_BASE_URL)
 - **Google Calendar API** — Calendar sync & event fetch
 - **Sarvam AI** — Real-time STT for Indian languages
-  - API Key: `sk_g9gcx19q_F3701xwAFplbozPOu6wayNYF`
+  - API Key: stored in Supabase secrets
 - **GPT-4o-mini** — Meeting summarization & insights
 
 ---
@@ -108,15 +108,15 @@
 ### Edge Functions (Supabase Deno)
 1. **start-recall-recording** — `supabase/functions/start-recall-recording/index.ts`
    - POST body: `{ meeting_url, user_id, calendar_event_id, title }`
-   - Calls Recall API `/recordingbots` to create bot
+   - Calls Recall API `POST /api/v1/bot/` to create bot with `audio_mixed_mp3` config
    - Saves meeting record to DB with `recall_bot_id`
-   - Returns: `{ bot_id, status }`
+   - Returns: `{ success, meeting_id, recall_bot_id, status }`
 
 2. **recall-webhook** — `supabase/functions/recall-webhook/index.ts`
-   - Receives webhook from Recall API when bot finishes
-   - Payload: `{ bot_id, status, video_url, transcript }`
-   - Updates meetings table with recording_url + transcript
-   - ⚠️ **NOT YET RECEIVING EVENTS** — check Recall webhook config
+   - Receives webhooks from Recall (bot status + recording media events)
+   - Handles: `bot.done`, `audio_mixed.done`, `bot.fatal`, intermediate statuses
+   - On audio ready: downloads from Recall → uploads to Supabase Storage → creates Sarvam job
+   - Hands off to sarvam-webhook for transcription + insights
 
 3. **generate-meeting-summary** — `supabase/functions/generate-meeting-summary/index.ts`
    - POST body: `{ transcript, meeting_id, user_id }`
@@ -183,18 +183,17 @@
 3. Modal shows: time, attendees, meeting link, two recording options
 4. User clicks "Send Bot to Join"
 5. Modal calls `handleRecordWithBot()` → invokes `start-recall-recording` edge function
-6. Function calls Recall API `/recordingbots` to join Teams/Zoom
+6. Function calls Recall API `POST /api/v1/bot/` to join Teams/Zoom/Meet
 7. Meeting record created in DB with `recall_bot_id` + `status: 'recording'`
 8. Modal shows loading spinner → changes to "Bot is joining..." on success
 9. Recall bot joins meeting and records
 
-### 3. Bot Finishes Recording (When Webhook Works)
-1. Recall bot leaves meeting
-2. Recall API sends webhook to `recall-webhook` edge function
-3. Webhook updates meetings table: `recording_url`, `transcript`, `status: 'processing'`
-4. Frontend polls meetings table or receives Realtime update
-5. On next page load or via polling, summary is generated
-6. Email sent to user with summary + action items
+### 3. Bot Finishes Recording
+1. Recall bot leaves meeting → `bot.done` and `audio_mixed.done` webhooks fire
+2. `recall-webhook` receives event, downloads audio via `/api/v1/audio_mixed/` API
+3. Audio uploaded to Supabase Storage, Sarvam job created + started
+4. `sarvam-webhook` receives transcript → GPT generates insights → saves to DB
+5. Email/Slack delivery triggered, meeting marked as completed
 
 ---
 
@@ -239,10 +238,10 @@ VITE_API_URL=https://echobrief-ten.vercel.app
 ## Supabase Secrets (Edge Functions)
 
 ```
-SUPABASE_URL=https://lekkpfpojlspbuwrtmzt.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-RECALL_API_KEY=6d5b5f5bf401869ffc061797ba5cd9f2e2f7f020
-SARVAM_API_KEY=sk_g9gcx19q_F3701xwAFplbozPOu6wayNYF
+SUPABASE_URL=https://<your-project-id>.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=<service-role-key>
+RECALL_API_KEY=<stored-in-supabase-secrets>
+SARVAM_API_KEY=<stored-in-supabase-secrets>
 ANTHROPIC_API_KEY=sk-ant-...
 OPENAI_API_KEY=sk-proj-...
 ```

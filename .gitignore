@@ -49,3 +49,4 @@ echobrief-extension.zip
 # Misc
 *.tgz
 .cache
+.vercel
