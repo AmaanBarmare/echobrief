@@ -95,7 +95,10 @@ export async function uploadToSarvamJob(
   // Step 2: PUT the audio file to the presigned URL
   const putRes = await fetch(presignedUrl, {
     method: "PUT",
-    headers: { "Content-Type": "application/octet-stream" },
+    headers: {
+      "Content-Type": "application/octet-stream",
+      "x-ms-blob-type": "BlockBlob",
+    },
     body: audioBlob,
   });
 
