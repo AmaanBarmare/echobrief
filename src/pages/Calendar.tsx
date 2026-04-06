@@ -123,8 +123,8 @@ export default function Calendar() {
     return acc;
   }, {} as Record<string, CalendarEvent[]>);
 
-  const handleRecordWithBot = async (event: CalendarEvent) => {
-    if (!user || !event.hasMeetingLink || !event.meetingUrl) return;
+  const handleRecordWithBot = async (event: CalendarEvent): Promise<{ meeting_id: string }> => {
+    if (!user || !event.hasMeetingLink || !event.meetingUrl) throw new Error('Missing meeting info');
 
     const { data: session } = await supabase.auth.getSession();
     if (!session?.session?.access_token) throw new Error('Not authenticated');
@@ -145,6 +145,7 @@ export default function Calendar() {
 
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || 'Failed to start recording');
+    return { meeting_id: result.meeting_id };
   };
 
   const handleSync = async () => {

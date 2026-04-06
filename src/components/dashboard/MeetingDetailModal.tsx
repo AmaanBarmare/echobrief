@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
-import { X, Clock, Link2, Users, Copy, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { useEffect, useState, useRef, useCallback } from 'react';
+import { X, Clock, Link2, Users, Copy, CheckCircle2, AlertCircle, Loader2, Mic, FileText, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { format, formatDistance } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Attendee {
   name: string;
@@ -56,14 +57,108 @@ interface CalendarEvent {
 interface MeetingDetailModalProps {
   event: CalendarEvent | null;
   onClose: () => void;
-  onRecordWithBot: (event: CalendarEvent) => Promise<void>;
+  onRecordWithBot: (event: CalendarEvent) => Promise<{ meeting_id: string }>;
+}
+
+// Map DB meeting status to display info
+type BotDisplayStatus = 'idle' | 'sending' | 'joining' | 'in_call' | 'recording' | 'processing' | 'completed' | 'failed';
+
+const BOT_STATUS_DISPLAY: Record<BotDisplayStatus, { label: string; color: string; icon: 'loader' | 'check' | 'mic' | 'file' | 'done' | 'error' | null }> = {
+  idle: { label: '', color: '', icon: null },
+  sending: { label: 'Sending bot...', color: '#FB923C', icon: 'loader' },
+  joining: { label: 'Bot is joining the meeting...', color: '#FB923C', icon: 'loader' },
+  in_call: { label: 'Bot is in the meeting', color: '#22c55e', icon: 'check' },
+  recording: { label: 'Recording in progress', color: '#22c55e', icon: 'mic' },
+  processing: { label: 'Processing recording...', color: '#FB923C', icon: 'file' },
+  completed: { label: 'Recording complete', color: '#22c55e', icon: 'done' },
+  failed: { label: 'Recording failed', color: '#EF4444', icon: 'error' },
+};
+
+function mapDbStatusToDisplay(dbStatus: string): BotDisplayStatus {
+  switch (dbStatus) {
+    case 'recording': return 'recording';
+    case 'joining': return 'joining';
+    case 'in_call': return 'in_call';
+    case 'processing': return 'processing';
+    case 'completed': return 'completed';
+    case 'failed': return 'failed';
+    default: return 'joining';
+  }
 }
 
 export function MeetingDetailModal({ event, onClose, onRecordWithBot }: MeetingDetailModalProps) {
   const { toast } = useToast();
-  const [botStatus, setBotStatus] = useState<'idle' | 'loading' | 'joined' | 'error'>('idle');
+  const [botStatus, setBotStatus] = useState<BotDisplayStatus>('idle');
   const [botError, setBotError] = useState<string>('');
   const [copied, setCopied] = useState(false);
+  const [meetingId, setMeetingId] = useState<string | null>(null);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const stopPolling = useCallback(() => {
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+  }, []);
+
+  // Check if a bot meeting already exists for this calendar event
+  useEffect(() => {
+    if (!event) return;
+    setBotStatus('idle');
+    setBotError('');
+    setMeetingId(null);
+    stopPolling();
+
+    const checkExisting = async () => {
+      const { data } = await supabase
+        .from('meetings')
+        .select('id, status, error_message')
+        .eq('calendar_event_id', event.id)
+        .not('recall_bot_id', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (data) {
+        setMeetingId(data.id);
+        setBotStatus(mapDbStatusToDisplay(data.status));
+        if (data.error_message) setBotError(data.error_message);
+      }
+    };
+    checkExisting();
+  }, [event?.id, stopPolling]);
+
+  // Poll meeting status when we have a meetingId and status is not terminal
+  useEffect(() => {
+    if (!meetingId) return;
+    const isTerminal = botStatus === 'completed' || botStatus === 'failed' || botStatus === 'idle';
+    if (isTerminal) {
+      stopPolling();
+      return;
+    }
+
+    const poll = async () => {
+      const { data } = await supabase
+        .from('meetings')
+        .select('status, error_message')
+        .eq('id', meetingId)
+        .single();
+
+      if (data) {
+        const newStatus = mapDbStatusToDisplay(data.status);
+        setBotStatus(newStatus);
+        if (data.error_message) setBotError(data.error_message);
+      }
+    };
+
+    // Poll immediately, then every 5 seconds
+    poll();
+    pollingRef.current = setInterval(poll, 5000);
+    return stopPolling;
+  }, [meetingId, botStatus, stopPolling]);
+
+  // Cleanup on unmount
+  useEffect(() => stopPolling, [stopPolling]);
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -108,16 +203,17 @@ export function MeetingDetailModal({ event, onClose, onRecordWithBot }: MeetingD
 
   const handleSendBot = async () => {
     if (!event.hasMeetingLink || !event.meetingUrl) return;
-    setBotStatus('loading');
+    setBotStatus('sending');
     setBotError('');
     try {
-      await onRecordWithBot(event);
-      setBotStatus('joined');
+      const result = await onRecordWithBot(event);
+      setMeetingId(result.meeting_id);
+      setBotStatus('joining');
     } catch (err: any) {
       console.error('[SendBot] Error:', err);
       const errorMsg = err?.message || JSON.stringify(err) || 'Unknown error';
       setBotError(errorMsg);
-      setBotStatus('error');
+      setBotStatus('failed');
       toast({
         title: 'Error',
         description: errorMsg,
@@ -434,34 +530,48 @@ export function MeetingDetailModal({ event, onClose, onRecordWithBot }: MeetingD
                 </Button>
               )}
 
-              {botStatus === 'loading' && (
+              {(botStatus === 'sending' || botStatus === 'joining') && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#FB923C', fontSize: 12 }}>
                   <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />
-                  Sending...
+                  {BOT_STATUS_DISPLAY[botStatus].label}
                 </div>
               )}
 
-              {botStatus === 'joined' && (
+              {botStatus === 'in_call' && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#22c55e', fontSize: 12 }}>
                   <CheckCircle2 size={14} />
-                  <span>Bot is joining...</span>
-                  <div
-                    style={{
-                      width: 6,
-                      height: 6,
-                      borderRadius: '50%',
-                      background: '#22c55e',
-                      animation: 'pulse 2s infinite',
-                    }}
-                  />
+                  <span>{BOT_STATUS_DISPLAY[botStatus].label}</span>
+                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', animation: 'pulse 2s infinite' }} />
                 </div>
               )}
 
-              {botStatus === 'error' && (
+              {botStatus === 'recording' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#22c55e', fontSize: 12 }}>
+                  <Mic size={14} />
+                  <span>{BOT_STATUS_DISPLAY[botStatus].label}</span>
+                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#EF4444', animation: 'pulse 1s infinite' }} />
+                </div>
+              )}
+
+              {botStatus === 'processing' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#FB923C', fontSize: 12 }}>
+                  <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />
+                  <span>{BOT_STATUS_DISPLAY[botStatus].label}</span>
+                </div>
+              )}
+
+              {botStatus === 'completed' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#22c55e', fontSize: 12 }}>
+                  <CheckCircle2 size={14} />
+                  <span>{BOT_STATUS_DISPLAY[botStatus].label}</span>
+                </div>
+              )}
+
+              {botStatus === 'failed' && (
                 <div style={{ color: '#EF4444', fontSize: 12 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <AlertCircle size={14} />
-                    Failed to send bot
+                    {BOT_STATUS_DISPLAY[botStatus].label}
                   </div>
                   {botError && (
                     <div style={{ color: '#A8A29E', fontSize: 11, marginTop: 6, wordBreak: 'break-word', fontFamily: 'DM Sans, monospace' }}>
