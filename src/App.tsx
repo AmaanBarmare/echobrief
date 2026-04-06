@@ -29,10 +29,7 @@ import NotFound from "./pages/NotFound";
 const queryClient = new QueryClient();
 
 function AppRoutes() {
-  const { user, loading } = useAuth();
-
-  // Check for recovery hash SYNCHRONOUSLY before any render
-  const isRecovery = window.location.hash.includes('type=recovery');
+  const { user, loading, isPasswordRecovery } = useAuth();
 
   if (loading) {
     return (
@@ -43,7 +40,7 @@ function AppRoutes() {
   }
 
   // If recovery flow, always show Auth page regardless of user state
-  if (isRecovery) {
+  if (isPasswordRecovery) {
     return (
       <>
         <ExtensionTokenSync />

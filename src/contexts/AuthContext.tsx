@@ -29,6 +29,8 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  isPasswordRecovery: boolean;
+  clearPasswordRecovery: () => void;
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -41,7 +43,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   /** True until we resolve the initial session (getSession + listener). Avoids routing before auth is known. */
   const [loading, setLoading] = useState(true);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(() => {
+    // Check URL synchronously before Supabase clears the hash
+    const hash = window.location.hash;
+    const search = window.location.search;
+    return hash.includes('type=recovery') || search.includes('type=recovery');
+  });
   const profileNameSyncedForUserId = useRef<string | null>(null);
+
+  const clearPasswordRecovery = () => setIsPasswordRecovery(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -62,8 +72,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, nextSession) => {
+      (event, nextSession) => {
         if (!isMounted) return;
+        if (event === 'PASSWORD_RECOVERY') {
+          setIsPasswordRecovery(true);
+        }
         applySession(nextSession);
       }
     );
@@ -115,7 +128,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signUp, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, isPasswordRecovery, clearPasswordRecovery, signUp, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );

@@ -25,7 +25,7 @@ Extension detects Meet/Zoom → `chrome.tabCapture` → offscreen document runs 
 
 **Web App:**
 - `src/App.tsx` -- Routes, providers (Auth, Recording, Theme, Query)
-- `src/contexts/AuthContext.tsx` -- Supabase auth state, signIn/signUp/signOut
+- `src/contexts/AuthContext.tsx` -- Supabase auth state, signIn/signUp/signOut, password recovery flow detection
 - `src/contexts/RecordingContext.tsx` -- Recording state management
 - `src/pages/` -- Dashboard, Recordings, MeetingDetail, Calendar, ActionItems, Settings, Auth, Landing
 
@@ -87,6 +87,15 @@ See `BRAND.md` for colors (orange/amber gradient primary, stone neutrals), typog
 - `SARVAM_API_KEY` -- Required for Sarvam STT
 - Google OAuth client ID/secret
 - Slack app credentials
+
+## Auth Flow Notes
+
+- Password recovery detection (`isPasswordRecovery`) lives in `AuthContext` — it is the single source of truth for whether the user is in a password reset flow. It's set synchronously from URL params on init (before Supabase clears the hash) and also via the `PASSWORD_RECOVERY` auth event. `App.tsx` uses this flag to force-render the Auth page during recovery, preventing auto-redirect to dashboard.
+- Supabase's recovery token exchange auto-authenticates the user. Any routing logic must check for recovery state **before** checking for an active session, otherwise the user skips the "set new password" form.
+
+## Rules
+
+- **95% confidence rule:** Do not make a code change unless you are 95% confident it is correct. If unsure, explain the concern and ask before changing. This applies to every change — bug fixes, new features, refactors, all of it.
 
 ## Conventions
 

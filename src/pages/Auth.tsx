@@ -12,33 +12,19 @@ import { Logo } from '@/components/ui/Logo';
 export default function Auth() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
-  const [isResetPassword, setIsResetPassword] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
-  const { user, signIn, signUp } = useAuth();
+  const { user, signIn, signUp, isPasswordRecovery, clearPasswordRecovery } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
 
-  useEffect(() => {
-    const hash = window.location.hash;
-    if (hash && (hash.includes('type=recovery') || hash.includes('type=magiclink'))) {
-      setIsResetPassword(true);
-    }
-  }, []);
-
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        setIsResetPassword(true);
-      }
-    });
-    return () => subscription.unsubscribe();
-  }, []);
+  // Use the centralized recovery flag from AuthContext
+  const isResetPassword = isPasswordRecovery;
 
   useEffect(() => {
     if (user && !isResetPassword) {
@@ -61,7 +47,7 @@ export default function Auth() {
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
       toast({ title: 'Password updated!', description: 'You can now sign in with your new password.' });
-      setIsResetPassword(false);
+      clearPasswordRecovery();
       navigate('/dashboard');
     } catch (error: any) {
       toast({ title: 'Error', description: error.message || 'Something went wrong', variant: 'destructive' });
