@@ -108,6 +108,24 @@ export async function uploadToSarvamJob(
   }
 }
 
+export async function getSarvamJobStatus(
+  apiKey: string,
+  jobId: string,
+): Promise<{ job_id: string; job_state: string }> {
+  const res = await fetch(`${SARVAM_BASE_URL}/${jobId}/status`, {
+    method: "GET",
+    headers: {
+      "api-subscription-key": apiKey,
+    },
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Sarvam get job status failed (${res.status}): ${err}`);
+  }
+  return res.json();
+}
+
 export async function startSarvamJob(
   apiKey: string,
   jobId: string,

@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsPrelight } from "../_shared/cors.ts";
 import { processRecallAudio } from "../_shared/recall-pipeline.ts";
+import { getSarvamJobStatus } from "../_shared/sarvam.ts";
 
 const RECALL_API_KEY = Deno.env.get("RECALL_API_KEY")!;
 const RECALL_API_BASE_URL =
@@ -141,8 +142,39 @@ serve(async (req) => {
       }
     }
 
-    // If Recall is "done" but Sarvam is already running, report as processing
+    // If Recall is "done" and Sarvam is already running, poll Sarvam for completion.
+    // This acts as a fallback if the Sarvam webhook callback never arrives.
     if (mappedStatus === "done" && meeting.sarvam_job_id) {
+      try {
+        const sarvamApiKey = Deno.env.get("SARVAM_API_KEY")!;
+        const sarvamStatus = await getSarvamJobStatus(sarvamApiKey, meeting.sarvam_job_id);
+        const sarvamState = sarvamStatus.job_state?.toUpperCase();
+
+        if (sarvamState === "COMPLETED" || sarvamState === "FAILED") {
+          // Sarvam is done but the webhook was never processed — trigger it now
+          const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+          const webhookSecret = Deno.env.get("SARVAM_WEBHOOK_SECRET")!;
+
+          console.log(
+            `[check-recall-status] Sarvam job ${meeting.sarvam_job_id} is ${sarvamState} but webhook was not received — triggering now`,
+          );
+
+          await fetch(`${supabaseUrl}/functions/v1/sarvam-webhook`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${webhookSecret}`,
+            },
+            body: JSON.stringify({
+              job_id: meeting.sarvam_job_id,
+              job_state: sarvamState,
+            }),
+          });
+        }
+      } catch (sarvamPollErr) {
+        console.error("[check-recall-status] Sarvam status poll error:", sarvamPollErr);
+      }
+
       return new Response(
         JSON.stringify({
           status: "processing",

@@ -208,6 +208,92 @@ export default function MeetingDetail() {
     fetchMeetingData();
   }, [user, id]);
 
+  // Poll for status updates when the meeting is still processing
+  useEffect(() => {
+    if (!user || !id || !meeting) return;
+    const terminalStatuses = ['completed', 'failed'];
+    if (terminalStatuses.includes(meeting.status)) return;
+
+    const pollInterval = setInterval(async () => {
+      // If it's a bot meeting, call check-recall-status to trigger the backend fallback
+      if (meeting.recall_bot_id) {
+        try {
+          const token = (await supabase.auth.getSession()).data.session?.access_token;
+          if (token) {
+            await fetch(`${SUPABASE_URL}/functions/v1/check-recall-status`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({ meeting_id: id }),
+            });
+          }
+        } catch {
+          // Ignore polling errors
+        }
+      }
+
+      // Re-fetch meeting status from DB
+      const { data: updatedMeeting } = await supabase
+        .from('meetings')
+        .select('*')
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .single();
+
+      if (updatedMeeting && updatedMeeting.status !== meeting.status) {
+        setMeeting(updatedMeeting as Meeting);
+
+        // If now completed, fetch the transcript and insights too
+        if (updatedMeeting.status === 'completed') {
+          const { data: transcriptData } = await supabase
+            .from('transcripts')
+            .select('*')
+            .eq('meeting_id', id)
+            .single();
+
+          if (transcriptData) {
+            setTranscript({
+              ...transcriptData,
+              speakers: (transcriptData.speakers as any) || [],
+              word_timestamps: (transcriptData.word_timestamps as any) || [],
+            } as Transcript);
+            if (transcriptData.speakers && Array.isArray(transcriptData.speakers)) {
+              setSpeakerSegments(transcriptData.speakers as unknown as SpeakerSegment[]);
+            }
+          }
+
+          const { data: insightsData } = await supabase
+            .from('meeting_insights')
+            .select('*')
+            .eq('meeting_id', id)
+            .single();
+
+          if (insightsData) {
+            setInsights({
+              ...insightsData,
+              key_points: (insightsData.key_points as any) || [],
+              action_items: (insightsData.action_items as any) || [],
+              decisions: (insightsData.decisions as any) || [],
+              risks: (insightsData.risks as any) || [],
+              follow_ups: (insightsData.follow_ups as any) || [],
+              strategic_insights: (insightsData.strategic_insights as any) || [],
+              speaker_highlights: (insightsData.speaker_highlights as any) || [],
+              open_questions: (insightsData.open_questions as any) || [],
+              timeline_entries: (insightsData.timeline_entries as any) || [],
+              meeting_metrics: (insightsData.meeting_metrics as any) || {},
+              summary_short: insightsData.summary_short || '',
+              summary_detailed: insightsData.summary_detailed || '',
+            } as MeetingInsights);
+          }
+        }
+      }
+    }, 5000);
+
+    return () => clearInterval(pollInterval);
+  }, [user, id, meeting?.status, meeting?.recall_bot_id]);
+
   const handleDelete = async () => {
     if (!meeting || !user) return;
     setDeleting(true);
