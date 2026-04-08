@@ -9,12 +9,11 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Mic, Loader2, Bot } from 'lucide-react';
+import { Mic, Loader2 } from 'lucide-react';
 import { useRecording } from '@/contexts/RecordingContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import type { Json } from '@/integrations/supabase/types';
 
 interface CalendarAttendee {
   email: string;
@@ -63,9 +62,7 @@ export function RecordingButton({
 
   const {
     isRecording,
-    startRecording,
     error,
-    permissionStatus,
   } = useRecording();
 
   useEffect(() => {
@@ -127,7 +124,7 @@ export function RecordingButton({
           <DialogHeader>
             <DialogTitle>Start New Recording</DialogTitle>
             <DialogDescription>
-              Choose how you want to record your meeting.
+              Enter your meeting details to start recording.
             </DialogDescription>
           </DialogHeader>
 

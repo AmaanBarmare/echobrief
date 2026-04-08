@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { getCorsHeaders, handleCorsPrelight } from "../_shared/cors.ts"
 
 const supabaseClient = createClient(
   Deno.env.get('SUPABASE_URL')!,
@@ -142,8 +143,14 @@ async function sendViaResend(
 }
 
 serve(async (req) => {
+  const corsResponse = handleCorsPrelight(req)
+  if (corsResponse) return corsResponse
+
+  const origin = req.headers.get("origin")
+  const corsHeaders = getCorsHeaders(origin)
+
   if (req.method !== 'POST') {
-    return new Response('Method not allowed', { status: 405 })
+    return new Response('Method not allowed', { status: 405, headers: corsHeaders })
   }
 
   try {
@@ -157,7 +164,7 @@ serve(async (req) => {
     if (!meeting_id || !recipient_email) {
       return new Response(
         JSON.stringify({ error: 'Missing required fields: meeting_id, recipient_email' }),
-        { status: 400 }
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
@@ -225,34 +232,17 @@ serve(async (req) => {
         recipient_email,
         message_id: sendResult.messageId,
       }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } }
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error: any) {
     console.error('Email report error:', error.message)
-
-    // Log failed delivery attempt
-    if (meeting_id && recipient_email) {
-      try {
-        await supabaseClient
-          .from('email_messages')
-          .insert({
-            meeting_id,
-            recipient_email,
-            subject: `Meeting Report: [Error]`,
-            status: 'failed',
-            error_message: error.message,
-          })
-      } catch (logError) {
-        console.warn('Failed to log email error:', logError)
-      }
-    }
 
     return new Response(
       JSON.stringify({
         error: error.message,
         success: false,
       }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
 })
