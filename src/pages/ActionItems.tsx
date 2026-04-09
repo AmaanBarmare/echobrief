@@ -224,10 +224,12 @@ export default function ActionItems() {
 
   return (
     <DashboardLayout>
-      <div className="max-w-4xl mx-auto px-6 py-8">
+      <div className="mx-auto max-w-4xl px-6 py-8 md:px-10 md:py-10">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-2xl font-semibold text-foreground mb-1">Action Items</h1>
+          <h1 className="mb-1 text-3xl font-semibold tracking-[-0.02em] text-foreground" style={{ fontFamily: 'Outfit, sans-serif' }}>
+            Action Items
+          </h1>
           <p className="text-sm text-muted-foreground">
             Tasks extracted from your meetings · {openCount} open · {completedCount} completed
           </p>

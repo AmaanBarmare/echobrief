@@ -10,7 +10,7 @@ import { Meeting } from '@/types/meeting';
 import { Clock, ChevronRight, Mic, Users, CheckCircle2, Globe, Bot, FileText, Zap, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
-import { T } from '@/lib/theme';
+import { useThemeTokens } from '@/lib/theme';
 
 interface CalendarAttendee {
   email: string;
@@ -41,6 +41,7 @@ function Badge({ children, color, bg }: { children: React.ReactNode; color: stri
 
 // ─── StatusBadge (prototype exact) ───
 function StatusBadge({ status }: { status: string }) {
+  const T = useThemeTokens();
   const map: Record<string, { bg: string; color: string; label: string }> = {
     completed: { bg: '#FFF7ED', color: '#C2410C', label: 'Completed' },
     processing: { bg: '#DBEAFE', color: '#1D4ED8', label: 'Processing' },
@@ -61,6 +62,7 @@ function StatusBadge({ status }: { status: string }) {
 
 // ─── SourceBadge (prototype exact) ───
 function SourceBadge({ source }: { source: string }) {
+  const T = useThemeTokens();
   return (
     <Badge
       color={T.purple}
@@ -74,10 +76,12 @@ function SourceBadge({ source }: { source: string }) {
 
 // ─── GradientBar (prototype exact) ───
 function GradientBar() {
+  const T = useThemeTokens();
   return <div style={{ height: 3, background: T.gradient, borderRadius: 2 }} />;
 }
 
 export default function Dashboard() {
+  const T = useThemeTokens();
   const { user, session } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -310,37 +314,40 @@ export default function Dashboard() {
 
   return (
     <DashboardLayout>
-      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '32px 40px' }}>
+      <div className="mx-auto max-w-[1200px] px-6 py-8 md:px-10 md:py-10">
         {/* Welcome message */}
-        <p style={{
-          fontFamily: 'DM Sans, sans-serif',
-          fontSize: 14,
-          color: '#78716C',
-          margin: '0 0 24px 0',
-          fontWeight: 400,
-        }}>
+        <p
+          className="text-muted-foreground"
+          style={{
+            fontFamily: 'DM Sans, sans-serif',
+            fontSize: 14,
+            margin: '0 0 24px 0',
+            fontWeight: 400,
+          }}
+        >
           Welcome back, {user?.email?.split('@')[0] || 'User'}
         </p>
 
-        {/* Header — Meetings title + Record button */}
+        {/* Header: Meetings title + Record button */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 28 }}>
           <div>
-            <h1 style={{
-              fontFamily: 'Outfit, sans-serif',
-              fontSize: 32,
-              fontWeight: 600,
-              color: '#FAFAF9',
-              margin: 0,
-              letterSpacing: '-0.02em',
-            }}>
+            <h1
+              className="text-3xl font-semibold tracking-[-0.02em] text-foreground md:text-[2rem]"
+              style={{
+                fontFamily: 'Outfit, sans-serif',
+                margin: 0,
+              }}
+            >
               Meetings
             </h1>
-            <p style={{
-              fontFamily: 'DM Sans, sans-serif',
-              fontSize: 13,
-              color: '#78716C',
-              margin: '4px 0 0 0',
-            }}>
+            <p
+              className="text-muted-foreground"
+              style={{
+                fontFamily: 'DM Sans, sans-serif',
+                fontSize: 13,
+                margin: '4px 0 0 0',
+              }}
+            >
               Your meeting intelligence hub
             </p>
           </div>
@@ -356,65 +363,28 @@ export default function Dashboard() {
         {fetchError && !loading && (
           <div
             role="alert"
-            style={{
-              marginBottom: 24,
-              padding: '14px 18px',
-              borderRadius: 12,
-              border: '1px solid rgba(239,68,68,0.35)',
-              background: 'rgba(239,68,68,0.08)',
-              fontFamily: 'DM Sans, sans-serif',
-              fontSize: 14,
-              color: '#FCA5A5',
-            }}
+            className="mb-6 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3.5 text-sm text-destructive dark:text-red-200"
           >
             {fetchError}. Check your connection and that the app is pointed at the correct Supabase project.
           </div>
         )}
 
-        {/* Stats Row — 3 columns */}
+        {/* Stats Row: 3 columns */}
         {!loading && meetings.length > 0 && (
           <>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
               {/* Meetings Count */}
-              <div style={{
-                background: '#1C1917',
-                border: '1px solid #292524',
-                borderRadius: 14,
-                padding: 24,
-              }}>
-                <div style={{
-                  fontFamily: 'Outfit, sans-serif',
-                  fontSize: 32,
-                  fontWeight: 700,
-                  color: '#FAFAF9',
-                  margin: 0,
-                }}>
+              <div className="rounded-[14px] border border-border bg-card p-6 shadow-sm">
+                <div className="text-foreground" style={{ fontFamily: 'Outfit, sans-serif', fontSize: 32, fontWeight: 700, margin: 0 }}>
                   {meetings.length}
                 </div>
-                <div style={{
-                  fontFamily: 'DM Sans, sans-serif',
-                  fontSize: 13,
-                  color: '#78716C',
-                  margin: '4px 0 0 0',
-                }}>
+                <div className="text-muted-foreground" style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 13, margin: '4px 0 0 0' }}>
                   Meetings
                 </div>
               </div>
 
-              {/* Recorded Time */}
-              <div style={{
-                background: '#1C1917',
-                border: '1px solid #292524',
-                borderRadius: 14,
-                padding: 24,
-              }}>
-                <div style={{
-                  fontFamily: 'Outfit, sans-serif',
-                  fontSize: 32,
-                  fontWeight: 700,
-                  color: '#FAFAF9',
-                  margin: 0,
-                }}>
+              <div className="rounded-[14px] border border-border bg-card p-6 shadow-sm">
+                <div className="text-foreground" style={{ fontFamily: 'Outfit, sans-serif', fontSize: 32, fontWeight: 700, margin: 0 }}>
                   {(() => {
                     const totalSecs = meetings.reduce((acc, m) => acc + (m.duration_seconds || 0), 0);
                     const hours = Math.floor(totalSecs / 3600);
@@ -422,73 +392,28 @@ export default function Dashboard() {
                     return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
                   })()}
                 </div>
-                <div style={{
-                  fontFamily: 'DM Sans, sans-serif',
-                  fontSize: 13,
-                  color: '#78716C',
-                  margin: '4px 0 0 0',
-                }}>
+                <div className="text-muted-foreground" style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 13, margin: '4px 0 0 0' }}>
                   Recorded
                 </div>
               </div>
 
-              {/* Summaries Count */}
-              <div style={{
-                background: '#1C1917',
-                border: '1px solid #292524',
-                borderRadius: 14,
-                padding: 24,
-              }}>
-                <div style={{
-                  fontFamily: 'Outfit, sans-serif',
-                  fontSize: 32,
-                  fontWeight: 700,
-                  color: '#FAFAF9',
-                  margin: 0,
-                }}>
+              <div className="rounded-[14px] border border-border bg-card p-6 shadow-sm">
+                <div className="text-foreground" style={{ fontFamily: 'Outfit, sans-serif', fontSize: 32, fontWeight: 700, margin: 0 }}>
                   {meetings.filter(m => m.summary).length}
                 </div>
-                <div style={{
-                  fontFamily: 'DM Sans, sans-serif',
-                  fontSize: 13,
-                  color: '#78716C',
-                  margin: '4px 0 0 0',
-                }}>
+                <div className="text-muted-foreground" style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 13, margin: '4px 0 0 0' }}>
                   Summaries
                 </div>
               </div>
             </div>
 
             {/* Time Saved Banner */}
-            <div style={{
-              background: 'rgba(34, 197, 94, 0.06)',
-              border: '1px solid rgba(34, 197, 94, 0.12)',
-              borderRadius: 12,
-              padding: '16px 20px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 14,
-              marginBottom: 32,
-            }}>
-              <div style={{
-                width: 40,
-                height: 40,
-                borderRadius: '50%',
-                background: 'rgba(34, 197, 94, 0.1)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}>
-                <Sparkles size={20} color="#22C55E" style={{ flexShrink: 0 }} />
+            <div className="mb-8 flex items-center gap-3.5 rounded-xl border border-green-500/20 bg-green-500/[0.08] px-5 py-4 dark:bg-green-500/10">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-green-500/15">
+                <Sparkles className="h-5 w-5 text-green-600 dark:text-green-400" style={{ flexShrink: 0 }} />
               </div>
               <div>
-                <div style={{
-                  fontFamily: 'Outfit, sans-serif',
-                  fontSize: 15,
-                  fontWeight: 600,
-                  color: '#FAFAF9',
-                  margin: 0,
-                }}>
+                <div className="text-foreground" style={{ fontFamily: 'Outfit, sans-serif', fontSize: 15, fontWeight: 600, margin: 0 }}>
                   ~{(() => {
                     const totalSecs = meetings.reduce((acc, m) => acc + (m.duration_seconds || 0), 0);
                     const totalMins = Math.round(totalSecs / 60);
@@ -498,26 +423,14 @@ export default function Dashboard() {
                     return hours > 0 ? `${hours}h ${mins}m saved` : `${mins}m saved`;
                   })()}
                 </div>
-                <div style={{
-                  fontFamily: 'DM Sans, sans-serif',
-                  fontSize: 13,
-                  color: '#78716C',
-                  margin: '2px 0 0 0',
-                }}>
-                  Time saved on meeting summaries with AI
+                <div className="text-muted-foreground" style={{ fontFamily: 'DM Sans, sans-serif', fontSize: 13, margin: '2px 0 0 0' }}>
+                  Estimated time saved on meeting summaries
                 </div>
               </div>
             </div>
 
             {/* Recent Meetings Label */}
-            <div style={{
-              fontSize: 11,
-              fontWeight: 700,
-              letterSpacing: '0.1em',
-              textTransform: 'uppercase',
-              color: '#78716C',
-              marginBottom: 16,
-            }}>
+            <div className="mb-4 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
               Recent Meetings
             </div>
           </>
@@ -525,58 +438,27 @@ export default function Dashboard() {
 
         {/* Meeting cards */}
         {loading ? (
-          <div style={{
-            display: 'flex', flexDirection: 'column',
-            alignItems: 'center', justifyContent: 'center',
-            minHeight: 300, gap: 16
-          }}>
-            <div style={{
-              width: 32, height: 32, borderRadius: '50%',
-              border: '2px solid #292524',
-              borderTopColor: '#F97316',
-              animation: 'spin 0.8s linear infinite'
-            }} />
-            <p style={{ color: '#78716C', fontSize: 13, fontFamily: 'DM Sans, sans-serif' }}>
-              Loading meetings...
-            </p>
+          <div className="flex min-h-[280px] flex-col items-center justify-center gap-4 rounded-2xl border border-border bg-muted/20">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-orange-500" />
+            <p className="text-sm text-muted-foreground">Loading meetings…</p>
           </div>
         ) : meetings.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '64px 0' }}>
-            <Mic style={{ width: 48, height: 48, margin: '0 auto 16px', color: T.textM }} />
-            <p style={{ fontSize: 16, fontWeight: 500, color: T.text, marginBottom: 4 }}>No meetings yet</p>
-            <p style={{ fontSize: 14, maxWidth: 320, margin: '0 auto', color: T.textS }}>
-              Click Record to capture your first meeting. Your AI-powered summaries will appear here.
+          <div className="rounded-2xl border border-dashed border-border bg-muted/20 px-6 py-16 text-center">
+            <Mic className="mx-auto mb-4 h-12 w-12 text-muted-foreground" strokeWidth={1.5} />
+            <p className="text-base font-medium text-foreground">No meetings yet</p>
+            <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
+              Click Record to capture your first meeting. Summaries and insights will show up here.
             </p>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div className="flex flex-col gap-2">
             {meetings.map((meeting) => (
               <Link
                 key={meeting.id}
                 to={`/meeting/${meeting.id}`}
-                className="block"
-                style={{ textDecoration: 'none' }}
+                className="group block no-underline"
               >
-                <div
-                  style={{
-                    background: T.bgCard,
-                    border: `1px solid ${T.border}`,
-                    borderRadius: 16,
-                    padding: 20,
-                    cursor: 'pointer',
-                    transition: 'all 0.2s',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = T.bgCardH;
-                    e.currentTarget.style.borderColor = T.borderL;
-                    e.currentTarget.style.transform = 'translateY(-1px)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = T.bgCard;
-                    e.currentTarget.style.borderColor = T.border;
-                    e.currentTarget.style.transform = 'translateY(0)';
-                  }}
-                >
+                <div className="cursor-pointer rounded-2xl border border-border bg-card p-5 shadow-sm transition-all duration-200 hover:-translate-y-px hover:border-orange-500/20 hover:bg-muted/50 hover:shadow-md dark:hover:bg-muted/30">
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 16, flex: 1, minWidth: 0 }}>
                       {/* Meeting icon */}
@@ -635,7 +517,7 @@ export default function Dashboard() {
                           )}
                         </div>
                       )}
-                      <ChevronRight size={16} color={T.textM} />
+                      <ChevronRight size={16} className="shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
                     </div>
                   </div>
                 </div>

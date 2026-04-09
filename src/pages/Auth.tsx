@@ -8,6 +8,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { Mail, Lock, User, ArrowRight, ArrowLeft, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Logo } from '@/components/ui/Logo';
+import { ThemeToggle } from '@/components/ThemeToggle';
+
+const inputClassName =
+  'w-full rounded-lg border border-border bg-background py-2.5 pl-10 pr-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/20';
 
 export default function Auth() {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -99,37 +103,37 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen flex" style={{ background: '#0C0A09' }}>
+    <div className="flex min-h-screen bg-background">
       {/* Left Panel - Branding */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden" style={{ background: 'linear-gradient(135deg, #1C1917 0%, #0C0A09 50%, #1C1917 100%)' }}>
-        {/* Decorative gradient orbs */}
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-1/4 left-1/4 w-72 h-72 rounded-full blur-[100px]" style={{ background: 'rgba(249,115,22,0.12)' }} />
-          <div className="absolute bottom-1/3 right-1/4 w-56 h-56 rounded-full blur-[80px]" style={{ background: 'rgba(245,158,11,0.08)' }} />
+      <div className="relative hidden overflow-hidden lg:flex lg:w-1/2 lg:bg-gradient-to-br lg:from-stone-100 lg:via-background lg:to-stone-200 dark:lg:from-stone-900 dark:lg:via-background dark:lg:to-stone-950">
+        <div className="pointer-events-none absolute inset-0">
+          <div className="absolute left-1/4 top-1/4 h-72 w-72 rounded-full bg-orange-500/15 blur-[100px] dark:bg-orange-500/20" />
+          <div className="absolute bottom-1/3 right-1/4 h-56 w-56 rounded-full bg-amber-500/10 blur-[80px]" />
         </div>
-        
+
         <div className="relative z-10 flex flex-col justify-center p-16">
           <div className="mb-16">
             <Logo size="lg" linkTo="/" />
           </div>
 
-          <h1 
-            className="text-4xl font-semibold mb-5 leading-tight"
-            style={{ fontFamily: 'Outfit, sans-serif', color: '#FAFAF9', letterSpacing: '-0.02em' }}
+          <h1
+            className="mb-5 text-4xl font-semibold leading-tight tracking-[-0.02em] text-foreground"
+            style={{ fontFamily: 'Outfit, sans-serif' }}
           >
-            Transform your meetings<br />into actionable insights
+            Transform your meetings
+            <br />
+            into actionable insights
           </h1>
-          <p className="text-lg max-w-md leading-relaxed" style={{ color: '#A8A29E' }}>
-            Record, transcribe, and get AI-powered summaries in 22 Indian languages. Delivered to WhatsApp, Slack, or email.
+          <p className="max-w-md text-lg leading-relaxed text-muted-foreground">
+            Record, transcribe, and get AI-powered summaries in 22 Indian languages. Delivered to WhatsApp, Slack, or
+            email.
           </p>
 
-          {/* Feature pills */}
-          <div className="flex flex-wrap gap-2 mt-10">
+          <div className="mt-10 flex flex-wrap gap-2">
             {['22 Languages', 'Hinglish Support', 'WhatsApp Delivery', 'DPDP Compliant'].map((f) => (
-              <span 
+              <span
                 key={f}
-                className="px-3 py-1.5 rounded-full text-xs font-medium"
-                style={{ background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.15)', color: '#FB923C' }}
+                className="rounded-full border border-orange-500/20 bg-orange-500/[0.08] px-3 py-1.5 text-xs font-medium text-orange-700 dark:text-orange-300"
               >
                 {f}
               </span>
@@ -139,41 +143,35 @@ export default function Auth() {
       </div>
 
       {/* Right Panel - Auth Form */}
-      <div className="flex-1 flex items-center justify-center p-8" style={{ background: '#0C0A09' }}>
+      <div className="relative flex flex-1 items-center justify-center p-8">
+        <div className="absolute right-6 top-6">
+          <ThemeToggle />
+        </div>
         <div className="w-full max-w-md">
-          {/* Mobile Logo */}
-          <div className="flex lg:hidden justify-center mb-10">
+          <div className="mb-10 flex justify-center lg:hidden">
             <Logo size="lg" linkTo="/" />
           </div>
 
-          {/* Auth Card */}
-          <div 
-            className="rounded-2xl p-8"
-            style={{ background: '#1C1917', border: '1px solid #292524' }}
-          >
+          <div className="rounded-2xl border border-border bg-card p-8 shadow-sm dark:shadow-none">
             {emailSent ? (
-              <div className="text-center py-4">
-                <div 
-                  className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6"
-                  style={{ background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.15)' }}
-                >
-                  <Mail className="w-8 h-8" style={{ color: '#FB923C' }} />
+              <div className="py-4 text-center">
+                <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full border border-orange-500/20 bg-orange-500/[0.08]">
+                  <Mail className="h-8 w-8 text-orange-600 dark:text-orange-400" />
                 </div>
-                <h2 className="text-xl font-semibold mb-2" style={{ fontFamily: 'Outfit, sans-serif', color: '#FAFAF9' }}>
+                <h2 className="mb-2 text-xl font-semibold text-foreground" style={{ fontFamily: 'Outfit, sans-serif' }}>
                   Check your email
                 </h2>
-                <p className="text-sm mb-6" style={{ color: '#A8A29E' }}>
-                  We sent a verification link to <span className="font-medium" style={{ color: '#FAFAF9' }}>{email}</span>. Click the link to activate your account.
+                <p className="mb-6 text-sm text-muted-foreground">
+                  We sent a verification link to <span className="font-medium text-foreground">{email}</span>. Click the
+                  link to activate your account.
                 </p>
-                <p className="text-xs mb-6" style={{ color: '#78716C' }}>
-                  Didn't receive it? Check your spam folder or try again.
-                </p>
+                <p className="mb-6 text-xs text-muted-foreground">Didn't receive it? Check your spam folder or try again.</p>
                 <button
-                  onClick={() => { setEmailSent(false); setIsSignUp(false); }}
-                  className="inline-flex items-center gap-2 text-sm font-medium transition-colors"
-                  style={{ color: '#A8A29E' }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = '#FAFAF9')}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = '#A8A29E')}
+                  onClick={() => {
+                    setEmailSent(false);
+                    setIsSignUp(false);
+                  }}
+                  className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
                 >
                   <ArrowLeft className="w-4 h-4" />
                   Back to sign in
@@ -181,14 +179,14 @@ export default function Auth() {
               </div>
             ) : (
               <>
-                <div className="text-center mb-8">
-                  <h2 
-                    className="text-2xl font-semibold mb-2"
-                    style={{ fontFamily: 'Outfit, sans-serif', color: '#FAFAF9', letterSpacing: '-0.02em' }}
+                <div className="mb-8 text-center">
+                  <h2
+                    className="mb-2 text-2xl font-semibold tracking-[-0.02em] text-foreground"
+                    style={{ fontFamily: 'Outfit, sans-serif' }}
                   >
                     {isResetPassword ? 'Set new password' : isForgotPassword ? 'Reset your password' : isSignUp ? 'Create your account' : 'Welcome back'}
                   </h2>
-                  <p className="text-sm" style={{ color: '#A8A29E' }}>
+                  <p className="text-sm text-muted-foreground">
                     {isResetPassword
                       ? 'Enter your new password below'
                       : isForgotPassword
@@ -202,38 +200,36 @@ export default function Auth() {
                 {isResetPassword ? (
                   <form onSubmit={handleResetPassword} className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="new-password" style={{ color: '#A8A29E', fontSize: 13 }}>New Password</Label>
+                      <Label htmlFor="new-password" className="text-[13px] text-muted-foreground">
+                        New Password
+                      </Label>
                       <div className="relative">
-                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: '#78716C' }} />
+                        <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                         <input
                           id="new-password"
                           type="password"
                           placeholder="••••••••"
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
-                          className="w-full pl-10 pr-3 py-2.5 rounded-lg text-sm outline-none transition-colors"
-                          style={{ background: '#0C0A09', border: '1px solid #292524', color: '#FAFAF9', fontFamily: 'inherit' }}
-                          onFocus={(e) => (e.currentTarget.style.borderColor = 'rgba(249,115,22,0.4)')}
-                          onBlur={(e) => (e.currentTarget.style.borderColor = '#292524')}
+                          className={inputClassName}
                           required
                           minLength={6}
                         />
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="confirm-password" style={{ color: '#A8A29E', fontSize: 13 }}>Confirm Password</Label>
+                      <Label htmlFor="confirm-password" className="text-[13px] text-muted-foreground">
+                        Confirm Password
+                      </Label>
                       <div className="relative">
-                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: '#78716C' }} />
+                        <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                         <input
                           id="confirm-password"
                           type="password"
                           placeholder="••••••••"
                           value={confirmPassword}
                           onChange={(e) => setConfirmPassword(e.target.value)}
-                          className="w-full pl-10 pr-3 py-2.5 rounded-lg text-sm outline-none transition-colors"
-                          style={{ background: '#0C0A09', border: '1px solid #292524', color: '#FAFAF9', fontFamily: 'inherit' }}
-                          onFocus={(e) => (e.currentTarget.style.borderColor = 'rgba(249,115,22,0.4)')}
-                          onBlur={(e) => (e.currentTarget.style.borderColor = '#292524')}
+                          className={inputClassName}
                           required
                           minLength={6}
                         />
@@ -242,8 +238,7 @@ export default function Auth() {
                     <button
                       type="submit"
                       disabled={loading}
-                      className="w-full py-3 rounded-xl text-[15px] font-semibold text-white flex items-center justify-center gap-2 transition-opacity disabled:opacity-50"
-                      style={{ background: 'linear-gradient(135deg, #F97316, #F59E0B)', boxShadow: '0 2px 12px rgba(249,115,22,0.25)', fontFamily: 'inherit' }}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 py-3 text-[15px] font-semibold text-white shadow-md shadow-orange-500/25 transition-opacity disabled:opacity-50"
                     >
                       {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Update Password <ArrowRight className="w-4 h-4" /></>}
                     </button>
@@ -251,19 +246,18 @@ export default function Auth() {
                 ) : isForgotPassword ? (
                   <form onSubmit={handleForgotPassword} className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="email" style={{ color: '#A8A29E', fontSize: 13 }}>Email</Label>
+                      <Label htmlFor="email" className="text-[13px] text-muted-foreground">
+                        Email
+                      </Label>
                       <div className="relative">
-                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: '#78716C' }} />
+                        <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                         <input
                           id="email"
                           type="email"
                           placeholder="you@example.com"
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
-                          className="w-full pl-10 pr-3 py-2.5 rounded-lg text-sm outline-none transition-colors"
-                          style={{ background: '#0C0A09', border: '1px solid #292524', color: '#FAFAF9', fontFamily: 'inherit' }}
-                          onFocus={(e) => (e.currentTarget.style.borderColor = 'rgba(249,115,22,0.4)')}
-                          onBlur={(e) => (e.currentTarget.style.borderColor = '#292524')}
+                          className={inputClassName}
                           required
                         />
                       </div>
@@ -271,8 +265,7 @@ export default function Auth() {
                     <button
                       type="submit"
                       disabled={loading}
-                      className="w-full py-3 rounded-xl text-[15px] font-semibold text-white flex items-center justify-center gap-2 transition-opacity disabled:opacity-50"
-                      style={{ background: 'linear-gradient(135deg, #F97316, #F59E0B)', boxShadow: '0 2px 12px rgba(249,115,22,0.25)', fontFamily: 'inherit' }}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 py-3 text-[15px] font-semibold text-white shadow-md shadow-orange-500/25 transition-opacity disabled:opacity-50"
                     >
                       {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Send Reset Link <ArrowRight className="w-4 h-4" /></>}
                     </button>
@@ -280,10 +273,7 @@ export default function Auth() {
                       <button
                         type="button"
                         onClick={() => setIsForgotPassword(false)}
-                        className="text-sm inline-flex items-center gap-1 transition-colors"
-                        style={{ color: '#A8A29E' }}
-                        onMouseEnter={(e) => (e.currentTarget.style.color = '#FAFAF9')}
-                        onMouseLeave={(e) => (e.currentTarget.style.color = '#A8A29E')}
+                        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
                       >
                         <ArrowLeft className="w-3 h-3" /> Back to sign in
                       </button>
@@ -294,19 +284,18 @@ export default function Auth() {
                     <form onSubmit={handleSubmit} className="space-y-4">
                       {isSignUp && (
                         <div className="space-y-2">
-                          <Label htmlFor="name" style={{ color: '#A8A29E', fontSize: 13 }}>Full Name</Label>
+                          <Label htmlFor="name" className="text-[13px] text-muted-foreground">
+                            Full Name
+                          </Label>
                           <div className="relative">
-                            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: '#78716C' }} />
+                            <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                             <input
                               id="name"
                               type="text"
                               placeholder="John Doe"
                               value={fullName}
                               onChange={(e) => setFullName(e.target.value)}
-                              className="w-full pl-10 pr-3 py-2.5 rounded-lg text-sm outline-none transition-colors"
-                              style={{ background: '#0C0A09', border: '1px solid #292524', color: '#FAFAF9', fontFamily: 'inherit' }}
-                              onFocus={(e) => (e.currentTarget.style.borderColor = 'rgba(249,115,22,0.4)')}
-                              onBlur={(e) => (e.currentTarget.style.borderColor = '#292524')}
+                              className={inputClassName}
                               required={isSignUp}
                             />
                           </div>
@@ -314,19 +303,18 @@ export default function Auth() {
                       )}
 
                       <div className="space-y-2">
-                        <Label htmlFor="email" style={{ color: '#A8A29E', fontSize: 13 }}>Email</Label>
+                        <Label htmlFor="email" className="text-[13px] text-muted-foreground">
+                          Email
+                        </Label>
                         <div className="relative">
-                          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: '#78716C' }} />
+                          <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                           <input
                             id="email"
                             type="email"
                             placeholder="you@example.com"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            className="w-full pl-10 pr-3 py-2.5 rounded-lg text-sm outline-none transition-colors"
-                            style={{ background: '#0C0A09', border: '1px solid #292524', color: '#FAFAF9', fontFamily: 'inherit' }}
-                            onFocus={(e) => (e.currentTarget.style.borderColor = 'rgba(249,115,22,0.4)')}
-                            onBlur={(e) => (e.currentTarget.style.borderColor = '#292524')}
+                            className={inputClassName}
                             required
                           />
                         </div>
@@ -334,32 +322,28 @@ export default function Auth() {
 
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <Label htmlFor="password" style={{ color: '#A8A29E', fontSize: 13 }}>Password</Label>
+                          <Label htmlFor="password" className="text-[13px] text-muted-foreground">
+                            Password
+                          </Label>
                           {!isSignUp && (
                             <button
                               type="button"
                               onClick={() => setIsForgotPassword(true)}
-                              className="text-xs font-medium transition-colors"
-                              style={{ color: '#FB923C' }}
-                              onMouseEnter={(e) => (e.currentTarget.style.color = '#F97316')}
-                              onMouseLeave={(e) => (e.currentTarget.style.color = '#FB923C')}
+                              className="text-xs font-medium text-orange-600 transition-colors hover:text-orange-500 dark:text-orange-400"
                             >
                               Forgot password?
                             </button>
                           )}
                         </div>
                         <div className="relative">
-                          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: '#78716C' }} />
+                          <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                           <input
                             id="password"
                             type="password"
                             placeholder="••••••••"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            className="w-full pl-10 pr-3 py-2.5 rounded-lg text-sm outline-none transition-colors"
-                            style={{ background: '#0C0A09', border: '1px solid #292524', color: '#FAFAF9', fontFamily: 'inherit' }}
-                            onFocus={(e) => (e.currentTarget.style.borderColor = 'rgba(249,115,22,0.4)')}
-                            onBlur={(e) => (e.currentTarget.style.borderColor = '#292524')}
+                            className={inputClassName}
                             required
                             minLength={6}
                           />
@@ -369,8 +353,7 @@ export default function Auth() {
                       <button
                         type="submit"
                         disabled={loading}
-                        className="w-full py-3 rounded-xl text-[15px] font-semibold text-white flex items-center justify-center gap-2 transition-opacity disabled:opacity-50 mt-2"
-                        style={{ background: 'linear-gradient(135deg, #F97316, #F59E0B)', boxShadow: '0 2px 12px rgba(249,115,22,0.25)', fontFamily: 'inherit' }}
+                        className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 py-3 text-[15px] font-semibold text-white shadow-md shadow-orange-500/25 transition-opacity disabled:opacity-50"
                       >
                         {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : (
                           <>{isSignUp ? 'Create Account' : 'Sign In'} <ArrowRight className="w-4 h-4" /></>
@@ -382,14 +365,18 @@ export default function Auth() {
                       <button
                         type="button"
                         onClick={() => setIsSignUp(!isSignUp)}
-                        className="text-sm transition-colors"
-                        style={{ color: '#A8A29E' }}
-                        onMouseEnter={(e) => (e.currentTarget.style.color = '#FAFAF9')}
-                        onMouseLeave={(e) => (e.currentTarget.style.color = '#A8A29E')}
+                        className="text-sm text-muted-foreground transition-colors hover:text-foreground"
                       >
-                        {isSignUp 
-                          ? <>Already have an account? <span style={{ color: '#FB923C' }}>Sign in</span></> 
-                          : <>Don't have an account? <span style={{ color: '#FB923C' }}>Sign up</span></>}
+                        {isSignUp ? (
+                          <>
+                            Already have an account?{' '}
+                            <span className="text-orange-600 dark:text-orange-400">Sign in</span>
+                          </>
+                        ) : (
+                          <>
+                            Don't have an account? <span className="text-orange-600 dark:text-orange-400">Sign up</span>
+                          </>
+                        )}
                       </button>
                     </div>
                   </>
@@ -399,7 +386,7 @@ export default function Auth() {
           </div>
 
           {/* Footer */}
-          <p className="text-center mt-6 text-xs" style={{ color: '#78716C' }}>
+          <p className="mt-6 text-center text-xs text-muted-foreground">
             By signing in, you agree to our Terms of Service and Privacy Policy
           </p>
         </div>

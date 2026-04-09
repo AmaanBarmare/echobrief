@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { ChevronRight, Check, Calendar, Bell, Zap, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 type Step = 'welcome' | 'preferences' | 'calendar' | 'notifications' | 'complete';
 
@@ -12,7 +13,7 @@ export default function Onboarding() {
   const navigate = useNavigate();
   const [step, setStep] = useState<Step>('welcome');
   const [loading, setLoading] = useState(false);
-  
+
   // Preferences
   const [languages, setLanguages] = useState<string[]>(['English']);
   const [notificationFreq, setNotificationFreq] = useState('daily');
@@ -28,7 +29,7 @@ export default function Onboarding() {
         .select('onboarding_completed')
         .eq('user_id', user.id)
         .single();
-      
+
       if (data?.onboarding_completed) {
         navigate('/dashboard');
       }
@@ -54,8 +55,9 @@ export default function Onboarding() {
 
       if (error) throw error;
       navigate('/dashboard');
-    } catch (err: any) {
-      alert('Error completing onboarding: ' + err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      alert('Error completing onboarding: ' + message);
     } finally {
       setLoading(false);
     }
@@ -71,137 +73,73 @@ export default function Onboarding() {
 
   const currentStepIndex = steps_list.findIndex(s => s.id === step);
 
+  const primaryBtn =
+    'flex-1 bg-gradient-to-r from-orange-500 to-amber-500 font-medium text-white shadow-md shadow-orange-500/20 transition-opacity hover:opacity-[0.97] active:opacity-95';
+
   return (
-    <div style={{ 
-      minHeight: '100vh', 
-      background: '#0F0E0D',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: 20,
-    }}>
-      <div style={{ maxWidth: 500, width: '100%' }}>
-        {/* Header with gradient */}
-        <div style={{
-          background: 'linear-gradient(135deg, #F97316, #F59E0B)',
-          borderRadius: 16,
-          padding: 40,
-          textAlign: 'center',
-          marginBottom: 40,
-          color: 'white',
-        }}>
-          <h1 style={{
-            fontSize: 32,
-            fontWeight: 700,
-            margin: '0 0 8px 0',
-            fontFamily: 'Outfit, sans-serif',
-            letterSpacing: '-0.02em',
-          }}>
+    <div className="min-h-screen bg-background">
+      <div className="mx-auto flex min-h-screen max-w-lg flex-col justify-center px-4 py-10 sm:px-6">
+        {/* Hero */}
+        <div className="relative mb-8 overflow-hidden rounded-2xl bg-gradient-to-br from-orange-500 via-orange-500 to-amber-500 px-8 py-10 text-center text-white shadow-lg shadow-orange-500/25">
+          <div className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
+          <div className="pointer-events-none absolute -bottom-12 -left-12 h-32 w-32 rounded-full bg-amber-400/30 blur-2xl" />
+          <h1
+            className="relative text-3xl font-semibold tracking-[-0.02em] sm:text-[2rem]"
+            style={{ fontFamily: 'Outfit, sans-serif' }}
+          >
             Welcome to EchoBrief
           </h1>
-          <p style={{
-            fontSize: 14,
-            opacity: 0.9,
-            margin: 0,
-          }}>
-            AI-powered meeting intelligence
+          <p className="relative mt-2 text-sm text-white/90">
+            Meeting summaries, action items, and insights
           </p>
         </div>
 
-        {/* Progress steps */}
-        <div style={{
-          display: 'flex',
-          gap: 8,
-          marginBottom: 40,
-          justifyContent: 'center',
-        }}>
+        {/* Progress */}
+        <div className="mb-8 flex gap-2" role="progressbar" aria-valuenow={currentStepIndex + 1} aria-valuemin={1} aria-valuemax={steps_list.length}>
           {steps_list.map((s, i) => (
             <div
               key={s.id}
-              style={{
-                flex: 1,
-                height: 6,
-                borderRadius: 3,
-                background: currentStepIndex >= i ? '#F97316' : '#292524',
-                transition: 'all 0.3s ease',
-              }}
+              className={cn(
+                'h-1.5 flex-1 rounded-full transition-all duration-300',
+                currentStepIndex >= i ? 'bg-gradient-to-r from-orange-500 to-amber-500' : 'bg-muted'
+              )}
             />
           ))}
         </div>
 
         {/* Step content */}
-        <div style={{
-          background: '#1C1917',
-          border: '1px solid #292524',
-          borderRadius: 16,
-          padding: 32,
-          minHeight: 350,
-          display: 'flex',
-          flexDirection: 'column',
-        }}>
+        <div className="flex min-h-[22rem] flex-col rounded-2xl border border-border bg-card p-6 text-card-foreground shadow-sm sm:p-8">
           {/* ═══ WELCOME STEP ═══ */}
           {step === 'welcome' && (
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-              <h2 style={{
-                fontSize: 24,
-                fontWeight: 600,
-                color: '#FAFAF9',
-                marginBottom: 16,
-                fontFamily: 'Outfit, sans-serif',
-              }}>
-                Let's get started
+            <div className="flex flex-1 flex-col">
+              <h2 className="mb-3 text-2xl font-semibold text-foreground" style={{ fontFamily: 'Outfit, sans-serif' }}>
+                Let&apos;s get started
               </h2>
-              <p style={{
-                color: '#A8A29E',
-                fontSize: 14,
-                lineHeight: 1.6,
-                marginBottom: 24,
-              }}>
-                EchoBrief captures and analyzes your meetings in real-time. Set your preferences to get the most out of AI-powered summaries, action items, and insights.
+              <p className="mb-6 text-sm leading-relaxed text-muted-foreground">
+                EchoBrief captures and analyzes your meetings in real time. Set your preferences to get the most out of
+                summaries, action items, and insights tailored to how you work.
               </p>
-              <div style={{ flex: 1 }} />
-              <div style={{ display: 'flex', gap: 12 }}>
-                <Button
-                  onClick={() => setStep('preferences')}
-                  style={{
-                    flex: 1,
-                    background: '#FB923C',
-                    color: 'white',
-                  }}
-                >
-                  Get Started <ChevronRight size={16} style={{ marginLeft: 8 }} />
-                </Button>
-              </div>
+              <div className="flex-1" />
+              <Button type="button" onClick={() => setStep('preferences')} className={primaryBtn}>
+                Get Started <ChevronRight className="ml-2 h-4 w-4" />
+              </Button>
             </div>
           )}
 
           {/* ═══ PREFERENCES STEP ═══ */}
           {step === 'preferences' && (
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-              <h2 style={{
-                fontSize: 24,
-                fontWeight: 600,
-                color: '#FAFAF9',
-                marginBottom: 24,
-                fontFamily: 'Outfit, sans-serif',
-              }}>
+            <div className="flex flex-1 flex-col">
+              <h2 className="mb-6 text-2xl font-semibold text-foreground" style={{ fontFamily: 'Outfit, sans-serif' }}>
                 Your Preferences
               </h2>
 
-              <div style={{ marginBottom: 24 }}>
-                <label style={{
-                  display: 'block',
-                  color: '#FAFAF9',
-                  fontSize: 13,
-                  fontWeight: 500,
-                  marginBottom: 12,
-                }}>
-                  Preferred Languages
-                </label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
+              <div className="mb-6">
+                <label className="mb-3 block text-[13px] font-medium text-foreground">Preferred Languages</label>
+                <div className="grid grid-cols-2 gap-2">
                   {['English', 'Hindi', 'Spanish', 'French'].map(lang => (
                     <button
                       key={lang}
+                      type="button"
                       onClick={() => {
                         if (languages.includes(lang)) {
                           setLanguages(languages.filter(l => l !== lang));
@@ -209,43 +147,27 @@ export default function Onboarding() {
                           setLanguages([...languages, lang]);
                         }
                       }}
-                      style={{
-                        padding: '12px',
-                        borderRadius: 8,
-                        border: `1px solid ${languages.includes(lang) ? '#F97316' : '#292524'}`,
-                        background: languages.includes(lang) ? 'rgba(249,115,22,0.1)' : 'transparent',
-                        color: languages.includes(lang) ? '#FB923C' : '#A8A29E',
-                        cursor: 'pointer',
-                        fontSize: 13,
-                        fontWeight: 500,
-                        fontFamily: 'inherit',
-                        transition: 'all 0.2s',
-                      }}
+                      className={cn(
+                        'rounded-lg border px-3 py-3 text-[13px] font-medium transition-all',
+                        languages.includes(lang)
+                          ? 'border-orange-500 bg-orange-500/10 text-orange-700 dark:text-orange-400'
+                          : 'border-border bg-transparent text-muted-foreground hover:border-orange-500/40 hover:bg-muted/60'
+                      )}
                     >
-                      {languages.includes(lang) && '✓ '}{lang}
+                      {languages.includes(lang) && '✓ '}
+                      {lang}
                     </button>
                   ))}
                 </div>
               </div>
 
-              <div style={{ flex: 1 }} />
-              <div style={{ display: 'flex', gap: 12 }}>
-                <Button
-                  onClick={() => setStep('welcome')}
-                  variant="outline"
-                  style={{ flex: 1, color: '#A8A29E' }}
-                >
+              <div className="flex-1" />
+              <div className="flex gap-3">
+                <Button type="button" variant="outline" onClick={() => setStep('welcome')} className="flex-1 border-border text-muted-foreground hover:bg-muted">
                   Back
                 </Button>
-                <Button
-                  onClick={() => setStep('calendar')}
-                  style={{
-                    flex: 1,
-                    background: '#FB923C',
-                    color: 'white',
-                  }}
-                >
-                  Next <ChevronRight size={16} style={{ marginLeft: 8 }} />
+                <Button type="button" onClick={() => setStep('calendar')} className={primaryBtn}>
+                  Next <ChevronRight className="ml-2 h-4 w-4" />
                 </Button>
               </div>
             </div>
@@ -253,85 +175,48 @@ export default function Onboarding() {
 
           {/* ═══ CALENDAR STEP ═══ */}
           {step === 'calendar' && (
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-              <h2 style={{
-                fontSize: 24,
-                fontWeight: 600,
-                color: '#FAFAF9',
-                marginBottom: 24,
-                fontFamily: 'Outfit, sans-serif',
-              }}>
+            <div className="flex flex-1 flex-col">
+              <h2 className="mb-6 text-2xl font-semibold text-foreground" style={{ fontFamily: 'Outfit, sans-serif' }}>
                 Calendar Integration
               </h2>
 
-              <div style={{ marginBottom: 20 }}>
+              <div className="mb-5">
                 <button
+                  type="button"
                   onClick={() => setCalendarEnabled(!calendarEnabled)}
-                  style={{
-                    width: '100%',
-                    padding: '16px',
-                    borderRadius: 8,
-                    border: `1px solid ${calendarEnabled ? '#F97316' : '#292524'}`,
-                    background: calendarEnabled ? 'rgba(249,115,22,0.1)' : 'transparent',
-                    color: '#FAFAF9',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 12,
-                    transition: 'all 0.2s',
-                  }}
+                  className={cn(
+                    'flex w-full items-center gap-3 rounded-xl border p-4 text-left transition-all',
+                    calendarEnabled
+                      ? 'border-orange-500/60 bg-orange-500/10'
+                      : 'border-border bg-transparent hover:border-orange-500/30 hover:bg-muted/40'
+                  )}
                 >
                   <div
-                    style={{
-                      width: 20,
-                      height: 20,
-                      borderRadius: 4,
-                      border: `2px solid ${calendarEnabled ? '#FB923C' : '#292524'}`,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      background: calendarEnabled ? '#FB923C' : 'transparent',
-                    }}
+                    className={cn(
+                      'flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors',
+                      calendarEnabled ? 'border-orange-500 bg-orange-500' : 'border-border bg-transparent'
+                    )}
                   >
-                    {calendarEnabled && <Check size={14} color="white" />}
+                    {calendarEnabled && <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />}
                   </div>
-                  <div style={{ textAlign: 'left' }}>
-                    <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 4 }}>
-                      Google Calendar Sync
-                    </div>
-                    <div style={{ fontSize: 12, color: '#78716C' }}>
-                      Auto-join meetings from your calendar
-                    </div>
+                  <div>
+                    <div className="text-[13px] font-medium text-foreground">Google Calendar Sync</div>
+                    <div className="mt-0.5 text-xs text-muted-foreground">Auto-join meetings from your calendar</div>
                   </div>
                 </button>
               </div>
 
-              <p style={{
-                color: '#78716C',
-                fontSize: 12,
-                lineHeight: 1.5,
-              }}>
-                💡 You can enable integrations later in settings. For now, focus on getting familiar with EchoBrief.
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                You can enable integrations later in Settings. For now, focus on getting familiar with EchoBrief.
               </p>
 
-              <div style={{ flex: 1 }} />
-              <div style={{ display: 'flex', gap: 12 }}>
-                <Button
-                  onClick={() => setStep('preferences')}
-                  variant="outline"
-                  style={{ flex: 1, color: '#A8A29E' }}
-                >
+              <div className="flex-1" />
+              <div className="flex gap-3">
+                <Button type="button" variant="outline" onClick={() => setStep('preferences')} className="flex-1 border-border text-muted-foreground hover:bg-muted">
                   Back
                 </Button>
-                <Button
-                  onClick={() => setStep('notifications')}
-                  style={{
-                    flex: 1,
-                    background: '#FB923C',
-                    color: 'white',
-                  }}
-                >
-                  Next <ChevronRight size={16} style={{ marginLeft: 8 }} />
+                <Button type="button" onClick={() => setStep('notifications')} className={primaryBtn}>
+                  Next <ChevronRight className="ml-2 h-4 w-4" />
                 </Button>
               </div>
             </div>
@@ -339,57 +224,37 @@ export default function Onboarding() {
 
           {/* ═══ NOTIFICATIONS STEP ═══ */}
           {step === 'notifications' && (
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-              <h2 style={{
-                fontSize: 24,
-                fontWeight: 600,
-                color: '#FAFAF9',
-                marginBottom: 24,
-                fontFamily: 'Outfit, sans-serif',
-              }}>
+            <div className="flex flex-1 flex-col">
+              <h2 className="mb-6 text-2xl font-semibold text-foreground" style={{ fontFamily: 'Outfit, sans-serif' }}>
                 Notification Frequency
               </h2>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
+              <div className="grid grid-cols-1 gap-2">
                 {['instant', 'daily', 'weekly', 'never'].map(freq => (
                   <button
                     key={freq}
+                    type="button"
                     onClick={() => setNotificationFreq(freq)}
-                    style={{
-                      padding: '16px',
-                      borderRadius: 8,
-                      border: `1px solid ${notificationFreq === freq ? '#F97316' : '#292524'}`,
-                      background: notificationFreq === freq ? 'rgba(249,115,22,0.1)' : 'transparent',
-                      color: notificationFreq === freq ? '#FB923C' : '#A8A29E',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 12,
-                      fontSize: 13,
-                      fontWeight: 500,
-                      fontFamily: 'inherit',
-                      transition: 'all 0.2s',
-                      textAlign: 'left',
-                    }}
+                    className={cn(
+                      'flex items-center gap-3 rounded-xl border p-4 text-left text-[13px] font-medium transition-all',
+                      notificationFreq === freq
+                        ? 'border-orange-500 bg-orange-500/10 text-orange-800 dark:text-orange-300'
+                        : 'border-border text-muted-foreground hover:border-orange-500/30 hover:bg-muted/40'
+                    )}
                   >
                     <div
-                      style={{
-                        width: 20,
-                        height: 20,
-                        borderRadius: 50,
-                        border: `2px solid ${notificationFreq === freq ? '#FB923C' : '#292524'}`,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        background: notificationFreq === freq ? '#FB923C' : 'transparent',
-                        flexShrink: 0,
-                      }}
+                      className={cn(
+                        'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors',
+                        notificationFreq === freq ? 'border-orange-500 bg-orange-500' : 'border-border bg-transparent'
+                      )}
                     >
-                      {notificationFreq === freq && <Check size={12} color="white" />}
+                      {notificationFreq === freq && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
                     </div>
                     <div>
-                      <div style={{ textTransform: 'capitalize' }}>{freq}</div>
-                      <div style={{ fontSize: 11, opacity: 0.7 }}>
+                      <div className={cn('capitalize', notificationFreq === freq ? 'text-foreground' : 'text-foreground/80')}>
+                        {freq}
+                      </div>
+                      <div className="mt-0.5 text-[11px] text-muted-foreground">
                         {freq === 'instant' && 'Get alerts immediately'}
                         {freq === 'daily' && 'Once per day'}
                         {freq === 'weekly' && 'Once per week'}
@@ -400,24 +265,13 @@ export default function Onboarding() {
                 ))}
               </div>
 
-              <div style={{ flex: 1 }} />
-              <div style={{ display: 'flex', gap: 12 }}>
-                <Button
-                  onClick={() => setStep('calendar')}
-                  variant="outline"
-                  style={{ flex: 1, color: '#A8A29E' }}
-                >
+              <div className="flex-1" />
+              <div className="flex gap-3">
+                <Button type="button" variant="outline" onClick={() => setStep('calendar')} className="flex-1 border-border text-muted-foreground hover:bg-muted">
                   Back
                 </Button>
-                <Button
-                  onClick={() => setStep('complete')}
-                  style={{
-                    flex: 1,
-                    background: '#FB923C',
-                    color: 'white',
-                  }}
-                >
-                  Next <ChevronRight size={16} style={{ marginLeft: 8 }} />
+                <Button type="button" onClick={() => setStep('complete')} className={primaryBtn}>
+                  Next <ChevronRight className="ml-2 h-4 w-4" />
                 </Button>
               </div>
             </div>
@@ -425,69 +279,30 @@ export default function Onboarding() {
 
           {/* ═══ COMPLETE STEP ═══ */}
           {step === 'complete' && (
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', textAlign: 'center' }}>
-              <div style={{
-                width: 80,
-                height: 80,
-                borderRadius: '50%',
-                background: 'rgba(249,115,22,0.1)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                margin: '0 auto 24px',
-              }}>
-                <Check size={40} color="#FB923C" />
+            <div className="flex flex-1 flex-col items-center justify-center text-center">
+              <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-orange-500/15 ring-8 ring-orange-500/5">
+                <Check className="h-10 w-10 text-orange-500" strokeWidth={2.5} />
               </div>
-              <h2 style={{
-                fontSize: 24,
-                fontWeight: 600,
-                color: '#FAFAF9',
-                marginBottom: 12,
-                fontFamily: 'Outfit, sans-serif',
-              }}>
-                All set! 🎉
+              <h2 className="mb-2 text-2xl font-semibold text-foreground" style={{ fontFamily: 'Outfit, sans-serif' }}>
+                You&apos;re all set
               </h2>
-              <p style={{
-                color: '#A8A29E',
-                fontSize: 14,
-                lineHeight: 1.6,
-                marginBottom: 32,
-              }}>
-                You're ready to capture and analyze your meetings. Click Record to get started.
+              <p className="mb-8 max-w-sm text-sm leading-relaxed text-muted-foreground">
+                You&apos;re ready to capture and analyze your meetings. Use Record on the dashboard to get started.
               </p>
 
-              <div style={{ display: 'flex', gap: 12 }}>
-                <Button
-                  onClick={() => setStep('notifications')}
-                  variant="outline"
-                  style={{ flex: 1, color: '#A8A29E' }}
-                >
+              <div className="flex w-full max-w-md gap-3">
+                <Button type="button" variant="outline" onClick={() => setStep('notifications')} className="flex-1 border-border text-muted-foreground hover:bg-muted">
                   Back
                 </Button>
-                <Button
-                  onClick={handleCompleteOnboarding}
-                  disabled={loading}
-                  style={{
-                    flex: 1,
-                    background: '#FB923C',
-                    color: 'white',
-                    opacity: loading ? 0.6 : 1,
-                  }}
-                >
-                  {loading ? '⏳ Setting up...' : 'Go to Dashboard'}
+                <Button type="button" onClick={handleCompleteOnboarding} disabled={loading} className={cn(primaryBtn, loading && 'opacity-60')}>
+                  {loading ? 'Setting up…' : 'Go to Dashboard'}
                 </Button>
               </div>
             </div>
           )}
         </div>
 
-        {/* Footer */}
-        <p style={{
-          textAlign: 'center',
-          color: '#78716C',
-          fontSize: 12,
-          marginTop: 24,
-        }}>
+        <p className="mt-6 text-center text-xs text-muted-foreground">
           Step {currentStepIndex + 1} of {steps_list.length}
         </p>
       </div>

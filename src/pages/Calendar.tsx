@@ -9,6 +9,7 @@ import { useCalendar } from '@/contexts/CalendarContext';
 import { format, isToday, isTomorrow, parseISO } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { MeetingDetailModal } from '@/components/dashboard/MeetingDetailModal';
+import { cn } from '@/lib/utils';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
@@ -180,67 +181,48 @@ export default function Calendar() {
 
   const EventCard = ({ event }: { event: CalendarEvent }) => {
     const isEventToday = isToday(parseISO(event.start_time));
-    const borderColor = isEventToday ? '#F97316' : '#78716C';
+    const borderColor = isEventToday ? '#f97316' : 'hsl(var(--muted-foreground) / 0.35)';
 
     return (
       <div
+        role="button"
+        tabIndex={0}
         onClick={() => openModal(event)}
-        style={{
-          background: '#1C1917',
-          border: '1px solid #292524',
-          borderRadius: 12,
-          padding: 16,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          cursor: 'pointer',
-          transition: 'all 0.2s',
-          borderLeft: `3px solid ${borderColor}`,
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') openModal(event);
         }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.borderColor = '#44403C';
-          e.currentTarget.style.background = '#292524';
-          e.currentTarget.style.transform = 'translateY(-1px)';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.borderColor = '#292524';
-          e.currentTarget.style.background = '#1C1917';
-          e.currentTarget.style.transform = 'translateY(0)';
-        }}
+        className="flex cursor-pointer items-center justify-between rounded-xl border border-border bg-card p-4 text-card-foreground shadow-sm transition-all hover:-translate-y-px hover:border-orange-500/35 hover:bg-secondary/60 hover:shadow-md"
+        style={{ borderLeftWidth: 3, borderLeftColor: borderColor }}
       >
-        <div style={{ flex: 1 }}>
-          <h3 style={{ fontSize: 15, fontWeight: 600, color: '#FAFAF9', margin: 0, marginBottom: 8, fontFamily: 'Outfit, sans-serif' }}>
+        <div className="min-w-0 flex-1">
+          <h3 className="mb-2 font-semibold text-foreground" style={{ fontSize: 15, margin: 0, fontFamily: 'Outfit, sans-serif' }}>
             {event.title}
           </h3>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <p style={{ fontSize: 13, color: '#A8A29E', margin: 0, fontFamily: 'DM Sans, sans-serif' }}>
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="m-0 text-[13px] text-muted-foreground" style={{ fontFamily: 'DM Sans, sans-serif' }}>
               {!event.is_all_day
                 ? `${format(parseISO(event.start_time), 'h:mm a')} – ${format(parseISO(event.end_time), 'h:mm a')}`
                 : 'All day'}
             </p>
             {!event.hasMeetingLink && (
-              <p style={{ fontSize: 11, color: '#78716C', margin: 0, fontFamily: 'DM Sans, sans-serif' }}>
+              <p className="m-0 text-[11px] text-muted-foreground" style={{ fontFamily: 'DM Sans, sans-serif' }}>
                 No meeting link
               </p>
             )}
           </div>
         </div>
-        <ChevronRight size={20} style={{ color: '#78716C' }} />
+        <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
       </div>
     );
   };
 
-  const SectionHeader = ({ label, color }: { label: string; color: string }) => (
+  const SectionHeader = ({ label, tone = 'accent' }: { label: string; tone?: 'accent' | 'muted' }) => (
     <h2
-      style={{
-        fontSize: 11,
-        fontWeight: 600,
-        letterSpacing: '0.1em',
-        textTransform: 'uppercase',
-        color,
-        marginBottom: 16,
-        marginTop: 24,
-      }}
+      className={
+        tone === 'accent'
+          ? 'mb-4 mt-8 text-[11px] font-semibold uppercase tracking-[0.12em] text-orange-600 first:mt-0 dark:text-orange-400'
+          : 'mb-4 mt-8 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground first:mt-0'
+      }
     >
       {label}
     </h2>
@@ -248,21 +230,19 @@ export default function Calendar() {
 
   return (
     <DashboardLayout>
-      <div style={{ padding: '32px', maxWidth: '56rem' }}>
+      <div className="mx-auto max-w-4xl px-6 py-8 md:px-10 md:py-10">
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 32 }}>
+        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 style={{ fontSize: 30, fontWeight: 'bold', color: '#FAFAF9', margin: 0, fontFamily: 'Outfit, sans-serif', letterSpacing: '-0.02em' }}>
+            <h1 className="text-3xl font-semibold tracking-[-0.02em] text-foreground" style={{ fontFamily: 'Outfit, sans-serif' }}>
               Calendar
             </h1>
-            <p style={{ fontSize: 14, color: '#A8A29E', marginTop: 8, margin: 0, fontFamily: 'DM Sans, sans-serif' }}>
-              Your upcoming meetings
-            </p>
+            <p className="mt-1 text-sm text-muted-foreground">Your upcoming meetings</p>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div className="flex flex-wrap items-center gap-3">
             {syncMessage.visible && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#22c55e', fontSize: 13 }}>
+              <div className="flex items-center gap-2 text-[13px] text-green-600 dark:text-green-400">
                 <CheckCircle2 size={16} />
                 <span>Synced · {syncMessage.count} events</span>
               </div>
@@ -270,15 +250,9 @@ export default function Calendar() {
             <Button
               onClick={handleSync}
               disabled={syncing}
-              style={{
-                background: syncing ? '#9d6b3c' : '#FB923C',
-                color: 'white',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-              }}
+              className="gap-2 bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-70"
             >
-              <RefreshCw size={16} style={{ animation: syncing ? 'spin 1s linear infinite' : 'none' }} />
+              <RefreshCw size={16} className={syncing ? 'animate-spin' : ''} />
               Sync Now
             </Button>
           </div>
@@ -286,23 +260,12 @@ export default function Calendar() {
 
         {/* Events or Empty State */}
         {events.length === 0 ? (
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '64px 32px',
-              textAlign: 'center',
-            }}
-          >
-            <CalendarIcon style={{ width: 36, height: 36, marginBottom: 16, color: '#78716C' }} />
-            <h3 style={{ fontSize: 14, fontWeight: 600, color: '#A8A29E', margin: 0, marginBottom: 8 }}>
-              No upcoming meetings found
-            </h3>
-            <p style={{ fontSize: 13, color: '#78716C', margin: 0, maxWidth: 360 }}>
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-muted/20 px-6 py-16 text-center">
+            <CalendarIcon className="mb-4 h-10 w-10 text-muted-foreground" strokeWidth={1.5} />
+            <h3 className="mb-2 text-base font-semibold text-foreground">No upcoming meetings found</h3>
+            <p className="max-w-[360px] text-[13px] leading-relaxed text-muted-foreground">
               Add Calendar in{' '}
-              <Link to="/settings?tab=integrations" style={{ color: '#FB923C', textDecoration: 'underline' }}>
+              <Link to="/settings?tab=integrations" className="font-medium text-orange-600 underline underline-offset-2 hover:text-orange-700 dark:text-orange-400">
                 Settings → Integrations
               </Link>{' '}
               to run Google OAuth for this EchoBrief account. Project secrets alone do not connect your calendar.
@@ -311,67 +274,54 @@ export default function Calendar() {
         ) : (
           <div>
             {/* TODAY */}
-            <SectionHeader label={`Today · ${format(new Date(), 'EEEE, MMMM d')}`} color="#FB923C" />
+            <SectionHeader label={`Today · ${format(new Date(), 'EEEE, MMMM d')}`} tone="accent" />
             {groupedEvents.today.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
+              <div className="mb-6 flex flex-col gap-3">
                 {groupedEvents.today.map(event => (
                   <EventCard key={event.id} event={event} />
                 ))}
               </div>
             ) : (
-              <p style={{ color: '#78716C', fontSize: 13, marginBottom: 24 }}>No meetings scheduled for today</p>
+              <p className="mb-6 text-[13px] text-muted-foreground">No meetings scheduled for today</p>
             )}
 
             {/* TOMORROW */}
-            <SectionHeader label={`Tomorrow · ${format(new Date(Date.now() + 86400000), 'EEEE, MMMM d')}`} color="#78716C" />
+            <SectionHeader label={`Tomorrow · ${format(new Date(Date.now() + 86400000), 'EEEE, MMMM d')}`} tone="muted" />
             {groupedEvents.tomorrow.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
+              <div className="mb-6 flex flex-col gap-3">
                 {groupedEvents.tomorrow.map(event => (
                   <EventCard key={event.id} event={event} />
                 ))}
               </div>
             ) : (
-              <p style={{ color: '#78716C', fontSize: 13, marginBottom: 24 }}>No meetings scheduled for tomorrow</p>
+              <p className="mb-6 text-[13px] text-muted-foreground">No meetings scheduled for tomorrow</p>
             )}
 
             {/* UPCOMING */}
             {Object.keys(upcomingByDate).length > 0 && (
               <div>
                 <button
+                  type="button"
                   onClick={() => setUpcomingExpanded(!upcomingExpanded)}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    padding: 0,
-                    marginTop: 24,
-                    marginBottom: 16,
-                  }}
+                  className="mb-4 mt-6 flex cursor-pointer items-center gap-2 border-none bg-transparent p-0 text-left transition-colors hover:opacity-90"
                 >
-                  <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#A8A29E' }}>
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                     Upcoming
                   </span>
                   <ChevronDown
                     size={16}
-                    style={{
-                      color: '#78716C',
-                      transform: upcomingExpanded ? 'rotate(0deg)' : 'rotate(-90deg)',
-                      transition: 'transform 0.2s',
-                    }}
+                    className={cn('text-muted-foreground transition-transform duration-200', upcomingExpanded ? 'rotate-0' : '-rotate-90')}
                   />
                 </button>
 
                 {upcomingExpanded && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                  <div className="flex flex-col gap-6">
                     {Object.entries(upcomingByDate).map(([dateKey, dateEvents]) => (
                       <div key={dateKey}>
-                        <h4 style={{ fontSize: 12, color: '#78716C', marginBottom: 12, margin: 0, fontFamily: 'DM Sans, sans-serif' }}>
+                        <h4 className="mb-3 text-xs text-muted-foreground" style={{ fontFamily: 'DM Sans, sans-serif' }}>
                           {format(parseISO(dateKey), 'EEEE, MMMM d')}
                         </h4>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        <div className="flex flex-col gap-3">
                           {dateEvents.map(event => (
                             <EventCard key={event.id} event={event} />
                           ))}
@@ -385,12 +335,6 @@ export default function Calendar() {
           </div>
         )}
 
-        <style>{`
-          @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-          }
-        `}</style>
       </div>
 
       {/* Meeting Detail Modal */}

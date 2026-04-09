@@ -11,7 +11,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { Logo, LogoMark } from '@/components/ui/Logo';
-import { T } from '@/lib/theme';
+import { useThemeTokens } from '@/lib/theme';
 
 interface SidebarProps {
   onCollapsedChange?: (collapsed: boolean) => void;
@@ -25,6 +25,7 @@ const navItems = [
 ];
 
 export function Sidebar({ onCollapsedChange }: SidebarProps) {
+  const T = useThemeTokens();
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -96,7 +97,7 @@ export function Sidebar({ onCollapsedChange }: SidebarProps) {
         </div>
       )}
 
-      {/* Navigation — prototype exact match */}
+      {/* Navigation: prototype exact match */}
       <nav className="flex-1 p-3 mt-4" style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         {navItems.map((item) => {
           const isActive = location.pathname === item.path;

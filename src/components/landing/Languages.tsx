@@ -1,151 +1,135 @@
-export function Languages() {
-  const primaryLanguages = [
-    'Hindi',
-    'Tamil',
-    'Telugu',
-    'Bengali',
-    'Marathi',
-    'Kannada',
-    'Malayalam',
-    'English (Indian)',
-  ];
+import { motion } from 'framer-motion';
+import { useInView } from 'framer-motion';
+import { useRef } from 'react';
+import { Globe2 } from 'lucide-react';
 
-  const otherLanguages = [
-    'Gujarati',
-    'Punjabi',
-    'Odia',
-    'Assamese',
-    'Maithili',
-    'Sanskrit',
-    'Urdu',
-    'Konkani',
-    'Dogri',
-    'Sindhi',
-    'Manipuri',
-    'Bodo',
-    'Santali',
-    'Kashmiri',
-  ];
+const primaryLanguages = [
+  'Hindi',
+  'Tamil',
+  'Telugu',
+  'Bengali',
+  'Marathi',
+  'Kannada',
+  'Malayalam',
+  'English (Indian)',
+];
+
+const otherLanguages = [
+  'Gujarati',
+  'Punjabi',
+  'Odia',
+  'Assamese',
+  'Maithili',
+  'Sanskrit',
+  'Urdu',
+  'Konkani',
+  'Dogri',
+  'Sindhi',
+  'Manipuri',
+  'Bodo',
+  'Santali',
+  'Kashmiri',
+];
+
+const chipVariants = {
+  hidden: { opacity: 0, scale: 0.92 },
+  show: (i: number) => ({
+    opacity: 1,
+    scale: 1,
+    transition: { delay: 0.02 * i, duration: 0.35, ease: [0.22, 1, 0.36, 1] as const },
+  }),
+};
+
+export function Languages() {
+  const ref = useRef(null);
+  const inView = useInView(ref, { once: true, margin: '-80px' });
 
   return (
-    <section id="languages" style={{ padding: '80px 0', background: '#0C0A09' }}>
+    <section id="languages" ref={ref} className="scroll-mt-24 bg-background py-20 md:py-28">
       <div className="mx-auto max-w-[1100px] px-6">
-        {/* Section header */}
-        <div className="text-center mb-12">
-          <div
-            style={{
-              fontSize: '11px',
-              fontFamily: "'DM Sans', sans-serif",
-              fontWeight: 700,
-              letterSpacing: '0.12em',
-              textTransform: 'uppercase',
-              color: '#FB923C',
-              marginBottom: '12px',
-            }}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={inView ? { opacity: 1, y: 0 } : {}}
+          transition={{ duration: 0.5 }}
+          className="mb-12 text-center"
+        >
+          <p
+            className="mb-3 text-[11px] font-bold uppercase tracking-[0.14em] text-orange-600 dark:text-orange-400"
+            style={{ fontFamily: "'DM Sans', sans-serif" }}
           >
             Languages
-          </div>
+          </p>
           <h2
-            style={{
-              fontFamily: "'Outfit', sans-serif",
-              fontSize: '36px',
-              fontWeight: 600,
-              letterSpacing: '-0.03em',
-              color: '#FAFAF9',
-              marginBottom: '8px',
-            }}
+            className="mb-3 text-4xl font-semibold tracking-[-0.035em] text-foreground md:text-5xl"
+            style={{ fontFamily: "'Outfit', sans-serif" }}
           >
-            Speaks your language
+            Built for how India actually speaks
           </h2>
           <p
-            style={{
-              fontSize: '16px',
-              fontFamily: "'DM Sans', sans-serif",
-              color: '#A8A29E',
-              maxWidth: '520px',
-              margin: '0 auto',
-            }}
+            className="mx-auto max-w-xl text-lg text-muted-foreground"
+            style={{ fontFamily: "'DM Sans', sans-serif" }}
           >
-            Powered by Sarvam Saaras v3 — the highest accuracy STT for Indian languages, with
-            native code-mixing support.
+            Sarvam Saaras v3: built for code-mixing, regional scripts, and real meeting cadence.
           </p>
-        </div>
+        </motion.div>
 
-        {/* Language chips */}
-        <div
-          className="flex flex-wrap justify-center gap-[10px] mx-auto"
-          style={{ maxWidth: '700px' }}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={inView ? { opacity: 1, y: 0 } : {}}
+          transition={{ delay: 0.1, duration: 0.5 }}
+          className="relative overflow-hidden rounded-3xl border border-border/80 bg-gradient-to-br from-card via-card to-orange-500/[0.04] p-8 shadow-lg shadow-orange-500/5 md:p-10"
         >
-          {primaryLanguages.map((lang) => (
-            <span
-              key={lang}
-              className="transition-all duration-200"
-              style={{
-                padding: '8px 18px',
-                borderRadius: '100px',
-                border: '1px solid #F97316',
-                background: 'rgba(249,115,22,0.08)',
-                fontSize: '13px',
-                fontFamily: "'DM Sans', sans-serif",
-                fontWeight: 500,
-                color: '#FB923C',
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.borderColor = '#F97316';
-                e.currentTarget.style.color = '#FAFAF9';
-                e.currentTarget.style.background = 'rgba(249,115,22,0.12)';
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.borderColor = '#F97316';
-                e.currentTarget.style.color = '#FB923C';
-                e.currentTarget.style.background = 'rgba(249,115,22,0.08)';
-              }}
-            >
-              {lang}
-            </span>
-          ))}
+          <div className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-orange-500/10 blur-3xl" />
+          <div className="mb-6 flex items-center justify-center gap-2 text-muted-foreground md:justify-start">
+            <Globe2 className="h-5 w-5 text-orange-500" strokeWidth={1.75} />
+            <span className="text-sm font-medium">Primary coverage</span>
+          </div>
+          <div className="flex flex-wrap justify-center gap-2.5 md:justify-start">
+            {primaryLanguages.map((lang, i) => (
+              <motion.span
+                key={lang}
+                custom={i}
+                initial="hidden"
+                animate={inView ? 'show' : 'hidden'}
+                variants={chipVariants}
+                whileHover={{ scale: 1.04, y: -2 }}
+                className="cursor-default rounded-full border border-orange-500/35 bg-orange-500/[0.1] px-[18px] py-2.5 text-[13px] font-medium text-orange-800 shadow-sm dark:text-orange-200"
+                style={{ fontFamily: "'DM Sans', sans-serif" }}
+              >
+                {lang}
+              </motion.span>
+            ))}
+          </div>
 
-          {otherLanguages.map((lang) => (
-            <span
-              key={lang}
-              className="transition-all duration-200"
-              style={{
-                padding: '8px 18px',
-                borderRadius: '100px',
-                border: '1px solid #292524',
-                background: '#1C1917',
-                fontSize: '13px',
-                fontFamily: "'DM Sans', sans-serif",
-                fontWeight: 500,
-                color: '#A8A29E',
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.borderColor = '#F97316';
-                e.currentTarget.style.color = '#FAFAF9';
-                e.currentTarget.style.background = 'rgba(249,115,22,0.06)';
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.borderColor = '#292524';
-                e.currentTarget.style.color = '#A8A29E';
-                e.currentTarget.style.background = '#1C1917';
-              }}
-            >
-              {lang}
-            </span>
-          ))}
-        </div>
+          <div className="my-8 h-px w-full bg-gradient-to-r from-transparent via-border to-transparent" />
 
-        {/* Footer note */}
-        <p
-          className="text-center mt-5"
-          style={{
-            fontSize: '13px',
-            fontFamily: "'DM Sans', sans-serif",
-            color: '#78716C',
-          }}
-        >
-          + Hinglish, Tanglish, and all code-mixed variants handled natively
-        </p>
+          <div className="mb-4 flex items-center justify-center gap-2 text-muted-foreground md:justify-start">
+            <span className="text-sm font-medium">Also supported</span>
+          </div>
+          <div className="flex flex-wrap justify-center gap-2 md:justify-start">
+            {otherLanguages.map((lang, i) => (
+              <motion.span
+                key={lang}
+                custom={i + 20}
+                initial="hidden"
+                animate={inView ? 'show' : 'hidden'}
+                variants={chipVariants}
+                whileHover={{ scale: 1.03, y: -1 }}
+                className="cursor-default rounded-full border border-border bg-background/80 px-[14px] py-2 text-[12px] font-medium text-muted-foreground backdrop-blur-sm transition-colors hover:border-orange-500/30 hover:text-foreground"
+                style={{ fontFamily: "'DM Sans', sans-serif" }}
+              >
+                {lang}
+              </motion.span>
+            ))}
+          </div>
+
+          <p
+            className="mt-8 text-center text-[13px] text-muted-foreground md:text-left"
+            style={{ fontFamily: "'DM Sans', sans-serif" }}
+          >
+            + Hinglish, Tanglish, and every messy code-mixed variant your standups already use.
+          </p>
+        </motion.div>
       </div>
     </section>
   );

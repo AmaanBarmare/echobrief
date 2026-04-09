@@ -61,7 +61,7 @@ export function EmailReportSelector({
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Mail size={20} style={{ color: '#FB923C' }} />
+            <Mail size={20} className="text-orange-500" />
             Email Report
           </DialogTitle>
           <DialogDescription>
@@ -70,48 +70,30 @@ export function EmailReportSelector({
         </DialogHeader>
 
         <div className="py-4">
-          <label className="block text-sm font-medium mb-2" style={{ color: '#FAFAF9' }}>
-            Recipient Email
-          </label>
+          <label className="mb-2 block text-sm font-medium text-foreground">Recipient Email</label>
           <Input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="recipient@example.com"
             disabled={sending}
-            style={{
-              background: '#1C1917',
-              border: '1px solid #292524',
-              color: '#FAFAF9',
-            }}
+            className="border-border bg-background text-foreground"
             onKeyPress={(e) => {
               if (e.key === 'Enter') {
                 handleSend();
               }
             }}
           />
-          <p className="text-xs mt-2" style={{ color: '#78716C' }}>
+          <p className="mt-2 text-xs text-muted-foreground">
             The report includes summary, key points, decisions, and action items
           </p>
         </div>
 
         <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={sending}
-            style={{ color: '#A8A29E' }}
-          >
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={sending} className="text-muted-foreground">
             Cancel
           </Button>
-          <Button
-            onClick={handleSend}
-            disabled={sending}
-            style={{
-              background: '#FB923C',
-              color: '#fff',
-            }}
-          >
+          <Button onClick={handleSend} disabled={sending} className="bg-orange-500 text-white hover:bg-orange-600">
             {sending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
             Send Report
           </Button>

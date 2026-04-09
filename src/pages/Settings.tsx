@@ -77,7 +77,7 @@ export default function Settings() {
     if (!user) return;
 
     const fetchProfile = async () => {
-      // Fresh user from Auth API — JWT in memory can lag behind Dashboard edits to display name
+      // Fresh user from Auth API: JWT in memory can lag behind Dashboard edits to display name
       const { data: authData, error: authErr } = await supabase.auth.getUser();
       const authUser = authData?.user ?? user;
       if (authErr) {
@@ -418,33 +418,28 @@ export default function Settings() {
 
   return (
     <DashboardLayout>
-      <div className="px-8 py-8 max-w-4xl">
+      <div className="mx-auto max-w-4xl px-6 py-8 md:px-10 md:py-10">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground" style={{ fontFamily: 'Outfit, sans-serif', letterSpacing: '-0.02em' }}>
+          <h1 className="text-3xl font-semibold tracking-[-0.02em] text-foreground" style={{ fontFamily: 'Outfit, sans-serif' }}>
             Settings
           </h1>
-          <p className="text-sm mt-2" style={{ color: '#A8A29E' }}>
+          <p className="mt-2 text-sm text-muted-foreground">
             Manage your account, integrations, and preferences
           </p>
         </div>
 
         {/* Tabs */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 32, borderBottom: '1px solid #292524' }}>
+        <div className="mb-8 flex gap-2 border-b border-border">
           {tabs.map(tab => (
             <button
               key={tab.id}
+              type="button"
               onClick={() => handleTabChange(tab.id)}
-              style={{
-                padding: '12px 16px',
-                fontSize: 13,
-                fontWeight: activeTab === tab.id ? 600 : 500,
-                background: 'none',
-                border: 'none',
-                borderBottom: activeTab === tab.id ? '2px solid #F97316' : 'none',
-                color: activeTab === tab.id ? '#FB923C' : '#78716C',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-              }}
+              className={`border-b-2 px-4 py-3 text-[13px] transition-colors ${
+                activeTab === tab.id
+                  ? 'border-orange-500 font-semibold text-orange-600 dark:text-orange-400'
+                  : 'border-transparent font-medium text-muted-foreground hover:text-foreground'
+              }`}
             >
               {tab.icon} {tab.label}
             </button>
@@ -455,29 +450,25 @@ export default function Settings() {
         {activeTab === 'account' && (
           <div className="space-y-6">
             {/* Profile */}
-            <div style={{ background: '#1C1917', border: '1px solid #292524', borderRadius: 16, padding: 24 }}>
-              <h2 style={{ fontSize: 16, fontWeight: 600, color: '#FAFAF9', marginBottom: 16 }}>Profile Information</h2>
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#FAFAF9', marginBottom: 8 }}>
-                  Full Name
-                </label>
+            <div className="rounded-2xl border border-border bg-card p-6 text-card-foreground shadow-sm">
+              <h2 className="mb-4 text-base font-semibold text-foreground">Profile Information</h2>
+              <div className="mb-4">
+                <label className="mb-2 block text-[13px] font-medium text-foreground">Full Name</label>
                 <Input
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  style={{ background: '#1C1917', border: '1px solid #292524', color: '#FAFAF9' }}
+                  className="border-border bg-background text-foreground"
                 />
               </div>
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#FAFAF9', marginBottom: 8 }}>
-                  Email
-                </label>
+              <div className="mb-4">
+                <label className="mb-2 block text-[13px] font-medium text-foreground">Email</label>
                 <Input
                   disabled
                   value={user?.email || ''}
-                  style={{ background: '#1C1917', border: '1px solid #292524', color: '#78716C' }}
+                  className="border-border bg-muted/50 text-muted-foreground"
                 />
               </div>
-              <Button onClick={handleSaveProfile} disabled={saving} style={{ background: '#FB923C', color: 'white' }}>
+              <Button onClick={handleSaveProfile} disabled={saving} className="bg-orange-500 text-white hover:bg-orange-600">
                 {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                 Save Changes
               </Button>
@@ -496,13 +487,13 @@ export default function Settings() {
         {activeTab === 'integrations' && (
           <div className="space-y-6">
             {/* Google Calendar */}
-            <div style={{ background: '#1C1917', border: '1px solid #292524', borderRadius: 16, padding: 24 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1 }}>
-                  <Calendar size={32} style={{ color: '#4285F4', flexShrink: 0 }} />
+            <div className="rounded-2xl border border-border bg-card p-6 text-card-foreground shadow-sm">
+              <div className="mb-4 flex items-center justify-between gap-4">
+                <div className="flex flex-1 items-center gap-3">
+                  <Calendar size={32} className="shrink-0 text-[#4285F4]" />
                   <div>
-                    <h3 style={{ fontSize: 15, fontWeight: 600, color: '#FAFAF9', marginBottom: 4 }}>Google Calendar</h3>
-                    <p style={{ fontSize: 13, color: '#78716C' }}>
+                    <h3 className="mb-1 text-[15px] font-semibold text-foreground">Google Calendar</h3>
+                    <p className="text-[13px] text-muted-foreground">
                       Connect multiple calendars to detect and record meetings
                     </p>
                   </div>
@@ -510,58 +501,33 @@ export default function Settings() {
                 <Button
                   onClick={handleConnectGoogle}
                   disabled={connectingGoogle}
-                  style={{ background: '#FB923C', color: 'white' }}
+                  className="bg-orange-500 text-white hover:bg-orange-600"
                 >
-                  {connectingGoogle ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                  {connectingGoogle ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   Add Calendar
                 </Button>
               </div>
 
               {googleCalendars.length > 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div className="flex flex-col gap-2">
                   {googleCalendars.map(cal => (
                     <div
                       key={cal.id}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '12px 16px',
-                        borderRadius: 8,
-                        background: '#0C0A09',
-                        border: '1px solid #22C55E',
-                      }}
+                      className="flex items-center justify-between rounded-lg border border-green-500/40 bg-muted/30 px-4 py-3"
                     >
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                          <p style={{ fontSize: 13, fontWeight: 500, color: '#FAFAF9', margin: 0 }}>
-                            {cal.name}
-                          </p>
-                          <span
-                            style={{
-                              fontSize: 10,
-                              fontWeight: 600,
-                              color: '#22C55E',
-                              background: '#22C55E20',
-                              padding: '2px 8px',
-                              borderRadius: 4,
-                            }}
-                          >
+                      <div className="flex-1">
+                        <div className="mb-1 flex items-center gap-2">
+                          <p className="m-0 text-[13px] font-medium text-foreground">{cal.name}</p>
+                          <span className="rounded px-2 py-0.5 text-[10px] font-semibold text-green-600 dark:text-green-400 bg-green-500/15">
                             ✓ Connected
                           </span>
                         </div>
-                        <p style={{ fontSize: 11, color: '#78716C', margin: 0 }}>📧 {cal.email}</p>
+                        <p className="m-0 text-[11px] text-muted-foreground">📧 {cal.email}</p>
                       </div>
                       <button
+                        type="button"
                         onClick={() => handleDisconnectGoogleCalendar(cal.id)}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: '#EF4444',
-                          cursor: 'pointer',
-                          padding: '4px 8px',
-                          marginLeft: 12,
-                        }}
+                        className="ml-3 cursor-pointer border-none bg-transparent p-1 text-destructive hover:opacity-90"
                         title="Disconnect this calendar"
                       >
                         <X size={18} />
@@ -570,57 +536,56 @@ export default function Settings() {
                   ))}
                 </div>
               ) : (
-                <p style={{ fontSize: 12, color: '#78716C', textAlign: 'center', padding: 12 }}>
-                  No calendars connected. Click "Add Calendar" to get started.
+                <p className="p-3 text-center text-xs text-muted-foreground">
+                  No calendars connected. Click &quot;Add Calendar&quot; to get started.
                 </p>
               )}
             </div>
 
             {/* Slack */}
-            <div style={{ background: '#1C1917', border: '1px solid #292524', borderRadius: 16, padding: 24 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-                <MessageCircle size={32} style={{ color: '#E01E5A', flexShrink: 0 }} />
-                <h3 style={{ fontSize: 15, fontWeight: 600, color: '#FAFAF9' }}>Slack</h3>
+            <div className="rounded-2xl border border-border bg-card p-6 text-card-foreground shadow-sm">
+              <div className="mb-4 flex items-center gap-3">
+                <MessageCircle size={32} className="shrink-0 text-[#E01E5A]" />
+                <h3 className="text-[15px] font-semibold text-foreground">Slack</h3>
               </div>
               {!profile?.slack_connected ? (
-                <div style={{ display: 'flex', gap: 12, flexDirection: 'column' }}>
+                <div className="flex flex-col gap-3">
                   <div>
-                    <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#FAFAF9', marginBottom: 8 }}>
-                      Slack Channel ID
-                    </label>
+                    <label className="mb-2 block text-[13px] font-medium text-foreground">Slack Channel ID</label>
                     <Input
                       value={slackChannelId}
                       onChange={(e) => setSlackChannelId(e.target.value)}
                       placeholder="e.g., C0123456789"
-                      style={{ background: '#1C1917', border: '1px solid #292524', color: '#FAFAF9' }}
+                      className="border-border bg-background text-foreground"
                     />
                   </div>
                   <div>
-                    <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#FAFAF9', marginBottom: 8 }}>
-                      Channel Name (optional)
-                    </label>
+                    <label className="mb-2 block text-[13px] font-medium text-foreground">Channel Name (optional)</label>
                     <Input
                       value={slackChannelName}
                       onChange={(e) => setSlackChannelName(e.target.value)}
                       placeholder="e.g., #meetings"
-                      style={{ background: '#1C1917', border: '1px solid #292524', color: '#FAFAF9' }}
+                      className="border-border bg-background text-foreground"
                     />
                   </div>
                   <Button
                     onClick={handleConnectSlack}
                     disabled={connectingSlack || !slackChannelId.trim()}
-                    style={{ background: '#FB923C', color: 'white' }}
+                    className="bg-orange-500 text-white hover:bg-orange-600"
                   >
-                    {connectingSlack ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                    {connectingSlack ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     Connect
                   </Button>
                 </div>
               ) : (
                 <div>
-                  <p style={{ fontSize: 13, color: '#22C55E', marginBottom: 12 }}>✓ Connected to {profile.slack_channel_name || profile.slack_channel_id}</p>
+                  <p className="mb-3 text-[13px] text-green-600 dark:text-green-400">
+                    ✓ Connected to {profile.slack_channel_name || profile.slack_channel_id}
+                  </p>
                   <Button
-                    onClick={() => setProfile(prev => prev ? { ...prev, slack_connected: false } : null)}
-                    style={{ background: 'transparent', border: '1px solid #292524', color: '#A8A29E' }}
+                    variant="outline"
+                    onClick={() => setProfile(prev => (prev ? { ...prev, slack_connected: false } : null))}
+                    className="border-border text-muted-foreground hover:bg-muted"
                   >
                     Disconnect
                   </Button>
@@ -634,64 +599,58 @@ export default function Settings() {
         {activeTab === 'security' && (
           <div className="space-y-6">
             {/* Change Password */}
-            <div style={{ background: '#1C1917', border: '1px solid #292524', borderRadius: 16, padding: 24 }}>
-              <h3 style={{ fontSize: 15, fontWeight: 600, color: '#FAFAF9', marginBottom: 16 }}>Change Password</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div className="rounded-2xl border border-border bg-card p-6 text-card-foreground shadow-sm">
+              <h3 className="mb-4 text-[15px] font-semibold text-foreground">Change Password</h3>
+              <div className="flex flex-col gap-3">
                 <div>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#FAFAF9', marginBottom: 8 }}>
-                    New Password
-                  </label>
+                  <label className="mb-2 block text-[13px] font-medium text-foreground">New Password</label>
                   <Input
                     type="password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    style={{ background: '#1C1917', border: '1px solid #292524', color: '#FAFAF9' }}
+                    className="border-border bg-background text-foreground"
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: 13, fontWeight: 500, color: '#FAFAF9', marginBottom: 8 }}>
-                    Confirm Password
-                  </label>
+                  <label className="mb-2 block text-[13px] font-medium text-foreground">Confirm Password</label>
                   <Input
                     type="password"
                     value={confirmNewPassword}
                     onChange={(e) => setConfirmNewPassword(e.target.value)}
-                    style={{ background: '#1C1917', border: '1px solid #292524', color: '#FAFAF9' }}
+                    className="border-border bg-background text-foreground"
                   />
                 </div>
                 <Button
                   onClick={handleChangePassword}
                   disabled={changingPassword}
-                  style={{ background: '#FB923C', color: 'white' }}
+                  className="bg-orange-500 text-white hover:bg-orange-600"
                 >
-                  {changingPassword ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                  {changingPassword ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   Update Password
                 </Button>
               </div>
             </div>
 
             {/* Sign Out */}
-            <div style={{ background: '#1C1917', border: '1px solid #292524', borderRadius: 16, padding: 24 }}>
-              <h3 style={{ fontSize: 15, fontWeight: 600, color: '#FAFAF9', marginBottom: 8 }}>Sign Out</h3>
-              <p style={{ fontSize: 13, color: '#78716C', marginBottom: 16 }}>Sign out of your account on this device</p>
-              <Button
-                onClick={handleSignOut}
-                style={{ background: 'transparent', border: '1px solid #292524', color: '#A8A29E' }}
-              >
+            <div className="rounded-2xl border border-border bg-card p-6 text-card-foreground shadow-sm">
+              <h3 className="mb-2 text-[15px] font-semibold text-foreground">Sign Out</h3>
+              <p className="mb-4 text-[13px] text-muted-foreground">Sign out of your account on this device</p>
+              <Button variant="outline" onClick={handleSignOut} className="border-border text-foreground hover:bg-muted">
                 <LogOut size={14} className="mr-2" />
                 Sign Out
               </Button>
             </div>
 
             {/* Delete Account */}
-            <div style={{ background: '#1C1917', border: '1px solid #292524', borderRadius: 16, padding: 24 }}>
-              <h3 style={{ fontSize: 15, fontWeight: 600, color: '#FAFAF9', marginBottom: 8 }}>Delete Account</h3>
-              <p style={{ fontSize: 13, color: '#78716C', marginBottom: 16 }}>
+            <div className="rounded-2xl border border-border bg-card p-6 text-card-foreground shadow-sm">
+              <h3 className="mb-2 text-[15px] font-semibold text-foreground">Delete Account</h3>
+              <p className="mb-4 text-[13px] text-muted-foreground">
                 Permanently delete your account and all associated data. This action cannot be undone.
               </p>
               <Button
+                variant="outline"
                 onClick={() => setDeleteDialogOpen(true)}
-                style={{ background: 'transparent', border: '1px solid #EF4444', color: '#EF4444' }}
+                className="border-destructive text-destructive hover:bg-destructive/10"
               >
                 <Trash2 size={14} className="mr-2" />
                 Delete Account
@@ -702,42 +661,39 @@ export default function Settings() {
             <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle style={{ color: '#EF4444' }}>Delete Account</DialogTitle>
-                  <DialogDescription style={{ color: '#78716C' }}>
+                  <DialogTitle className="text-destructive">Delete Account</DialogTitle>
+                  <DialogDescription className="text-muted-foreground">
                     This will permanently delete your account, all meetings, transcripts, and data. This cannot be undone.
                   </DialogDescription>
                 </DialogHeader>
-                <div style={{ margin: '20px 0' }}>
-                  <p style={{ fontSize: 13, color: '#FAFAF9', marginBottom: 8 }}>
+                <div className="my-5">
+                  <p className="mb-2 text-[13px] text-foreground">
                     Type <strong>DELETE</strong> to confirm:
                   </p>
                   <Input
                     value={deleteConfirmation}
                     onChange={(e) => setDeleteConfirmation(e.target.value)}
                     placeholder="Type DELETE"
-                    style={{ background: '#1C1917', border: '1px solid #292524', color: '#FAFAF9' }}
+                    className="border-border bg-background text-foreground"
                   />
                 </div>
                 <DialogFooter>
                   <Button
+                    variant="outline"
                     onClick={() => {
                       setDeleteDialogOpen(false);
                       setDeleteConfirmation('');
                     }}
-                    style={{ background: 'transparent', border: '1px solid #292524', color: '#A8A29E' }}
+                    className="border-border text-muted-foreground hover:bg-muted"
                   >
                     Cancel
                   </Button>
                   <Button
                     onClick={handleDeleteAccount}
                     disabled={deletingAccount || deleteConfirmation !== 'DELETE'}
-                    style={{
-                      background: '#EF4444',
-                      color: 'white',
-                      opacity: deleteConfirmation !== 'DELETE' ? 0.5 : 1,
-                    }}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
                   >
-                    {deletingAccount ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                    {deletingAccount ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     Delete Account
                   </Button>
                 </DialogFooter>

@@ -62,23 +62,16 @@ export function WhatsAppDeliverySelector({
         </AlertDialogHeader>
 
         <div className="py-4">
-          <label className="block text-sm font-medium mb-2" style={{ color: '#FAFAF9' }}>
-            Phone Number
-          </label>
+          <label className="mb-2 block text-sm font-medium text-foreground">Phone Number</label>
           <input
             type="tel"
             value={phoneNumber}
             onChange={(e) => setPhoneNumber(e.target.value)}
             placeholder="+1 (555) 123-4567"
-            className="w-full px-3 py-2 rounded-lg text-sm outline-none"
-            style={{
-              background: '#1C1917',
-              border: '1px solid #292524',
-              color: '#FAFAF9',
-            }}
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:ring-1 focus:ring-green-500/30"
             disabled={sending}
           />
-          <p className="text-xs mt-2" style={{ color: '#78716C' }}>
+          <p className="mt-2 text-xs text-muted-foreground">
             Include country code (e.g., +1 for USA, +91 for India)
           </p>
         </div>
@@ -88,7 +81,7 @@ export function WhatsAppDeliverySelector({
           <AlertDialogAction
             onClick={handleSend}
             disabled={sending}
-            style={{ background: '#25D366', color: '#fff' }}
+            className="bg-[#25D366] text-white hover:bg-[#20bd5a]"
           >
             {sending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
             Send Report

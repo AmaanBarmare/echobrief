@@ -51,7 +51,7 @@ function StatusBadge({ status }: { status: string }) {
     processing: { bg: '#DBEAFE', color: '#1D4ED8', label: 'Processing' },
     recording: { bg: '#DCFCE7', color: '#15803D', label: 'Recording' },
     failed: { bg: '#FEE2E2', color: '#B91C1C', label: 'Failed' },
-    scheduled: { bg: 'rgba(168,168,168,0.1)', color: '#A8A29E', label: 'Scheduled' },
+    scheduled: { bg: 'hsl(var(--muted))', color: 'hsl(var(--muted-foreground))', label: 'Scheduled' },
   };
   const s = map[status] || map.scheduled;
   return (
@@ -74,7 +74,7 @@ function SourceBadge({ source }: { source: string }) {
 // ─── Prototype-style Card ───
 function ProtoCard({ children, style, className }: { children: React.ReactNode; style?: React.CSSProperties; className?: string }) {
   return (
-    <div className={className} style={{ background: '#1C1917', border: '1px solid #292524', borderRadius: 16, padding: 20, ...style }}>
+    <div className={cn('rounded-2xl border border-border bg-card p-5 text-card-foreground shadow-sm', className)} style={style}>
       {children}
     </div>
   );
@@ -419,7 +419,7 @@ export default function MeetingDetail() {
     return (
       <DashboardLayout>
         <div className="max-w-3xl mx-auto px-8 py-8">
-          <p style={{ color: '#A8A29E' }}>Meeting not found</p>
+          <p className="text-muted-foreground">Meeting not found</p>
         </div>
       </DashboardLayout>
     );
@@ -441,10 +441,7 @@ export default function MeetingDetail() {
         <div className="mb-6">
           <Link 
             to="/dashboard" 
-            className="inline-flex items-center gap-1 text-[13px] mb-3 transition-colors"
-            style={{ color: '#A8A29E' }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = '#FB923C')}
-            onMouseLeave={(e) => (e.currentTarget.style.color = '#A8A29E')}
+            className="mb-3 inline-flex items-center gap-1 text-[13px] text-muted-foreground transition-colors hover:text-orange-500"
           >
             <ChevronRight size={14} style={{ transform: 'rotate(180deg)' }} /> Back to meetings
           </Link>
@@ -460,10 +457,10 @@ export default function MeetingDetail() {
               <div className="flex gap-2 items-center flex-wrap">
                 <StatusBadge status={meeting.status || 'scheduled'} />
                 <SourceBadge source={meeting.source || 'manual'} />
-                <span style={{ padding: '3px 10px', borderRadius: 100, fontSize: 11, fontWeight: 600, color: '#A8A29E', background: 'rgba(168,168,168,0.1)', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-[11px] font-semibold text-muted-foreground">
                   <Globe size={11} /> {meeting.language || 'English'}
                 </span>
-                <span className="text-[13px]" style={{ color: '#78716C' }}>
+                <span className="text-[13px] text-muted-foreground">
                   {format(new Date(meeting.start_time), 'MMMM d, yyyy')} at {format(new Date(meeting.start_time), 'h:mm a')}
                   {meeting.duration_seconds ? ` · ${formatDuration(meeting.duration_seconds)}` : ''}
                 </span>
@@ -497,7 +494,10 @@ export default function MeetingDetail() {
               )}
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <button className="flex items-center gap-1.5 px-4 py-2 rounded-[10px] text-[13px] font-medium transition-colors" style={{ color: '#A8A29E' }}>
+                  <button
+                    type="button"
+                    className="flex items-center gap-1.5 rounded-[10px] px-4 py-2 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+                  >
                     <Trash2 size={14} /> Delete
                   </button>
                 </AlertDialogTrigger>
@@ -552,15 +552,15 @@ export default function MeetingDetail() {
         {insights && (
           <div className="grid grid-cols-4 gap-3 mb-6">
             {[
-              { label: 'Speakers', value: attendees.length || '—', icon: <Users size={16} style={{ color: '#3B82F6' }} /> },
+              { label: 'Speakers', value: attendees.length || '-', icon: <Users size={16} style={{ color: '#3B82F6' }} /> },
               { label: 'Action Items', value: actionItemCount, icon: <CheckCircle2 size={16} style={{ color: '#22C55E' }} /> },
               { label: 'Decisions', value: insights.decisions?.length || 0, icon: <Zap size={16} style={{ color: '#FB923C' }} /> },
-              { label: 'Risks', value: insights.risks?.length || 0, icon: <AlertTriangle size={16} style={{ color: (insights.risks?.length || 0) > 0 ? '#EF4444' : '#78716C' }} /> },
+              { label: 'Risks', value: insights.risks?.length || 0, icon: <AlertTriangle size={16} className={(insights.risks?.length || 0) > 0 ? 'text-red-500' : 'text-muted-foreground'} /> },
             ].map((s, i) => (
               <ProtoCard key={i} style={{ textAlign: 'center', padding: 16 }}>
                 <div className="mb-1.5">{s.icon}</div>
                 <div className="text-[22px] font-bold text-foreground" style={{ fontFamily: 'Outfit, sans-serif' }}>{s.value}</div>
-                <div className="text-xs" style={{ color: '#78716C' }}>{s.label}</div>
+                <div className="text-xs text-muted-foreground">{s.label}</div>
               </ProtoCard>
             ))}
           </div>
@@ -570,20 +570,16 @@ export default function MeetingDetail() {
         {insights ? (
           <div>
             {/* Tabs */}
-            <div className="flex gap-1 mb-5" style={{ borderBottom: '1px solid #292524' }}>
+            <div className="mb-5 flex w-full flex-wrap items-end gap-1 border-b border-border">
               {tabs.map(tab => (
                 <button
                   key={tab.id}
+                  type="button"
                   onClick={() => setActiveTab(tab.id)}
-                  className="flex items-center gap-1.5 px-4 py-2.5 text-[13px] font-medium transition-all"
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: activeTab === tab.id ? '#FB923C' : '#78716C',
-                    borderBottom: `2px solid ${activeTab === tab.id ? '#F97316' : 'transparent'}`,
-                    cursor: 'pointer',
-                    fontFamily: 'inherit',
-                  }}
+                  className={`flex items-center gap-1.5 border-b-2 border-transparent px-4 py-2.5 text-[13px] font-medium transition-colors ${
+                    activeTab === tab.id ? 'border-orange-500 text-orange-600 dark:text-orange-400' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                  style={{ fontFamily: 'inherit', background: 'none', cursor: 'pointer' }}
                 >
                   {tab.icon} {tab.label}
                 </button>
@@ -592,12 +588,11 @@ export default function MeetingDetail() {
               {/* Language selector */}
               {activeTab === 'summary' && (
                 <div className="ml-auto flex items-center gap-1.5 pb-1">
-                  <Languages size={14} style={{ color: '#78716C' }} />
+                  <Languages size={14} className="text-muted-foreground" />
                   <select
                     value={summaryLang}
                     onChange={e => setSummaryLang(e.target.value)}
-                    className="text-xs py-1.5 px-2.5 rounded-lg outline-none"
-                    style={{ background: '#1C1917', border: '1px solid #292524', color: '#FAFAF9', fontFamily: 'inherit' }}
+                    className="rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground outline-none focus:ring-1 focus:ring-orange-500/30"
                   >
                     {['English', 'Hindi', 'Tamil', 'Telugu', 'Bengali', 'Kannada', 'Marathi', 'Malayalam', 'Gujarati', 'Punjabi'].map(l => (
                       <option key={l} value={l}>{l}</option>
@@ -616,11 +611,11 @@ export default function MeetingDetail() {
                   <h3 className="text-[15px] font-semibold text-foreground mb-2" style={{ fontFamily: 'Outfit, sans-serif' }}>
                     Executive Summary
                   </h3>
-                  <p className="text-sm leading-relaxed" style={{ color: '#A8A29E' }}>
+                  <p className="text-sm leading-relaxed text-muted-foreground">
                     {insights.summary_short}
                   </p>
                   {insights.summary_detailed && (
-                    <p className="text-sm leading-relaxed mt-3" style={{ color: '#78716C' }}>
+                    <p className="mt-3 text-sm leading-relaxed text-muted-foreground/90">
                       {insights.summary_detailed}
                     </p>
                   )}
@@ -633,8 +628,11 @@ export default function MeetingDetail() {
                       <Zap size={16} style={{ color: '#FB923C' }} /> Key Decisions
                     </h3>
                     {insights.decisions.map((d: string, i: number) => (
-                      <div key={i} className="flex gap-2 text-sm" style={{ padding: '8px 0', borderTop: i > 0 ? '1px solid #292524' : 'none', color: '#A8A29E' }}>
-                        <span className="text-xs font-semibold min-w-[20px]" style={{ color: '#FB923C' }}>{i + 1}.</span> {d}
+                      <div
+                        key={i}
+                        className={cn('flex gap-2 py-2 text-sm text-muted-foreground', i > 0 && 'border-t border-border')}
+                      >
+                        <span className="min-w-[20px] text-xs font-semibold text-orange-500">{i + 1}.</span> {d}
                       </div>
                     ))}
                   </ProtoCard>
@@ -648,9 +646,9 @@ export default function MeetingDetail() {
                     </h3>
                     <div className="space-y-3">
                       {(insights.strategic_insights as StrategicInsight[]).map((item, i) => (
-                        <div key={i} className="flex items-start gap-3 p-3 rounded-xl" style={{ background: 'rgba(249,115,22,0.04)', border: '1px solid #292524' }}>
-                          <p className="text-sm flex-1" style={{ color: '#A8A29E' }}>{item.insight}</p>
-                          <span className="text-xs px-2 py-0.5 rounded-full capitalize" style={{ background: 'rgba(168,168,168,0.08)', color: '#78716C' }}>
+                        <div key={i} className="flex items-start gap-3 rounded-xl border border-border bg-orange-500/[0.04] p-3">
+                          <p className="flex-1 text-sm text-muted-foreground">{item.insight}</p>
+                          <span className="rounded-full bg-muted px-2 py-0.5 text-xs capitalize text-muted-foreground">
                             {item.category || 'insight'}
                           </span>
                         </div>
@@ -667,8 +665,8 @@ export default function MeetingDetail() {
                     </h3>
                     <ul className="space-y-2">
                       {insights.key_points.map((point: string, i: number) => (
-                        <li key={i} className="flex items-start gap-2 text-sm" style={{ color: '#A8A29E' }}>
-                          <span className="w-1.5 h-1.5 rounded-full mt-2 flex-shrink-0" style={{ background: '#F97316' }} />
+                        <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+                          <span className="mt-2 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-orange-500" />
                           {point}
                         </li>
                       ))}
@@ -683,7 +681,7 @@ export default function MeetingDetail() {
                       <AlertTriangle size={16} /> Risk Flags
                     </h3>
                     {insights.risks.map((r: string, i: number) => (
-                      <div key={i} className="text-sm leading-relaxed" style={{ color: '#A8A29E' }}>{r}</div>
+                      <div key={i} className="text-sm leading-relaxed text-muted-foreground">{r}</div>
                     ))}
                   </ProtoCard>
                 )}
@@ -697,7 +695,7 @@ export default function MeetingDetail() {
                     {insights.open_questions.map((q: string, i: number) => (
                       <div key={i} className="flex items-start gap-3 p-3 rounded-xl" style={{ background: 'rgba(245,158,11,0.04)', border: '1px solid rgba(245,158,11,0.15)' }}>
                         <HelpCircle size={14} className="mt-0.5 flex-shrink-0" style={{ color: '#F59E0B' }} />
-                        <p className="text-sm" style={{ color: '#A8A29E' }}>{q}</p>
+                        <p className="text-sm text-muted-foreground">{q}</p>
                       </div>
                     ))}
                   </ProtoCard>
@@ -711,13 +709,13 @@ export default function MeetingDetail() {
                     </h3>
                     <div className="space-y-2">
                       {(insights.follow_ups as FollowUp[]).map((item, i) => (
-                        <div key={i} className="flex items-start gap-3 p-3 rounded-xl" style={{ background: '#1C1917', border: '1px solid #292524' }}>
-                          <RefreshCw size={14} className="mt-0.5 flex-shrink-0" style={{ color: '#3B82F6' }} />
+                        <div key={i} className="flex items-start gap-3 rounded-xl border border-border bg-muted/40 p-3">
+                          <RefreshCw size={14} className="mt-0.5 flex-shrink-0 text-blue-500" />
                           <div className="flex-1">
-                            <p className="text-sm" style={{ color: '#A8A29E' }}>{item.description}</p>
-                            <div className="flex items-center gap-2 mt-1.5">
+                            <p className="text-sm text-muted-foreground">{item.description}</p>
+                            <div className="mt-1.5 flex items-center gap-2">
                               {item.assignee && (
-                                <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(168,168,168,0.08)', color: '#A8A29E' }}>
+                                <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
                                   → {item.assignee}
                                 </span>
                               )}
@@ -737,7 +735,7 @@ export default function MeetingDetail() {
                     </h3>
                     <div className="flex gap-2 flex-wrap">
                       {attendees.map((a, i) => (
-                        <div key={i} className="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-[13px]" style={{ background: 'rgba(59,130,246,0.08)', color: '#FAFAF9' }}>
+                        <div key={i} className="flex items-center gap-2 rounded-full bg-blue-500/10 px-3.5 py-1.5 text-[13px] text-foreground">
                           <div 
                             className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-semibold text-white"
                             style={{ background: 'linear-gradient(135deg, #F97316, #F59E0B)' }}
@@ -745,7 +743,7 @@ export default function MeetingDetail() {
                             {getInitials(a.displayName, a.email)}
                           </div>
                           {a.displayName || a.email}
-                          {a.organizer && <span className="text-[11px]" style={{ color: '#78716C' }}>(organizer)</span>}
+                          {a.organizer && <span className="text-[11px] text-muted-foreground">(organizer)</span>}
                         </div>
                       ))}
                     </div>
@@ -760,10 +758,10 @@ export default function MeetingDetail() {
                     </h3>
                     <div className="space-y-3">
                       {(insights.speaker_highlights as SpeakerHighlight[]).map((item, i) => (
-                        <div key={i} className="p-3 rounded-xl" style={{ border: '1px solid #292524' }}>
-                          <span className="font-medium text-foreground text-sm">{item.speaker}</span>
-                          <p className="text-sm text-foreground mt-1">{item.highlight}</p>
-                          <p className="text-xs mt-1" style={{ color: '#78716C' }}>→ {item.context}</p>
+                        <div key={i} className="rounded-xl border border-border p-3">
+                          <span className="text-sm font-medium text-foreground">{item.speaker}</span>
+                          <p className="mt-1 text-sm text-foreground">{item.highlight}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">→ {item.context}</p>
                         </div>
                       ))}
                     </div>
@@ -778,22 +776,24 @@ export default function MeetingDetail() {
                 {insights.action_items && (insights.action_items as ActionItem[]).map((item, i) => (
                   <ProtoCard key={i} style={{ padding: 16 }}>
                     <div className="flex items-center gap-3">
-                      <div 
-                        className="w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0"
-                        style={{ border: `2px solid ${item.done ? '#22C55E' : '#292524'}`, background: item.done ? '#22C55E' : 'transparent' }}
+                      <div
+                        className={cn(
+                          'flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md border-2',
+                          item.done ? 'border-green-500 bg-green-500' : 'border-border bg-transparent'
+                        )}
                       >
-                        {item.done && <CheckCircle2 size={12} color="#fff" />}
+                        {item.done && <CheckCircle2 size={12} className="text-white" />}
                       </div>
                       <div className="flex-1">
-                        <div className={cn("text-sm", item.done && "line-through")} style={{ color: item.done ? '#78716C' : '#FAFAF9' }}>
+                        <div className={cn('text-sm text-foreground', item.done && 'text-muted-foreground line-through')}>
                           {typeof item === 'string' ? item : item.task}
                         </div>
                         {item.owner && (
-                          <div className="text-xs mt-0.5" style={{ color: '#78716C' }}>Assigned to {item.owner}</div>
+                          <div className="mt-0.5 text-xs text-muted-foreground">Assigned to {item.owner}</div>
                         )}
                       </div>
                       {item.owner && (
-                        <span style={{ padding: '3px 10px', borderRadius: 100, fontSize: 11, fontWeight: 600, color: '#A8A29E', background: 'rgba(168,168,168,0.1)' }}>
+                        <span className="rounded-full bg-muted px-2.5 py-0.5 text-[11px] font-semibold text-muted-foreground">
                           {item.owner}
                         </span>
                       )}
@@ -807,8 +807,8 @@ export default function MeetingDetail() {
                 ))}
                 {(!insights.action_items || insights.action_items.length === 0) && (
                   <ProtoCard style={{ textAlign: 'center', padding: 40 }}>
-                    <CheckCircle2 size={32} style={{ color: '#78716C', margin: '0 auto 12px' }} />
-                    <p className="text-sm" style={{ color: '#78716C' }}>No action items for this meeting</p>
+                    <CheckCircle2 size={32} className="mx-auto mb-3 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">No action items for this meeting</p>
                   </ProtoCard>
                 )}
               </div>
@@ -821,7 +821,7 @@ export default function MeetingDetail() {
                   const prevSpeaker = i > 0 ? speakerSegments[i - 1].speaker : null;
                   const isNewSpeaker = seg.speaker !== prevSpeaker;
                   return (
-                    <div key={i} className="flex gap-3 py-3" style={{ borderBottom: '1px solid #292524' }}>
+                    <div key={i} className="flex gap-3 border-b border-border py-3">
                       {isNewSpeaker ? (
                         <div 
                           className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold text-white flex-shrink-0"
@@ -837,24 +837,24 @@ export default function MeetingDetail() {
                           <div className="flex gap-2 items-center mb-1">
                             <span className="text-[13px] font-medium text-foreground">{seg.speaker}</span>
                             {seg.start !== undefined && (
-                              <span className="text-[11px] font-mono" style={{ color: '#78716C' }}>
+                              <span className="text-[11px] font-mono text-muted-foreground">
                                 {Math.floor((seg.start || 0) / 60)}:{String(Math.floor((seg.start || 0) % 60)).padStart(2, '0')}
                               </span>
                             )}
                           </div>
                         )}
-                        <p className="text-sm leading-relaxed" style={{ color: '#A8A29E' }}>{seg.text}</p>
+                        <p className="text-sm leading-relaxed text-muted-foreground">{seg.text}</p>
                       </div>
                     </div>
                   );
                 }) : transcript ? (
-                  <p className="text-sm whitespace-pre-wrap leading-relaxed" style={{ color: '#A8A29E' }}>
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
                     {transcript.content}
                   </p>
                 ) : (
                   <ProtoCard style={{ textAlign: 'center', padding: 40 }}>
-                    <FileText size={32} style={{ color: '#78716C', margin: '0 auto 12px' }} />
-                    <p className="text-sm" style={{ color: '#78716C' }}>Transcript will appear here after processing</p>
+                    <FileText size={32} className="mx-auto mb-3 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">Transcript will appear here after processing</p>
                   </ProtoCard>
                 )}
               </div>
@@ -874,16 +874,21 @@ export default function MeetingDetail() {
                         <div className="flex items-center justify-between">
                           <div className="flex-1">
                             <div className="text-sm font-medium text-foreground">{msg.recipient_email}</div>
-                            <div className="text-xs mt-1" style={{ color: '#78716C' }}>
+                            <div className="mt-1 text-xs text-muted-foreground">
                               {format(new Date(msg.sent_at || msg.created_at), 'MMM d, yyyy h:mm a')}
                             </div>
                             {msg.error_message && (
-                              <div className="text-xs mt-1" style={{ color: '#EF4444' }}>
+                              <div className="mt-1 text-xs text-destructive">
                                 Error: {msg.error_message}
                               </div>
                             )}
                           </div>
-                          <span style={{ padding: '4px 10px', borderRadius: 100, fontSize: 11, fontWeight: 600, color: msg.status === 'sent' ? '#22C55E' : '#A8A29E', background: msg.status === 'sent' ? 'rgba(34,197,94,0.1)' : 'rgba(168,168,168,0.1)' }}>
+                          <span
+                            className={cn(
+                              'rounded-full px-2.5 py-1 text-[11px] font-semibold',
+                              msg.status === 'sent' ? 'bg-green-500/15 text-green-600 dark:text-green-400' : 'bg-muted text-muted-foreground'
+                            )}
+                          >
                             {msg.status === 'sent' ? '✓ Sent' : msg.status === 'failed' ? '✗ Failed' : 'Pending'}
                           </span>
                         </div>
@@ -903,16 +908,21 @@ export default function MeetingDetail() {
                         <div className="flex items-center justify-between">
                           <div className="flex-1">
                             <div className="text-sm font-medium text-foreground">{msg.channel_id}</div>
-                            <div className="text-xs mt-1" style={{ color: '#78716C' }}>
+                            <div className="mt-1 text-xs text-muted-foreground">
                               {format(new Date(msg.sent_at || msg.created_at), 'MMM d, yyyy h:mm a')}
                             </div>
                             {msg.error_message && (
-                              <div className="text-xs mt-1" style={{ color: '#EF4444' }}>
+                              <div className="mt-1 text-xs text-destructive">
                                 Error: {msg.error_message}
                               </div>
                             )}
                           </div>
-                          <span style={{ padding: '4px 10px', borderRadius: 100, fontSize: 11, fontWeight: 600, color: msg.status === 'sent' ? '#22C55E' : '#A8A29E', background: msg.status === 'sent' ? 'rgba(34,197,94,0.1)' : 'rgba(168,168,168,0.1)' }}>
+                          <span
+                            className={cn(
+                              'rounded-full px-2.5 py-1 text-[11px] font-semibold',
+                              msg.status === 'sent' ? 'bg-green-500/15 text-green-600 dark:text-green-400' : 'bg-muted text-muted-foreground'
+                            )}
+                          >
                             {msg.status === 'sent' ? '✓ Sent' : msg.status === 'failed' ? '✗ Failed' : 'Pending'}
                           </span>
                         </div>
@@ -923,25 +933,25 @@ export default function MeetingDetail() {
 
                 {emailMessages.length === 0 && slackMessages.length === 0 && (
                   <ProtoCard style={{ textAlign: 'center', padding: 40 }}>
-                    <Mail size={32} style={{ color: '#78716C', margin: '0 auto 12px' }} />
-                    <p className="text-sm" style={{ color: '#78716C' }}>No deliveries yet. Send this report via Email or Slack above.</p>
+                    <Mail size={32} className="mx-auto mb-3 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">No deliveries yet. Send this report via Email or Slack above.</p>
                   </ProtoCard>
                 )}
               </div>
             )}
           </div>
         ) : meeting.status === 'processing' ? (
-          <div className="text-center py-16">
-            <Loader2 className="w-12 h-12 mx-auto mb-4 animate-spin" style={{ color: '#78716C' }} />
-            <p className="text-base font-medium text-foreground mb-1">Processing meeting...</p>
-            <p className="text-sm max-w-sm mx-auto" style={{ color: '#A8A29E' }}>
+          <div className="py-16 text-center">
+            <Loader2 className="mx-auto mb-4 h-12 w-12 animate-spin text-muted-foreground" />
+            <p className="mb-1 text-base font-medium text-foreground">Processing meeting...</p>
+            <p className="mx-auto max-w-sm text-sm text-muted-foreground">
               AI is analyzing your recording. This usually takes a few minutes.
             </p>
           </div>
         ) : (
-          <div className="text-center py-16">
-            <p className="text-base font-medium text-foreground mb-1">No insights available</p>
-            <p className="text-sm" style={{ color: '#A8A29E' }}>This meeting hasn't been processed yet.</p>
+          <div className="py-16 text-center">
+            <p className="mb-1 text-base font-medium text-foreground">No insights available</p>
+            <p className="text-sm text-muted-foreground">This meeting hasn&apos;t been processed yet.</p>
           </div>
         )}
       </div>

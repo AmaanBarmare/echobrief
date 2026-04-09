@@ -24,7 +24,7 @@ export default function ChromeExtensionGuide() {
               EchoBrief Chrome Extension
             </h1>
             <p className="text-muted-foreground mt-2">
-              Install the extension to auto-record Google Meet and Zoom Web meetings. Your recordings will be transcribed and summarized with AI.
+              Install the extension to auto-record Google Meet and Zoom Web meetings. Recordings are transcribed and summarized in EchoBrief.
             </p>
           </div>
 

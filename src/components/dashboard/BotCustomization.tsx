@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { cn } from '@/lib/utils';
 
 interface BotCustomizationProps {
   user_id?: string;
@@ -83,105 +84,70 @@ export function BotCustomization({ user_id, onSave }: BotCustomizationProps) {
   };
 
   if (loading) {
-    return <div style={{ color: '#A8A29E' }}>Loading settings...</div>;
+    return <div className="text-muted-foreground">Loading settings...</div>;
   }
 
-  const selectedColor = COLOR_OPTIONS.find(c => c.hex === botColor) || COLOR_OPTIONS[0];
-
   return (
-    <div style={{ background: '#1C1917', border: '1px solid #292524', borderRadius: 16, padding: 20 }}>
-      <h3 className="text-[15px] font-semibold text-foreground mb-6" style={{ fontFamily: 'Outfit, sans-serif' }}>
+    <div className="rounded-2xl border border-border bg-card p-5 text-card-foreground shadow-sm">
+      <h3 className="mb-6 text-[15px] font-semibold text-foreground" style={{ fontFamily: 'Outfit, sans-serif' }}>
         🤖 Bot Customization
       </h3>
 
       <div className="space-y-6">
         {/* Bot Name */}
         <div>
-          <label className="block text-sm font-medium mb-2" style={{ color: '#FAFAF9' }}>
-            Bot Name
-          </label>
+          <label className="mb-2 block text-sm font-medium text-foreground">Bot Name</label>
           <Input
             type="text"
             value={botName}
             onChange={(e) => setBotName(e.target.value)}
             placeholder="e.g., Meeting Recorder"
             maxLength={50}
-            style={{
-              background: '#1C1917',
-              border: '1px solid #292524',
-              color: '#FAFAF9',
-              padding: '10px 12px',
-              borderRadius: 8,
-              fontSize: 13,
-            }}
+            className="rounded-lg border-border bg-background px-3 py-2.5 text-[13px] text-foreground"
           />
-          <p className="text-xs mt-1" style={{ color: '#78716C' }}>
+          <p className="mt-1 text-xs text-muted-foreground">
             This name appears in meeting notifications and calendar invites
           </p>
         </div>
 
         {/* Bot Color */}
         <div>
-          <label className="block text-sm font-medium mb-3" style={{ color: '#FAFAF9' }}>
-            Bot Icon Color
-          </label>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+          <label className="mb-3 block text-sm font-medium text-foreground">Bot Icon Color</label>
+          <div className="grid grid-cols-3 gap-3">
             {COLOR_OPTIONS.map(color => (
               <button
                 key={color.hex}
+                type="button"
                 onClick={() => setBotColor(color.hex)}
+                className="flex cursor-pointer flex-col items-center gap-2 rounded-lg p-4 transition-all"
                 style={{
-                  padding: '16px',
-                  borderRadius: 8,
-                  border: botColor === color.hex ? `2px solid ${color.hex}` : '1px solid #292524',
+                  border:
+                    botColor === color.hex ? `2px solid ${color.hex}` : '1px solid hsl(var(--border))',
                   background: color.bg,
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: 8,
                 }}
               >
                 <div
-                  style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: 8,
-                    background: color.hex,
-                  }}
+                  className="h-8 w-8 rounded-lg"
+                  style={{ background: color.hex }}
                 />
-                <span style={{ fontSize: 11, color: botColor === color.hex ? color.hex : '#A8A29E', fontWeight: 500 }}>
+                <span
+                  className={cn('text-[11px] font-medium', botColor !== color.hex && 'text-muted-foreground')}
+                  style={botColor === color.hex ? { color: color.hex } : undefined}
+                >
                   {color.name}
                 </span>
               </button>
             ))}
           </div>
-          <div style={{
-            marginTop: 12,
-            padding: '12px',
-            borderRadius: 8,
-            background: 'rgba(168,168,168,0.05)',
-            border: '1px solid #292524',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div className="mt-3 rounded-lg border border-border bg-muted/30 p-3">
+            <div className="flex items-center gap-2">
               <div
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: 8,
-                  background: botColor,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'white',
-                  fontWeight: 600,
-                  fontSize: 14,
-                }}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-sm font-semibold text-white"
+                style={{ background: botColor }}
               >
                 E
               </div>
-              <div style={{ fontSize: 12, color: '#A8A29E' }}>
+              <div className="text-xs text-muted-foreground">
                 Preview: {botName}
               </div>
             </div>
@@ -190,22 +156,18 @@ export function BotCustomization({ user_id, onSave }: BotCustomizationProps) {
 
         {/* Auto Join */}
         <div>
-          <label className="flex items-center gap-3" style={{ cursor: 'pointer' }}>
+          <label className="flex cursor-pointer items-center gap-3">
             <input
               type="checkbox"
               checked={autoJoin}
               onChange={(e) => setAutoJoin(e.target.checked)}
-              style={{
-                width: 18,
-                height: 18,
-                cursor: 'pointer',
-              }}
+              className="h-[18px] w-[18px] cursor-pointer accent-orange-500"
             />
-            <span style={{ color: '#FAFAF9', fontSize: 13, fontWeight: 500 }}>
+            <span className="text-[13px] font-medium text-foreground">
               Auto-join meetings from calendar
             </span>
           </label>
-          <p className="text-xs mt-2" style={{ color: '#78716C', marginLeft: 28 }}>
+          <p className="ml-7 mt-2 text-xs text-muted-foreground">
             Automatically record and analyze meetings from your Google Calendar
           </p>
         </div>
@@ -215,13 +177,9 @@ export function BotCustomization({ user_id, onSave }: BotCustomizationProps) {
           <Button
             onClick={handleSave}
             disabled={saving}
-            style={{
-              flex: 1,
-              background: '#FB923C',
-              color: 'white',
-            }}
+            className="flex-1 bg-orange-500 text-white hover:bg-orange-600"
           >
-            {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save size={14} className="mr-2" />}
+            {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save size={14} className="mr-2" />}
             Save Changes
           </Button>
         </div>

@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { displayNameFromUserMetadata } from '@/lib/userDisplayName';
 import { GlobalSearch } from './GlobalSearch';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 export function Header() {
   const { user, signOut } = useAuth();
@@ -74,8 +75,9 @@ export function Header() {
           </div>
         </div>
 
-        {/* Right side: profile dropdown */}
-        <div className="flex items-center gap-3">
+        {/* Right side: theme + profile */}
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
           {/* Profile Dropdown */}
           <div ref={profileRef} style={{ position: 'relative' }}>
             {/* Avatar button */}
@@ -104,126 +106,42 @@ export function Header() {
             {/* Dropdown menu */}
             {profileMenuOpen && (
               <div
-                style={{
-                  position: 'absolute',
-                  top: 44,
-                  right: 0,
-                  width: 220,
-                  background: '#1C1917',
-                  border: '1px solid #292524',
-                  borderRadius: 14,
-                  boxShadow: '0 16px 48px rgba(0,0,0,0.5)',
-                  zIndex: 1000,
-                  overflow: 'hidden',
-                  animation: 'fadeScaleIn 0.15s ease-out',
-                }}
+                className="absolute right-0 top-11 z-[1000] w-[220px] overflow-hidden rounded-[14px] border border-border bg-popover text-popover-foreground shadow-xl animate-in fade-in-0 zoom-in-95"
               >
-                {/* User info header */}
-                <div
-                  style={{
-                    padding: '16px 16px 12px',
-                    borderBottom: '1px solid #292524',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div
-                      style={{
-                        width: 36,
-                        height: 36,
-                        borderRadius: '50%',
-                        background: 'linear-gradient(135deg, #F97316, #F59E0B)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: 14,
-                        fontWeight: 700,
-                        color: '#fff',
-                        flexShrink: 0,
-                      }}
-                    >
+                <div className="border-b border-border px-4 pb-3 pt-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-amber-500 text-sm font-bold text-white">
                       {userInitial}
                     </div>
-                    <div>
-                      <div
-                        style={{
-                          fontFamily: 'Outfit, sans-serif',
-                          fontSize: 14,
-                          fontWeight: 600,
-                          color: '#FAFAF9',
-                        }}
-                      >
+                    <div className="min-w-0">
+                      <div className="truncate font-semibold" style={{ fontFamily: 'Outfit, sans-serif', fontSize: 14 }}>
                         {userName}
                       </div>
-                      <div style={{ fontSize: 11, color: '#78716C' }}>
-                        {user?.email}
-                      </div>
+                      <div className="truncate text-[11px] text-muted-foreground">{user?.email}</div>
                     </div>
                   </div>
                 </div>
 
-                {/* Menu items */}
                 {[
                   { icon: <User size={14} />, label: 'Profile', action: () => { navigate('/settings'); setProfileMenuOpen(false); } },
                   { icon: <Settings size={14} />, label: 'Settings', action: () => { navigate('/settings'); setProfileMenuOpen(false); } },
                 ].map((item, i) => (
                   <button
                     key={i}
+                    type="button"
                     onClick={item.action}
-                    style={{
-                      width: '100%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 10,
-                      padding: '11px 16px',
-                      background: 'none',
-                      border: 'none',
-                      color: '#A8A29E',
-                      fontSize: 13,
-                      fontFamily: 'inherit',
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      transition: 'all 0.12s',
-                    }}
-                    onMouseEnter={(e) => {
-                      (e.currentTarget as HTMLElement).style.background = '#292524';
-                      (e.currentTarget as HTMLElement).style.color = '#FAFAF9';
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLElement).style.background = 'none';
-                      (e.currentTarget as HTMLElement).style.color = '#A8A29E';
-                    }}
+                    className="flex w-full items-center gap-2.5 border-0 bg-transparent px-4 py-[11px] text-left text-[13px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
                   >
                     {item.icon} {item.label}
                   </button>
                 ))}
 
-                {/* Divider */}
-                <div style={{ height: 1, background: '#292524', margin: '4px 0' }} />
+                <div className="my-1 h-px bg-border" />
 
-                {/* Sign out */}
                 <button
+                  type="button"
                   onClick={handleSignOut}
-                  style={{
-                    width: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 10,
-                    padding: '11px 16px',
-                    background: 'none',
-                    border: 'none',
-                    color: '#EF4444',
-                    fontSize: 13,
-                    fontFamily: 'inherit',
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                    transition: 'all 0.12s',
-                  }}
-                  onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.08)';
-                  }}
-                  onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLElement).style.background = 'none';
-                  }}
+                  className="flex w-full items-center gap-2.5 border-0 bg-transparent px-4 py-[11px] text-left text-[13px] text-destructive transition-colors hover:bg-destructive/10"
                 >
                   <LogOut size={14} /> Sign out
                 </button>
@@ -235,20 +153,6 @@ export function Header() {
 
       {/* Global Search Modal */}
       <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
-
-      {/* Animation styles */}
-      <style>{`
-        @keyframes fadeScaleIn {
-          from {
-            opacity: 0;
-            transform: scale(0.95) translateY(-4px);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1) translateY(0);
-          }
-        }
-      `}</style>
     </>
   );
 }

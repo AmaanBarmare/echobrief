@@ -13,7 +13,7 @@ interface Attendee {
 }
 
 const extractAttendees = (event: any): Attendee[] => {
-  // Check primary location — standard Google Calendar API
+  // Check primary location: standard Google Calendar API
   if (event.attendees && Array.isArray(event.attendees) && event.attendees.length > 0) {
     return event.attendees.map((a: any) => ({
       name: a.displayName || a.email?.split('@')[0] || 'Unknown',
@@ -23,7 +23,7 @@ const extractAttendees = (event: any): Attendee[] => {
     }));
   }
 
-  // Fallback — check if stored as JSON string (from DB)
+  // Fallback: check if stored as JSON string (from DB)
   if (typeof event.attendees === 'string' && event.attendees.length > 0) {
     try {
       const parsed = JSON.parse(event.attendees);
@@ -248,30 +248,11 @@ export function MeetingDetailModal({ event, onClose, onRecordWithBot }: MeetingD
 
   return (
     <div
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'rgba(0, 0, 0, 0.6)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 1000,
-      }}
+      className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm dark:bg-black/60"
       onClick={onClose}
     >
       <div
-        style={{
-          width: 480,
-          background: '#1C1917',
-          border: '1px solid #292524',
-          borderRadius: 20,
-          padding: 28,
-          boxShadow: '0 24px 64px rgba(0, 0, 0, 0.5)',
-          animation: 'modalEntrance 150ms ease-out',
-        }}
+        className="relative max-h-[90vh] w-full max-w-[480px] overflow-y-auto rounded-[20px] border border-border bg-card p-7 text-card-foreground shadow-2xl animate-in fade-in-0 zoom-in-95"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Gradient bar */}
@@ -290,48 +271,27 @@ export function MeetingDetailModal({ event, onClose, onRecordWithBot }: MeetingD
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
           <div>
-            <h2 style={{ fontSize: 20, fontWeight: 600, color: '#FAFAF9', margin: '0 0 8px 0', fontFamily: 'Outfit, sans-serif' }}>
+            <h2 className="text-foreground" style={{ fontSize: 20, fontWeight: 600, margin: '0 0 8px 0', fontFamily: 'Outfit, sans-serif' }}>
               {event.title}
             </h2>
             {getPlatform() && (
-              <span
-                style={{
-                  display: 'inline-block',
-                  background: '#44403C',
-                  color: '#D4D4D4',
-                  fontSize: 11,
-                  fontWeight: 600,
-                  padding: '4px 10px',
-                  borderRadius: 6,
-                }}
-              >
+              <span className="inline-block rounded-md bg-muted px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
                 {getPlatform()}
               </span>
             )}
           </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              color: '#78716C',
-              padding: 0,
-            }}
-          >
+          <button type="button" onClick={onClose} className="rounded-lg p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground">
             <X size={20} />
           </button>
         </div>
 
         {/* Time & Duration */}
         <div style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#78716C', marginBottom: 12 }}>
-            Time
-          </div>
+          <div className="mb-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Time</div>
           <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-            <Clock size={15} style={{ color: '#78716C', marginTop: 2, flexShrink: 0 }} />
+            <Clock size={15} className="mt-0.5 shrink-0 text-muted-foreground" />
             <div>
-              <p style={{ fontSize: 14, color: '#A8A29E', margin: 0, fontFamily: 'DM Sans, sans-serif' }}>
+              <p className="text-[14px] text-muted-foreground" style={{ margin: 0, fontFamily: 'DM Sans, sans-serif' }}>
                 {format(startDate, 'EEEE, MMMM d · h:mm a')} – {format(endDate, 'h:mm a')} ({durationMin} min)
               </p>
               <p style={{ fontSize: 12, color: timingStatus.color, margin: '8px 0 0 0', fontFamily: 'DM Sans, sans-serif' }}>
@@ -343,39 +303,35 @@ export function MeetingDetailModal({ event, onClose, onRecordWithBot }: MeetingD
 
         {/* Meeting Link */}
         <div style={{ marginBottom: 20 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#78716C', marginBottom: 12 }}>
-            Meeting Link
-          </div>
+          <div className="mb-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Meeting Link</div>
           <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-            <Link2 size={15} style={{ color: '#78716C', flexShrink: 0 }} />
+            <Link2 size={15} className="shrink-0 text-muted-foreground" />
             {event.hasMeetingLink && event.meetingUrl ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
                 <a
                   href={event.meetingUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  style={{ fontSize: 13, color: '#FB923C', textDecoration: 'none', cursor: 'pointer' }}
+                  className="cursor-pointer text-[13px] text-orange-600 no-underline dark:text-orange-400"
                 >
                   {truncateUrl(event.meetingUrl)}
                 </a>
                 <button
                   onClick={handleCopyUrl}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#78716C', padding: 0 }}
+                  className="cursor-pointer border-0 bg-transparent p-0 text-muted-foreground"
                 >
                   {copied ? <CheckCircle2 size={14} style={{ color: '#22c55e' }} /> : <Copy size={14} />}
                 </button>
               </div>
             ) : (
-              <p style={{ fontSize: 13, color: '#78716C', margin: 0, fontStyle: 'italic' }}>No meeting link found</p>
+              <p className="m-0 text-[13px] italic text-muted-foreground">No meeting link found</p>
             )}
           </div>
         </div>
 
         {/* Attendees */}
         <div style={{ marginBottom: 28 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#78716C', marginBottom: 12 }}>
-            Attendees
-          </div>
+          <div className="mb-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Attendees</div>
           {(() => {
             const attendees = extractAttendees(event);
             return attendees.length > 0 ? (
@@ -418,7 +374,7 @@ export function MeetingDetailModal({ event, onClose, onRecordWithBot }: MeetingD
                         {initials}
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <p style={{ fontSize: 12, color: '#FAFAF9', margin: 0, fontWeight: 500, fontFamily: 'DM Sans, sans-serif' }}>
+                        <p className="text-[12px] font-medium text-foreground" style={{ margin: 0, fontFamily: 'DM Sans, sans-serif' }}>
                           {attendee.name}
                         </p>
                         {attendee.isOrganizer && (
@@ -436,17 +392,7 @@ export function MeetingDetailModal({ event, onClose, onRecordWithBot }: MeetingD
                   );
                 })}
                 {attendees.length > 6 && (
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      padding: '6px 12px',
-                      borderRadius: 100,
-                      background: '#292524',
-                      color: '#78716C',
-                      fontSize: 12,
-                    }}
-                  >
+                  <div className="flex items-center rounded-full bg-secondary px-3 py-1.5 text-xs text-muted-foreground">
                     +{attendees.length - 6} more
                   </div>
                 )}
@@ -460,40 +406,26 @@ export function MeetingDetailModal({ event, onClose, onRecordWithBot }: MeetingD
         </div>
 
         {/* Divider */}
-        <div style={{ height: 1, background: '#292524', marginBottom: 24 }} />
+        <div className="mb-6 h-px bg-border" />
 
         {/* Recording Options */}
         <div>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#78716C', marginBottom: 16 }}>
-            Record This Meeting
-          </div>
+          <div className="mb-4 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Record This Meeting</div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             {/* Extension Option */}
             <div
+              className="rounded-xl border border-border bg-background/50 p-4 transition-colors hover:border-orange-500/30 hover:bg-orange-500/[0.04] dark:bg-transparent"
               style={{
-                border: '1px solid #292524',
-                borderRadius: 12,
-                padding: 16,
-                background: 'transparent',
                 cursor: event.hasMeetingLink ? 'pointer' : 'not-allowed',
-                transition: 'all 0.2s',
                 opacity: event.hasMeetingLink ? 1 : 0.4,
-              }}
-              onMouseEnter={(e) => {
-                if (event.hasMeetingLink) {
-                  e.currentTarget.style.background = 'rgba(249,115,22,0.04)';
-                  e.currentTarget.style.borderColor = '#44403C';
-                }
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'transparent';
-                e.currentTarget.style.borderColor = '#292524';
               }}
               title={!event.hasMeetingLink ? 'No meeting link to join' : ''}
             >
-              <p style={{ fontSize: 13, fontWeight: 600, color: '#FAFAF9', margin: '0 0 6px 0' }}>📋 Record with Extension</p>
-              <p style={{ fontSize: 12, color: '#78716C', margin: '0 0 12px 0', lineHeight: 1.4 }}>
+              <p className="text-[13px] font-semibold text-foreground" style={{ margin: '0 0 6px 0' }}>
+                📋 Record with Extension
+              </p>
+              <p className="mb-3 text-[12px] leading-snug text-muted-foreground" style={{ margin: '0 0 12px 0' }}>
                 Open the meeting and your Chrome extension will capture the audio automatically.
               </p>
               <Button
@@ -515,17 +447,16 @@ export function MeetingDetailModal({ event, onClose, onRecordWithBot }: MeetingD
 
             {/* Bot Option */}
             <div
+              className="cursor-pointer rounded-xl border border-orange-500/25 bg-orange-500/[0.06] p-4 dark:bg-orange-500/[0.08]"
               style={{
-                border: '1px solid rgba(249,115,22,0.25)',
-                borderRadius: 12,
-                padding: 16,
-                background: 'rgba(249,115,22,0.04)',
                 cursor: event.hasMeetingLink ? 'pointer' : 'not-allowed',
                 opacity: event.hasMeetingLink ? 1 : 0.4,
               }}
             >
-              <p style={{ fontSize: 13, fontWeight: 600, color: '#FAFAF9', margin: '0 0 6px 0' }}>🤖 Send Bot to Join</p>
-              <p style={{ fontSize: 12, color: '#78716C', margin: '0 0 12px 0', lineHeight: 1.4 }}>
+              <p className="text-[13px] font-semibold text-foreground" style={{ margin: '0 0 6px 0' }}>
+                🤖 Send Bot to Join
+              </p>
+              <p className="mb-3 text-[12px] leading-snug text-muted-foreground" style={{ margin: '0 0 12px 0' }}>
                 EchoBrief's bot will join the meeting automatically and record it for you.
               </p>
 
@@ -590,7 +521,7 @@ export function MeetingDetailModal({ event, onClose, onRecordWithBot }: MeetingD
                     {BOT_STATUS_DISPLAY[botStatus].label}
                   </div>
                   {botError && (
-                    <div style={{ color: '#A8A29E', fontSize: 11, marginTop: 6, wordBreak: 'break-word', fontFamily: 'DM Sans, monospace' }}>
+                    <div className="mt-1.5 break-words font-mono text-[11px] text-muted-foreground">
                       {botError}
                     </div>
                   )}

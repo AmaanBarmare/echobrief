@@ -14,10 +14,9 @@
 }
 @layer base {
   :root {
-    /* Light Mode - Clean, Notion-inspired */
-    
-    /* Background - Soft off-white */
-    --background: 40 20% 98%;
+    color-scheme: light;
+    /* Light Mode: warm paper, crisp type */
+    --background: 40 18% 97%;
     --foreground: 220 20% 14%;
 
     /* Cards - Pure white with subtle depth */
@@ -77,6 +76,7 @@
   }
 
   .dark {
+    color-scheme: dark;
     /* Dark Mode - Warm Ember / Stone palette */
     
     /* Background (App): #0C0A09 Stone-950 */
@@ -199,13 +199,11 @@
   /* List row - clean, minimal */
   .list-row {
     @apply flex items-center gap-3 py-3 px-4 rounded-2xl transition-all duration-200 cursor-pointer;
-    background: #1C1917;
-    border: 1px solid #292524;
+    @apply bg-card border border-border;
   }
 
   .list-row:hover {
-    background: #292524;
-    border-color: #44403C;
+    @apply bg-secondary border-border;
     transform: translateY(-1px);
   }
 
@@ -523,6 +521,148 @@
     background: var(--gradient-dark);
   }
 
+  /* ─── Landing: editorial / glass / ember (frontend-design skill) ─── */
+  .landing-shell {
+    position: relative;
+    isolation: isolate;
+  }
+
+  .landing-shell > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .landing-mesh {
+    background:
+      radial-gradient(ellipse 90% 60% at 10% -15%, rgba(249, 115, 22, 0.11), transparent 55%),
+      radial-gradient(ellipse 70% 50% at 95% 5%, rgba(245, 158, 11, 0.07), transparent 50%),
+      radial-gradient(ellipse 50% 40% at 50% 100%, rgba(249, 115, 22, 0.05), transparent 45%);
+  }
+
+  .dark .landing-mesh {
+    background:
+      radial-gradient(ellipse 80% 55% at 15% 0%, rgba(249, 115, 22, 0.18), transparent 55%),
+      radial-gradient(ellipse 60% 45% at 100% 15%, rgba(245, 158, 11, 0.1), transparent 50%),
+      radial-gradient(ellipse 55% 35% at 40% 95%, rgba(249, 115, 22, 0.06), transparent 50%);
+  }
+
+  .landing-grain {
+    position: relative;
+  }
+
+  .landing-grain::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.35;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  }
+
+  .dark .landing-grain::after {
+    opacity: 0.22;
+    mix-blend-mode: soft-light;
+  }
+
+  @keyframes landing-shimmer {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
+
+  .landing-shimmer {
+    background: linear-gradient(
+      110deg,
+      transparent 0%,
+      rgba(249, 115, 22, 0.06) 45%,
+      rgba(255, 255, 255, 0.08) 50%,
+      rgba(249, 115, 22, 0.06) 55%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+    animation: landing-shimmer 4s ease-in-out infinite;
+  }
+
+  .dark .landing-shimmer {
+    background: linear-gradient(
+      110deg,
+      transparent 0%,
+      rgba(249, 115, 22, 0.12) 45%,
+      rgba(255, 255, 255, 0.04) 50%,
+      rgba(249, 115, 22, 0.12) 55%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+  }
+
+  @keyframes landing-marquee {
+    0% {
+      transform: translateX(0);
+    }
+    100% {
+      transform: translateX(-50%);
+    }
+  }
+
+  .landing-marquee-track {
+    animation: landing-marquee 38s linear infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .landing-marquee-track {
+      animation: none;
+    }
+  }
+
+  @keyframes cta-glow {
+    0%,
+    100% {
+      box-shadow:
+        0 0 0 1px rgba(249, 115, 22, 0.15),
+        0 20px 50px -20px rgba(249, 115, 22, 0.25);
+    }
+    50% {
+      box-shadow:
+        0 0 0 1px rgba(245, 158, 11, 0.35),
+        0 24px 60px -16px rgba(249, 115, 22, 0.35);
+    }
+  }
+
+  .landing-cta-glow {
+    animation: cta-glow 5s ease-in-out infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .landing-cta-glow {
+      animation: none;
+    }
+  }
+
+  @keyframes landing-float {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-8px);
+    }
+  }
+
+  .landing-float-slow {
+    animation: landing-float 7s ease-in-out infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .landing-float-slow {
+      animation: none;
+    }
+  }
+
   /* Speaker label styling - AI/transcript = purple per brand spec */
   .speaker-label {
     @apply inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full;
@@ -540,7 +680,7 @@
     @apply bg-secondary/30 -mx-3 px-3 rounded-md border-transparent;
   }
 
-  /* Scrollbar - matches prototype */
+  /* Scrollbar */
   ::-webkit-scrollbar {
     width: 6px;
   }
@@ -548,8 +688,62 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: #44403C;
+    background: hsl(var(--border));
     border-radius: 3px;
+  }
+  .dark ::-webkit-scrollbar-thumb {
+    background: #44403C;
+  }
+
+  /* Logo: concentric ripples breathe (sound-wave metaphor; no lockup distortion) */
+  .logo-ring-outer {
+    opacity: 0.28;
+  }
+  .logo-ring-mid {
+    opacity: 0.52;
+  }
+  .logo-mark-animated .logo-ring-outer {
+    animation: echobrief-ring-outer 2.8s ease-in-out infinite;
+    transform-origin: 16px 16px;
+  }
+  .logo-mark-animated .logo-ring-mid {
+    animation: echobrief-ring-mid 2.8s ease-in-out 0.32s infinite;
+    transform-origin: 16px 16px;
+  }
+  .logo-mark-animated .logo-core {
+    animation: echobrief-core 3s ease-in-out infinite;
+    transform-origin: 16px 16px;
+  }
+  @keyframes echobrief-ring-outer {
+    0%,
+    100% {
+      opacity: 0.22;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.42;
+      transform: scale(1.03);
+    }
+  }
+  @keyframes echobrief-ring-mid {
+    0%,
+    100% {
+      opacity: 0.45;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.62;
+      transform: scale(1.025);
+    }
+  }
+  @keyframes echobrief-core {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.92;
+    }
   }
 
   /* Input placeholder color for dark mode */

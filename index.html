@@ -24,6 +24,19 @@
   </head>
 
   <body>
+    <script>
+      (function () {
+        try {
+          var k = 'echobrief-theme';
+          var t = localStorage.getItem(k);
+          var r = 'dark';
+          if (t === 'light') r = 'light';
+          else if (t === 'dark') r = 'dark';
+          else r = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          document.documentElement.classList.add(r);
+        } catch (e) {}
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

@@ -1,63 +1,71 @@
 import { Link } from 'react-router-dom';
 import { Logo } from '@/components/ui/Logo';
+import { ThemeToggle } from '@/components/ThemeToggle';
+import { cn } from '@/lib/utils';
+
+const links = [
+  { label: 'Features', href: '#features' },
+  { label: 'Stack', href: '#integrations' },
+  { label: 'Languages', href: '#languages' },
+  { label: 'FAQ', href: '#faq' },
+  { label: 'Pricing', href: '#pricing' },
+  { label: 'Docs', href: '/docs' },
+] as const;
 
 export function Navbar() {
   return (
-    <nav
-      className="sticky top-0 z-50"
-      style={{
-        padding: '18px 0',
-        borderBottom: '1px solid #292524',
-        background: 'rgba(12,10,9,0.85)',
-        backdropFilter: 'blur(16px)',
-        WebkitBackdropFilter: 'blur(16px)',
-      }}
-    >
-      <div className="mx-auto max-w-[1100px] px-6">
-        <div className="flex items-center justify-between">
-          {/* Logo */}
-          <Logo size="lg" linkTo="/" />
+    <header className="sticky top-0 z-50 px-4 pt-4 pb-2 md:px-8">
+      <nav
+        className={cn(
+          'mx-auto flex max-w-[1200px] items-center justify-between gap-4 rounded-2xl border border-border/70 bg-background/75 px-4 py-3 shadow-sm backdrop-blur-xl',
+          'supports-[backdrop-filter]:bg-background/65',
+          'transition-shadow duration-300 hover:shadow-md hover:shadow-orange-500/5',
+        )}
+      >
+        <Logo size="lg" linkTo="/" />
 
-          {/* Nav links — hidden on mobile */}
-          <div className="hidden md:flex items-center gap-7">
-            {['Features', 'Languages', 'Pricing', 'Docs'].map((label) => (
-              <a
-                key={label}
-                href={`#${label.toLowerCase()}`}
-                style={{ fontSize: '14px', color: '#A8A29E', textDecoration: 'none', transition: 'color 0.2s' }}
-                onMouseEnter={e => (e.currentTarget.style.color = '#FAFAF9')}
-                onMouseLeave={e => (e.currentTarget.style.color = '#A8A29E')}
-              >
-                {label}
-              </a>
-            ))}
+        <div className="flex flex-1 items-center justify-end gap-2 md:gap-4">
+          <div className="hidden items-center gap-4 md:flex md:gap-5 lg:gap-6">
+            {links.map(({ label, href }) =>
+              href.startsWith('#') ? (
+                <a
+                  key={label}
+                  href={href}
+                  className="text-sm font-medium text-muted-foreground no-underline transition-colors hover:text-foreground"
+                  style={{ fontFamily: "'DM Sans', sans-serif" }}
+                >
+                  {label}
+                </a>
+              ) : (
+                <Link
+                  key={label}
+                  to={href}
+                  className="text-sm font-medium text-muted-foreground no-underline transition-colors hover:text-foreground"
+                  style={{ fontFamily: "'DM Sans', sans-serif" }}
+                >
+                  {label}
+                </Link>
+              ),
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <ThemeToggle variant="navbar" />
             <Link
               to="/auth"
-              className="inline-flex items-center no-underline font-semibold transition-all duration-200"
-              style={{
-                padding: '8px 18px',
-                fontSize: '13px',
-                borderRadius: '12px',
-                background: 'linear-gradient(135deg, #F97316, #F59E0B)',
-                color: '#fff',
-                fontFamily: "'DM Sans', sans-serif",
-                fontWeight: 500,
-                boxShadow: '0 2px 12px rgba(249,115,22,0.25)',
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.boxShadow = '0 4px 20px rgba(249,115,22,0.4)';
-                e.currentTarget.style.transform = 'translateY(-1px)';
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.boxShadow = '0 2px 12px rgba(249,115,22,0.25)';
-                e.currentTarget.style.transform = 'translateY(0)';
-              }}
+              className={cn(
+                'inline-flex items-center justify-center rounded-xl px-4 py-2 text-[13px] font-semibold text-white no-underline transition-all duration-200',
+                'bg-gradient-to-br from-orange-500 to-amber-500 shadow-md shadow-orange-500/25',
+                'hover:-translate-y-0.5 hover:shadow-lg hover:shadow-orange-500/35',
+                'sm:px-5',
+              )}
+              style={{ fontFamily: "'DM Sans', sans-serif" }}
             >
-              Get started free
+              Get started
             </Link>
           </div>
         </div>
-      </div>
-    </nav>
+      </nav>
+    </header>
   );
 }

@@ -141,10 +141,10 @@ export default function Docs() {
             <section id="delivery">
               <h2>Delivery Options</h2>
               <ul>
-                <li><strong>Email</strong> — HTML-formatted reports with summary, key points, decisions, and action items</li>
-                <li><strong>Slack</strong> — Thread-based summaries in your chosen Slack channel</li>
-                <li><strong>WhatsApp</strong> — Text-based reports delivered to your WhatsApp number</li>
-                <li><strong>Dashboard</strong> — View all reports in one place with full search & filters</li>
+                <li><strong>Email</strong>: HTML-formatted reports with summary, key points, decisions, and action items</li>
+                <li><strong>Slack</strong>: Thread-based summaries in your chosen Slack channel</li>
+                <li><strong>WhatsApp</strong>: Text-based reports delivered to your WhatsApp number</li>
+                <li><strong>Dashboard</strong>: View all reports in one place with full search & filters</li>
               </ul>
             </section>
 
