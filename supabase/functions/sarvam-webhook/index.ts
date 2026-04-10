@@ -62,9 +62,9 @@ serve(async (req) => {
       return new Response("Meeting not found", { status: 404 });
     }
 
-    // Idempotency guard: if meeting is already completed or failed, skip processing.
-    // This prevents cascade re-triggers from check-recall-status polling.
-    if (meeting.status === "completed" || meeting.status === "failed") {
+    // Idempotency guard: if meeting is already completed, failed, or being transcribed
+    // by Whisper, skip processing. This prevents cascade re-triggers.
+    if (meeting.status === "completed" || meeting.status === "failed" || meeting.status === "transcribing") {
       console.log(`[sarvam-webhook] Meeting ${meeting.id} already ${meeting.status}, skipping`);
       return new Response(JSON.stringify({ success: true, skipped: true, reason: `already_${meeting.status}` }), {
         status: 200,

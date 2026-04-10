@@ -149,16 +149,53 @@ export async function downloadSarvamResults(
   jobId: string,
   fileName: string,
 ): Promise<Record<string, unknown>> {
-  // Try multiple output file name patterns — Sarvam may name results differently
-  // depending on the input format or API version.
+  // Step 1: Ask Sarvam's status endpoint for the authoritative list of output
+  // file names. The status response includes `job_details[].outputs[].file_name`
+  // which is the real output filename — guessing patterns like "recall-audio.json"
+  // does not work because Sarvam's naming is not predictable from the input.
+  const discoveredNames: string[] = [];
+  try {
+    const statusRes = await fetch(`${SARVAM_BASE_URL}/${jobId}/status`, {
+      method: "GET",
+      headers: { "api-subscription-key": apiKey },
+    });
+    if (statusRes.ok) {
+      const statusData = await statusRes.json();
+      const jobDetails = Array.isArray(statusData.job_details)
+        ? statusData.job_details
+        : [];
+      for (const detail of jobDetails) {
+        const outputs = Array.isArray(detail?.outputs) ? detail.outputs : [];
+        for (const output of outputs) {
+          if (output?.file_name && typeof output.file_name === "string") {
+            discoveredNames.push(output.file_name);
+          }
+        }
+      }
+      console.log(
+        `[sarvam] Discovered output files from status: ${discoveredNames.join(", ") || "(none)"}`,
+      );
+    } else {
+      const errText = await statusRes.text().catch(() => "");
+      console.warn(
+        `[sarvam] Status query for ${jobId} failed (${statusRes.status}): ${errText.substring(0, 200)}`,
+      );
+    }
+  } catch (err) {
+    console.warn(`[sarvam] Status query for ${jobId} threw:`, err);
+  }
+
+  // Step 2: Build candidate list. Prefer discovered names; fall back to guessed
+  // patterns in case the status endpoint is momentarily unavailable.
   const baseName = fileName.replace(/\.[^.]+$/, "");
   const candidateNames = [
+    ...discoveredNames,
     fileName.replace(/\.[^.]+$/, ".json"),   // recall-audio.json
     fileName,                                  // recall-audio.mp3 (original)
     `${baseName}_output.json`,                 // recall-audio_output.json
     "output.json",                             // generic
   ];
-  // Deduplicate
+  // Deduplicate, preserving order (discovered names first).
   const uniqueNames = [...new Set(candidateNames)];
 
   for (const candidate of uniqueNames) {
