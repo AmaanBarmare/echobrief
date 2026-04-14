@@ -161,8 +161,47 @@ serve(async (req) => {
         }
 
         console.log(
-          `Speaker ID mapping: ${JSON.stringify(speakerIdToName)}`,
+          `Speaker ID mapping (overlap): ${JSON.stringify(speakerIdToName)}`,
         );
+      }
+
+      // Fallback: if some speaker IDs remain unmapped but we have Recall
+      // participants, assign remaining names by elimination.
+      const recallParticipants: Array<{ id: number; name: string }> =
+        config.recall_participants || [];
+      if (recallParticipants.length > 0) {
+        const mappedNames = new Set(Object.values(speakerIdToName));
+        const unmappedParticipants = recallParticipants.filter(
+          (p) => !mappedNames.has(p.name),
+        );
+        const allSpeakerIds = new Set(
+          rawSegments.map((seg) => String(seg.speaker_id ?? "0")),
+        );
+        const unmappedIds = [...allSpeakerIds].filter(
+          (id) => !speakerIdToName[id],
+        );
+
+        // If there's exactly 1 unmapped ID and 1 unmapped participant, match them
+        if (unmappedIds.length === 1 && unmappedParticipants.length === 1) {
+          speakerIdToName[unmappedIds[0]] = unmappedParticipants[0].name;
+          console.log(
+            `Speaker ID fallback: ${unmappedIds[0]} → ${unmappedParticipants[0].name}`,
+          );
+        } else if (unmappedIds.length > 0 && unmappedParticipants.length > 0) {
+          // Multiple unmapped — assign in order (best effort)
+          for (let i = 0; i < Math.min(unmappedIds.length, unmappedParticipants.length); i++) {
+            speakerIdToName[unmappedIds[i]] = unmappedParticipants[i].name;
+          }
+          console.log(
+            `Speaker ID fallback (multi): ${JSON.stringify(speakerIdToName)}`,
+          );
+        }
+
+        if (Object.keys(speakerIdToName).length > 0) {
+          console.log(
+            `Speaker ID mapping (final): ${JSON.stringify(speakerIdToName)}`,
+          );
+        }
       }
 
       // Apply name mapping — fall back to acoustic label if no match
