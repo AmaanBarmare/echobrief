@@ -126,6 +126,9 @@ export default function MeetingDetail() {
           setAttendees(meetingData.attendees as unknown as Attendee[]);
         }
 
+        // Also derive attendees from transcript speaker segments if attendees is empty
+        // (bot recordings don't populate the attendees field, but speakers are in the transcript)
+
         const { data: transcriptData } = await supabase
           .from('transcripts')
           .select('*')
@@ -140,7 +143,15 @@ export default function MeetingDetail() {
           } as Transcript);
           
           if (transcriptData.speakers && Array.isArray(transcriptData.speakers)) {
-            setSpeakerSegments(transcriptData.speakers as unknown as SpeakerSegment[]);
+            const segments = transcriptData.speakers as unknown as SpeakerSegment[];
+            setSpeakerSegments(segments);
+
+            // Derive attendees from speaker names if not already set
+            if (!meetingData.attendees || (meetingData.attendees as any[]).length === 0) {
+              const uniqueNames = [...new Set(segments.map((s) => s.speaker).filter(Boolean))];
+              const derived = uniqueNames.map((name, i) => ({ id: String(i), name }));
+              setAttendees(derived as Attendee[]);
+            }
           }
         }
 
