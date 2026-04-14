@@ -34,14 +34,17 @@ serve(async (req) => {
     }
 
     const payload = await req.json();
-    const { job_id, job_state } = payload;
+    const { job_id } = payload;
+    // Sarvam sends "status" in their webhook callback, but our internal
+    // trigger from check-recall-status sends "job_state". Support both.
+    const rawState = payload.job_state || payload.status;
 
     if (!job_id) {
       return new Response("Missing job_id", { status: 400 });
     }
 
-    const normalizedState = job_state?.toUpperCase();
-    console.log(`Sarvam webhook: job=${job_id} state=${job_state} payload_keys=${Object.keys(payload).join(",")}`);
+    const normalizedState = rawState?.toUpperCase();
+    console.log(`Sarvam webhook: job=${job_id} state=${rawState} payload_keys=${Object.keys(payload).join(",")}`);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -311,7 +314,7 @@ serve(async (req) => {
     }
 
     // Other states (Accepted, Pending, Running) — acknowledge and wait
-    console.log(`Sarvam job ${job_id} in state ${job_state}, no action needed`);
+    console.log(`Sarvam job ${job_id} in state ${rawState}, no action needed`);
     return new Response(JSON.stringify({ acknowledged: true }), {
       status: 200,
       headers: { "Content-Type": "application/json" },

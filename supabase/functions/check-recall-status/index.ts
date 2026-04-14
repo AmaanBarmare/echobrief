@@ -215,7 +215,26 @@ serve(async (req) => {
         const sarvamState = sarvamStatus.job_state?.toUpperCase();
 
         if (sarvamState === "COMPLETED" || sarvamState === "FAILED") {
-          // Sarvam is done but the webhook was never processed — trigger it now
+          // Sarvam is done but the webhook was never processed — trigger it now.
+          // First, atomically mark the meeting so concurrent polls don't re-trigger.
+          const { data: updated } = await supabase
+            .from("meetings")
+            .update({ status: "transcribing" })
+            .eq("id", meeting.id)
+            .eq("status", meeting.status) // optimistic lock: only update if status hasn't changed
+            .select("id")
+            .single();
+
+          if (!updated) {
+            console.log(
+              `[check-recall-status] Meeting ${meeting.id} status already changed — skipping duplicate trigger`,
+            );
+            return new Response(
+              JSON.stringify({ status: "processing", recall_status: latestStatus, skipped: true }),
+              { headers: jsonHeaders },
+            );
+          }
+
           const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
           const webhookSecret = Deno.env.get("SARVAM_WEBHOOK_SECRET")!;
 

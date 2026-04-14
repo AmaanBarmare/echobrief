@@ -209,92 +209,103 @@ export default function MeetingDetail() {
     fetchMeetingData();
   }, [user, id]);
 
-  // Poll for status updates when the meeting is still processing
+  // Listen for status updates via Supabase Realtime + a single backend
+  // fallback call instead of hammering check-recall-status every 5 seconds.
   useEffect(() => {
     if (!user || !id || !meeting) return;
     const terminalStatuses = ['completed', 'failed'];
     if (terminalStatuses.includes(meeting.status)) return;
 
-    const pollInterval = setInterval(async () => {
-      // If it's a bot meeting, call check-recall-status to trigger the backend fallback
-      if (meeting.recall_bot_id) {
-        try {
-          const token = (await supabase.auth.getSession()).data.session?.access_token;
-          if (token) {
-            await fetch(`${SUPABASE_URL}/functions/v1/check-recall-status`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${token}`,
-              },
-              body: JSON.stringify({ meeting_id: id }),
-            });
-          }
-        } catch {
-          // Ignore polling errors
-        }
-      }
+    // Subscribe to realtime changes on this meeting row
+    const channel = supabase
+      .channel(`meeting-status-${id}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'meetings', filter: `id=eq.${id}` },
+        async (payload) => {
+          const updatedMeeting = payload.new as Meeting;
+          setMeeting(updatedMeeting);
 
-      // Re-fetch meeting status from DB
-      const { data: updatedMeeting } = await supabase
-        .from('meetings')
-        .select('*')
-        .eq('id', id)
-        .eq('user_id', user.id)
-        .single();
+          if (updatedMeeting.status === 'completed') {
+            const { data: transcriptData } = await supabase
+              .from('transcripts')
+              .select('*')
+              .eq('meeting_id', id)
+              .single();
 
-      if (updatedMeeting && updatedMeeting.status !== meeting.status) {
-        setMeeting(updatedMeeting as Meeting);
+            if (transcriptData) {
+              setTranscript({
+                ...transcriptData,
+                speakers: (transcriptData.speakers as any) || [],
+                word_timestamps: (transcriptData.word_timestamps as any) || [],
+              } as Transcript);
+              if (transcriptData.speakers && Array.isArray(transcriptData.speakers)) {
+                setSpeakerSegments(transcriptData.speakers as unknown as SpeakerSegment[]);
+              }
+            }
 
-        // If now completed, fetch the transcript and insights too
-        if (updatedMeeting.status === 'completed') {
-          const { data: transcriptData } = await supabase
-            .from('transcripts')
-            .select('*')
-            .eq('meeting_id', id)
-            .single();
+            const { data: insightsRows } = await supabase
+              .from('meeting_insights')
+              .select('*')
+              .eq('meeting_id', id)
+              .order('created_at', { ascending: false })
+              .limit(1);
 
-          if (transcriptData) {
-            setTranscript({
-              ...transcriptData,
-              speakers: (transcriptData.speakers as any) || [],
-              word_timestamps: (transcriptData.word_timestamps as any) || [],
-            } as Transcript);
-            if (transcriptData.speakers && Array.isArray(transcriptData.speakers)) {
-              setSpeakerSegments(transcriptData.speakers as unknown as SpeakerSegment[]);
+            const insightsData = insightsRows?.[0] || null;
+            if (insightsData) {
+              setInsights({
+                ...insightsData,
+                key_points: (insightsData.key_points as any) || [],
+                action_items: (insightsData.action_items as any) || [],
+                decisions: (insightsData.decisions as any) || [],
+                risks: (insightsData.risks as any) || [],
+                follow_ups: (insightsData.follow_ups as any) || [],
+                strategic_insights: (insightsData.strategic_insights as any) || [],
+                speaker_highlights: (insightsData.speaker_highlights as any) || [],
+                open_questions: (insightsData.open_questions as any) || [],
+                timeline_entries: (insightsData.timeline_entries as any) || [],
+                meeting_metrics: (insightsData.meeting_metrics as any) || {},
+                summary_short: insightsData.summary_short || '',
+                summary_detailed: insightsData.summary_detailed || '',
+              } as MeetingInsights);
             }
           }
-
-          const { data: insightsRows } = await supabase
-            .from('meeting_insights')
-            .select('*')
-            .eq('meeting_id', id)
-            .order('created_at', { ascending: false })
-            .limit(1);
-
-          const insightsData = insightsRows?.[0] || null;
-          if (insightsData) {
-            setInsights({
-              ...insightsData,
-              key_points: (insightsData.key_points as any) || [],
-              action_items: (insightsData.action_items as any) || [],
-              decisions: (insightsData.decisions as any) || [],
-              risks: (insightsData.risks as any) || [],
-              follow_ups: (insightsData.follow_ups as any) || [],
-              strategic_insights: (insightsData.strategic_insights as any) || [],
-              speaker_highlights: (insightsData.speaker_highlights as any) || [],
-              open_questions: (insightsData.open_questions as any) || [],
-              timeline_entries: (insightsData.timeline_entries as any) || [],
-              meeting_metrics: (insightsData.meeting_metrics as any) || {},
-              summary_short: insightsData.summary_short || '',
-              summary_detailed: insightsData.summary_detailed || '',
-            } as MeetingInsights);
-          }
         }
-      }
-    }, 5000);
+      )
+      .subscribe();
 
-    return () => clearInterval(pollInterval);
+    // Single backend fallback: call check-recall-status once after 30s,
+    // then again every 60s — just in case the webhook was missed entirely.
+    let fallbackCount = 0;
+    const maxFallbacks = 10; // stop after ~10 minutes
+    const callFallback = async () => {
+      if (!meeting.recall_bot_id || fallbackCount >= maxFallbacks) return;
+      fallbackCount++;
+      try {
+        const token = (await supabase.auth.getSession()).data.session?.access_token;
+        if (token) {
+          await fetch(`${SUPABASE_URL}/functions/v1/check-recall-status`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ meeting_id: id }),
+          });
+        }
+      } catch {
+        // Ignore fallback errors
+      }
+    };
+
+    const initialTimeout = setTimeout(callFallback, 30_000);
+    const fallbackInterval = setInterval(callFallback, 60_000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearTimeout(initialTimeout);
+      clearInterval(fallbackInterval);
+    };
   }, [user, id, meeting?.status, meeting?.recall_bot_id]);
 
   const handleDelete = async () => {

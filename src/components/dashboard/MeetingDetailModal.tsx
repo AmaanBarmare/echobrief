@@ -92,11 +92,11 @@ export function MeetingDetailModal({ event, onClose, onRecordWithBot }: MeetingD
   const [botError, setBotError] = useState<string>('');
   const [copied, setCopied] = useState(false);
   const [meetingId, setMeetingId] = useState<string | null>(null);
-  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const stopPolling = useCallback(() => {
     if (pollingRef.current) {
-      clearInterval(pollingRef.current);
+      clearTimeout(pollingRef.current);
       pollingRef.current = null;
     }
   }, []);
@@ -128,6 +128,8 @@ export function MeetingDetailModal({ event, onClose, onRecordWithBot }: MeetingD
   }, [event?.id, stopPolling]);
 
   // Poll meeting status via the check-recall-status edge function
+  // Uses exponential backoff (10s → 20s → 40s → 60s cap) to avoid
+  // hammering the backend and depleting Disk IO budget.
   useEffect(() => {
     if (!meetingId) return;
     const isTerminal = botStatus === 'completed' || botStatus === 'failed' || botStatus === 'idle';
@@ -136,7 +138,11 @@ export function MeetingDetailModal({ event, onClose, onRecordWithBot }: MeetingD
       return;
     }
 
+    let delay = 10_000; // start at 10s
+    let cancelled = false;
+
     const poll = async () => {
+      if (cancelled) return;
       try {
         const { data: session } = await supabase.auth.getSession();
         const token = session?.session?.access_token;
@@ -165,12 +171,19 @@ export function MeetingDetailModal({ event, onClose, onRecordWithBot }: MeetingD
       } catch {
         // Silently ignore polling errors
       }
+
+      if (!cancelled) {
+        delay = Math.min(delay * 2, 60_000); // exponential backoff, cap at 60s
+        pollingRef.current = setTimeout(poll, delay);
+      }
     };
 
-    // Poll immediately, then every 5 seconds
+    // Poll immediately, then with backoff
     poll();
-    pollingRef.current = setInterval(poll, 5000);
-    return stopPolling;
+    return () => {
+      cancelled = true;
+      stopPolling();
+    };
   }, [meetingId, botStatus, stopPolling]);
 
   // Cleanup on unmount
