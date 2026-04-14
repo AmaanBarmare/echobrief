@@ -149,8 +149,11 @@ export default function MeetingDetail() {
             // Derive attendees from speaker names if not already set
             if (!meetingData.attendees || (meetingData.attendees as any[]).length === 0) {
               const uniqueNames = [...new Set(segments.map((s) => s.speaker).filter(Boolean))];
-              const derived = uniqueNames.map((name, i) => ({ id: String(i), name }));
-              setAttendees(derived as Attendee[]);
+              const derived: Attendee[] = uniqueNames.map((name) => ({
+                email: '',
+                displayName: name,
+              }));
+              setAttendees(derived);
             }
           }
         }
