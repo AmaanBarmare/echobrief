@@ -38,9 +38,13 @@ serve(async (req) => {
         bot_name: 'EchoBrief Bot',
         recording_config: {
           audio_mixed_mp3: {},
-        },
-        transcription_options: {
-          provider: "default",
+          transcript: {
+            provider: {
+              recallai_streaming: {
+                mode: "prioritize_accuracy",
+              },
+            },
+          },
         },
       }),
     });
