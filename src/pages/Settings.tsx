@@ -418,32 +418,49 @@ export default function Settings() {
 
   return (
     <DashboardLayout>
-      <div className="mx-auto max-w-4xl px-6 py-8 md:px-10 md:py-10">
+      <div className="mx-auto max-w-[960px] px-6 py-8 md:px-8 md:py-10">
         <div className="mb-8">
-          <h1 className="text-3xl font-semibold tracking-[-0.02em] text-foreground" style={{ fontFamily: 'Outfit, sans-serif' }}>
+          <h1
+            className="text-[28px] font-semibold leading-tight"
+            style={{ color: 'var(--ink)', letterSpacing: '-0.02em' }}
+          >
             Settings
           </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Manage your account, integrations, and preferences
+          <p className="mt-1 text-[14px]" style={{ color: 'var(--ink-mid)' }}>
+            Manage your account, integrations, and preferences.
           </p>
         </div>
 
         {/* Tabs */}
-        <div className="mb-8 flex gap-2 border-b border-border">
-          {tabs.map(tab => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => handleTabChange(tab.id)}
-              className={`border-b-2 px-4 py-3 text-[13px] transition-colors ${
-                activeTab === tab.id
-                  ? 'border-orange-500 font-semibold text-orange-600 dark:text-orange-400'
-                  : 'border-transparent font-medium text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {tab.icon} {tab.label}
-            </button>
-          ))}
+        <div
+          className="mb-8 flex flex-wrap items-end gap-5"
+          style={{ borderBottom: '1px solid var(--rule)' }}
+        >
+          {tabs.map((tab) => {
+            const active = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => handleTabChange(tab.id)}
+                className="relative pb-3 text-[13.5px] transition-colors"
+                style={{
+                  color: active ? 'var(--ink)' : 'var(--ink-soft)',
+                  background: 'transparent',
+                  fontWeight: active ? 600 : 500,
+                }}
+              >
+                {tab.label}
+                {active && (
+                  <span
+                    aria-hidden
+                    className="absolute -bottom-px left-0 right-0 h-[2px]"
+                    style={{ background: 'var(--ember)' }}
+                  />
+                )}
+              </button>
+            );
+          })}
         </div>
 
         {/* Account Tab */}

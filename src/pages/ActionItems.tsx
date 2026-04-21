@@ -224,15 +224,34 @@ export default function ActionItems() {
 
   return (
     <DashboardLayout>
-      <div className="mx-auto max-w-4xl px-6 py-8 md:px-10 md:py-10">
+      <div className="mx-auto max-w-[960px] px-6 py-8 md:px-8 md:py-10">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="mb-1 text-3xl font-semibold tracking-[-0.02em] text-foreground" style={{ fontFamily: 'Outfit, sans-serif' }}>
-            Action Items
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Tasks extracted from your meetings · {openCount} open · {completedCount} completed
-          </p>
+        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h1
+              className="text-[28px] font-semibold leading-tight"
+              style={{ color: 'var(--ink)', letterSpacing: '-0.02em' }}
+            >
+              Action items
+            </h1>
+            <p className="mt-1 text-[14px]" style={{ color: 'var(--ink-mid)' }}>
+              Tasks extracted from your meetings.
+            </p>
+          </div>
+          <div className="flex items-center gap-6">
+            <div>
+              <p className="text-[12.5px]" style={{ color: 'var(--ink-mid)' }}>Open</p>
+              <p className="mt-0.5 text-[22px] font-semibold leading-none" style={{ color: 'var(--ember-deep)', letterSpacing: '-0.02em' }}>
+                {openCount}
+              </p>
+            </div>
+            <div>
+              <p className="text-[12.5px]" style={{ color: 'var(--ink-mid)' }}>Completed</p>
+              <p className="mt-0.5 text-[22px] font-semibold leading-none" style={{ color: 'var(--ink)', letterSpacing: '-0.02em' }}>
+                {completedCount}
+              </p>
+            </div>
+          </div>
         </div>
 
         {loading ? (
@@ -246,13 +265,16 @@ export default function ActionItems() {
             ))}
           </div>
         ) : totalItems === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-4">
-              <CheckSquare className="w-6 h-6 text-muted-foreground" />
-            </div>
-            <p className="text-foreground font-medium mb-1">No action items yet</p>
-            <p className="text-sm text-muted-foreground max-w-sm">
-              Action items will appear here after meetings are processed. Record a meeting to get started.
+          <div
+            className="flex flex-col items-center justify-center rounded-xl px-6 py-16 text-center"
+            style={{ border: '1px dashed var(--rule)', background: 'var(--paper-card)' }}
+          >
+            <CheckSquare className="mb-4 h-10 w-10" strokeWidth={1.5} style={{ color: 'var(--ink-faint)' }} />
+            <p className="mb-1.5 text-[17px] font-semibold" style={{ color: 'var(--ink)' }}>
+              No action items yet
+            </p>
+            <p className="max-w-sm text-[14px]" style={{ color: 'var(--ink-mid)', lineHeight: 1.6 }}>
+              Action items appear here after your meetings are processed. Record a meeting to get started.
             </p>
           </div>
         ) : (
@@ -311,25 +333,32 @@ export default function ActionItems() {
                   onOpenChange={() => toggleMeetingExpanded(group.id)}
                 >
                   <CollapsibleTrigger asChild>
-                    <button className="w-full flex items-center gap-2 py-2 group text-left">
+                    <button
+                      className="group flex w-full items-center gap-3 py-3.5 text-left transition-colors"
+                      style={{ borderTop: '1px solid var(--rule)' }}
+                    >
                       {expandedMeetings.has(group.id) ? (
-                        <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                        <ChevronDown className="h-4 w-4" strokeWidth={1.75} style={{ color: 'var(--ink-soft)' }} />
                       ) : (
-                        <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                        <ChevronRight className="h-4 w-4" strokeWidth={1.75} style={{ color: 'var(--ink-soft)' }} />
                       )}
-                      <span className="font-medium text-foreground group-hover:text-orange-400 transition-colors">
+                      <span
+                        className="text-[15px] font-semibold"
+                        style={{ color: 'var(--ink)', letterSpacing: '-0.005em' }}
+                      >
                         {group.title}
                       </span>
-                      <span className="text-sm text-muted-foreground">
-                        · {format(new Date(group.date), 'MMM d, yyyy')}
+                      <span className="text-[13px]" style={{ color: 'var(--ink-soft)' }}>
+                        {format(new Date(group.date), 'MMM d, yyyy')}
                       </span>
-                      {getSourceIcon(group.source) && (
-                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                          · {getSourceIcon(group.source)} {getSourceLabel(group.source)}
-                        </span>
-                      )}
-                      <span className="text-xs text-muted-foreground ml-auto">
-                        {group.actionItems.filter(i => !completedItems.has(i.id)).length} open
+                      <span
+                        className="ml-auto rounded-full px-2 py-0.5 text-[11.5px] font-medium"
+                        style={{
+                          background: 'color-mix(in oklch, var(--ember) 10%, transparent)',
+                          color: 'var(--ember-deep)',
+                        }}
+                      >
+                        {group.actionItems.filter((i) => !completedItems.has(i.id)).length} open
                       </span>
                     </button>
                   </CollapsibleTrigger>
@@ -352,14 +381,19 @@ export default function ActionItems() {
                             {/* Checkbox */}
                             <button
                               onClick={() => toggleComplete(item.id)}
-                              className={cn(
-                                "w-5 h-5 rounded border-2 flex-shrink-0 mt-0.5 flex items-center justify-center transition-all",
-                                isCompleted 
-                                  ? "bg-orange-500 border-orange-500" 
-                                  : "border-border hover:border-orange-400"
-                              )}
+                              className="w-5 h-5 rounded-[4px] border-[1.5px] flex-shrink-0 mt-0.5 flex items-center justify-center transition-all"
+                              style={{
+                                background: isCompleted ? 'var(--ember)' : 'transparent',
+                                borderColor: isCompleted ? 'var(--ember)' : 'var(--rule)',
+                              }}
+                              onMouseEnter={(e) => {
+                                if (!isCompleted) e.currentTarget.style.borderColor = 'var(--ember)';
+                              }}
+                              onMouseLeave={(e) => {
+                                if (!isCompleted) e.currentTarget.style.borderColor = 'var(--rule)';
+                              }}
                             >
-                              {isCompleted && <Check className="w-3 h-3 text-white" />}
+                              {isCompleted && <Check className="w-3 h-3 text-white" strokeWidth={2.5} />}
                             </button>
                             
                             {/* Task content */}

@@ -284,7 +284,7 @@ export function MeetingDetailModal({ event, onClose, onRecordWithBot }: MeetingD
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
           <div>
-            <h2 className="text-foreground" style={{ fontSize: 20, fontWeight: 600, margin: '0 0 8px 0', fontFamily: 'Outfit, sans-serif' }}>
+            <h2 className="text-foreground" style={{ fontSize: 20, fontWeight: 600, margin: '0 0 8px 0', fontFamily: 'var(--font-display)' }}>
               {event.title}
             </h2>
             {getPlatform() && (

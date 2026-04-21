@@ -1,17 +1,8 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { 
-  Mic, 
-  Calendar, 
-  CheckSquare, 
-  Settings, 
-  ChevronLeft,
-  Menu
-} from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
+import { Mic, Calendar, CheckSquare, Settings, ChevronLeft, Menu } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Logo, LogoMark } from '@/components/ui/Logo';
-import { useThemeTokens } from '@/lib/theme';
 
 interface SidebarProps {
   onCollapsedChange?: (collapsed: boolean) => void;
@@ -20,12 +11,11 @@ interface SidebarProps {
 const navItems = [
   { icon: Mic, label: 'Meetings', path: '/dashboard' },
   { icon: Calendar, label: 'Calendar', path: '/calendar' },
-  { icon: CheckSquare, label: 'Action Items', path: '/action-items' },
+  { icon: CheckSquare, label: 'Action items', path: '/action-items' },
   { icon: Settings, label: 'Settings', path: '/settings' },
 ];
 
 export function Sidebar({ onCollapsedChange }: SidebarProps) {
-  const T = useThemeTokens();
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -42,105 +32,103 @@ export function Sidebar({ onCollapsedChange }: SidebarProps) {
   };
 
   return (
-    <aside 
+    <aside
       className={cn(
-        "fixed left-0 top-0 bottom-0 flex flex-col transition-all duration-200 z-50",
-        collapsed ? "w-14" : "w-[220px]"
+        'fixed left-0 top-0 bottom-0 z-40 flex flex-col transition-all duration-200',
+        collapsed ? 'w-[60px]' : 'w-[240px]',
       )}
-      style={{ 
-        background: T.bg, 
-        borderRight: `1px solid ${T.border}` 
+      style={{
+        background: 'var(--paper)',
+        borderRight: '1px solid var(--rule)',
       }}
     >
-      {/* Header with Logo */}
-      <div className={cn(
-        "flex items-center px-3",
-        collapsed ? "h-14 justify-center" : "h-14 justify-between"
-      )}
-      style={{ borderBottom: `1px solid ${T.border}` }}
-      >
-        {!collapsed && (
-          <Logo size="md" linkTo="/dashboard" className="px-2" />
+      {/* Logo row */}
+      <div
+        className={cn(
+          'flex h-14 items-center',
+          collapsed ? 'justify-center px-2' : 'justify-between px-4',
         )}
-        {collapsed && (
+      >
+        {!collapsed ? (
+          <>
+            <Logo size="md" linkTo="/dashboard" />
+            <button
+              onClick={() => handleCollapsedChange(true)}
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors"
+              style={{ color: 'var(--ink-soft)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'color-mix(in oklch, var(--ink) 6%, transparent)'; e.currentTarget.style.color = 'var(--ink)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--ink-soft)'; }}
+              title="Collapse"
+            >
+              <ChevronLeft className="h-4 w-4" strokeWidth={1.75} />
+            </button>
+          </>
+        ) : (
           <Link to="/dashboard">
             <LogoMark size="md" />
           </Link>
         )}
-        {!collapsed && (
-          <button
-            onClick={() => handleCollapsedChange(!collapsed)}
-            className="p-1.5 rounded-md transition-colors"
-            style={{ color: T.textM }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = T.bgCardH; e.currentTarget.style.color = T.text; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = T.textM; }}
-            title="Collapse sidebar"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-        )}
       </div>
 
-      {/* Expand button when collapsed */}
       {collapsed && (
-        <div className="p-2">
+        <div className="px-2 pt-1">
           <button
             onClick={() => handleCollapsedChange(false)}
-            className="w-full p-1.5 rounded-md transition-colors flex items-center justify-center"
-            style={{ color: T.textM }}
-            onMouseEnter={(e) => { e.currentTarget.style.background = T.bgCardH; e.currentTarget.style.color = T.text; }}
-            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = T.textM; }}
-            title="Expand sidebar"
+            className="flex h-9 w-full items-center justify-center rounded-md transition-colors"
+            style={{ color: 'var(--ink-soft)' }}
+            title="Expand"
           >
-            <Menu className="w-4 h-4" />
+            <Menu className="h-4 w-4" strokeWidth={1.75} />
           </button>
         </div>
       )}
 
-      {/* Navigation: prototype exact match */}
-      <nav className="flex-1 p-3 mt-4" style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      {/* Nav */}
+      <nav className={cn('flex flex-1 flex-col gap-0.5 py-2', collapsed ? 'px-2' : 'px-2')}>
         {navItems.map((item) => {
-          const isActive = location.pathname === item.path;
+          const isActive =
+            item.path === '/dashboard'
+              ? location.pathname === '/dashboard' || location.pathname.startsWith('/meeting')
+              : location.pathname === item.path;
           return (
             <Link
               key={item.path}
               to={item.path}
               className={cn(
-                "flex items-center gap-2.5 text-sm font-medium transition-all duration-150",
-                collapsed && "justify-center px-0"
+                'flex items-center rounded-md transition-colors no-underline',
+                collapsed ? 'justify-center py-2' : 'gap-2.5 px-2.5 py-2',
               )}
               style={{
-                padding: '10px 12px',
-                borderRadius: 10,
-                background: isActive ? 'hsl(var(--accent) / 0.08)' : 'transparent',
-                color: isActive ? 'hsl(var(--accent))' : T.textS,
-                border: 'none',
-                width: '100%',
-                textAlign: 'left' as const,
-                marginBottom: 2,
+                background: isActive ? 'color-mix(in oklch, var(--ember) 10%, transparent)' : 'transparent',
+                color: isActive ? 'var(--ember-deep)' : 'var(--ink-mid)',
               }}
               onMouseEnter={(e) => {
                 if (!isActive) {
-                  e.currentTarget.style.color = T.text;
-                  e.currentTarget.style.background = T.bgCardH;
+                  e.currentTarget.style.background = 'color-mix(in oklch, var(--ink) 5%, transparent)';
+                  e.currentTarget.style.color = 'var(--ink)';
                 }
               }}
               onMouseLeave={(e) => {
                 if (!isActive) {
-                  e.currentTarget.style.color = T.textS;
                   e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.color = 'var(--ink-mid)';
                 }
               }}
               title={collapsed ? item.label : undefined}
             >
-              <item.icon className="w-4 h-4 flex-shrink-0" />
-              {!collapsed && <span>{item.label}</span>}
+              <item.icon className="h-[16px] w-[16px] flex-shrink-0" strokeWidth={1.75} />
+              {!collapsed && (
+                <span
+                  className="text-[14px]"
+                  style={{ fontWeight: isActive ? 600 : 500 }}
+                >
+                  {item.label}
+                </span>
+              )}
             </Link>
           );
         })}
       </nav>
-
-
     </aside>
   );
 }

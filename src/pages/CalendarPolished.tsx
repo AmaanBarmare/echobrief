@@ -210,13 +210,17 @@ export default function CalendarPolished() {
 
   return (
     <DashboardLayout>
-      <div className="max-w-4xl mx-auto px-4 py-8 sm:px-8">
-        {/* Header */}
+      <div className="mx-auto max-w-[960px] px-6 py-8 md:px-8 md:py-10">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2 font-heading">
+          <h1
+            className="text-[28px] font-semibold leading-tight"
+            style={{ color: 'var(--ink)', letterSpacing: '-0.02em' }}
+          >
             Calendar
           </h1>
-          <p className="text-muted-foreground">Connect your calendars and record meetings directly</p>
+          <p className="mt-1 text-[14px]" style={{ color: 'var(--ink-mid)' }}>
+            Connect your calendars and record upcoming meetings automatically.
+          </p>
         </div>
 
         {/* Calendar Selector */}

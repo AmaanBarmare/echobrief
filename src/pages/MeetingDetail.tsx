@@ -44,44 +44,78 @@ interface Attendee {
   organizer?: boolean;
 }
 
-// ─── Reusable badge components ───
+// ─── Clean modern badges ───
 function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, { className: string; label: string }> = {
-    completed: { className: 'bg-orange-50 text-orange-700 dark:bg-orange-500/10 dark:text-orange-400', label: 'Completed' },
-    processing: { className: 'bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400', label: 'Processing' },
-    recording: { className: 'bg-green-50 text-green-700 dark:bg-green-500/10 dark:text-green-400', label: 'Recording' },
-    failed: { className: 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400', label: 'Failed' },
-    scheduled: { className: 'bg-muted text-muted-foreground', label: 'Scheduled' },
+  const map: Record<string, { color: string; tint: string; label: string }> = {
+    completed: { color: 'hsl(var(--success))', tint: 'color-mix(in oklch, hsl(var(--success)) 14%, transparent)', label: 'Completed' },
+    processing: { color: 'hsl(var(--warning))', tint: 'color-mix(in oklch, hsl(var(--warning)) 14%, transparent)', label: 'Processing' },
+    recording: { color: 'var(--ember)', tint: 'color-mix(in oklch, var(--ember) 12%, transparent)', label: 'Recording' },
+    failed: { color: 'hsl(var(--destructive))', tint: 'color-mix(in oklch, hsl(var(--destructive)) 12%, transparent)', label: 'Failed' },
+    scheduled: { color: 'var(--ink-soft)', tint: 'color-mix(in oklch, var(--ink) 8%, transparent)', label: 'Scheduled' },
   };
   const s = map[status] || map.scheduled;
   return (
-    <span className={cn('inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold tracking-wide', s.className)}>
-      {status === 'recording' && <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />}
+    <span
+      className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11.5px] font-medium"
+      style={{ color: s.color, background: s.tint }}
+    >
+      {status === 'recording' && <span className="status-dot recording" style={{ width: 6, height: 6 }} />}
       {s.label}
     </span>
   );
 }
 
 function SourceBadge({ source }: { source: string }) {
+  const label = source === 'google_meet' ? 'Google Meet' : source === 'zoom' ? 'Zoom' : source === 'teams' ? 'Teams' : 'Recording';
   return (
-    <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold tracking-wide bg-purple-500/10 text-purple-500">
-      <Bot size={11} />
-      Bot
+    <span
+      className="inline-flex items-center gap-1 text-[12.5px]"
+      style={{ color: 'var(--ink-mid)' }}
+    >
+      <Bot size={12} strokeWidth={1.75} />
+      {label}
     </span>
   );
 }
 
-// ─── Prototype-style Card ───
+function ShareButton({ icon: Icon, label, onClick }: { icon: React.ComponentType<{ className?: string; strokeWidth?: number; size?: number }>; label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors"
+      style={{
+        border: '1px solid var(--rule)',
+        background: 'var(--paper-card)',
+        color: 'var(--ink)',
+      }}
+      onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'color-mix(in oklch, var(--ink) 20%, transparent)'; }}
+      onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--rule)'; }}
+    >
+      <Icon size={13} strokeWidth={1.75} />
+      {label}
+    </button>
+  );
+}
+
 function ProtoCard({ children, style, className }: { children: React.ReactNode; style?: React.CSSProperties; className?: string }) {
   return (
-    <div className={cn('rounded-2xl border border-border bg-card p-5 text-card-foreground shadow-sm', className)} style={style}>
+    <div
+      className={cn('rounded-xl p-6', className)}
+      style={{
+        background: 'var(--paper-card)',
+        border: '1px solid var(--rule)',
+        ...style,
+      }}
+    >
       {children}
     </div>
   );
 }
 
+// Legacy — now a no-op (was the orange gradient bar)
 function GradientBar() {
-  return <div className="h-[3px] rounded-sm bg-gradient-to-r from-orange-500 to-amber-500 mb-4" />;
+  return null;
 }
 
 export default function MeetingDetail() {
@@ -426,14 +460,15 @@ export default function MeetingDetail() {
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="max-w-3xl mx-auto px-8 py-8">
-          <Skeleton className="h-6 w-16 mb-6" />
-          <Skeleton className="h-8 w-64 mb-2" />
-          <Skeleton className="h-5 w-48 mb-8" />
-          <div className="space-y-6">
-            <Skeleton className="h-32 rounded-2xl" />
-            <Skeleton className="h-48 rounded-2xl" />
-            <Skeleton className="h-24 rounded-2xl" />
+        <div className="mx-auto max-w-[960px] px-6 py-10 md:px-10 md:py-14">
+          <Skeleton className="mb-6 h-4 w-32" />
+          <Skeleton className="mb-3 h-4 w-64" />
+          <Skeleton className="mb-6 h-12 w-[80%]" />
+          <Skeleton className="mb-2 h-4 w-48" />
+          <div className="mt-10 space-y-4">
+            <Skeleton className="h-32 rounded-xl" />
+            <Skeleton className="h-48 rounded-xl" />
+            <Skeleton className="h-24 rounded-xl" />
           </div>
         </div>
       </DashboardLayout>
@@ -443,8 +478,20 @@ export default function MeetingDetail() {
   if (!meeting) {
     return (
       <DashboardLayout>
-        <div className="max-w-3xl mx-auto px-8 py-8">
-          <p className="text-muted-foreground">Meeting not found</p>
+        <div className="mx-auto max-w-[960px] px-6 py-20 md:px-8">
+          <h1 className="text-[24px] font-semibold" style={{ color: 'var(--ink)', letterSpacing: '-0.01em' }}>
+            Meeting not found
+          </h1>
+          <p className="mt-2 text-[14.5px]" style={{ color: 'var(--ink-mid)' }}>
+            The meeting may have been deleted or the link is wrong.
+          </p>
+          <Link
+            to="/dashboard"
+            className="mt-5 inline-flex items-center gap-1.5 text-[13.5px] font-medium no-underline"
+            style={{ color: 'var(--ember-deep)' }}
+          >
+            <ArrowLeft size={14} strokeWidth={1.75} /> Back to meetings
+          </Link>
         </div>
       </DashboardLayout>
     );
@@ -461,74 +508,71 @@ export default function MeetingDetail() {
 
   return (
     <DashboardLayout>
-      <div className="max-w-3xl mx-auto px-8 py-8">
-        {/* Header */}
-        <div className="mb-6">
-          <Link 
-            to="/dashboard" 
-            className="mb-3 inline-flex items-center gap-1 text-[13px] text-muted-foreground transition-colors hover:text-orange-500"
+      <div className="mx-auto max-w-[960px] px-6 py-8 md:px-8 md:py-10">
+        <div className="mb-8">
+          <Link
+            to="/dashboard"
+            className="mb-5 inline-flex items-center gap-1.5 text-[13px] no-underline transition-colors"
+            style={{ color: 'var(--ink-mid)' }}
           >
-            <ChevronRight size={14} style={{ transform: 'rotate(180deg)' }} /> Back to meetings
+            <ArrowLeft size={14} strokeWidth={1.75} />
+            Back to meetings
           </Link>
 
-          <div className="flex items-start justify-between flex-wrap gap-3">
-            <div>
-              <h1 
-                className="text-2xl font-semibold text-foreground mb-2"
-                style={{ fontFamily: 'Outfit, sans-serif', letterSpacing: '-0.02em' }}
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              <h1
+                className="text-[28px] font-semibold leading-tight"
+                style={{ color: 'var(--ink)', letterSpacing: '-0.02em' }}
               >
                 {meeting.title}
               </h1>
-              <div className="flex gap-2 items-center flex-wrap">
+              <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[13px]" style={{ color: 'var(--ink-mid)' }}>
                 <StatusBadge status={meeting.status || 'scheduled'} />
-                {meeting.status === 'failed' && meeting.error_message && (
-                  <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-medium" style={{ background: '#FEE2E2', color: '#B91C1C' }}>
-                    {meeting.error_message}
-                  </span>
-                )}
+                <span aria-hidden>·</span>
                 <SourceBadge source={meeting.source || 'manual'} />
-                <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-[11px] font-semibold text-muted-foreground">
-                  <Globe size={11} /> {meeting.language || 'English'}
-                </span>
-                <span className="text-[13px] text-muted-foreground">
-                  {format(new Date(meeting.start_time), 'MMMM d, yyyy')} at {format(new Date(meeting.start_time), 'h:mm a')}
-                  {meeting.duration_seconds ? ` · ${formatDuration(meeting.duration_seconds)}` : ''}
-                </span>
+                <span aria-hidden>·</span>
+                <span>{format(new Date(meeting.start_time), 'MMM d, yyyy')}</span>
+                <span aria-hidden>·</span>
+                <span>{format(new Date(meeting.start_time), 'h:mm a')}</span>
+                {meeting.duration_seconds && (
+                  <>
+                    <span aria-hidden>·</span>
+                    <span>{formatDuration(meeting.duration_seconds)}</span>
+                  </>
+                )}
+                {meeting.language && (
+                  <>
+                    <span aria-hidden>·</span>
+                    <span>{meeting.language}</span>
+                  </>
+                )}
               </div>
+              {meeting.status === 'failed' && meeting.error_message && (
+                <p className="mt-2 text-[13px]" style={{ color: 'hsl(var(--destructive))' }}>
+                  {meeting.error_message}
+                </p>
+              )}
             </div>
-            <div className="flex gap-2 flex-wrap">
+
+            <div className="flex flex-wrap items-center gap-2">
               {insights && (
                 <>
-                  <button
-                    onClick={() => setSlackDialogOpen(true)}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-[10px] text-[13px] font-medium transition-colors"
-                    style={{ background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.15)', color: '#FB923C' }}
-                  >
-                    <Send size={14} /> Slack
-                  </button>
-                  <button
-                    onClick={() => setEmailDialogOpen(true)}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-[10px] text-[13px] font-medium transition-colors"
-                    style={{ background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.15)', color: '#3B82F6' }}
-                  >
-                    <Mail size={14} /> Email
-                  </button>
-                  <button
-                    onClick={() => setWhatsappDialogOpen(true)}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-[10px] text-[13px] font-medium transition-colors"
-                    style={{ background: 'rgba(37, 211, 102, 0.08)', border: '1px solid rgba(37, 211, 102, 0.15)', color: '#25D366' }}
-                  >
-                    <MessageCircle size={14} /> WhatsApp
-                  </button>
+                  <ShareButton icon={Send} label="Slack" onClick={() => setSlackDialogOpen(true)} />
+                  <ShareButton icon={Mail} label="Email" onClick={() => setEmailDialogOpen(true)} />
+                  <ShareButton icon={MessageCircle} label="WhatsApp" onClick={() => setWhatsappDialogOpen(true)} />
                 </>
               )}
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <button
                     type="button"
-                    className="flex items-center gap-1.5 rounded-[10px] px-4 py-2 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+                    className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors"
+                    style={{ color: 'var(--ink-soft)' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'color-mix(in oklch, hsl(var(--destructive)) 8%, transparent)'; e.currentTarget.style.color = 'hsl(var(--destructive))'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--ink-soft)'; }}
                   >
-                    <Trash2 size={14} /> Delete
+                    <Trash2 size={13} strokeWidth={1.75} /> Delete
                   </button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
@@ -578,20 +622,27 @@ export default function MeetingDetail() {
           onSend={handleSendToWhatsApp}
         />
 
-        {/* Stats row */}
         {insights && (
-          <div className="grid grid-cols-4 gap-3 mb-6">
+          <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[
-              { label: 'Speakers', value: attendees.length || '-', icon: <Users size={16} style={{ color: '#3B82F6' }} /> },
-              { label: 'Action Items', value: actionItemCount, icon: <CheckCircle2 size={16} style={{ color: '#22C55E' }} /> },
-              { label: 'Decisions', value: insights.decisions?.length || 0, icon: <Zap size={16} style={{ color: '#FB923C' }} /> },
-              { label: 'Risks', value: insights.risks?.length || 0, icon: <AlertTriangle size={16} className={(insights.risks?.length || 0) > 0 ? 'text-red-500' : 'text-muted-foreground'} /> },
-            ].map((s, i) => (
-              <ProtoCard key={i} style={{ textAlign: 'center', padding: 16 }}>
-                <div className="mb-1.5">{s.icon}</div>
-                <div className="text-[22px] font-bold text-foreground" style={{ fontFamily: 'Outfit, sans-serif' }}>{s.value}</div>
-                <div className="text-xs text-muted-foreground">{s.label}</div>
-              </ProtoCard>
+              { label: 'Speakers', value: attendees.length || 0 },
+              { label: 'Action items', value: actionItemCount },
+              { label: 'Decisions', value: insights.decisions?.length || 0 },
+              { label: 'Risks', value: insights.risks?.length || 0, alert: (insights.risks?.length || 0) > 0 },
+            ].map((s) => (
+              <div
+                key={s.label}
+                className="rounded-xl p-4"
+                style={{ background: 'var(--paper-card)', border: '1px solid var(--rule)' }}
+              >
+                <p className="text-[12.5px]" style={{ color: 'var(--ink-mid)' }}>{s.label}</p>
+                <p
+                  className="mt-1 text-[22px] font-semibold leading-none"
+                  style={{ color: s.alert ? 'hsl(var(--destructive))' : 'var(--ink)', letterSpacing: '-0.02em' }}
+                >
+                  {s.value}
+                </p>
+              </div>
             ))}
           </div>
         )}
@@ -599,32 +650,54 @@ export default function MeetingDetail() {
         {/* Content */}
         {insights ? (
           <div>
-            {/* Tabs */}
-            <div className="mb-5 flex w-full flex-wrap items-end gap-1 border-b border-border">
-              {tabs.map(tab => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-1.5 border-b-2 border-transparent px-4 py-2.5 text-[13px] font-medium transition-colors ${
-                    activeTab === tab.id ? 'border-orange-500 text-orange-600 dark:text-orange-400' : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                  style={{ fontFamily: 'inherit', background: 'none', cursor: 'pointer' }}
-                >
-                  {tab.icon} {tab.label}
-                </button>
-              ))}
+            {/* Tabs — editorial section tabs with underline, not pills */}
+            <div
+              className="mb-8 flex w-full flex-wrap items-end gap-5"
+              style={{ borderBottom: '1px solid var(--rule)' }}
+            >
+              {tabs.map((tab) => {
+                const active = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveTab(tab.id)}
+                    className="relative flex items-center gap-2 pb-3 pt-1 text-[13px] transition-colors"
+                    style={{
+                      fontFamily: 'var(--font-body)',
+                      color: active ? 'var(--ink)' : 'var(--ink-soft)',
+                      background: 'transparent',
+                      fontWeight: active ? 600 : 500,
+                      letterSpacing: '-0.005em',
+                    }}
+                  >
+                    {tab.icon} {tab.label}
+                    {active && (
+                      <span
+                        aria-hidden
+                        className="absolute -bottom-px left-0 right-0 h-[2px]"
+                        style={{ background: 'var(--ember)' }}
+                      />
+                    )}
+                  </button>
+                );
+              })}
 
-              {/* Language selector */}
               {activeTab === 'summary' && (
-                <div className="ml-auto flex items-center gap-1.5 pb-1">
-                  <Languages size={14} className="text-muted-foreground" />
+                <div className="ml-auto flex items-center gap-2 pb-2">
+                  <Languages size={13} strokeWidth={1.5} style={{ color: 'var(--ink-soft)' }} />
                   <select
                     value={summaryLang}
-                    onChange={e => setSummaryLang(e.target.value)}
-                    className="rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground outline-none focus:ring-1 focus:ring-orange-500/30"
+                    onChange={(e) => setSummaryLang(e.target.value)}
+                    className="rounded-full px-3 py-1.5 text-[12px] outline-none"
+                    style={{
+                      fontFamily: 'var(--font-body)',
+                      border: '1px solid var(--rule)',
+                      background: 'var(--paper-card)',
+                      color: 'var(--ink)',
+                    }}
                   >
-                    {['English', 'Hindi', 'Tamil', 'Telugu', 'Bengali', 'Kannada', 'Marathi', 'Malayalam', 'Gujarati', 'Punjabi'].map(l => (
+                    {['English', 'Hindi', 'Tamil', 'Telugu', 'Bengali', 'Kannada', 'Marathi', 'Malayalam', 'Gujarati', 'Punjabi'].map((l) => (
                       <option key={l} value={l}>{l}</option>
                     ))}
                   </select>
@@ -638,7 +711,7 @@ export default function MeetingDetail() {
                 {/* Executive Summary */}
                 <ProtoCard>
                   <GradientBar />
-                  <h3 className="text-[15px] font-semibold text-foreground mb-2" style={{ fontFamily: 'Outfit, sans-serif' }}>
+                  <h3 className="text-[15px] font-semibold text-foreground mb-2" style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.01em' }}>
                     Executive Summary
                   </h3>
                   <p className="text-sm leading-relaxed text-muted-foreground">
@@ -654,8 +727,8 @@ export default function MeetingDetail() {
                 {/* Key Decisions */}
                 {insights.decisions && insights.decisions.length > 0 && (
                   <ProtoCard>
-                    <h3 className="text-[15px] font-semibold text-foreground mb-3 flex items-center gap-2" style={{ fontFamily: 'Outfit, sans-serif' }}>
-                      <Zap size={16} style={{ color: '#FB923C' }} /> Key Decisions
+                    <h3 className="text-[15px] font-semibold text-foreground mb-3 flex items-center gap-2" style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.01em' }}>
+                      <Zap size={16} style={{ color: 'var(--ember)' }} /> Key Decisions
                     </h3>
                     {insights.decisions.map((d: string, i: number) => (
                       <div
@@ -671,8 +744,8 @@ export default function MeetingDetail() {
                 {/* Strategic Insights */}
                 {insights.strategic_insights && insights.strategic_insights.length > 0 && (
                   <ProtoCard>
-                    <h3 className="text-[15px] font-semibold text-foreground mb-3 flex items-center gap-2" style={{ fontFamily: 'Outfit, sans-serif' }}>
-                      <Lightbulb size={16} style={{ color: '#F59E0B' }} /> Strategic Insights
+                    <h3 className="text-[15px] font-semibold text-foreground mb-3 flex items-center gap-2" style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.01em' }}>
+                      <Lightbulb size={16} style={{ color: 'var(--amber-warm)' }} /> Strategic Insights
                     </h3>
                     <div className="space-y-3">
                       {(insights.strategic_insights as StrategicInsight[]).map((item, i) => (
@@ -690,7 +763,7 @@ export default function MeetingDetail() {
                 {/* Key Points */}
                 {insights.key_points && insights.key_points.length > 0 && (
                   <ProtoCard>
-                    <h3 className="text-[15px] font-semibold text-foreground mb-3" style={{ fontFamily: 'Outfit, sans-serif' }}>
+                    <h3 className="text-[15px] font-semibold text-foreground mb-3" style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.01em' }}>
                       🎯 Key Points
                     </h3>
                     <ul className="space-y-2">
@@ -707,7 +780,7 @@ export default function MeetingDetail() {
                 {/* Risks */}
                 {insights.risks && insights.risks.length > 0 && (
                   <ProtoCard style={{ borderColor: 'rgba(239,68,68,0.2)' }}>
-                    <h3 className="text-[15px] font-semibold mb-3 flex items-center gap-2" style={{ fontFamily: 'Outfit, sans-serif', color: '#EF4444' }}>
+                    <h3 className="text-[15px] font-semibold mb-3 flex items-center gap-2" style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.01em', color: '#EF4444' }}>
                       <AlertTriangle size={16} /> Risk Flags
                     </h3>
                     {insights.risks.map((r: string, i: number) => (
@@ -719,12 +792,12 @@ export default function MeetingDetail() {
                 {/* Open Questions */}
                 {insights.open_questions && insights.open_questions.length > 0 && (
                   <ProtoCard>
-                    <h3 className="text-[15px] font-semibold text-foreground mb-3 flex items-center gap-2" style={{ fontFamily: 'Outfit, sans-serif' }}>
-                      <HelpCircle size={16} style={{ color: '#F59E0B' }} /> Open Questions
+                    <h3 className="text-[15px] font-semibold text-foreground mb-3 flex items-center gap-2" style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.01em' }}>
+                      <HelpCircle size={16} style={{ color: 'var(--amber-warm)' }} /> Open Questions
                     </h3>
                     {insights.open_questions.map((q: string, i: number) => (
                       <div key={i} className="flex items-start gap-3 p-3 rounded-xl" style={{ background: 'rgba(245,158,11,0.04)', border: '1px solid rgba(245,158,11,0.15)' }}>
-                        <HelpCircle size={14} className="mt-0.5 flex-shrink-0" style={{ color: '#F59E0B' }} />
+                        <HelpCircle size={14} className="mt-0.5 flex-shrink-0" style={{ color: 'var(--amber-warm)' }} />
                         <p className="text-sm text-muted-foreground">{q}</p>
                       </div>
                     ))}
@@ -734,7 +807,7 @@ export default function MeetingDetail() {
                 {/* Follow-Ups */}
                 {insights.follow_ups && insights.follow_ups.length > 0 && (
                   <ProtoCard>
-                    <h3 className="text-[15px] font-semibold text-foreground mb-3 flex items-center gap-2" style={{ fontFamily: 'Outfit, sans-serif' }}>
+                    <h3 className="text-[15px] font-semibold text-foreground mb-3 flex items-center gap-2" style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.01em' }}>
                       <RefreshCw size={16} style={{ color: '#3B82F6' }} /> Follow-Ups
                     </h3>
                     <div className="space-y-2">
@@ -760,7 +833,7 @@ export default function MeetingDetail() {
                 {/* Speakers */}
                 {attendees.length > 0 && (
                   <ProtoCard>
-                    <h3 className="text-[15px] font-semibold text-foreground mb-3 flex items-center gap-2" style={{ fontFamily: 'Outfit, sans-serif' }}>
+                    <h3 className="text-[15px] font-semibold text-foreground mb-3 flex items-center gap-2" style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.01em' }}>
                       <Users size={16} style={{ color: '#3B82F6' }} /> Speakers
                     </h3>
                     <div className="flex gap-2 flex-wrap">
@@ -768,7 +841,7 @@ export default function MeetingDetail() {
                         <div key={i} className="flex items-center gap-2 rounded-full bg-blue-500/10 px-3.5 py-1.5 text-[13px] text-foreground">
                           <div 
                             className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-semibold text-white"
-                            style={{ background: 'linear-gradient(135deg, #F97316, #F59E0B)' }}
+                            style={{ background: 'var(--ember)' }}
                           >
                             {getInitials(a.displayName, a.email)}
                           </div>
@@ -783,7 +856,7 @@ export default function MeetingDetail() {
                 {/* Speaker Highlights */}
                 {insights.speaker_highlights && insights.speaker_highlights.length > 0 && (
                   <ProtoCard>
-                    <h3 className="text-[15px] font-semibold text-foreground mb-3 flex items-center gap-2" style={{ fontFamily: 'Outfit, sans-serif' }}>
+                    <h3 className="text-[15px] font-semibold text-foreground mb-3 flex items-center gap-2" style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.01em' }}>
                       💬 Speaker Highlights
                     </h3>
                     <div className="space-y-3">
@@ -855,7 +928,7 @@ export default function MeetingDetail() {
                       {isNewSpeaker ? (
                         <div 
                           className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold text-white flex-shrink-0"
-                          style={{ background: 'linear-gradient(135deg, #F97316, #F59E0B)' }}
+                          style={{ background: 'var(--ember)' }}
                         >
                           {seg.speaker[0]}
                         </div>
@@ -896,7 +969,7 @@ export default function MeetingDetail() {
                 {/* Email Deliveries */}
                 {emailMessages.length > 0 && (
                   <>
-                    <h3 className="text-[15px] font-semibold text-foreground mb-3 flex items-center gap-2" style={{ fontFamily: 'Outfit, sans-serif' }}>
+                    <h3 className="text-[15px] font-semibold text-foreground mb-3 flex items-center gap-2" style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.01em' }}>
                       <Mail size={16} style={{ color: '#3B82F6' }} /> Email Deliveries
                     </h3>
                     {emailMessages.map((msg, i) => (
@@ -930,8 +1003,8 @@ export default function MeetingDetail() {
                 {/* Slack Deliveries */}
                 {slackMessages.length > 0 && (
                   <>
-                    <h3 className="text-[15px] font-semibold text-foreground mb-3 mt-6 flex items-center gap-2" style={{ fontFamily: 'Outfit, sans-serif' }}>
-                      <Send size={16} style={{ color: '#FB923C' }} /> Slack Deliveries
+                    <h3 className="text-[15px] font-semibold text-foreground mb-3 mt-6 flex items-center gap-2" style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.01em' }}>
+                      <Send size={16} style={{ color: 'var(--ember)' }} /> Slack Deliveries
                     </h3>
                     {slackMessages.map((msg, i) => (
                       <ProtoCard key={i} style={{ padding: 16 }}>

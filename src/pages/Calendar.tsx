@@ -195,7 +195,7 @@ export default function Calendar() {
         style={{ borderLeftWidth: 3, borderLeftColor: borderColor }}
       >
         <div className="min-w-0 flex-1">
-          <h3 className="mb-2 font-semibold text-foreground" style={{ fontSize: 15, margin: 0, fontFamily: 'Outfit, sans-serif' }}>
+          <h3 className="mb-2 font-semibold text-foreground" style={{ fontSize: 15, margin: 0, fontFamily: 'var(--font-display)' }}>
             {event.title}
           </h3>
           <div className="flex flex-wrap items-center gap-3">
@@ -234,7 +234,7 @@ export default function Calendar() {
         {/* Header */}
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="text-3xl font-semibold tracking-[-0.02em] text-foreground" style={{ fontFamily: 'Outfit, sans-serif' }}>
+            <h1 className="text-3xl font-semibold tracking-[-0.02em] text-foreground" style={{ fontFamily: 'var(--font-display)' }}>
               Calendar
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">Your upcoming meetings</p>

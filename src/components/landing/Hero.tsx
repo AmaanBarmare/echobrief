@@ -6,58 +6,42 @@ import { ArrowRight } from 'lucide-react';
 const ease = [0.22, 1, 0.36, 1] as const;
 
 const fade = {
-  hidden: { opacity: 0, y: 28 },
+  hidden: { opacity: 0, y: 18 },
   show: (i: number) => ({
     opacity: 1,
     y: 0,
-    transition: { duration: 0.55, ease, delay: 0.08 * i },
+    transition: { duration: 0.55, ease, delay: 0.06 * i },
   }),
 };
 
-const stats = [
-  { label: 'Languages', value: '22', mono: false },
-  { label: 'Platforms', value: '3', mono: false },
-  { label: 'Delivery', value: 'Slack · WhatsApp · Email', mono: true },
-];
-
 export function Hero() {
   return (
-    <section className="relative overflow-hidden pt-10 pb-24 md:pb-32 lg:pt-16 lg:pb-36">
-      {/* Warm Intelligence orbs — brand kit cover motif */}
+    <section
+      className="relative overflow-hidden pt-12 pb-20 md:pt-20 md:pb-28"
+      style={{ fontFamily: 'var(--font-brand-body)' }}
+    >
+      {/* Atmospheric warm orbs — brand-kit style, bigger and softer */}
       <div
         aria-hidden
-        className="pointer-events-none absolute -right-40 -top-32 h-[560px] w-[560px] rounded-full"
-        style={{ background: 'radial-gradient(circle, var(--landing-orb-ember) 0%, transparent 65%)' }}
+        className="pointer-events-none absolute -right-40 -top-40 h-[600px] w-[600px] rounded-full blur-[90px]"
+        style={{ background: 'color-mix(in oklch, var(--ember) 7%, transparent)' }}
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute -left-24 bottom-0 h-[380px] w-[380px] rounded-full"
-        style={{ background: 'radial-gradient(circle, var(--landing-orb-gold) 0%, transparent 65%)' }}
+        className="pointer-events-none absolute -left-32 bottom-0 h-[400px] w-[400px] rounded-full blur-[80px]"
+        style={{ background: 'color-mix(in oklch, var(--gold) 7%, transparent)' }}
       />
 
-      <div className="relative mx-auto grid max-w-[1200px] items-center gap-12 px-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:gap-20">
+      <div className="relative mx-auto grid max-w-[1200px] items-center gap-14 px-6 md:px-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:gap-16">
         <div>
           <motion.div
             custom={0}
             initial="hidden"
             animate="show"
             variants={fade}
-            className="mb-8 inline-flex items-center gap-2.5 rounded-full px-4 py-2"
-            style={{
-              border: '1px solid var(--landing-ember-tint-25)',
-              background: 'var(--landing-ember-tint-7)',
-            }}
+            className="mb-7"
           >
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-60 motion-reduce:animate-none" style={{ background: 'var(--landing-ember)' }} />
-              <span className="relative inline-flex h-2 w-2 rounded-full" style={{ background: 'var(--landing-ember)' }} />
-            </span>
-            <span
-              className="text-[11px] font-semibold uppercase"
-              style={{ fontFamily: 'var(--font-mono-brand)', color: 'var(--landing-ember)', letterSpacing: '0.18em' }}
-            >
-              Now supporting 22 Indian languages
-            </span>
+            <span className="eyebrow">Meeting intelligence · Built for India</span>
           </motion.div>
 
           <motion.h1
@@ -65,16 +49,23 @@ export function Hero() {
             initial="hidden"
             animate="show"
             variants={fade}
-            className="max-w-[640px] text-[3rem] leading-[1.02] md:text-[4rem] lg:text-[4.6rem]"
+            className="max-w-[18ch] leading-[1.02]"
             style={{
-              fontFamily: 'var(--font-display)',
-              color: 'var(--landing-text)',
-              letterSpacing: '-0.035em',
+              fontFamily: 'var(--font-brand-serif)',
+              color: 'var(--ink)',
+              fontSize: 'clamp(2.75rem, 5.5vw, 4.25rem)',
+              letterSpacing: '-0.025em',
+              fontWeight: 400,
             }}
           >
             Every meeting, summarized.
             <br />
-            <em style={{ color: 'var(--landing-ember)', fontStyle: 'italic' }}>In any Indian language.</em>
+            <em
+              className="serif-italic"
+              style={{ color: 'var(--ember)' }}
+            >
+              In any Indian language.
+            </em>
           </motion.h1>
 
           <motion.p
@@ -82,12 +73,12 @@ export function Hero() {
             initial="hidden"
             animate="show"
             variants={fade}
-            className="mt-7 max-w-[520px] text-[17px] leading-[1.7] md:text-[18px]"
-            style={{ fontFamily: 'var(--font-body-brand)', color: 'var(--landing-muted)' }}
+            className="mt-7 max-w-[54ch] text-[17px] leading-[1.65]"
+            style={{ color: 'var(--ink-mid)' }}
           >
-            EchoBrief joins your Meet, Zoom, and Teams calls, transcribes Hindi,
-            Tamil, Hinglish — the way your team actually talks — and ships briefs
-            to Slack, WhatsApp, or email before you're back at your desk.
+            EchoBrief joins your Meet, Zoom, and Teams calls, transcribes
+            Hindi, Tamil, and Hinglish the way your team actually speaks,
+            and delivers summaries to Slack, WhatsApp, or email automatically.
           </motion.p>
 
           <motion.div
@@ -95,27 +86,25 @@ export function Hero() {
             initial="hidden"
             animate="show"
             variants={fade}
-            className="mt-10 flex flex-wrap items-center gap-4"
+            className="mt-9 flex flex-wrap items-center gap-3"
           >
             <Link
               to="/auth"
-              className="group inline-flex items-center gap-2.5 rounded-full px-8 py-4 text-[15px] font-bold text-white no-underline transition-all duration-200 hover:-translate-y-0.5"
+              className="group inline-flex items-center gap-2 rounded-full px-6 py-3.5 text-[14.5px] font-bold text-white no-underline transition-all hover:-translate-y-0.5"
               style={{
-                fontFamily: 'var(--font-body-brand)',
-                background: 'var(--landing-ember)',
-                boxShadow: 'var(--landing-ember-shadow)',
+                background: 'var(--ember)',
+                boxShadow: '0 6px 24px color-mix(in oklch, var(--ember) 28%, transparent)',
               }}
             >
-              Start free — no card
-              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" strokeWidth={2.5} />
+              Start free
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" strokeWidth={2.25} />
             </Link>
             <a
               href="#how-it-works"
-              className="inline-flex items-center rounded-full px-7 py-4 text-[15px] font-semibold no-underline transition-all duration-200"
+              className="inline-flex items-center rounded-full px-6 py-3 text-[14.5px] font-semibold no-underline transition-colors"
               style={{
-                fontFamily: 'var(--font-body-brand)',
-                color: 'var(--landing-text)',
-                border: '1.5px solid var(--landing-border)',
+                color: 'var(--ink)',
+                border: '1.5px solid var(--rule)',
                 background: 'transparent',
               }}
             >
@@ -129,7 +118,7 @@ export function Hero() {
             animate="show"
             variants={fade}
             className="mt-5 text-[13px]"
-            style={{ fontFamily: 'var(--font-body-brand)', color: 'var(--landing-faint)' }}
+            style={{ color: 'var(--ink-soft)' }}
           >
             Free for your first 3 meetings · No Chrome extension · Connect your calendar in 30 seconds
           </motion.p>
@@ -139,38 +128,37 @@ export function Hero() {
             initial="hidden"
             animate="show"
             variants={fade}
-            className="mt-14 grid grid-cols-2 gap-4 sm:grid-cols-3"
+            className="mt-12 grid max-w-[520px] grid-cols-3 gap-5"
           >
-            {stats.map((stat) => (
-              <div
-                key={stat.label}
-                className="rounded-[16px] px-5 py-4"
-                style={{
-                  border: '1px solid var(--landing-border)',
-                  background: 'var(--landing-bg-card)',
-                  boxShadow: 'var(--landing-card-shadow)',
-                }}
-              >
+            {[
+              { v: '22', l: 'Languages' },
+              { v: '3', l: 'Platforms' },
+              { v: '∞', l: 'Meetings' },
+            ].map((s) => (
+              <div key={s.l}>
                 <dt
-                  className="text-[9px] font-semibold uppercase"
+                  className="text-[10px]"
                   style={{
-                    fontFamily: 'var(--font-mono-brand)',
-                    color: 'var(--landing-faint)',
-                    letterSpacing: '0.22em',
+                    fontFamily: 'var(--font-brand-mono)',
+                    color: 'var(--ink-soft)',
+                    letterSpacing: '0.2em',
+                    textTransform: 'uppercase',
+                    fontWeight: 500,
                   }}
                 >
-                  {stat.label}
+                  {s.l}
                 </dt>
                 <dd
-                  className={`mt-2 leading-none ${stat.mono ? 'text-[14px]' : 'text-[34px]'}`}
+                  className="mt-1.5 leading-none"
                   style={{
-                    fontFamily: stat.mono ? 'var(--font-body-brand)' : 'var(--font-display)',
-                    color: 'var(--landing-text)',
-                    letterSpacing: stat.mono ? '0' : '-0.02em',
-                    fontWeight: stat.mono ? 600 : 400,
+                    fontFamily: 'var(--font-brand-serif)',
+                    color: 'var(--ink)',
+                    fontSize: '2.25rem',
+                    letterSpacing: '-0.02em',
+                    fontWeight: 400,
                   }}
                 >
-                  {stat.value}
+                  {s.v}
                 </dd>
               </div>
             ))}

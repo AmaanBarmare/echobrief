@@ -89,7 +89,7 @@ export function BotCustomization({ user_id, onSave }: BotCustomizationProps) {
 
   return (
     <div className="rounded-2xl border border-border bg-card p-5 text-card-foreground shadow-sm">
-      <h3 className="mb-6 text-[15px] font-semibold text-foreground" style={{ fontFamily: 'Outfit, sans-serif' }}>
+      <h3 className="mb-6 text-[15px] font-semibold text-foreground" style={{ fontFamily: 'var(--font-display)' }}>
         🤖 Bot Customization
       </h3>
 

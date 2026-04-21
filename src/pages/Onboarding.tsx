@@ -73,46 +73,55 @@ export default function Onboarding() {
 
   const currentStepIndex = steps_list.findIndex(s => s.id === step);
 
-  const primaryBtn =
-    'flex-1 bg-gradient-to-r from-orange-500 to-amber-500 font-medium text-white shadow-md shadow-orange-500/20 transition-opacity hover:opacity-[0.97] active:opacity-95';
+  const primaryBtn = 'btn-primary-ember flex-1 text-[14px]';
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="mx-auto flex min-h-screen max-w-lg flex-col justify-center px-4 py-10 sm:px-6">
-        {/* Hero */}
-        <div className="relative mb-8 overflow-hidden rounded-2xl bg-gradient-to-br from-orange-500 via-orange-500 to-amber-500 px-8 py-10 text-center text-white shadow-lg shadow-orange-500/25">
-          <div className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-white/10 blur-2xl" />
-          <div className="pointer-events-none absolute -bottom-12 -left-12 h-32 w-32 rounded-full bg-amber-400/30 blur-2xl" />
+    <div className="min-h-screen" style={{ background: 'var(--paper)' }}>
+      <div className="mx-auto flex min-h-screen max-w-[520px] flex-col justify-center px-6 py-12">
+        <div className="mb-8">
           <h1
-            className="relative text-3xl font-semibold tracking-[-0.02em] sm:text-[2rem]"
-            style={{ fontFamily: 'Outfit, sans-serif' }}
+            className="text-[28px] font-semibold leading-tight"
+            style={{ color: 'var(--ink)', letterSpacing: '-0.02em' }}
           >
             Welcome to EchoBrief
           </h1>
-          <p className="relative mt-2 text-sm text-white/90">
-            Meeting summaries, action items, and insights
+          <p className="mt-2 text-[14.5px]" style={{ color: 'var(--ink-mid)', lineHeight: 1.6 }}>
+            A quick setup and you're ready to record your first meeting.
           </p>
         </div>
 
         {/* Progress */}
-        <div className="mb-8 flex gap-2" role="progressbar" aria-valuenow={currentStepIndex + 1} aria-valuemin={1} aria-valuemax={steps_list.length}>
+        <div
+          className="mb-10 flex gap-1.5"
+          role="progressbar"
+          aria-valuenow={currentStepIndex + 1}
+          aria-valuemin={1}
+          aria-valuemax={steps_list.length}
+        >
           {steps_list.map((s, i) => (
             <div
               key={s.id}
-              className={cn(
-                'h-1.5 flex-1 rounded-full transition-all duration-300',
-                currentStepIndex >= i ? 'bg-gradient-to-r from-orange-500 to-amber-500' : 'bg-muted'
-              )}
+              className="h-[2px] flex-1 rounded-full transition-all duration-300"
+              style={{
+                background: currentStepIndex >= i ? 'var(--ember)' : 'var(--rule)',
+              }}
             />
           ))}
         </div>
 
         {/* Step content */}
-        <div className="flex min-h-[22rem] flex-col rounded-2xl border border-border bg-card p-6 text-card-foreground shadow-sm sm:p-8">
+        <div
+          className="flex min-h-[22rem] flex-col rounded-xl p-6 sm:p-8"
+          style={{
+            background: 'var(--paper-card)',
+            border: '1px solid var(--rule)',
+            boxShadow: 'var(--shadow-paper-sm)',
+          }}
+        >
           {/* ═══ WELCOME STEP ═══ */}
           {step === 'welcome' && (
             <div className="flex flex-1 flex-col">
-              <h2 className="mb-3 text-2xl font-semibold text-foreground" style={{ fontFamily: 'Outfit, sans-serif' }}>
+              <h2 className="mb-3 text-2xl font-semibold text-foreground" style={{ fontFamily: 'var(--font-display)' }}>
                 Let&apos;s get started
               </h2>
               <p className="mb-6 text-sm leading-relaxed text-muted-foreground">
@@ -129,7 +138,7 @@ export default function Onboarding() {
           {/* ═══ PREFERENCES STEP ═══ */}
           {step === 'preferences' && (
             <div className="flex flex-1 flex-col">
-              <h2 className="mb-6 text-2xl font-semibold text-foreground" style={{ fontFamily: 'Outfit, sans-serif' }}>
+              <h2 className="mb-6 text-2xl font-semibold text-foreground" style={{ fontFamily: 'var(--font-display)' }}>
                 Your Preferences
               </h2>
 
@@ -176,7 +185,7 @@ export default function Onboarding() {
           {/* ═══ CALENDAR STEP ═══ */}
           {step === 'calendar' && (
             <div className="flex flex-1 flex-col">
-              <h2 className="mb-6 text-2xl font-semibold text-foreground" style={{ fontFamily: 'Outfit, sans-serif' }}>
+              <h2 className="mb-6 text-2xl font-semibold text-foreground" style={{ fontFamily: 'var(--font-display)' }}>
                 Calendar Integration
               </h2>
 
@@ -225,7 +234,7 @@ export default function Onboarding() {
           {/* ═══ NOTIFICATIONS STEP ═══ */}
           {step === 'notifications' && (
             <div className="flex flex-1 flex-col">
-              <h2 className="mb-6 text-2xl font-semibold text-foreground" style={{ fontFamily: 'Outfit, sans-serif' }}>
+              <h2 className="mb-6 text-2xl font-semibold text-foreground" style={{ fontFamily: 'var(--font-display)' }}>
                 Notification Frequency
               </h2>
 
@@ -283,7 +292,7 @@ export default function Onboarding() {
               <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-orange-500/15 ring-8 ring-orange-500/5">
                 <Check className="h-10 w-10 text-orange-500" strokeWidth={2.5} />
               </div>
-              <h2 className="mb-2 text-2xl font-semibold text-foreground" style={{ fontFamily: 'Outfit, sans-serif' }}>
+              <h2 className="mb-2 text-2xl font-semibold text-foreground" style={{ fontFamily: 'var(--font-display)' }}>
                 You&apos;re all set
               </h2>
               <p className="mb-8 max-w-sm text-sm leading-relaxed text-muted-foreground">

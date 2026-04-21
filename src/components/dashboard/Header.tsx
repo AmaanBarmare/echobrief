@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Search, LogOut, User, Settings } from 'lucide-react';
+import { Search, LogOut, User, Settings as SettingsIcon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { displayNameFromUserMetadata } from '@/lib/userDisplayName';
@@ -14,38 +14,24 @@ export function Header() {
   const profileRef = useRef<HTMLDivElement>(null);
 
   const displayName = displayNameFromUserMetadata(user);
-  const userInitial =
-    (displayName?.[0] || user?.email?.[0])?.toUpperCase() || '?';
+  const userInitial = (displayName?.[0] || user?.email?.[0])?.toUpperCase() || '?';
   const userName = displayName || user?.email?.split('@')[0] || 'User';
 
-  // Close profile menu on outside click or Escape
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
-        setProfileMenuOpen(false);
-      }
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) setProfileMenuOpen(false);
     };
-
-    const handleEscapeKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setProfileMenuOpen(false);
-      }
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setProfileMenuOpen(false);
     };
-
     document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('keydown', handleEscapeKey);
+    document.addEventListener('keydown', handleEscape);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleEscapeKey);
+      document.removeEventListener('keydown', handleEscape);
     };
   }, []);
 
-  const handleSignOut = () => {
-    setProfileMenuOpen(false);
-    signOut();
-  };
-
-  // Keyboard shortcut for search (Cmd/Ctrl + K)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -53,97 +39,127 @@ export function Header() {
         setSearchOpen(true);
       }
     };
-
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  const handleSignOut = () => {
+    setProfileMenuOpen(false);
+    signOut();
+  };
+
   return (
     <>
-      <header className="h-14 border-b border-border bg-background flex items-center justify-between gap-4 px-8 sticky top-0 z-40">
-        {/* Search bar */}
-        <div className="flex items-center flex-1 max-w-[360px]">
-          <div className="relative w-full">
-            <Search className="w-[15px] h-[15px] text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <input
-              type="text"
-              placeholder="Search meetings, people, decisions..."
-              className="w-full py-2 pl-9 pr-3 rounded-[10px] border border-border bg-card text-foreground text-[13px] font-sans outline-none placeholder:text-muted-foreground focus:border-orange-500/40 focus:ring-1 focus:ring-orange-500/20 transition-all"
-              onFocus={() => setSearchOpen(true)}
-              readOnly
-            />
-          </div>
-        </div>
+      <header
+        className="sticky top-0 z-30 flex h-14 items-center justify-between gap-4 px-6 md:px-8"
+        style={{
+          borderBottom: '1px solid var(--rule)',
+          background: 'color-mix(in oklch, var(--paper) 90%, transparent)',
+          backdropFilter: 'blur(10px)',
+          WebkitBackdropFilter: 'blur(10px)',
+        }}
+      >
+        {/* Search */}
+        <button
+          onClick={() => setSearchOpen(true)}
+          className="flex items-center gap-2.5 rounded-md px-3 py-1.5 transition-colors"
+          style={{
+            border: '1px solid var(--rule)',
+            background: 'var(--paper-card)',
+            color: 'var(--ink-soft)',
+            minWidth: 280,
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = 'color-mix(in oklch, var(--ink) 18%, transparent)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = 'var(--rule)';
+          }}
+        >
+          <Search className="h-[14px] w-[14px]" strokeWidth={1.75} />
+          <span className="flex-1 text-left text-[13px]">Search meetings…</span>
+          <span
+            className="rounded px-1.5 py-0.5 text-[11px] font-mono"
+            style={{
+              background: 'color-mix(in oklch, var(--ink) 6%, transparent)',
+              color: 'var(--ink-soft)',
+            }}
+          >
+            ⌘K
+          </span>
+        </button>
 
-        {/* Right side: theme + profile */}
         <div className="flex items-center gap-2">
           <ThemeToggle />
-          {/* Profile Dropdown */}
-          <div ref={profileRef} style={{ position: 'relative' }}>
-            {/* Avatar button */}
+
+          <div ref={profileRef} className="relative">
             <button
-              onClick={() => setProfileMenuOpen(prev => !prev)}
+              onClick={() => setProfileMenuOpen((p) => !p)}
+              className="flex h-9 w-9 items-center justify-center rounded-full text-[13px] font-semibold text-white transition-transform"
               style={{
-                width: 36,
-                height: 36,
-                borderRadius: '50%',
-                background: 'linear-gradient(135deg, #F97316, #F59E0B)',
-                border: profileMenuOpen ? '2px solid #F97316' : '2px solid transparent',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 13,
-                fontWeight: 700,
-                color: '#fff',
-                cursor: 'pointer',
-                transition: 'all 0.15s',
-                boxShadow: profileMenuOpen ? '0 0 0 3px rgba(249,115,22,0.2)' : 'none',
+                background: 'var(--ember)',
+                boxShadow: profileMenuOpen ? '0 0 0 3px color-mix(in oklch, var(--ember) 25%, transparent)' : 'none',
               }}
             >
               {userInitial}
             </button>
 
-            {/* Dropdown menu */}
             {profileMenuOpen && (
               <div
-                className="absolute right-0 top-11 z-[1000] w-[220px] overflow-hidden rounded-[14px] border border-border bg-popover text-popover-foreground shadow-xl animate-in fade-in-0 zoom-in-95"
+                className="absolute right-0 top-11 z-[1000] w-[240px] overflow-hidden rounded-lg animate-in"
+                style={{
+                  background: 'var(--paper-card)',
+                  border: '1px solid var(--rule)',
+                  boxShadow: 'var(--shadow-paper-lg)',
+                }}
               >
-                <div className="border-b border-border px-4 pb-3 pt-4">
-                  <div className="flex items-center gap-2.5">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-amber-500 text-sm font-bold text-white">
-                      {userInitial}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="truncate font-semibold" style={{ fontFamily: 'Outfit, sans-serif', fontSize: 14 }}>
-                        {userName}
-                      </div>
-                      <div className="truncate text-[11px] text-muted-foreground">{user?.email}</div>
-                    </div>
-                  </div>
+                <div className="px-4 py-3.5" style={{ borderBottom: '1px solid var(--rule-soft)' }}>
+                  <p className="truncate text-[14px] font-semibold" style={{ color: 'var(--ink)' }}>
+                    {userName}
+                  </p>
+                  <p className="mt-0.5 truncate text-[12px]" style={{ color: 'var(--ink-soft)' }}>
+                    {user?.email}
+                  </p>
                 </div>
 
                 {[
-                  { icon: <User size={14} />, label: 'Profile', action: () => { navigate('/settings'); setProfileMenuOpen(false); } },
-                  { icon: <Settings size={14} />, label: 'Settings', action: () => { navigate('/settings'); setProfileMenuOpen(false); } },
-                ].map((item, i) => (
+                  { icon: <User size={14} strokeWidth={1.75} />, label: 'Profile', action: () => { navigate('/settings'); setProfileMenuOpen(false); } },
+                  { icon: <SettingsIcon size={14} strokeWidth={1.75} />, label: 'Settings', action: () => { navigate('/settings'); setProfileMenuOpen(false); } },
+                ].map((item) => (
                   <button
-                    key={i}
+                    key={item.label}
                     type="button"
                     onClick={item.action}
-                    className="flex w-full items-center gap-2.5 border-0 bg-transparent px-4 py-[11px] text-left text-[13px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                    className="flex w-full items-center gap-2.5 border-0 bg-transparent px-4 py-2.5 text-left text-[13.5px] transition-colors"
+                    style={{ color: 'var(--ink-mid)' }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'color-mix(in oklch, var(--ink) 5%, transparent)';
+                      e.currentTarget.style.color = 'var(--ink)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'transparent';
+                      e.currentTarget.style.color = 'var(--ink-mid)';
+                    }}
                   >
                     {item.icon} {item.label}
                   </button>
                 ))}
 
-                <div className="my-1 h-px bg-border" />
+                <div style={{ height: 1, background: 'var(--rule-soft)' }} />
 
                 <button
                   type="button"
                   onClick={handleSignOut}
-                  className="flex w-full items-center gap-2.5 border-0 bg-transparent px-4 py-[11px] text-left text-[13px] text-destructive transition-colors hover:bg-destructive/10"
+                  className="flex w-full items-center gap-2.5 border-0 bg-transparent px-4 py-2.5 text-left text-[13.5px] transition-colors"
+                  style={{ color: 'oklch(58% 0.2 28)' }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'color-mix(in oklch, oklch(58% 0.2 28) 8%, transparent)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'transparent';
+                  }}
                 >
-                  <LogOut size={14} /> Sign out
+                  <LogOut size={14} strokeWidth={1.75} /> Sign out
                 </button>
               </div>
             )}
@@ -151,7 +167,6 @@ export function Header() {
         </div>
       </header>
 
-      {/* Global Search Modal */}
       <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} />
     </>
   );

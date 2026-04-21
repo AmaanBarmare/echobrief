@@ -1,236 +1,269 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=DM+Sans:wght@400;500&family=JetBrains+Mono:wght@400&family=Inter:wght@400;500;600;700&family=DM+Serif+Display:ital@0;1&family=Manrope:wght@300;400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;700&display=swap');
+/* ── Warm Dispatch foundation ──────────────────────────────────────────────
+   Type: Gambarino (display) + Switzer (body) from Fontshare, JetBrains Mono
+   for timestamps/transcripts. No banned reflex fonts.
+   Palette: OKLCH, warm-tinted neutrals, ember as signal. HSL tokens retained
+   for shadcn/ui compatibility but retuned to the new paper/ink/char/bone system.
+   ────────────────────────────────────────────────────────────────────────── */
+
+@import url('https://api.fontshare.com/v2/css?f[]=switzer@300,400,500,600,700,800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Manrope:wght@300;400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500&family=Noto+Sans+Tamil:wght@400;500&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Subtle gradient overlays */
+/* ─── Raw OKLCH tokens (direct use in components that need precision) ─── */
 :root {
-  --gradient-light: radial-gradient(ellipse at top left, rgba(249, 115, 22, 0.04), transparent 50%),
-                    radial-gradient(ellipse at bottom right, rgba(245, 158, 11, 0.02), transparent 50%);
-  --gradient-dark: radial-gradient(ellipse at top left, rgba(249, 115, 22, 0.08), transparent 50%),
-                   radial-gradient(ellipse at bottom right, rgba(0, 0, 0, 0), transparent 50%);
-  --warm-ember-gradient: linear-gradient(135deg, #F97316, #F59E0B);
+  /* App UI stack (dashboard + chrome): Switzer is clean and neutral. */
+  --font-display: 'Switzer', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-body: 'Switzer', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
 
-  /* Warm Intelligence brand tokens — shared */
+  /* Landing brand stack (per brand kit): DM Serif Display for italic accents,
+     Manrope for body, IBM Plex Mono for small labels. */
+  --font-brand-serif: 'DM Serif Display', Georgia, serif;
+  --font-brand-body: 'Manrope', 'Switzer', -apple-system, system-ui, sans-serif;
+  --font-brand-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  --font-indic-dev: 'Noto Sans Devanagari', 'Switzer', sans-serif;
+  --font-indic-tam: 'Noto Sans Tamil', 'Switzer', sans-serif;
+
+  /* Legacy aliases (kept so landing components that reference these keep working) */
+  --font-body-brand: var(--font-body);
+  --font-mono-brand: var(--font-mono);
+
+  /* Warm dispatch palette — light (warm paper) */
+  --paper: oklch(97% 0.01 60);           /* app background */
+  --paper-raised: oklch(94% 0.012 55);    /* raised surfaces */
+  --paper-deep: oklch(91% 0.014 52);      /* inset / input */
+  --paper-card: oklch(99% 0.005 65);      /* card fill (nearly bone) */
+  --ink: oklch(18% 0.02 40);              /* primary text */
+  --ink-mid: oklch(40% 0.018 42);         /* secondary text */
+  --ink-soft: oklch(58% 0.015 45);        /* muted text */
+  --ink-faint: oklch(72% 0.01 50);        /* faint meta */
+  --rule: oklch(88% 0.015 50);            /* dividers */
+  --rule-soft: oklch(93% 0.012 55);       /* faint dividers */
+
+  /* Warm dispatch palette — dark (warm charcoal) */
+  --char: oklch(16% 0.012 40);            /* app background */
+  --char-raised: oklch(21% 0.014 40);     /* raised surfaces */
+  --char-deep: oklch(19% 0.012 40);       /* inset / input */
+  --char-card: oklch(24% 0.015 40);       /* card fill */
+  --bone: oklch(94% 0.012 60);            /* primary text */
+  --bone-mid: oklch(78% 0.01 55);         /* secondary text */
+  --bone-soft: oklch(62% 0.01 50);        /* muted */
+  --bone-faint: oklch(48% 0.01 48);       /* faint meta */
+  --rule-dark: oklch(30% 0.018 42);
+  --rule-dark-soft: oklch(26% 0.015 42);
+
+  /* Ember + Gold — exact hex from brand kit */
+  --ember: #D93F0B;           /* light-mode primary brand orange */
+  --ember-deep: #B83508;      /* darker shade for hover */
+  --ember-hi: #E84D1A;        /* lighter shade for hover in dark */
+  --ember-ink: #8C2F05;
+  --gold: #F5C842;            /* secondary brand accent — action-items, highlights */
+  --gold-light: #FFE08A;
+  --amber-warm: #F5C842;      /* legacy alias */
+
+  /* Semantic (warm-tuned, not generic) */
+  --ok: oklch(62% 0.14 145);
+  --warn: oklch(74% 0.15 85);
+  --stop: oklch(58% 0.2 28);
+  --info: oklch(60% 0.12 240);
+  --violet: oklch(58% 0.16 300);          /* AI/insights tag */
+
+  /* Ember tints — layered translucents, precomputed for hot paths */
+  --ember-tint-7: color-mix(in oklch, var(--ember) 7%, transparent);
+  --ember-tint-12: color-mix(in oklch, var(--ember) 12%, transparent);
+  --ember-tint-20: color-mix(in oklch, var(--ember) 22%, transparent);
+  --ember-tint-40: color-mix(in oklch, var(--ember) 40%, transparent);
+
+  /* Shadows — soft, warm, not generic grey */
+  --shadow-paper-sm: 0 1px 2px oklch(30% 0.04 40 / 0.06), 0 0 0 1px oklch(30% 0.04 40 / 0.04);
+  --shadow-paper-md: 0 2px 14px oklch(30% 0.04 40 / 0.08), 0 0 0 1px oklch(30% 0.04 40 / 0.04);
+  --shadow-paper-lg: 0 14px 40px oklch(30% 0.04 40 / 0.12), 0 0 0 1px oklch(30% 0.04 40 / 0.05);
+  --shadow-ember: 0 6px 22px oklch(62% 0.18 40 / 0.22);
+  --shadow-ember-lg: 0 14px 46px oklch(62% 0.18 40 / 0.32);
+
+  /* Spacing scale — 4pt, semantic */
+  --space-2xs: 4px;
+  --space-xs: 8px;
+  --space-sm: 12px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  --space-3xl: 64px;
+  --space-4xl: 96px;
+  --space-5xl: 144px;
+
+  /* Landing-shell aliases — kept so existing landing components keep reading them,
+     but values are now warm-dispatch-tuned */
+  --landing-bg: var(--paper);
+  --landing-bg-raised: var(--paper-raised);
+  --landing-bg-card: var(--paper-card);
+  --landing-bg-input: var(--paper-deep);
+  --landing-text: var(--ink);
+  --landing-text-mid: var(--ink-mid);
+  --landing-muted: var(--ink-soft);
+  --landing-faint: var(--ink-faint);
+  --landing-ember: var(--ember-deep);
+  --landing-ember-light: var(--ember);
+  --landing-gold: var(--amber-warm);
+  --landing-border: var(--rule);
+  --landing-border-subtle: var(--rule-soft);
+  --landing-card-shadow: var(--shadow-paper-sm);
+  --landing-ember-shadow: var(--shadow-ember);
+  --landing-ember-shadow-lg: var(--shadow-ember-lg);
+  --landing-orb-ember: color-mix(in oklch, var(--ember) 5%, transparent);
+  --landing-orb-gold: color-mix(in oklch, var(--amber-warm) 6%, transparent);
+  --landing-hover-bg: color-mix(in oklch, var(--ink) 4%, transparent);
+  --landing-ember-tint-7: var(--ember-tint-7);
+  --landing-ember-tint-12: var(--ember-tint-12);
+  --landing-ember-tint-25: var(--ember-tint-20);
+  --landing-gold-tint: color-mix(in oklch, var(--amber-warm) 12%, transparent);
+}
+
+.dark {
+  --paper: var(--char);
+  --paper-raised: var(--char-raised);
+  --paper-deep: var(--char-deep);
+  --paper-card: var(--char-card);
+  --ink: var(--bone);
+  --ink-mid: var(--bone-mid);
+  --ink-soft: var(--bone-soft);
+  --ink-faint: var(--bone-faint);
+  --rule: var(--rule-dark);
+  --rule-soft: var(--rule-dark-soft);
+
+  --ember: #E8430A;           /* dark-mode primary brand orange per brand kit */
+  --ember-deep: #C23508;
+  --ember-hi: #FF6B35;
+  --ember-ink: #FF8956;
   --gold: #F5C842;
   --gold-light: #FFE08A;
+  --amber-warm: #F5C842;
 
-  --font-display: 'DM Serif Display', serif;
-  --font-body-brand: 'Manrope', sans-serif;
-  --font-mono-brand: 'IBM Plex Mono', monospace;
+  --ember-tint-7: color-mix(in oklch, var(--ember) 10%, transparent);
+  --ember-tint-12: color-mix(in oklch, var(--ember) 16%, transparent);
+  --ember-tint-20: color-mix(in oklch, var(--ember) 25%, transparent);
+  --ember-tint-40: color-mix(in oklch, var(--ember) 45%, transparent);
 
-  /* Landing-specific theme-switching tokens (light defaults) */
-  --landing-bg: #FAF7F2;
-  --landing-bg-raised: #F4EFE7;
-  --landing-bg-card: #FFFFFF;
-  --landing-text: #1C1612;
-  --landing-text-mid: #3D3028;
-  --landing-muted: #7A6A58;
-  --landing-faint: #B0A090;
-  --landing-ember: #D93F0B;
-  --landing-ember-light: #E84D1A;
-  --landing-gold: #D4900A;
-  --landing-border: rgba(120, 90, 60, 0.10);
-  --landing-border-subtle: rgba(120, 90, 60, 0.06);
-  --landing-card-shadow: 0 2px 12px rgba(120,80,40,0.07), 0 0 0 1px rgba(120,80,40,0.06);
-  --landing-ember-shadow: 0 6px 24px rgba(217,63,11,0.20);
-  --landing-ember-shadow-lg: 0 12px 40px rgba(217,63,11,0.28);
-  --landing-orb-ember: rgba(217,63,11,0.05);
-  --landing-orb-gold: rgba(212,144,10,0.04);
-  --landing-hover-bg: rgba(120,90,60,0.05);
-  --landing-bg-input: #F9F5EF;
-  --landing-ember-tint-7: rgba(217,63,11,0.07);
-  --landing-ember-tint-12: rgba(217,63,11,0.12);
-  --landing-ember-tint-25: rgba(217,63,11,0.22);
-  --landing-gold-tint: rgba(212,144,10,0.10);
+  --shadow-paper-sm: 0 1px 2px oklch(0% 0 0 / 0.4), 0 0 0 1px oklch(100% 0 0 / 0.04);
+  --shadow-paper-md: 0 4px 20px oklch(0% 0 0 / 0.5), 0 0 0 1px oklch(100% 0 0 / 0.04);
+  --shadow-paper-lg: 0 20px 60px oklch(0% 0 0 / 0.6), 0 0 0 1px oklch(100% 0 0 / 0.05);
+  --shadow-ember: 0 8px 32px oklch(62% 0.18 40 / 0.28);
+  --shadow-ember-lg: 0 18px 60px oklch(62% 0.18 40 / 0.4);
 
-  /* Legacy refs kept for non-landing pages */
-  --ember: #E8430A;
-  --ember-light: #FF6B35;
-  --ember-dark: #C23508;
-  --cream: #F0EBE0;
-  --cream-dark: #D8D0C2;
-  --ink: #1C1612;
-  --ink-mid: #26201A;
-  --ink-light: #342C24;
-  --ash: #7A6F63;
-  --ash-light: #A89D91;
-  --shadow-ember: 0 8px 32px rgba(232, 67, 10, 0.25);
-  --shadow-ember-lg: 0 16px 60px rgba(232, 67, 10, 0.35);
+  --landing-card-shadow: var(--shadow-paper-sm);
+  --landing-orb-ember: color-mix(in oklch, var(--ember) 14%, transparent);
+  --landing-orb-gold: color-mix(in oklch, var(--amber-warm) 8%, transparent);
+  --landing-hover-bg: color-mix(in oklch, var(--bone) 4%, transparent);
 }
 
-/* Non-layered dark overrides for landing tokens. Must stay outside @layer base
-   because unlayered :root defaults above would otherwise always beat layered
-   dark overrides in the CSS cascade. */
-.dark {
-  --landing-bg: #1C1612;
-  --landing-bg-raised: #26201A;
-  --landing-bg-card: #26201A;
-  --landing-text: #F0EBE0;
-  --landing-text-mid: #D8D0C2;
-  --landing-muted: #7A6F63;
-  --landing-faint: #A89D91;
-  --landing-ember: #E8430A;
-  --landing-ember-light: #FF6B35;
-  --landing-gold: #F5C842;
-  --landing-border: rgba(255, 255, 255, 0.06);
-  --landing-border-subtle: rgba(255, 255, 255, 0.04);
-  --landing-card-shadow: none;
-  --landing-ember-shadow: 0 8px 32px rgba(232,67,10,0.25);
-  --landing-ember-shadow-lg: 0 16px 60px rgba(232,67,10,0.35);
-  --landing-orb-ember: rgba(232,67,10,0.12);
-  --landing-orb-gold: rgba(245,200,66,0.06);
-  --landing-hover-bg: rgba(255,255,255,0.04);
-  --landing-bg-input: #342C24;
-  --landing-ember-tint-7: rgba(232,67,10,0.07);
-  --landing-ember-tint-12: rgba(232,67,10,0.14);
-  --landing-ember-tint-25: rgba(232,67,10,0.25);
-  --landing-gold-tint: rgba(245,200,66,0.12);
-}
-
+/* ─── shadcn HSL tokens (retuned to warm dispatch values) ─── */
 @layer base {
   :root {
     color-scheme: light;
-    /* Light Mode: warm paper, crisp type */
-    --background: 40 18% 97%;
-    --foreground: 220 20% 14%;
 
-    /* Cards - Pure white with subtle depth */
-    --card: 0 0% 100%;
-    --card-foreground: 220 20% 14%;
+    /* Paper, ink — approximations of the OKLCH values above for shadcn's hsl() consumers */
+    --background: 40 22% 96%;          /* paper */
+    --foreground: 25 14% 12%;          /* ink */
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 220 20% 14%;
+    --card: 40 14% 98%;                 /* paper-card */
+    --card-foreground: 25 14% 12%;
 
-    /* Primary - Deep neutral for text emphasis */
-    --primary: 220 20% 14%;
-    --primary-foreground: 0 0% 100%;
+    --popover: 40 14% 98%;
+    --popover-foreground: 25 14% 12%;
 
-    /* Secondary - Light gray for backgrounds */
-    --secondary: 220 14% 96%;
-    --secondary-foreground: 220 20% 14%;
+    --primary: 25 14% 12%;
+    --primary-foreground: 40 22% 96%;
 
-    /* Muted - Subtle gray for less important elements */
-    --muted: 220 14% 96%;
-    --muted-foreground: 220 10% 50%;
+    --secondary: 35 14% 92%;           /* paper-raised */
+    --secondary-foreground: 25 14% 14%;
 
-    /* Accent - Warm Ember Orange (#F97316) */
-    --accent: 24 95% 53%;
-    --accent-foreground: 0 0% 100%;
+    --muted: 35 14% 92%;
+    --muted-foreground: 25 8% 42%;     /* ink-mid */
 
-    /* Recording state - Red indicator */
-    --recording: 0 72% 51%;
-    --recording-foreground: 0 0% 100%;
+    --accent: 16 91% 45%;              /* #D93F0B ember — brand kit exact */
+    --accent-foreground: 40 22% 96%;
 
-    /* Success - Calm green */
-    --success: 142 52% 45%;
-    --success-foreground: 0 0% 100%;
+    --recording: 5 70% 52%;
+    --recording-foreground: 40 22% 96%;
 
-    /* Warning - Soft amber */
-    --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 100%;
+    --success: 145 42% 42%;
+    --success-foreground: 40 22% 96%;
 
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 100%;
+    --warning: 38 85% 52%;
+    --warning-foreground: 25 14% 12%;
 
-    /* Borders - Very subtle */
-    --border: 220 14% 92%;
-    --input: 220 14% 92%;
-    --ring: 24 95% 53%;
+    --destructive: 5 70% 52%;
+    --destructive-foreground: 40 22% 96%;
 
-    --radius: 0.5rem;
+    --border: 32 14% 85%;              /* rule */
+    --input: 35 14% 90%;                /* paper-deep */
+    --ring: 20 82% 50%;
 
-    /* Sidebar - Clean white with subtle border */
-    --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 220 20% 14%;
-    --sidebar-primary: 24 95% 53%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 14% 96%;
-    --sidebar-accent-foreground: 220 20% 14%;
-    --sidebar-border: 220 14% 92%;
-    --sidebar-ring: 24 95% 53%;
+    --radius: 0.625rem;
+
+    --sidebar-background: 40 22% 96%;
+    --sidebar-foreground: 25 14% 12%;
+    --sidebar-primary: 20 82% 50%;
+    --sidebar-primary-foreground: 40 22% 96%;
+    --sidebar-accent: 35 14% 92%;
+    --sidebar-accent-foreground: 25 14% 14%;
+    --sidebar-border: 32 14% 85%;
+    --sidebar-ring: 20 82% 50%;
   }
 
   .dark {
     color-scheme: dark;
-    /* Dark Mode - Warm Ember / Stone palette */
-    
-    /* Background (App): #0C0A09 Stone-950 */
-    --background: 20 14% 4%;
-    /* Primary Text: #FAFAF9 Stone-50 */
-    --foreground: 60 9% 98%;
 
-    /* Surface / Cards: #1C1917 Stone-900 */
-    --card: 24 10% 10%;
-    --card-foreground: 60 9% 98%;
+    --background: 25 10% 10%;          /* char */
+    --foreground: 40 14% 93%;          /* bone */
 
-    --popover: 24 10% 10%;
-    --popover-foreground: 60 9% 98%;
+    --card: 25 10% 15%;                /* char-card */
+    --card-foreground: 40 14% 93%;
 
-    /* Primary text */
-    --primary: 60 9% 98%;
-    --primary-foreground: 20 14% 4%;
+    --popover: 25 10% 15%;
+    --popover-foreground: 40 14% 93%;
 
-    /* Hover Surface: #292524 Stone-800 */
-    --secondary: 12 6% 15%;
-    --secondary-foreground: 60 9% 98%;
+    --primary: 40 14% 93%;
+    --primary-foreground: 25 10% 10%;
 
-    /* Muted backgrounds */
-    --muted: 12 6% 15%;
-    /* Secondary Text: #A8A29E Stone-400 */
-    --muted-foreground: 30 4% 64%;
+    --secondary: 25 10% 18%;
+    --secondary-foreground: 40 14% 93%;
 
-    /* Accent - Warm Ember Orange (#F97316) */
-    --accent: 24 95% 53%;
-    --accent-foreground: 0 0% 100%;
+    --muted: 25 10% 18%;
+    --muted-foreground: 30 6% 68%;
 
-    --recording: 0 65% 50%;
-    --recording-foreground: 0 0% 100%;
+    --accent: 16 92% 47%;              /* #E8430A ember — brand kit exact (dark) */
+    --accent-foreground: 25 10% 10%;
 
-    --success: 142 71% 45%;
-    --success-foreground: 0 0% 100%;
+    --recording: 5 72% 58%;
+    --recording-foreground: 25 10% 10%;
 
-    --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 100%;
+    --success: 145 48% 52%;
+    --success-foreground: 25 10% 10%;
 
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
+    --warning: 38 88% 60%;
+    --warning-foreground: 25 10% 10%;
 
-    /* Borders / Dividers: #292524 Stone-800 */
-    --border: 12 6% 15%;
-    --input: 12 6% 15%;
-    --ring: 24 95% 53%;
+    --destructive: 5 72% 58%;
+    --destructive-foreground: 40 14% 93%;
 
-    /* Sidebar */
-    --sidebar-background: 20 14% 4%;
-    --sidebar-foreground: 60 9% 98%;
-    --sidebar-primary: 24 95% 53%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 12 6% 15%;
-    --sidebar-accent-foreground: 60 9% 98%;
-    --sidebar-border: 12 6% 15%;
-    --sidebar-ring: 24 95% 53%;
+    --border: 25 12% 24%;              /* rule-dark */
+    --input: 25 10% 22%;                /* char-deep */
+    --ring: 20 82% 58%;
 
-    /* Landing dark overrides */
-    --landing-bg: #1C1612;
-    --landing-bg-raised: #26201A;
-    --landing-bg-card: #26201A;
-    --landing-text: #F0EBE0;
-    --landing-text-mid: #D8D0C2;
-    --landing-muted: #7A6F63;
-    --landing-faint: #A89D91;
-    --landing-ember: #E8430A;
-    --landing-ember-light: #FF6B35;
-    --landing-gold: #F5C842;
-    --landing-border: rgba(255, 255, 255, 0.06);
-    --landing-border-subtle: rgba(255, 255, 255, 0.04);
-    --landing-card-shadow: none;
-    --landing-ember-shadow: 0 8px 32px rgba(232,67,10,0.25);
-    --landing-ember-shadow-lg: 0 16px 60px rgba(232,67,10,0.35);
-    --landing-orb-ember: rgba(232,67,10,0.12);
-    --landing-orb-gold: rgba(245,200,66,0.06);
-    --landing-hover-bg: rgba(255,255,255,0.04);
+    --sidebar-background: 25 10% 10%;
+    --sidebar-foreground: 40 14% 93%;
+    --sidebar-primary: 20 82% 58%;
+    --sidebar-primary-foreground: 25 10% 10%;
+    --sidebar-accent: 25 10% 18%;
+    --sidebar-accent-foreground: 40 14% 93%;
+    --sidebar-border: 25 12% 24%;
+    --sidebar-ring: 20 82% 58%;
   }
 }
 
@@ -240,656 +273,589 @@
   }
 
   html {
-    transition: background-color 0.15s ease, color 0.15s ease;
+    font-feature-settings: "ss01", "ss02", "cv01", "cv11";
+    transition: background-color 0.2s ease, color 0.2s ease;
   }
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'DM Sans', 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    font-family: var(--font-body);
     font-weight: 400;
-    font-feature-settings: "cv11", "ss01";
+    font-feature-settings: "ss01", "ss02", "cv01";
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
   }
 
+  /* Hierarchy via weight + size, not font-family switching. */
   h1, h2, h3, h4, h5, h6 {
-    @apply tracking-tight text-foreground;
-    font-family: 'Outfit', 'Inter', -apple-system, sans-serif;
-  }
-
-  h1 {
-    @apply text-2xl;
+    font-family: var(--font-body);
     font-weight: 600;
+    letter-spacing: -0.015em;
+    color: hsl(var(--foreground));
   }
 
-  h2 {
-    @apply text-xl;
-    font-weight: 500;
-  }
+  h1 { font-size: 1.875rem; line-height: 1.15; letter-spacing: -0.02em; }
+  h2 { font-size: 1.375rem; line-height: 1.2; letter-spacing: -0.015em; }
+  h3 { font-size: 1.125rem; line-height: 1.25; letter-spacing: -0.01em; }
 
-  h3 {
-    @apply text-lg;
-    font-weight: 500;
-  }
+  .font-ui { font-family: var(--font-body); }
+  .font-display { font-family: var(--font-display); font-weight: 600; letter-spacing: -0.02em; }
+  .font-mono { font-family: var(--font-mono); }
 
-  code, pre, .font-mono {
-    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  code, pre {
+    font-family: var(--font-mono);
     font-weight: 400;
+    font-feature-settings: "ss02";
   }
+
+  /* Legacy utility — italic weight without swapping family */
+  .italic-display { font-style: italic; font-weight: 500; }
+
+  /* Native-script readability */
+  :lang(hi), :lang(mr), :lang(sa) { font-family: var(--font-indic-dev); }
+  :lang(ta) { font-family: var(--font-indic-tam); }
 }
 
+/* ─── Component utilities ─── */
 @layer components {
-  /* Notion-style content block */
+  /* Legacy — a small uppercase label tag. Kept plain, not editorial. Use sparingly. */
+  .dispatch-line {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-family: var(--font-body);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    color: var(--ink-soft);
+  }
+  .dispatch-line > .ember-dot { display: none; }
+  .dispatch-line .sep { opacity: 0.5; }
+
+  /* Legacy — horizontal divider. Now just a thin rule. */
+  .rule-mark { display: block; height: 1px; background: var(--rule); }
+  .rule-mark > .mark { display: none; }
+
+  /* Brand-kit eyebrow label — used sparingly in landing, one per section */
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.625rem;
+    font-family: var(--font-brand-mono);
+    font-size: 10.5px;
+    font-weight: 500;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--ember);
+    opacity: 0.9;
+  }
+  .eyebrow::before {
+    content: '';
+    width: 22px;
+    height: 1px;
+    background: currentColor;
+    opacity: 0.45;
+  }
+
+  /* Live recording pill — brand-kit signature */
+  .rec-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 6px 14px;
+    font-family: var(--font-brand-mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--ember);
+    background: color-mix(in oklch, var(--ember) 10%, transparent);
+    border: 1px solid color-mix(in oklch, var(--ember) 25%, transparent);
+    border-radius: 999px;
+  }
+  .rec-pill .rec-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--ember);
+    box-shadow: 0 0 7px var(--ember);
+    animation: rec-blink 1.2s infinite;
+  }
+  @keyframes rec-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.15; } }
+  @media (prefers-reduced-motion: reduce) { .rec-pill .rec-dot { animation: none; } }
+
+  /* Waveform — 12 animated bars, brand signature */
+  .waveform {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    height: 28px;
+  }
+  .waveform .wv {
+    display: block;
+    width: 3px;
+    border-radius: 2px;
+    background: var(--ember);
+    opacity: 0.85;
+    animation: wv-pulse 0.7s ease-in-out infinite alternate;
+    transform-origin: center;
+  }
+  .waveform .wv:nth-child(1)  { height: 35%; animation-delay: 0s;    animation-duration: .55s; }
+  .waveform .wv:nth-child(2)  { height: 70%; animation-delay: .08s;  animation-duration: .8s;  }
+  .waveform .wv:nth-child(3)  { height: 50%; animation-delay: .14s;  animation-duration: .5s;  }
+  .waveform .wv:nth-child(4)  { height: 90%; animation-delay: .2s;   animation-duration: .95s; }
+  .waveform .wv:nth-child(5)  { height: 60%; animation-delay: .04s;  animation-duration: .65s; }
+  .waveform .wv:nth-child(6)  { height: 100%; animation-delay: .24s; animation-duration: .6s;  }
+  .waveform .wv:nth-child(7)  { height: 45%; animation-delay: .1s;   animation-duration: 1s;   }
+  .waveform .wv:nth-child(8)  { height: 75%; animation-delay: .3s;   animation-duration: .7s;  }
+  .waveform .wv:nth-child(9)  { height: 38%; animation-delay: 0s;    animation-duration: .52s; }
+  .waveform .wv:nth-child(10) { height: 82%; animation-delay: .18s;  animation-duration: .88s; }
+  .waveform .wv:nth-child(11) { height: 55%; animation-delay: .12s;  animation-duration: .62s; }
+  .waveform .wv:nth-child(12) { height: 65%; animation-delay: .28s;  animation-duration: .78s; }
+  @keyframes wv-pulse { from { transform: scaleY(0.25); } to { transform: scaleY(1); } }
+  @media (prefers-reduced-motion: reduce) { .waveform .wv { animation: none; transform: scaleY(0.6); } }
+
+  /* Brand serif italic — kept DISTINCT from .italic-display (which is sans now) */
+  .serif-italic {
+    font-family: var(--font-brand-serif);
+    font-style: italic;
+    font-weight: 400;
+    letter-spacing: -0.01em;
+  }
+
+  /* Divider — plain */
+  .divider {
+    border-top: 1px solid var(--rule);
+    margin: 1.5rem 0;
+  }
+
+  /* Content block */
   .content-block {
     @apply py-3 px-1 transition-colors duration-150;
   }
-
   .content-block:hover {
-    @apply bg-secondary/50 rounded-md -mx-2 px-3;
+    background: var(--ember-tint-7);
+    border-radius: 0.375rem;
   }
 
-  /* Subtle divider */
-  .divider {
-    @apply border-t border-border my-6;
-  }
-
-  /* List row - clean, minimal */
+  /* List row */
   .list-row {
-    @apply flex items-center gap-3 py-3 px-4 rounded-2xl transition-all duration-200 cursor-pointer;
-    @apply bg-card border border-border;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-radius: 0.625rem;
+    transition: all 0.15s ease;
+    cursor: pointer;
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
   }
-
   .list-row:hover {
-    @apply bg-secondary border-border;
-    transform: translateY(-1px);
+    background: var(--paper-raised);
+    border-color: var(--ember-tint-20);
   }
-
   .list-row.active {
-    background-color: hsl(var(--accent) / 0.08);
+    background: var(--ember-tint-7);
+    border-color: var(--ember-tint-20);
   }
 
-  /* Status indicators - small, subtle dots */
+  /* Status dots — ember reserved for active, other states semantic */
   .status-dot {
-    @apply w-2 h-2 rounded-full flex-shrink-0;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
   }
+  .status-dot.scheduled { background: var(--ink-faint); }
+  .status-dot.upcoming { background: var(--ember); }
+  .status-dot.recording { background: hsl(var(--recording)); animation: dispatch-pulse 1.4s ease-in-out infinite; }
+  .status-dot.processing { background: hsl(var(--warning)); }
+  .status-dot.completed { background: hsl(var(--success)); }
+  .status-dot.failed { background: hsl(var(--destructive)); }
 
-  .status-dot.scheduled {
-    @apply bg-muted-foreground;
-  }
-
-  .status-dot.upcoming {
-    @apply bg-accent;
-  }
-
-  .status-dot.recording {
-    @apply bg-recording animate-pulse;
-  }
-
-  .status-dot.processing {
-    @apply bg-warning;
-  }
-
-  .status-dot.completed {
-    @apply bg-success;
-  }
-
-  .status-dot.failed {
-    @apply bg-destructive;
-  }
-
-  /* Notion-style sidebar nav item */
+  /* Nav item — sidebar / navigation surfaces */
   .nav-item {
-    @apply flex items-center gap-2.5 px-2.5 py-1.5 rounded-md text-sm font-medium transition-colors duration-150;
-    @apply text-muted-foreground hover:text-foreground hover:bg-secondary;
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
+    font-family: var(--font-body);
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--ink-mid);
+    transition: all 0.15s ease;
+    position: relative;
   }
-
+  .nav-item:hover {
+    color: var(--ink);
+    background: var(--ember-tint-7);
+  }
   .nav-item.active {
-    color: hsl(var(--accent));
-    background-color: hsl(var(--accent) / 0.08);
+    color: var(--ember-deep);
+    background: var(--ember-tint-12);
+  }
+  .dark .nav-item.active {
+    color: var(--ember-hi);
   }
 
-  .nav-item.active:hover {
-    color: hsl(var(--accent));
-    background-color: hsl(var(--accent) / 0.12);
-  }
-
-  /* Document section - Notion blocks style */
-  .doc-section {
-    @apply mb-8;
-  }
-
+  /* Doc section */
+  .doc-section { margin-bottom: 2rem; }
   .doc-section-title {
-    @apply text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    color: var(--ink-soft);
+    margin-bottom: 0.75rem;
   }
-
   .doc-content {
-    @apply text-foreground leading-relaxed;
+    color: hsl(var(--foreground));
+    line-height: 1.7;
   }
 
-  /* Inline action items with checkbox */
-  .action-item {
-    @apply flex items-start gap-3 py-2;
-  }
-
+  /* Action items */
+  .action-item { display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.5rem 0; }
   .action-item-checkbox {
-    @apply w-4 h-4 rounded border-2 border-border mt-0.5 flex-shrink-0 cursor-pointer transition-colors;
-    @apply hover:border-accent;
+    width: 1rem;
+    height: 1rem;
+    border-radius: 3px;
+    border: 1.5px solid var(--rule);
+    margin-top: 0.125rem;
+    flex-shrink: 0;
+    cursor: pointer;
+    transition: all 0.15s ease;
   }
+  .action-item-checkbox:hover { border-color: var(--ember); }
+  .action-item-checkbox.checked { background: var(--ember); border-color: var(--ember); }
+  .action-item-text { flex: 1; color: hsl(var(--foreground)); }
+  .action-item-text.completed { text-decoration: line-through; color: var(--ink-soft); }
 
-  .action-item-checkbox.checked {
-    background-color: hsl(var(--accent));
-    border-color: hsl(var(--accent));
-  }
-
-  .action-item-text {
-    @apply text-foreground flex-1;
-  }
-
-  .action-item-text.completed {
-    @apply line-through text-muted-foreground;
-  }
-
-  /* Minimal toast */
-  .toast-minimal {
-    @apply bg-foreground text-background px-4 py-2 rounded-lg text-sm font-medium shadow-lg;
-  }
-
-  /* Keyboard shortcut badge */
+  /* Keyboard badge */
   .kbd {
-    @apply inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-medium;
-    @apply bg-secondary text-muted-foreground rounded border border-border;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.125rem 0.375rem;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    background: var(--paper-raised);
+    color: var(--ink-mid);
+    border-radius: 4px;
+    border: 1px solid var(--rule);
   }
 
-  /* Collapsible section */
+  /* Collapsible */
   .collapsible-trigger {
-    @apply flex items-center gap-2 cursor-pointer select-none;
-    @apply text-muted-foreground hover:text-foreground transition-colors;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    user-select: none;
+    color: var(--ink-mid);
+    transition: color 0.15s ease;
   }
+  .collapsible-trigger:hover { color: var(--ink); }
+  .collapsible-trigger svg { width: 1rem; height: 1rem; transition: transform 0.2s ease; }
+  .collapsible-trigger[data-state="open"] svg { transform: rotate(90deg); }
 
-  .collapsible-trigger svg {
-    @apply w-4 h-4 transition-transform duration-200;
-  }
-
-  .collapsible-trigger[data-state="open"] svg {
-    transform: rotate(90deg);
-  }
-
-  /* Recording indicator - subtle pulse */
+  /* Recording indicator */
   .recording-indicator {
-    @apply inline-flex items-center gap-2 text-recording text-sm font-medium;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: hsl(var(--recording));
   }
-
   .recording-indicator::before {
     content: '';
-    @apply w-2 h-2 rounded-full bg-recording animate-pulse;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: hsl(var(--recording));
+    animation: dispatch-pulse 1.4s ease-in-out infinite;
   }
 
   /* Empty state */
-  .empty-state {
-    @apply py-16 text-center;
-  }
+  .empty-state { padding: 4rem 0; text-align: center; }
+  .empty-state-icon { width: 2.5rem; height: 2.5rem; margin: 0 auto 1rem; color: var(--ink-faint); }
+  .empty-state-title { font-family: var(--font-display); font-size: 1.25rem; color: hsl(var(--foreground)); margin-bottom: 0.25rem; }
+  .empty-state-description { font-size: 0.875rem; color: var(--ink-soft); max-width: 24rem; margin: 0 auto; }
 
-  .empty-state-icon {
-    @apply w-12 h-12 mx-auto mb-4 text-muted-foreground/40;
-  }
-
-  .empty-state-title {
-    @apply text-base font-medium text-foreground mb-1;
-  }
-
-  .empty-state-description {
-    @apply text-sm text-muted-foreground max-w-sm mx-auto;
-  }
-
-  /* Card styles - proper contrast in dark mode */
+  /* Card primitives */
   .card-refined {
-    @apply bg-card border border-border rounded-lg;
-    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    border-radius: 0.625rem;
+    box-shadow: var(--shadow-paper-sm);
   }
 
-  .dark .card-refined {
-    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.2);
-  }
-
-  /* Glass card - works in both light and dark mode */
-  .glass-card-liquid {
-    @apply bg-card border border-border;
-    border-radius: 16px;
-  }
-
-  .glass-card-liquid:hover {
-    @apply border-border;
-  }
-
-  /* Meeting card with proper hover state */
+  /* Meeting card — no side-stripe; recording state is indicated by a dispatch-line + dot */
   .meeting-card {
-    @apply bg-card border border-border rounded-lg p-4 transition-all duration-150;
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    border-radius: 0.625rem;
+    padding: 1rem;
+    transition: all 0.15s ease;
+    position: relative;
   }
-
   .meeting-card:hover {
-    @apply bg-secondary border-border;
+    border-color: var(--ember-tint-20);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-paper-md);
   }
-
-  .meeting-card:hover {
-    @apply bg-secondary border-border;
-  }
-
-  /* Recording state card - subtle left border accent */
   .meeting-card.recording {
-    @apply border-l-2 border-l-recording;
+    border-color: var(--ember-tint-20);
   }
 
-  /* Section header */
+  /* Section header — editorial small-caps */
   .section-header {
-    @apply text-xs font-medium uppercase tracking-wider text-muted-foreground;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    color: var(--ink-soft);
   }
 
-  /* Inline tag/badge */
+  /* Tags */
   .tag {
-    @apply inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full;
+    display: inline-flex;
+    align-items: center;
+    padding: 0.125rem 0.5rem;
+    font-size: 11.5px;
+    font-weight: 500;
+    font-family: var(--font-body);
+    border-radius: 999px;
+    letter-spacing: 0.01em;
   }
-
   .tag-accent {
-    /* AI/insights badge → purple per brand spec */
-    @apply bg-purple-500/10 text-purple-500;
+    background: color-mix(in oklch, var(--violet) 12%, transparent);
+    color: var(--violet);
+  }
+  .tag-success { background: color-mix(in oklch, hsl(var(--success)) 14%, transparent); color: hsl(var(--success)); }
+  .tag-warning { background: color-mix(in oklch, hsl(var(--warning)) 16%, transparent); color: hsl(var(--warning)); }
+  .tag-muted { background: var(--paper-raised); color: var(--ink-soft); }
+  .tag-ember { background: var(--ember-tint-12); color: var(--ember-deep); }
+  .dark .tag-ember { color: var(--ember-hi); }
+
+  /* Speaker label — AI/transcript purple retained */
+  .speaker-label {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.125rem 0.5rem;
+    font-size: 11.5px;
+    font-weight: 500;
+    border-radius: 999px;
+    background: color-mix(in oklch, var(--violet) 12%, transparent);
+    color: var(--violet);
+    margin-right: 0.5rem;
+    font-family: var(--font-mono);
+    letter-spacing: 0.03em;
   }
 
-  .tag-success {
-    @apply bg-success/10 text-success;
+  /* Transcript segment */
+  .transcript-segment {
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--rule-soft);
+    line-height: 1.7;
   }
-
-  .tag-warning {
-    @apply bg-warning/10 text-warning;
-  }
-
-  .tag-muted {
-    @apply bg-muted text-muted-foreground;
+  .transcript-segment:last-child { border-bottom: 0; }
+  .transcript-segment:hover {
+    background: var(--ember-tint-7);
+    margin-left: -0.75rem;
+    margin-right: -0.75rem;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+    border-radius: 0.375rem;
+    border-bottom-color: transparent;
   }
 
   /* Logo container */
-  .logo-container {
-    @apply flex items-center gap-2;
+  .logo-container { display: flex; align-items: center; gap: 0.5rem; }
+  .logo-container img { border-radius: 0.5rem; object-fit: contain; }
+
+  /* Primary button — solid ember, never gradient */
+  .btn-primary-ember {
+    background: var(--ember);
+    color: white;
+    font-family: var(--font-body);
+    font-weight: 600;
+    border-radius: 999px;
+    padding: 0.75rem 1.5rem;
+    transition: all 0.18s ease;
+    box-shadow: var(--shadow-ember);
+  }
+  .btn-primary-ember:hover {
+    background: var(--ember-deep);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-ember-lg);
   }
 
-  .logo-container img {
-    @apply rounded-lg object-contain;
+  /* Ghost button — outlined */
+  .btn-ghost-ink {
+    background: transparent;
+    color: hsl(var(--foreground));
+    border: 1px solid hsl(var(--border));
+    border-radius: 999px;
+    padding: 0.75rem 1.5rem;
+    font-family: var(--font-body);
+    font-weight: 500;
+    transition: all 0.15s ease;
   }
+  .btn-ghost-ink:hover {
+    border-color: var(--ember);
+    color: var(--ember-deep);
+  }
+  .dark .btn-ghost-ink:hover { color: var(--ember-hi); }
 }
 
+/* ─── Utilities ─── */
 @layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
+  .text-balance { text-wrap: balance; }
+  .text-pretty { text-wrap: pretty; }
 
-  .gradient-text {
-    background: linear-gradient(135deg, var(--landing-ember) 0%, var(--gold) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
+  /* NOTE: gradient-text intentionally removed. Skill absolute_ban #2.
+     We use a solid `.text-ember` for emphasis instead. */
+  .text-ember { color: var(--ember-deep); }
+  .dark .text-ember { color: var(--ember-hi); }
 
-  .shadow-glow {
-    box-shadow: 0 0 20px -5px rgba(249, 115, 22, 0.3);
-  }
+  .shadow-paper-sm { box-shadow: var(--shadow-paper-sm); }
+  .shadow-paper-md { box-shadow: var(--shadow-paper-md); }
+  .shadow-paper-lg { box-shadow: var(--shadow-paper-lg); }
+  .shadow-ember { box-shadow: var(--shadow-ember); }
+  .shadow-ember-lg { box-shadow: var(--shadow-ember-lg); }
 
-  /* Warm Ember signature gradient bar - 4px top border on card headers */
-  .ember-bar {
-    position: relative;
-  }
-
-  .ember-bar::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 4px;
-    background: linear-gradient(135deg, #F97316, #F59E0B);
-    border-radius: inherit;
-  }
-
-  /* Primary button - gradient (from-orange-500 to-amber-500) */
-  .btn-primary-ember {
-    background: linear-gradient(135deg, #F97316, #F59E0B);
-    @apply text-white font-medium rounded-xl;
-    transition: opacity 0.15s ease;
-  }
-
-  .btn-primary-ember:hover {
-    opacity: 0.9;
-  }
-
-  .animate-fade-in {
-    animation: fadeInUp 0.5s ease-out forwards;
-    opacity: 0;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .animate-fade-in {
-      animation: none;
-      opacity: 1;
-    }
-  }
-
+  .animate-fade-in { animation: fadeInUp 0.5s ease-out forwards; opacity: 0; }
   @keyframes fadeInUp {
-    from {
-      opacity: 0;
-      transform: translateY(12px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
   }
-
-  /* Subtle fade in animation */
-  .animate-in {
-    animation: fadeIn 0.2s ease-out;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .animate-in {
-      animation: none;
-    }
-  }
-
+  .animate-in { animation: fadeIn 0.2s ease-out; }
   @keyframes fadeIn {
-    from {
-      opacity: 0;
-      transform: translateY(4px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .animate-fade-in, .animate-in { animation: none; opacity: 1; }
   }
 
-  /* Theme transition */
+  @keyframes dispatch-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.55; transform: scale(0.88); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .status-dot.recording, .recording-indicator::before { animation: none; }
+  }
+
   .theme-transition {
-    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
   }
 
-  /* Page gradient background - subtle and premium */
-  .page-gradient {
+  /* Page paper background — warm paper with subtle grain, identity unifier */
+  .page-paper {
     position: relative;
+    background: var(--paper);
   }
-
-  .page-gradient::before {
+  .page-paper::before {
     content: '';
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    inset: 0;
     pointer-events: none;
-    background: var(--gradient-light);
     z-index: 0;
+    background:
+      radial-gradient(ellipse 80% 55% at 15% -5%, var(--ember-tint-7), transparent 55%),
+      radial-gradient(ellipse 60% 40% at 95% 0%, color-mix(in oklch, var(--amber-warm) 6%, transparent), transparent 50%);
   }
 
-  .dark .page-gradient::before {
-    background: var(--gradient-dark);
-  }
-
-  /* ─── Landing: editorial / glass / ember (frontend-design skill) ─── */
+  /* ─── Landing-specific classes (kept as stable API for landing components) ─── */
   .landing-shell {
     position: relative;
     isolation: isolate;
   }
-
-  .landing-shell > * {
-    position: relative;
-    z-index: 1;
-  }
+  .landing-shell > * { position: relative; z-index: 1; }
 
   .landing-mesh {
     background:
-      radial-gradient(ellipse 90% 60% at 10% -15%, rgba(217, 63, 11, 0.06), transparent 55%),
-      radial-gradient(ellipse 70% 50% at 95% 5%, rgba(212, 144, 10, 0.04), transparent 50%),
-      radial-gradient(ellipse 50% 40% at 50% 100%, rgba(217, 63, 11, 0.03), transparent 45%);
-  }
-
-  .dark .landing-mesh {
-    background:
-      radial-gradient(ellipse 80% 55% at 15% 0%, rgba(232, 67, 10, 0.14), transparent 55%),
-      radial-gradient(ellipse 60% 45% at 100% 15%, rgba(245, 200, 66, 0.07), transparent 50%),
-      radial-gradient(ellipse 55% 35% at 40% 95%, rgba(232, 67, 10, 0.04), transparent 50%);
+      radial-gradient(ellipse 90% 60% at 10% -15%, var(--landing-orb-ember), transparent 55%),
+      radial-gradient(ellipse 70% 50% at 95% 5%, var(--landing-orb-gold), transparent 50%),
+      radial-gradient(ellipse 50% 40% at 50% 100%, var(--landing-orb-ember), transparent 45%);
   }
 
   .landing-grain {
     position: relative;
   }
-
   .landing-grain::after {
     content: '';
     position: fixed;
     inset: 0;
     pointer-events: none;
     z-index: 0;
-    opacity: 0.35;
+    opacity: 0.30;
     mix-blend-mode: overlay;
     background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
   }
-
-  .dark .landing-grain::after {
-    opacity: 0.22;
-    mix-blend-mode: soft-light;
-  }
-
-  @keyframes landing-shimmer {
-    0% {
-      background-position: 200% 0;
-    }
-    100% {
-      background-position: -200% 0;
-    }
-  }
-
-  .landing-shimmer {
-    background: linear-gradient(
-      110deg,
-      transparent 0%,
-      rgba(217, 63, 11, 0.04) 45%,
-      rgba(0, 0, 0, 0.02) 50%,
-      rgba(217, 63, 11, 0.04) 55%,
-      transparent 100%
-    );
-    background-size: 200% 100%;
-    animation: landing-shimmer 4s ease-in-out infinite;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .landing-shimmer {
-      animation: none;
-    }
-  }
-
-  .dark .landing-shimmer {
-    background: linear-gradient(
-      110deg,
-      transparent 0%,
-      rgba(232, 67, 10, 0.08) 45%,
-      rgba(255, 255, 255, 0.02) 50%,
-      rgba(232, 67, 10, 0.08) 55%,
-      transparent 100%
-    );
-    background-size: 200% 100%;
-  }
+  .dark .landing-grain::after { opacity: 0.18; mix-blend-mode: soft-light; }
 
   @keyframes landing-marquee {
-    0% {
-      transform: translateX(0);
-    }
-    100% {
-      transform: translateX(-50%);
-    }
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
   }
-
-  .landing-marquee-track {
-    animation: landing-marquee 38s linear infinite;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .landing-marquee-track {
-      animation: none;
-    }
-  }
-
-  @keyframes cta-glow {
-    0%,
-    100% {
-      box-shadow:
-        0 0 0 1px rgba(232, 67, 10, 0.15),
-        0 20px 50px -20px rgba(232, 67, 10, 0.25);
-    }
-    50% {
-      box-shadow:
-        0 0 0 1px rgba(245, 200, 66, 0.25),
-        0 24px 60px -16px rgba(232, 67, 10, 0.35);
-    }
-  }
-
-  .landing-cta-glow {
-    animation: cta-glow 5s ease-in-out infinite;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .landing-cta-glow {
-      animation: none;
-    }
-  }
-
-  @keyframes landing-rec-blink {
-    0%,
-    100% {
-      opacity: 1;
-    }
-    50% {
-      opacity: 0.15;
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    [style*="landing-rec-blink"] {
-      animation: none !important;
-    }
-  }
+  .landing-marquee-track { animation: landing-marquee 42s linear infinite; }
+  @media (prefers-reduced-motion: reduce) { .landing-marquee-track { animation: none; } }
 
   @keyframes landing-float {
-    0%,
-    100% {
-      transform: translateY(0);
-    }
-    50% {
-      transform: translateY(-8px);
-    }
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
   }
+  .landing-float-slow { animation: landing-float 7s ease-in-out infinite; }
+  @media (prefers-reduced-motion: reduce) { .landing-float-slow { animation: none; } }
 
-  .landing-float-slow {
-    animation: landing-float 7s ease-in-out infinite;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .landing-float-slow {
-      animation: none;
-    }
-  }
-
-  /* Speaker label styling - AI/transcript = purple per brand spec */
-  .speaker-label {
-    @apply inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-purple-500/10 text-purple-500 mr-2;
-  }
-
-  /* Transcript segment */
-  .transcript-segment {
-    @apply py-3 border-b border-border/50 last:border-0;
-  }
-
-  .transcript-segment:hover {
-    @apply bg-secondary/30 -mx-3 px-3 rounded-md border-transparent;
-  }
-
-  /* Scrollbar */
-  ::-webkit-scrollbar {
-    width: 6px;
-  }
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
+  /* Scrollbar — warm, subtle */
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb {
-    background: hsl(var(--border));
-    border-radius: 3px;
+    background: var(--rule);
+    border-radius: 4px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
   }
-  .dark ::-webkit-scrollbar-thumb {
-    background: hsl(var(--border));
-  }
+  ::-webkit-scrollbar-thumb:hover { background: var(--ember-tint-40); background-clip: padding-box; }
 
-  /* Logo: concentric ripples breathe (sound-wave metaphor; no lockup distortion) */
-  .logo-ring-outer {
-    opacity: 0.28;
-  }
-  .logo-ring-mid {
-    opacity: 0.52;
-  }
-  .logo-mark-animated .logo-ring-outer {
-    animation: echobrief-ring-outer 2.8s ease-in-out infinite;
-    transform-origin: 16px 16px;
-  }
-  .logo-mark-animated .logo-ring-mid {
-    animation: echobrief-ring-mid 2.8s ease-in-out 0.32s infinite;
-    transform-origin: 16px 16px;
-  }
-  .logo-mark-animated .logo-core {
-    animation: echobrief-core 3s ease-in-out infinite;
-    transform-origin: 16px 16px;
-  }
-
+  /* Logo ripple breathing — preserved */
+  .logo-ring-outer { opacity: 0.28; }
+  .logo-ring-mid { opacity: 0.52; }
+  .logo-mark-animated .logo-ring-outer { animation: echobrief-ring-outer 2.8s ease-in-out infinite; transform-origin: 16px 16px; }
+  .logo-mark-animated .logo-ring-mid { animation: echobrief-ring-mid 2.8s ease-in-out 0.32s infinite; transform-origin: 16px 16px; }
+  .logo-mark-animated .logo-core { animation: echobrief-core 3s ease-in-out infinite; transform-origin: 16px 16px; }
   @media (prefers-reduced-motion: reduce) {
     .logo-mark-animated .logo-ring-outer,
     .logo-mark-animated .logo-ring-mid,
-    .logo-mark-animated .logo-core {
-      animation: none;
-    }
+    .logo-mark-animated .logo-core { animation: none; }
   }
   @keyframes echobrief-ring-outer {
-    0%,
-    100% {
-      opacity: 0.22;
-      transform: scale(1);
-    }
-    50% {
-      opacity: 0.42;
-      transform: scale(1.03);
-    }
+    0%, 100% { opacity: 0.22; transform: scale(1); }
+    50% { opacity: 0.42; transform: scale(1.03); }
   }
   @keyframes echobrief-ring-mid {
-    0%,
-    100% {
-      opacity: 0.45;
-      transform: scale(1);
-    }
-    50% {
-      opacity: 0.62;
-      transform: scale(1.025);
-    }
+    0%, 100% { opacity: 0.45; transform: scale(1); }
+    50% { opacity: 0.62; transform: scale(1.025); }
   }
   @keyframes echobrief-core {
-    0%,
-    100% {
-      opacity: 1;
-    }
-    50% {
-      opacity: 0.92;
-    }
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.92; }
   }
 
-  /* Input placeholder color for dark mode */
-  .dark input::placeholder {
-    color: hsl(var(--muted-foreground));
-  }
+  /* Form surfaces */
+  .dark input::placeholder { color: var(--ink-soft); }
+  input::placeholder { color: var(--ink-soft); }
+  .dark select option { background: hsl(var(--card)); color: hsl(var(--card-foreground)); }
 
-  /* Select option backgrounds for dark mode */
-  .dark select option {
-    background: hsl(var(--card));
-    color: hsl(var(--card-foreground));
-  }
+  /* Text selection — warm ember tint */
+  ::selection { background: var(--ember-tint-20); color: var(--ink); }
+  .dark ::selection { background: var(--ember-tint-20); color: var(--bone); }
 }

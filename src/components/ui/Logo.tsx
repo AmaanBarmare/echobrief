@@ -12,10 +12,10 @@ interface LogoProps {
 }
 
 const sizes = {
-  sm: { svg: 24, text: 'text-[15px]' },
-  md: { svg: 28, text: 'text-[17px]' },
-  lg: { svg: 36, text: 'text-[22px]' },
-  xl: { svg: 48, text: 'text-[28px]' },
+  sm: { svg: 24, text: 'text-[16px]' },
+  md: { svg: 28, text: 'text-[19px]' },
+  lg: { svg: 36, text: 'text-[24px]' },
+  xl: { svg: 48, text: 'text-[32px]' },
 };
 
 function LogoMark({ size = 'md', animated = true }: { size?: LogoProps['size']; animated?: boolean }) {
@@ -33,8 +33,8 @@ function LogoMark({ size = 'md', animated = true }: { size?: LogoProps['size']; 
     >
       <defs>
         <linearGradient id={gradId} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" style={{ stopColor: 'var(--landing-ember)' }} />
-          <stop offset="100%" style={{ stopColor: 'var(--landing-gold)' }} />
+          <stop offset="0%" style={{ stopColor: 'var(--ember)' }} />
+          <stop offset="100%" style={{ stopColor: 'var(--gold)' }} />
         </linearGradient>
       </defs>
       <circle
@@ -73,10 +73,10 @@ export function Logo({
       {showText && (
         <span
           className={cn('leading-none', sizes[size].text)}
-          style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.04em' }}
+          style={{ fontFamily: 'var(--font-brand-serif)', letterSpacing: '-0.04em' }}
         >
-          <span style={{ color: 'var(--landing-text)' }}>echo</span>
-          <em style={{ color: 'var(--landing-ember)', fontStyle: 'italic' }}>brief</em>
+          <span style={{ color: 'var(--ink)', fontStyle: 'normal' }}>echo</span>
+          <em style={{ color: 'var(--ember)', fontStyle: 'italic' }}>brief</em>
         </span>
       )}
     </span>

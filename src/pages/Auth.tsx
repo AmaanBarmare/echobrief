@@ -1,17 +1,22 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link, useSearchParams } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { useNavigate, Link } from 'react-router-dom';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Mail, Lock, User, ArrowRight, ArrowLeft, Loader2 } from 'lucide-react';
+import { Mail, Lock, User, ArrowLeft, ArrowRight, Loader2, Check } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Logo } from '@/components/ui/Logo';
 import { ThemeToggle } from '@/components/ThemeToggle';
 
-const inputClassName =
-  'w-full rounded-lg border border-border bg-background py-2.5 pl-10 pr-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/20';
+const inputClass =
+  'w-full rounded-md px-3 py-2.5 text-[14.5px] outline-none transition-colors placeholder:opacity-60';
+
+const inputStyle = {
+  background: 'var(--paper-card)',
+  border: '1px solid var(--rule)',
+  color: 'var(--ink)',
+  fontFamily: 'var(--font-body)',
+} as const;
 
 export default function Auth() {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -24,37 +29,34 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const { user, signIn, signUp, isPasswordRecovery, clearPasswordRecovery } = useAuth();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const { toast } = useToast();
 
-  // Use the centralized recovery flag from AuthContext
   const isResetPassword = isPasswordRecovery;
 
   useEffect(() => {
-    if (user && !isResetPassword) {
-      navigate('/dashboard');
-    }
+    if (user && !isResetPassword) navigate('/dashboard');
   }, [user, isResetPassword, navigate]);
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password !== confirmPassword) {
-      toast({ title: 'Error', description: 'Passwords do not match.', variant: 'destructive' });
+      toast({ title: 'Passwords do not match', variant: 'destructive' });
       return;
     }
     if (password.length < 6) {
-      toast({ title: 'Error', description: 'Password must be at least 6 characters.', variant: 'destructive' });
+      toast({ title: 'Password too short', description: 'Use at least 6 characters.', variant: 'destructive' });
       return;
     }
     setLoading(true);
     try {
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
-      toast({ title: 'Password updated!', description: 'You can now sign in with your new password.' });
+      toast({ title: 'Password updated' });
       clearPasswordRecovery();
       navigate('/dashboard');
-    } catch (error: any) {
-      toast({ title: 'Error', description: error.message || 'Something went wrong', variant: 'destructive' });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Something went wrong';
+      toast({ title: 'Error', description: message, variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -63,7 +65,7 @@ export default function Auth() {
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) {
-      toast({ title: 'Error', description: 'Please enter your email address.', variant: 'destructive' });
+      toast({ title: 'Enter your email', variant: 'destructive' });
       return;
     }
     setLoading(true);
@@ -72,10 +74,11 @@ export default function Auth() {
         redirectTo: `${window.location.origin}/auth?type=recovery`,
       });
       if (error) throw error;
-      toast({ title: 'Reset link sent!', description: 'Check your email for a password reset link.' });
+      toast({ title: 'Reset link sent', description: 'Check your email.' });
       setIsForgotPassword(false);
-    } catch (error: any) {
-      toast({ title: 'Error', description: error.message || 'Something went wrong', variant: 'destructive' });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Something went wrong';
+      toast({ title: 'Error', description: message, variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -95,309 +98,338 @@ export default function Auth() {
         if (error) throw error;
       }
       navigate('/dashboard');
-    } catch (error: any) {
-      toast({ title: 'Error', description: error.message || 'Something went wrong', variant: 'destructive' });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Something went wrong';
+      toast({ title: 'Error', description: message, variant: 'destructive' });
     } finally {
       setLoading(false);
     }
   };
 
+  const title = isResetPassword
+    ? 'Set a new password'
+    : isForgotPassword
+    ? 'Reset your password'
+    : isSignUp
+    ? 'Create your account'
+    : 'Welcome back';
+
+  const subtitle = isResetPassword
+    ? 'Enter a new password below.'
+    : isForgotPassword
+    ? "We'll email you a reset link."
+    : isSignUp
+    ? '3 meetings free. No credit card required.'
+    : 'Sign in to continue to your dashboard.';
+
+  const bullets = [
+    '22 Indian languages',
+    'Auto-join Meet, Zoom & Teams',
+    'Delivered to Slack, WhatsApp, email',
+  ];
+
   return (
-    <div className="flex min-h-screen bg-background">
-      {/* Left Panel - Branding */}
-      <div className="relative hidden overflow-hidden lg:flex lg:w-1/2 lg:bg-gradient-to-br lg:from-stone-100 lg:via-background lg:to-stone-200 dark:lg:from-stone-900 dark:lg:via-background dark:lg:to-stone-950">
-        <div className="pointer-events-none absolute inset-0">
-          <div className="absolute left-1/4 top-1/4 h-72 w-72 rounded-full bg-orange-500/15 blur-[100px] dark:bg-orange-500/20" />
-          <div className="absolute bottom-1/3 right-1/4 h-56 w-56 rounded-full bg-amber-500/10 blur-[80px]" />
-        </div>
-
-        <div className="relative z-10 flex flex-col justify-center p-16">
-          <div className="mb-16">
-            <Logo size="lg" linkTo="/" />
-          </div>
-
-          <h1
-            className="mb-5 text-4xl font-semibold leading-tight tracking-[-0.02em] text-foreground font-heading"
-          >
-            Transform your meetings
-            <br />
-            into actionable insights
-          </h1>
-          <p className="max-w-md text-lg leading-relaxed text-muted-foreground">
-            Record, transcribe, and get AI-powered summaries in 22 Indian languages. Delivered to WhatsApp, Slack, or
-            email.
-          </p>
-
-          <div className="mt-10 flex flex-wrap gap-2">
-            {['22 Languages', 'Hinglish Support', 'WhatsApp Delivery', 'DPDP Compliant'].map((f) => (
-              <span
-                key={f}
-                className="rounded-full border border-orange-500/20 bg-orange-500/[0.08] px-3 py-1.5 text-xs font-medium text-orange-700 dark:text-orange-300"
-              >
-                {f}
-              </span>
-            ))}
-          </div>
-        </div>
+    <div className="relative flex min-h-screen" style={{ background: 'var(--paper)' }}>
+      <div className="absolute left-6 top-5 z-20 md:left-8">
+        <Link
+          to="/"
+          className="inline-flex items-center gap-1.5 text-[13px] no-underline"
+          style={{ color: 'var(--ink-mid)' }}
+        >
+          <ArrowLeft className="h-[14px] w-[14px]" strokeWidth={1.75} />
+          Back to home
+        </Link>
+      </div>
+      <div className="absolute right-6 top-5 z-20 md:right-8">
+        <ThemeToggle />
       </div>
 
-      {/* Right Panel - Auth Form */}
-      <div className="relative flex flex-1 items-center justify-center p-8">
-        <div className="absolute left-6 top-6 z-10">
-          <Link
-            to="/"
-            className="inline-flex items-center gap-2 rounded-lg px-1 py-1 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
+      {/* Left — product pitch */}
+      <div
+        className="relative hidden overflow-hidden lg:flex lg:w-[48%] lg:flex-col lg:justify-between lg:p-12 xl:p-16"
+        style={{ background: 'var(--paper-raised)', borderRight: '1px solid var(--rule)' }}
+      >
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -left-24 top-1/4 h-[380px] w-[380px] rounded-full blur-[80px]"
+          style={{ background: 'color-mix(in oklch, var(--ember) 8%, transparent)' }}
+        />
+
+        <div className="relative">
+          <Logo size="lg" linkTo="/" />
+        </div>
+
+        <div className="relative">
+          <h1
+            className="max-w-[16ch] text-[clamp(2.25rem,4vw,3rem)] font-semibold leading-[1.1]"
+            style={{ color: 'var(--ink)', letterSpacing: '-0.02em' }}
           >
-            <ArrowLeft className="h-4 w-4 shrink-0" aria-hidden />
-            Back to home
-          </Link>
+            Meeting summaries that actually make sense.
+          </h1>
+          <p
+            className="mt-4 max-w-[40ch] text-[15.5px] leading-[1.6]"
+            style={{ color: 'var(--ink-mid)' }}
+          >
+            Auto-join your calls, transcribe accurately in 22 Indian languages,
+            and deliver clear summaries to Slack, WhatsApp, or email.
+          </p>
+
+          <ul className="mt-8 space-y-3">
+            {bullets.map((b) => (
+              <li key={b} className="flex items-center gap-2.5 text-[14.5px]" style={{ color: 'var(--ink)' }}>
+                <span
+                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full"
+                  style={{ background: 'color-mix(in oklch, var(--ember) 12%, transparent)' }}
+                >
+                  <Check className="h-3 w-3" strokeWidth={2.5} style={{ color: 'var(--ember-deep)' }} />
+                </span>
+                {b}
+              </li>
+            ))}
+          </ul>
         </div>
-        <div className="absolute right-6 top-6 z-10">
-          <ThemeToggle />
-        </div>
-        <div className="w-full max-w-md">
-          <div className="mb-10 flex justify-center lg:hidden">
-            <Logo size="lg" linkTo="/" />
+
+        <p className="relative text-[12.5px]" style={{ color: 'var(--ink-soft)' }}>
+          Made in India · Data stays in India
+        </p>
+      </div>
+
+      {/* Right — form */}
+      <div className="flex flex-1 items-center justify-center px-6 py-24 md:px-12">
+        <div className="w-full max-w-[400px]">
+          <div className="mb-8 flex justify-center lg:hidden">
+            <Logo size="md" linkTo="/" />
           </div>
 
-          <div className="rounded-2xl border border-border bg-card p-8 shadow-sm dark:shadow-none">
-            {emailSent ? (
-              <div className="py-4 text-center">
-                <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-full border border-orange-500/20 bg-orange-500/[0.08]">
-                  <Mail className="h-8 w-8 text-orange-600 dark:text-orange-400" />
-                </div>
-                <h2 className="mb-2 text-xl font-semibold text-foreground font-heading">
-                  Check your email
+          {emailSent ? (
+            <div>
+              <h2 className="text-[26px] font-semibold leading-tight" style={{ color: 'var(--ink)', letterSpacing: '-0.02em' }}>
+                Check your email
+              </h2>
+              <p className="mt-3 text-[15px] leading-[1.6]" style={{ color: 'var(--ink-mid)' }}>
+                We sent a verification link to{' '}
+                <span style={{ color: 'var(--ink)', fontWeight: 600 }}>{email}</span>.
+                Click it to activate your account.
+              </p>
+              <button
+                onClick={() => {
+                  setEmailSent(false);
+                  setIsSignUp(false);
+                }}
+                className="mt-6 inline-flex items-center gap-1.5 text-[13.5px] font-medium"
+                style={{ color: 'var(--ember-deep)' }}
+              >
+                <ArrowLeft className="h-[14px] w-[14px]" strokeWidth={1.75} />
+                Back to sign in
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="mb-8">
+                <h2 className="text-[28px] font-semibold leading-tight" style={{ color: 'var(--ink)', letterSpacing: '-0.02em' }}>
+                  {title}
                 </h2>
-                <p className="mb-6 text-sm text-muted-foreground">
-                  We sent a verification link to <span className="font-medium text-foreground">{email}</span>. Click the
-                  link to activate your account.
+                <p className="mt-2 text-[14.5px]" style={{ color: 'var(--ink-mid)' }}>
+                  {subtitle}
                 </p>
-                <p className="mb-6 text-xs text-muted-foreground">Didn't receive it? Check your spam folder or try again.</p>
-                <button
-                  onClick={() => {
-                    setEmailSent(false);
-                    setIsSignUp(false);
-                  }}
-                  className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-                >
-                  <ArrowLeft className="w-4 h-4" />
-                  Back to sign in
-                </button>
               </div>
-            ) : (
-              <>
-                <div className="mb-8 text-center">
-                  <h2
-                    className="mb-2 text-2xl font-semibold tracking-[-0.02em] text-foreground font-heading"
-                  >
-                    {isResetPassword ? 'Set new password' : isForgotPassword ? 'Reset your password' : isSignUp ? 'Create your account' : 'Welcome back'}
-                  </h2>
-                  <p className="text-sm text-muted-foreground">
-                    {isResetPassword
-                      ? 'Enter your new password below'
-                      : isForgotPassword
-                        ? "Enter your email and we'll send you a reset link"
-                        : isSignUp 
-                          ? 'Start recording smarter meetings today' 
-                          : 'Sign in to continue to your dashboard'}
-                  </p>
-                </div>
 
-                {isResetPassword ? (
-                  <form onSubmit={handleResetPassword} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="new-password" className="text-[13px] text-muted-foreground">
-                        New Password
-                      </Label>
-                      <div className="relative">
-                        <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              {isResetPassword ? (
+                <form onSubmit={handleResetPassword} className="space-y-4">
+                  <Field id="new-password" label="New password" icon={Lock}>
+                    <input
+                      id="new-password"
+                      type="password"
+                      placeholder="At least 6 characters"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className={inputClass}
+                      style={{ ...inputStyle, paddingLeft: 36 }}
+                      required
+                      minLength={6}
+                    />
+                  </Field>
+                  <Field id="confirm-password" label="Confirm password" icon={Lock}>
+                    <input
+                      id="confirm-password"
+                      type="password"
+                      placeholder="Type it again"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className={inputClass}
+                      style={{ ...inputStyle, paddingLeft: 36 }}
+                      required
+                      minLength={6}
+                    />
+                  </Field>
+                  <SubmitButton loading={loading}>Update password</SubmitButton>
+                </form>
+              ) : isForgotPassword ? (
+                <form onSubmit={handleForgotPassword} className="space-y-4">
+                  <Field id="email" label="Email" icon={Mail}>
+                    <input
+                      id="email"
+                      type="email"
+                      placeholder="you@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className={inputClass}
+                      style={{ ...inputStyle, paddingLeft: 36 }}
+                      required
+                    />
+                  </Field>
+                  <SubmitButton loading={loading}>Send reset link</SubmitButton>
+                  <button
+                    type="button"
+                    onClick={() => setIsForgotPassword(false)}
+                    className="inline-flex items-center gap-1.5 text-[13.5px]"
+                    style={{ color: 'var(--ink-mid)' }}
+                  >
+                    <ArrowLeft className="h-[14px] w-[14px]" strokeWidth={1.75} />
+                    Back to sign in
+                  </button>
+                </form>
+              ) : (
+                <>
+                  <form onSubmit={handleSubmit} className="space-y-4">
+                    {isSignUp && (
+                      <Field id="name" label="Full name" icon={User}>
                         <input
-                          id="new-password"
+                          id="name"
+                          type="text"
+                          placeholder="Priya Kumar"
+                          value={fullName}
+                          onChange={(e) => setFullName(e.target.value)}
+                          className={inputClass}
+                          style={{ ...inputStyle, paddingLeft: 36 }}
+                          required
+                        />
+                      </Field>
+                    )}
+
+                    <Field id="email" label="Email" icon={Mail}>
+                      <input
+                        id="email"
+                        type="email"
+                        placeholder="you@example.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className={inputClass}
+                        style={{ ...inputStyle, paddingLeft: 36 }}
+                        required
+                      />
+                    </Field>
+
+                    <div>
+                      <div className="mb-1.5 flex items-center justify-between">
+                        <Label
+                          htmlFor="password"
+                          className="text-[12.5px] font-medium"
+                          style={{ color: 'var(--ink-mid)' }}
+                        >
+                          Password
+                        </Label>
+                        {!isSignUp && (
+                          <button
+                            type="button"
+                            onClick={() => setIsForgotPassword(true)}
+                            className="text-[12.5px] font-medium"
+                            style={{ color: 'var(--ember-deep)' }}
+                          >
+                            Forgot?
+                          </button>
+                        )}
+                      </div>
+                      <div className="relative">
+                        <Lock className="absolute left-3 top-1/2 h-[14px] w-[14px] -translate-y-1/2" style={{ color: 'var(--ink-soft)' }} strokeWidth={1.75} />
+                        <input
+                          id="password"
                           type="password"
                           placeholder="••••••••"
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
-                          className={inputClassName}
+                          className={inputClass}
+                          style={{ ...inputStyle, paddingLeft: 36 }}
                           required
                           minLength={6}
                         />
                       </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="confirm-password" className="text-[13px] text-muted-foreground">
-                        Confirm Password
-                      </Label>
-                      <div className="relative">
-                        <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <input
-                          id="confirm-password"
-                          type="password"
-                          placeholder="••••••••"
-                          value={confirmPassword}
-                          onChange={(e) => setConfirmPassword(e.target.value)}
-                          className={inputClassName}
-                          required
-                          minLength={6}
-                        />
-                      </div>
-                    </div>
-                    <button
-                      type="submit"
-                      disabled={loading}
-                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 py-3 text-[15px] font-semibold text-white shadow-md shadow-orange-500/25 transition-opacity disabled:opacity-50"
-                    >
-                      {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Update Password <ArrowRight className="w-4 h-4" /></>}
-                    </button>
+
+                    <SubmitButton loading={loading}>
+                      {isSignUp ? 'Create account' : 'Sign in'}
+                    </SubmitButton>
                   </form>
-                ) : isForgotPassword ? (
-                  <form onSubmit={handleForgotPassword} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="email" className="text-[13px] text-muted-foreground">
-                        Email
-                      </Label>
-                      <div className="relative">
-                        <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <input
-                          id="email"
-                          type="email"
-                          placeholder="you@example.com"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          className={inputClassName}
-                          required
-                        />
-                      </div>
-                    </div>
+
+                  <p className="mt-6 text-center text-[13.5px]" style={{ color: 'var(--ink-mid)' }}>
+                    {isSignUp ? 'Already have an account? ' : "Don't have an account? "}
                     <button
-                      type="submit"
-                      disabled={loading}
-                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 py-3 text-[15px] font-semibold text-white shadow-md shadow-orange-500/25 transition-opacity disabled:opacity-50"
+                      type="button"
+                      onClick={() => setIsSignUp(!isSignUp)}
+                      className="no-underline"
+                      style={{ color: 'var(--ember-deep)', fontWeight: 600 }}
                     >
-                      {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Send Reset Link <ArrowRight className="w-4 h-4" /></>}
+                      {isSignUp ? 'Sign in' : 'Sign up'}
                     </button>
-                    <div className="text-center mt-4">
-                      <button
-                        type="button"
-                        onClick={() => setIsForgotPassword(false)}
-                        className="inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
-                      >
-                        <ArrowLeft className="w-3 h-3" /> Back to sign in
-                      </button>
-                    </div>
-                  </form>
-                ) : (
-                  <>
-                    <form onSubmit={handleSubmit} className="space-y-4">
-                      {isSignUp && (
-                        <div className="space-y-2">
-                          <Label htmlFor="name" className="text-[13px] text-muted-foreground">
-                            Full Name
-                          </Label>
-                          <div className="relative">
-                            <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                            <input
-                              id="name"
-                              type="text"
-                              placeholder="John Doe"
-                              value={fullName}
-                              onChange={(e) => setFullName(e.target.value)}
-                              className={inputClassName}
-                              required={isSignUp}
-                            />
-                          </div>
-                        </div>
-                      )}
+                  </p>
+                </>
+              )}
+            </>
+          )}
 
-                      <div className="space-y-2">
-                        <Label htmlFor="email" className="text-[13px] text-muted-foreground">
-                          Email
-                        </Label>
-                        <div className="relative">
-                          <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                          <input
-                            id="email"
-                            type="email"
-                            placeholder="you@example.com"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            className={inputClassName}
-                            required
-                          />
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Label htmlFor="password" className="text-[13px] text-muted-foreground">
-                            Password
-                          </Label>
-                          {!isSignUp && (
-                            <button
-                              type="button"
-                              onClick={() => setIsForgotPassword(true)}
-                              className="text-xs font-medium text-orange-600 transition-colors hover:text-orange-500 dark:text-orange-400"
-                            >
-                              Forgot password?
-                            </button>
-                          )}
-                        </div>
-                        <div className="relative">
-                          <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                          <input
-                            id="password"
-                            type="password"
-                            placeholder="••••••••"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            className={inputClassName}
-                            required
-                            minLength={6}
-                          />
-                        </div>
-                      </div>
-
-                      <button
-                        type="submit"
-                        disabled={loading}
-                        className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 py-3 text-[15px] font-semibold text-white shadow-md shadow-orange-500/25 transition-opacity disabled:opacity-50"
-                      >
-                        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : (
-                          <>{isSignUp ? 'Create Account' : 'Sign In'} <ArrowRight className="w-4 h-4" /></>
-                        )}
-                      </button>
-                    </form>
-
-                    <div className="mt-6 text-center">
-                      <button
-                        type="button"
-                        onClick={() => setIsSignUp(!isSignUp)}
-                        className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-                      >
-                        {isSignUp ? (
-                          <>
-                            Already have an account?{' '}
-                            <span className="text-orange-600 dark:text-orange-400">Sign in</span>
-                          </>
-                        ) : (
-                          <>
-                            Don't have an account? <span className="text-orange-600 dark:text-orange-400">Sign up</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </>
-                )}
-              </>
-            )}
-          </div>
-
-          {/* Footer */}
-          <p className="mt-6 text-center text-xs text-muted-foreground">
-            By signing in, you agree to our Terms of Service and Privacy Policy
+          <p className="mt-8 text-center text-[12px]" style={{ color: 'var(--ink-soft)' }}>
+            By continuing you agree to our Terms and Privacy Policy.
           </p>
         </div>
       </div>
     </div>
+  );
+}
+
+function Field({
+  id,
+  label,
+  icon: Icon,
+  children,
+}: {
+  id: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string; strokeWidth?: number; style?: React.CSSProperties }>;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <Label
+        htmlFor={id}
+        className="mb-1.5 block text-[12.5px] font-medium"
+        style={{ color: 'var(--ink-mid)' }}
+      >
+        {label}
+      </Label>
+      <div className="relative">
+        <Icon className="absolute left-3 top-1/2 h-[14px] w-[14px] -translate-y-1/2" strokeWidth={1.75} style={{ color: 'var(--ink-soft)' }} />
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function SubmitButton({ loading, children }: { loading: boolean; children: React.ReactNode }) {
+  return (
+    <button
+      type="submit"
+      disabled={loading}
+      className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-md px-5 py-3 text-[14.5px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+      style={{ background: 'var(--ember)' }}
+    >
+      {loading ? (
+        <Loader2 className="h-4 w-4 animate-spin" />
+      ) : (
+        <>
+          <span>{children}</span>
+          <ArrowRight className="h-4 w-4" strokeWidth={2} />
+        </>
+      )}
+    </button>
   );
 }

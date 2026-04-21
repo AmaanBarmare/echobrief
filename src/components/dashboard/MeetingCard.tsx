@@ -51,11 +51,12 @@ export function MeetingCard({ meeting }: MeetingCardProps) {
 
   return (
     <Link to={`/meeting/${meeting.id}`}>
-      <Card className={cn(
-        "group transition-all duration-150 cursor-pointer border border-border bg-card",
-        "hover:bg-secondary hover:border-border",
-        meeting.status === 'recording' && "border-l-2 border-l-recording"
-      )}>
+      <Card
+        className={cn(
+          "meeting-card group cursor-pointer",
+          meeting.status === 'recording' && "recording"
+        )}
+      >
         <CardContent className="p-4">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-start gap-3 flex-1 min-w-0">

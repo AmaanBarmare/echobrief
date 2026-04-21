@@ -9,20 +9,28 @@ interface DashboardLayoutProps {
 }
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('sidebar-collapsed') === 'true';
+    }
+    return false;
+  });
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div
+      className="relative min-h-screen text-foreground"
+      style={{ background: 'var(--paper)' }}
+    >
       <Sidebar onCollapsedChange={setSidebarCollapsed} />
-      <div className={cn(
-        "min-h-screen transition-all duration-200 relative z-10",
-        sidebarCollapsed ? "ml-14" : "ml-[220px]"
-      )}>
+      <div
+        className={cn(
+          'min-h-screen transition-all duration-200',
+          sidebarCollapsed ? 'ml-[60px]' : 'ml-[240px]',
+        )}
+      >
         <Header />
-        <main className="p-0">
-          <PageTransition>
-            {children}
-          </PageTransition>
+        <main>
+          <PageTransition>{children}</PageTransition>
         </main>
       </div>
     </div>
