@@ -135,9 +135,23 @@ serve(async (req) => {
       // multiple people spoke. Recall knows exactly who spoke when.
       const recallTimeline: Array<{ speaker: string; start: number; end: number }> =
         config.recall_speaker_timeline || [];
+      const recallParticipants: Array<{ id: number; name: string }> =
+        config.recall_participants || [];
       const perSegmentSpeaker: (string | null)[] = rawSegments.map(() => null);
 
-      if (recallTimeline.length > 0) {
+      // Fast path: if only one participant joined the meeting, every word
+      // belongs to them. Recall's timeline has confidence-gated gaps (short
+      // utterances like "hmm" fall outside speech_on/speech_off windows), so
+      // relying on overlap alone spuriously creates a SPEAKER_01 phantom.
+      if (recallParticipants.length === 1) {
+        const soloName = recallParticipants[0].name;
+        for (let i = 0; i < rawSegments.length; i++) {
+          perSegmentSpeaker[i] = soloName;
+        }
+        console.log(
+          `Speaker mapping: single-participant fast path → all segments attributed to "${soloName}"`,
+        );
+      } else if (recallTimeline.length > 0) {
         for (let i = 0; i < rawSegments.length; i++) {
           const seg = rawSegments[i];
           let bestOverlap = 0;
@@ -154,7 +168,24 @@ serve(async (req) => {
             }
           }
 
-          if (bestName && bestOverlap > 0) {
+          // If no overlap, fall back to nearest-in-time Recall entry instead
+          // of SPEAKER_XX. A short utterance that slipped past Recall's speech
+          // detection is still much more likely to be the nearest speaker than
+          // a phantom diarization label.
+          if (!bestName) {
+            const segMid = ((seg.start || 0) + (seg.end || 0)) / 2;
+            let bestDistance = Infinity;
+            for (const rt of recallTimeline) {
+              const rtMid = (rt.start + rt.end) / 2;
+              const distance = Math.abs(segMid - rtMid);
+              if (distance < bestDistance) {
+                bestDistance = distance;
+                bestName = rt.speaker;
+              }
+            }
+          }
+
+          if (bestName) {
             perSegmentSpeaker[i] = bestName;
           }
         }
