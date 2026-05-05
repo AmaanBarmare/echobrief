@@ -42,7 +42,6 @@ export async function createSarvamJob(
         model: "saaras:v3",
         mode: "translate",
         with_diarization: true,
-        with_timestamps: true,
         language_code: "unknown",
       },
       callback: {
