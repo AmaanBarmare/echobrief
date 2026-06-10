@@ -147,7 +147,7 @@ See `BRAND.md` for colors (orange/amber gradient primary, stone neutrals), typog
 
 - **Errors runbook:** [`errors.md`](errors.md). Canonical list of every error pattern the pipeline can hit, with root cause, recovery action, and resolution status. The monitor cron's `KNOWN_PATTERNS` set in [`supabase/functions/monitor-stuck-meetings/known-patterns.ts`](supabase/functions/monitor-stuck-meetings/known-patterns.ts) is the programmatic mirror.
 
-- **Stuck-meeting alerts:** the monitor cron emails `amaan@oltaflock.ai` from `notifications@oltaflock.ai` (Resend). Subject prefixes: `[ECHOBRIEF]` for known-pattern recovery failures, `[ECHOBRIEF NEW ERROR]` for unrecognized signatures.
+- **Stuck-meeting alerts:** the monitor cron emails `amaan@oltaflock.ai` from `notifications@oltaflock.ai` (Resend). Subject prefixes: `[ECHOBRIEF]` for known-pattern recovery failures, `[ECHOBRIEF NEW ERROR]` for unrecognized signatures, `[ECHOBRIEF HARNESS TEST]` for alerts triggered by `[harness]`-prefixed test meetings (expected during harness runs — real delivery is part of the test).
 
 - **Manual recovery script:** [`/tmp/recover_meeting.py`](/tmp/recover_meeting.py) — downloads audio from Supabase Storage, calls Whisper locally, calls GPT-4o-mini, writes transcript + insights + completed status. Used when both Sarvam and the in-edge-function Whisper fall through (typically long-audio OOM). Update the meeting ID at the top of the file before running.
 

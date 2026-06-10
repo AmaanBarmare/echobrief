@@ -26,6 +26,7 @@
 - [Chrome Extension System Design](#chrome-extension-system-design)
 - [Engineering Challenges and Problems Faced](#engineering-challenges-and-problems-faced)
 - [Technical Highlights](#technical-highlights)
+- [Testing: Harness and Evals](#testing-harness-and-evals)
 - [Getting Started](#getting-started)
 - [Environment Variables](#environment-variables)
 - [Scripts](#scripts)
@@ -118,10 +119,19 @@ Most meeting tools stop at transcription. EchoBrief goes deeper in both product 
                                 │
                                 ▼
 ┌──────────────────────────────────────────────────────────────────────────────┐
+│                       Vercel Compute (api/ functions)                        │
+│                                                                              │
+│  - split-audio: ffmpeg chunking for long meetings (Supabase edge functions   │
+│    lack ffmpeg + enough memory). Splits >6-min audio into 300 s re-encoded   │
+│    chunks and submits ONE multi-file Sarvam batch job.                       │
+└───────────────────────────────┬──────────────────────────────────────────────┘
+                                │
+                                ▼
+┌──────────────────────────────────────────────────────────────────────────────┐
 │                           External Services                                  │
 │                                                                              │
-│  - Sarvam AI: primary async STT + diarization                                │
-│  - OpenAI: Whisper fallback + GPT-4o-mini insight generation                 │
+│  - Sarvam AI: primary async STT + diarization (chunked batch jobs)           │
+│  - OpenAI: Whisper fallback + GPT-4o-mini insight generation + eval judge    │
 │  - Google Calendar API: calendar sync                                        │
 │  - Slack API: message delivery                                               │
 │  - Resend: email delivery                                                    │
@@ -152,9 +162,11 @@ Most meeting tools stop at transcription. EchoBrief goes deeper in both product 
 2. `start-recall-recording` creates a Recall recording bot and stores the mapping in `meetings`.
 3. Recall sends lifecycle events to `recall-webhook`.
 4. Once the bot finishes recording, EchoBrief downloads the audio from Recall and fetches Recall's transcript (which contains real participant names from the meeting platform).
-5. Audio is archived to Supabase Storage, then submitted to Sarvam for transcription. A speaker timeline (participant name + time ranges) is built from the Recall transcript and stored in `processing_config`.
-6. `sarvam-webhook` maps each Sarvam transcript segment to real participant names using per-segment time-overlap matching against the Recall speaker timeline (this approach works even when Sarvam's diarization assigns all segments to one speaker ID).
-7. Transcript with real speaker names is persisted, insights are generated, and downstream delivery (Slack/email) is triggered.
+5. Audio is archived to Supabase Storage. A speaker timeline (participant name + time ranges) is built from the Recall transcript and stored in `processing_config`.
+6. The audio is routed through the **Vercel `api/split-audio` function**: ffmpeg probes the real duration; ≤6-min audio passes through untouched, longer audio is split into 300 s re-encoded chunks. All chunks are submitted as **one multi-file Sarvam batch job** (Sarvam's `saaras:v3` silently returns empty transcripts for long files — see Engineering Challenge #19). If the splitter is unreachable, the pipeline falls back to the legacy direct single-file submission.
+7. `sarvam-webhook` receives the completion callback. For chunked jobs it downloads outputs `0.json..N.json` in order, offsets each chunk's timestamps by `chunk_index × chunk_seconds`, time-sorts the merged segments, and stitches one transcript.
+8. The webhook maps each Sarvam transcript segment to real participant names using per-segment time-overlap matching against the Recall speaker timeline (this approach works even when Sarvam's diarization assigns all segments to one speaker ID).
+9. Transcript with real speaker names is persisted, insights are generated, and downstream delivery (Slack/email) is triggered.
 
 ### 3. Insight Generation Flow
 
@@ -240,6 +252,18 @@ echobrief/
 │   ├── web-bridge.js               # Web app <-> extension auth/status sync
 │   ├── mic-permission.*            # Permission flow for microphone mixing
 │   └── manifest.json               # MV3 permissions and content scripts
+├── api/
+│   └── split-audio.ts              # Vercel function: ffmpeg chunking of long audio + multi-file Sarvam job submission
+├── scripts/
+│   ├── pipeline-test/              # Pipeline harness: 9 integration scenarios against real deployed functions
+│   │   ├── harness.py              # Scenario runner (creates/deletes [harness]-prefixed test meetings)
+│   │   ├── client.py               # Supabase REST + webhook client helpers
+│   │   └── fixtures.py             # Real webhook payload shapes captured from prod logs
+│   └── evals/                      # Output-QUALITY eval suite (8 evals, LLM-as-judge)
+│       ├── run_evals.py            # Eval runner: static gate, --meeting-id live grading, --snapshot feedback loop
+│       ├── scorers.py              # 4 deterministic + 4 LLM-judge scorers
+│       ├── dataset/                # Eval cases incl. judge-calibration + snapshotted prod meetings
+│       └── EVALS.md                # Harness-vs-evals doc, thresholds, how to grow the dataset
 ├── supabase/
 │   ├── functions/
 │   │   ├── process-meeting/        # Main AI pipeline orchestration
@@ -302,7 +326,7 @@ meeting_notifications
 |---|---|
 | `upload-recording` | Receives extension audio, stores it, creates meeting rows |
 | `process-meeting` | Main ingest pipeline, Sarvam submitter, Whisper fallback path |
-| `sarvam-webhook` | Handles async Sarvam callbacks. **Auto-falls-back to Whisper on any Sarvam download failure** (covers the known `KeyError: 'timestamps'` server bug on long audio). |
+| `sarvam-webhook` | Handles async Sarvam callbacks. **For chunked jobs, downloads all chunk outputs in order, offsets timestamps by `chunk_index × chunk_seconds`, time-sorts, and stitches one transcript.** Auto-falls-back to Whisper on any Sarvam download failure (covers the known `KeyError: 'timestamps'` server bug on long audio). |
 | `start-recall-recording` | Creates a Recall bot and starts bot-based meeting capture |
 | `check-recall-status` | Polls Recall API for live bot status, syncs DB, and triggers the Sarvam pipeline as a fallback when webhooks are missed. Uses an atomic `sarvam_webhook_triggered_at IS NULL` lock (decoupled from `status` to avoid the `transcribing` deadlock). |
 | `recall-webhook` | Receives Recall status events and hands completed audio into the AI pipeline. `bot.done` queries Recall's `/audio_mixed/` endpoint to avoid race-marking good meetings as failed. |
@@ -316,6 +340,8 @@ meeting_notifications
 | `generate-meeting-insights` | Insight generation endpoint support |
 | `sync-notion` / `notion-oauth-*` | Notion integration plumbing |
 | `queue-onboarding-emails` / `send-scheduled-emails` | Lifecycle and scheduled communications |
+
+One function intentionally lives **outside** Supabase: [`api/split-audio.ts`](api/split-audio.ts) runs on Vercel because audio chunking needs real ffmpeg and ~2 GB of memory — Supabase edge functions cap at ~256 MB with no ffmpeg binary (the same constraint that makes the in-edge Whisper path OOM on large files). The edge pipeline calls it over HTTPS with a shared bearer secret and falls back to direct Sarvam submission if it is unreachable.
 
 This function layer is one of the strongest parts of the project because it shows real backend decomposition rather than a single overloaded server file.
 
@@ -531,6 +557,8 @@ This section is intentionally detailed because the hardest part of this project 
 
 **Why this matters:** third-party reliability cannot be assumed. The defensive design (loud-error → silent retry → infinite recovery loop) was actually a worse failure mode than just letting the 500 propagate and falling through to Whisper. Catching this required cross-referencing Sarvam's job-status API, our own logs, and a reproducer that submitted the same audio with five different configs to isolate the bug.
 
+**Update (June 2026):** the Whisper fallback turned out to be a dead end for exactly the meetings that needed it (>25 min audio exceeds Whisper's 25 MB upload limit), so every long meeting still died. The bug was later definitively root-caused and *fixed at the source* with chunked transcription — see Challenge #19.
+
 ### 14. The `bot.done` / `audio_mixed.done` race silently marked good meetings as failed
 
 **Problem:** some real meetings got marked `failed` even though Sarvam transcription was actively succeeding for them. Logs showed `[recall-webhook] Bot ... done with no audio processed — marking as failed` followed seconds later by a successful `recall-pipeline` Sarvam handoff for the same meeting.
@@ -601,9 +629,39 @@ This section is intentionally detailed because the hardest part of this project 
 
 **Why this matters:** this is a cross-system data correlation problem. Two independent transcription sources (Recall for names, Sarvam for translated English text) had to be aligned using timestamp overlap as the join key. The per-segment approach was necessary because Sarvam's translate mode often collapses all segments to one speaker ID, making per-ID mapping useless. The solution requires no changes to the frontend since it already renders `seg.speaker` directly.
 
----
+### 19. Sarvam silently returned empty transcripts for every long meeting — root-caused by controlled experiment, fixed with chunked transcription
 
-## Technical Highlights
+**Problem:** every meeting longer than ~25 minutes that reached Sarvam failed identically: Sarvam reported `job_state: Completed`, `state: Success`, no exception — but the output JSON was completely empty (`transcript: ""`, `language_code: null`, `diarized_transcript: null`). The auto-fallback to Whisper then rejected the same files for exceeding Whisper's hard 25 MB upload limit. Net effect: **no working transcription path existed for any long meeting.** All 7 production meetings that ever reached Sarvam died this way.
+
+**Why it happened (proved by controlled experiments, not guesswork):**
+
+- Replaying an archived failing 47-min/43 MB file against live Sarvam reproduced the empty output — with `language_probability: null`, showing Sarvam's internal language-detection stage dies silently on long audio and cascades nulls into every output field while still reporting success.
+- Config was ruled out: translate+auto-detect, translate+`en-IN`, translate+`hi-IN`, and transcribe mode **all returned empty** on the full file. The bug cannot be dodged with `job_parameters`.
+- File size was ruled out with a controlled pair: the same recording re-encoded to **8 MB at 47 min failed**, while a **6.8 MB at 6 min clip succeeded** — near-identical bytes, opposite outcomes. The trigger is **duration**, not size, memory, or config.
+- 5–6 minute clips of the same audio transcribed perfectly (`hi-IN` at 1.0 confidence), bounding the breakage between 6 and 47 minutes — despite Sarvam's docs claiming "up to 1 hour".
+
+**What I changed:**
+
+- Built [`api/split-audio.ts`](api/split-audio.ts) — a Vercel function (Supabase edge functions have no ffmpeg and ~256 MB memory) that downloads the audio from a signed Storage URL, probes real duration with ffmpeg, splits >6-min audio into 300 s **re-encoded** chunks (stream-copied segments are rejected by Sarvam with "Audio contains no samples"), and submits all chunks as **one multi-file Sarvam batch job** with the meeting's webhook callback. Validated first that multi-file jobs name outputs `0.json..N.json` in input order before building on that assumption.
+- `recall-pipeline.ts` routes audio through the splitter (shared bearer secret over HTTPS) and falls back to the legacy direct single-file path if the splitter is unreachable — the pipeline can degrade but never get worse than before.
+- `sarvam-webhook` stitches chunked results: downloads every output in order, offsets each chunk's diarized timestamps by `chunk_index × chunk_seconds`, time-sorts, and merges into one transcript so all downstream logic (speaker mapping, insights, delivery) runs unchanged.
+- End-to-end proof: the original failed 47-min production meeting was re-run through the deployed pipeline and completed — 21,161 chars across 10/10 chunks, 331 segments spanning the full 2,823 s, with real GPT insights (action items with owners, decisions, risks).
+
+**Why this matters:** the headline skill here is the diagnostic method — isolating one variable at a time (config, size, duration) with controlled experiments against a black-box third-party API, then designing around the confirmed constraint instead of the assumed one. The fix also respects platform limits honestly: instead of fighting Supabase's memory ceiling, the ffmpeg workload moved to compute that fits it (Vercel, 2 GB/300 s), connected by an authenticated boundary with a fallback.
+
+### 20. Built an output-quality eval suite — which caught a real bug on its first production run
+
+**Problem:** the pipeline harness (below) verifies *plumbing* — statuses transition, webhooks are idempotent, races don't corrupt state — but nothing verified *output quality*. A meeting could "complete" with a garbage transcript, a hallucinated action item, or an unfaithful summary, and every test would stay green. (This is exactly the gap between integration testing and eval-driven AI development.)
+
+**What I built** ([`scripts/evals/`](scripts/evals/)):
+
+- **8 evals** over (transcript, insights) pairs — 4 deterministic: schema validity, English output (translate mode actually produced English), stitch integrity (segments time-ordered, within meeting duration), speaker attribution (no phantom `SPEAKER_XX` when real names exist); and 4 LLM-judge (gpt-4o-mini, temperature 0, strict JSON): action-item recall vs a gold reference (gate ≥ 0.7), action-item precision/hallucination (ANY invented item fails, gate = 1.0), summary faithfulness (every claim grounded in the transcript, gate ≥ 0.9), decision accuracy (gate ≥ 0.7).
+- **Judge calibration built into the dataset:** one case contains a deliberately planted fake action item and a fabricated summary claim, marked `"expect": {"action_item_precision": "fail"}`. The suite passes only when the judge *catches* the plants — if that case ever "passes", the judge has gone lenient and the suite fails loudly.
+- **A production→eval feedback loop:** `run_evals.py --snapshot <meeting-id>` pulls any real meeting's transcript+insights into the dataset as a permanent regression case; `--meeting-id` grades a live meeting on demand.
+
+**What happened on its first live run:** grading the recovered 47-minute meeting, `stitch_integrity` failed — 4 of 331 segments were out of time order. Root cause: Sarvam's diarization emits slightly out-of-order entries when speakers overlap. The fix (time-sorting merged segments in `sarvam-webhook`) shipped the same hour, the stored transcript was repaired, and the meeting now grades 8/8 — with the judge confirming **zero hallucinated action items and a fully faithful summary** against the real transcript.
+
+**Why this matters:** evals and monitoring answer different questions — monitoring catches failures *in* production after users see them; evals catch quality regressions *before* deploy. The suite proved the distinction immediately by finding a defect that no status check, no harness scenario, and no human eyeball had noticed. Every future change to chunking, prompts, or providers now has to pass the same gate.
 
 ### Dual Ingest Architecture
 
@@ -670,20 +728,21 @@ After hitting a streak of timing-related production bugs in the webhook pipeline
 
 **Pipeline test harness** ([`scripts/pipeline-test/harness.py`](scripts/pipeline-test/harness.py))
 
-A self-contained Python script that exercises the real deployed edge functions against the real database in ~90 seconds. It creates `[harness]`-prefixed test meetings, fires real signed webhooks at `recall-webhook`, `sarvam-webhook`, and `check-recall-status`, polls for expected end-state, and cleans up — even on failure. Eight scenarios:
+A self-contained Python script that exercises the real deployed edge functions against the real database in ~90 seconds. It creates `[harness]`-prefixed test meetings, fires real signed webhooks at `recall-webhook`, `sarvam-webhook`, and `check-recall-status`, polls for expected end-state, and cleans up — even on failure. Nine scenarios:
 
 | Scenario | What it protects against |
 |---|---|
 | `happy_path_sarvam` | end-to-end flow: webhook → transcript → insights → completed |
+| `chunked_happy_path` | chunked-job stitching: chunk ordering + `chunk_index × chunk_seconds` timestamp offsets |
 | `bot_done_defers_on_unknown_audio` | the bot.done race overwriting good meetings |
 | `audio_mixed_failed_marks_meeting_failed` | failure paths actually persist to DB (the missing-column bug) |
 | `bot_kicked_waiting_room` | waiting-room-kicked bots transition to `failed` |
 | `duplicate_sarvam_webhook_idempotency` | replayed Sarvam callbacks don't re-process |
 | `concurrent_sarvam_webhooks` | two parallel callbacks don't double-insert |
 | `monitor_recovers_known_pattern` | monitor classifies + attempts canonical recovery |
-| `monitor_logs_unknown_pattern` | monitor flags new error signatures + emails admin |
+| `monitor_logs_unknown_pattern` | monitor flags new error signatures + emails admin (real Resend send, under a filterable `[ECHOBRIEF HARNESS TEST]` subject) |
 
-Run before every deploy. The harness has already caught two real prod bugs that would have hit users (the `error_message` column being missing, the `transcribing` deadlock).
+Run before every deploy. The harness has already caught two real prod bugs that would have hit users (the `error_message` column being missing, the `transcribing` deadlock). See [Testing: Harness and Evals](#testing-harness-and-evals) for the full testing story.
 
 **Stuck-meeting monitor** (`supabase/functions/monitor-stuck-meetings/`)
 
@@ -696,6 +755,66 @@ Scheduled via `pg_cron` to run every 5 minutes. For every meeting in a non-termi
 5. Emails `amaan@oltaflock.ai` via Resend if recovery fails OR the signature is unrecognized (subject prefix `[ECHOBRIEF NEW ERROR]`)
 
 The pairing of a curated runbook (`errors.md`) with a programmatic mirror (`known-patterns.ts`) means every error pattern has both a human-readable diagnosis and an automated recovery path. New error patterns surface as `[ECHOBRIEF NEW ERROR]` emails so the runbook stays in sync with reality.
+
+---
+
+## Testing: Harness and Evals
+
+EchoBrief tests its AI pipeline at two distinct layers, because they answer two distinct questions:
+
+| Layer | Tool | Question it answers | When it runs |
+|---|---|---|---|
+| **Integration harness** (plumbing) | [`scripts/pipeline-test/harness.py`](scripts/pipeline-test/harness.py) | *Did the pipeline run correctly?* Statuses transition, webhooks are idempotent, races don't corrupt state, failures persist, the monitor recovers. | Before every edge-function or migration deploy. 9/9 must pass. |
+| **Output-quality evals** | [`scripts/evals/run_evals.py`](scripts/evals/run_evals.py) | *Is the output any good?* Transcript accurate and in English, segments time-ordered, no hallucinated action items, summary faithful to what was said. | Before deploying anything that touches transcription, chunking, prompts, or insight generation. |
+
+The distinction matters: a meeting can flow through every status correctly and still produce a hallucinated summary — the harness stays green, only an eval catches it. Conversely, an idempotency race never shows up in output quality — only the harness catches it. Monitoring (the pg_cron stuck-meeting monitor above) is the third leg: it catches what slips past both, *in* production, after the fact.
+
+### The harness: 9 scenarios against real infrastructure
+
+Nothing is mocked. Each scenario inserts a synthetic `[harness]`-prefixed meeting into the production database, fires real signed webhook payloads (captured from prod logs, templated in [`fixtures.py`](scripts/pipeline-test/fixtures.py)) at the real deployed edge functions, polls for the expected end state, and always cleans up its rows — pass or fail.
+
+```bash
+python3 scripts/pipeline-test/harness.py                       # all 9 scenarios (~90 s)
+python3 scripts/pipeline-test/harness.py --only chunked_happy_path   # one scenario
+python3 scripts/pipeline-test/harness.py --cleanup-only        # delete stray [harness] rows
+```
+
+**Debugging a failing scenario:** every failure message states the expected vs actual end state (e.g. `meeting never reached completed; final status='processing'`). The triage order that works: (1) re-run just that scenario with `--only`; (2) check the edge function logs in the Supabase dashboard for the function the scenario fires at; (3) check `monitor_events` / meeting row state via the REST API; (4) if the failure is a *new* pipeline behavior (not a regression), update the scenario's expectation **and** document the behavior change in `errors.md`. The two monitor scenarios send a real Resend email by design (subject `[ECHOBRIEF HARNESS TEST]`) — that email is the test passing, not an incident.
+
+One design detail worth noting: the chunked scenario injects ordered chunk results through an explicit `__harness_inline` test seam in `sarvam-webhook` rather than creating a real Sarvam job (slow, costly, non-deterministic). Production callbacks never set the flag, so prod always downloads outputs by name — the seam tests the stitch logic without weakening the production path.
+
+### The evals: 8 graders, a calibrated judge, and a feedback loop
+
+Run modes:
+
+```bash
+python3 scripts/evals/run_evals.py                    # static dataset gate (exit code gates deploys)
+python3 scripts/evals/run_evals.py --skip-llm         # deterministic evals only (free, no OpenAI)
+python3 scripts/evals/run_evals.py --meeting-id <id>  # grade a live production meeting
+python3 scripts/evals/run_evals.py --snapshot <id>    # pull a prod meeting into the dataset as a regression case
+```
+
+**Deterministic evals** (pure python, free):
+
+1. `schema_validity` — insights have a non-empty summary and list-typed action_items/decisions
+2. `english_output` — translate mode actually produced English (ASCII ratio ≥ 0.95)
+3. `stitch_integrity` — segments time-ordered, non-negative, non-empty, last timestamp within meeting duration + slack
+4. `speaker_attribution` — zero phantom `SPEAKER_XX` labels when real participant names are known
+
+**LLM-judge evals** (gpt-4o-mini, temperature 0, strict JSON responses):
+
+5. `action_item_recall` — gold action items semantically covered by generated ones (gate ≥ 0.7)
+6. `action_item_precision` — every generated action item grounded in the transcript; **a single hallucinated item fails the eval** (gate = 1.0)
+7. `summary_faithfulness` — the summary is split into claims and each claim checked against the transcript (gate ≥ 0.9)
+8. `decision_accuracy` — gold decisions covered (gate ≥ 0.7)
+
+**Judge calibration:** LLM judges drift lenient, so the dataset includes a poisoned case — a transcript whose paired insights contain a deliberately invented action item ("hire two backend contractors", never discussed) and a fabricated summary claim ("agreed to double the marketing budget"). The case declares `"expect": {"action_item_precision": "fail", "summary_faithfulness": "fail"}`, and the suite passes **only when the judge catches both plants**. If the poisoned case ever starts passing, the judge broke — fix the judge, not the case.
+
+**Fixing a failing eval:** first decide which of three things failed — (a) the *pipeline* genuinely regressed → fix the pipeline (this is the eval doing its job); (b) the *judge* mis-graded → tighten the judge prompt and re-verify against the calibration case; (c) the *gold reference* is wrong or stale → fix the dataset case. Never "fix" an eval failure by deleting the case or lowering a gate without understanding which of the three it was.
+
+**The feedback loop (production → eval):** when a prod meeting produces a bad output, `--snapshot <meeting-id>` freezes its transcript+insights into `dataset/` as a permanent case; adding hand-written `gold.action_items`/`gold.decisions` activates the recall/accuracy graders on it. That failure mode can then never silently regress — the same discipline as adding a regression test for every bug, applied to AI output quality.
+
+**Proof it works:** on its very first live run, the suite caught a real production defect — Sarvam's diarization emits out-of-order segments on overlapping speech (4 of 331 segments in the recovered 47-minute meeting), which `stitch_integrity` flagged and no human or status check had noticed (Engineering Challenge #20). The fix shipped the same hour and is now permanently regression-guarded by both a harness scenario and an eval.
 
 ---
 
@@ -740,6 +859,17 @@ SLACK_BOT_TOKEN=...
 GOOGLE_CLIENT_ID=...
 GOOGLE_CLIENT_SECRET=...
 RECALL_API_KEY=...
+SPLIT_AUDIO_URL=https://www.echobrief.in/api/split-audio
+SPLIT_AUDIO_SECRET=...
+```
+
+### Vercel Function Environment
+
+`api/split-audio.ts` deploys automatically with the frontend (GitHub → Vercel). In the Vercel project dashboard, set for Production:
+
+```env
+SARVAM_API_KEY=...          # split-audio submits chunks to Sarvam directly
+SPLIT_AUDIO_SECRET=...      # must equal the Supabase secret of the same name
 ```
 
 ### Run the Web App
@@ -783,6 +913,8 @@ npm run functions:serve
 | `RECALL_API_KEY` | Recall bot orchestration |
 | `SUPABASE_URL` | Edge Function server-side Supabase access |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server-side privileged database/storage operations |
+| `SPLIT_AUDIO_URL` | Supabase secret: URL of the Vercel split-audio function (unset → legacy direct Sarvam path) |
+| `SPLIT_AUDIO_SECRET` | Shared bearer secret between edge functions and split-audio (set in BOTH Supabase secrets and Vercel env) |
 
 ---
 
@@ -797,6 +929,10 @@ npm run functions:serve
 | `npm run lint` | Run ESLint |
 | `npm run functions:serve` | Serve Supabase Edge Functions locally |
 | `npm run extension:zip` | Package Chrome extension into a zip file |
+| `python3 scripts/pipeline-test/harness.py` | Run the 9-scenario pipeline harness against deployed functions (pre-deploy gate) |
+| `python3 scripts/evals/run_evals.py` | Run the 8-eval output-quality suite on the static dataset (pre-deploy gate) |
+| `python3 scripts/evals/run_evals.py --meeting-id <id>` | Grade a live production meeting's transcript + insights |
+| `python3 scripts/evals/run_evals.py --snapshot <id>` | Snapshot a prod meeting into the eval dataset as a regression case |
 
 ---
 
@@ -805,8 +941,9 @@ npm run functions:serve
 For a Software Engineer 1 candidate, this project shows much more than the ability to build pages or call an AI API.
 
 - It demonstrates **full-stack ownership** across frontend, backend, browser extension, and database layers.
-- It shows **debugging maturity** through concrete handling of race conditions, state recovery, lifecycle issues, and provider failures.
+- It shows **debugging maturity** through concrete handling of race conditions, state recovery, lifecycle issues, and provider failures — including root-causing a black-box third-party bug with controlled single-variable experiments (Challenge #19).
 - It includes **system integration work** with real OAuth, webhooks, third-party APIs, and async pipelines.
+- It practices **eval-driven AI development**: an integration harness for plumbing, an LLM-judged eval suite with calibration for output quality, and a production→eval feedback loop that turns every bad output into a permanent regression case.
 - It reflects **product-minded engineering** by connecting technical implementation to user workflows like summaries, digests, calendar-driven automation, and delivery channels.
 - It gives reviewers clear evidence of **scaling beyond tutorial projects** into architecture, reliability, and iteration.
 

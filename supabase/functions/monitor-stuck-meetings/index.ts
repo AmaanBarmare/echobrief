@@ -296,7 +296,15 @@ async function sendAlertEmail(
   recoveryOk: boolean,
   isNewPattern: boolean,
 ): Promise<boolean> {
-  const subjectPrefix = isNewPattern ? "[ECHOBRIEF NEW ERROR]" : "[ECHOBRIEF]";
+  // Harness-created test meetings still send a real email (so the pipeline
+  // harness verifies actual Resend delivery end-to-end) but under a clearly
+  // non-alarming, filterable subject.
+  const isHarnessMeeting = meeting.title.startsWith("[harness]");
+  const subjectPrefix = isHarnessMeeting
+    ? "[ECHOBRIEF HARNESS TEST]"
+    : isNewPattern
+      ? "[ECHOBRIEF NEW ERROR]"
+      : "[ECHOBRIEF]";
   const subject = `${subjectPrefix} ${detection.signature} — ${meeting.title}`;
 
   const dashboardLink = `https://echobrief.in/meeting/${meeting.id}`;
@@ -307,7 +315,7 @@ async function sendAlertEmail(
 
   const html = `
 <div style="font-family: -apple-system, sans-serif; max-width: 600px; line-height: 1.5;">
-  <h2 style="color: ${isNewPattern ? '#dc2626' : '#ea580c'};">${isNewPattern ? '🆕 New error pattern detected' : '⚠️ Stuck meeting detected'}</h2>
+  <h2 style="color: ${isHarnessMeeting ? '#16a34a' : isNewPattern ? '#dc2626' : '#ea580c'};">${isHarnessMeeting ? '🧪 Harness test alert (expected — safe to ignore)' : isNewPattern ? '🆕 New error pattern detected' : '⚠️ Stuck meeting detected'}</h2>
 
   <p><strong>Signature:</strong> <code>${detection.signature}</code></p>
   <p><strong>Recovery attempted:</strong> ${recoveryOk ? '✅' : '❌'} ${recoveryNote}</p>
