@@ -362,23 +362,81 @@ export async function processRecallAudio(
     console.log("[recall-pipeline] Audio saved to Supabase Storage");
   }
 
-  // 5. Create Sarvam batch job
+  // 5-7. Submit to Sarvam. Preferred path: the Vercel split-audio function,
+  // which ffmpeg-splits long audio into ~5-min chunks (Sarvam's saaras:v3
+  // silently returns EMPTY transcripts for long files — empirically 47 min
+  // fails while 5-6 min chunks of the same audio succeed). Falls back to the
+  // legacy direct single-file submission if the splitter is unavailable.
   const callbackUrl = `${supabaseUrl}/functions/v1/sarvam-webhook`;
-  const job = await createSarvamJob(
-    sarvamApiKey,
-    callbackUrl,
-    sarvamWebhookSecret,
-  );
-  console.log("[recall-pipeline] Sarvam job created:", job.job_id);
-
-  // 6. Upload audio to Sarvam
   const fileName = "recall-audio.mp3";
-  await uploadToSarvamJob(sarvamApiKey, job.job_id, fileName, audioBlob);
-  console.log("[recall-pipeline] Audio uploaded to Sarvam job");
+  const splitUrl = Deno.env.get("SPLIT_AUDIO_URL");
+  const splitSecret = Deno.env.get("SPLIT_AUDIO_SECRET");
 
-  // 7. Start Sarvam processing
-  await startSarvamJob(sarvamApiKey, job.job_id);
-  console.log("[recall-pipeline] Sarvam job started:", job.job_id);
+  let jobId: string | null = null;
+  let chunkMeta: {
+    split_method: string;
+    chunk_count: number;
+    chunk_seconds: number;
+  } | null = null;
+
+  if (splitUrl && splitSecret && !uploadError) {
+    try {
+      const { data: signed, error: signError } = await supabase.storage
+        .from("recordings")
+        .createSignedUrl(storagePath, 3600);
+      if (signError || !signed?.signedUrl) {
+        throw new Error(`Could not sign audio URL: ${signError?.message}`);
+      }
+      const splitRes = await fetch(splitUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${splitSecret}`,
+        },
+        body: JSON.stringify({
+          audioUrl: signed.signedUrl,
+          callbackUrl,
+          callbackToken: sarvamWebhookSecret,
+        }),
+      });
+      if (!splitRes.ok) {
+        throw new Error(
+          `split-audio returned ${splitRes.status}: ${(await splitRes.text()).substring(0, 300)}`,
+        );
+      }
+      const splitData = await splitRes.json();
+      jobId = splitData.job_id;
+      chunkMeta = {
+        split_method: "vercel-ffmpeg",
+        chunk_count: splitData.chunk_count,
+        chunk_seconds: splitData.chunk_seconds,
+      };
+      console.log(
+        `[recall-pipeline] Split path: job=${jobId}, ${splitData.chunk_count} chunk(s) x ${splitData.chunk_seconds}s (duration ${splitData.duration_seconds}s)`,
+      );
+    } catch (err) {
+      console.warn(
+        "[recall-pipeline] split-audio failed, falling back to direct single-file Sarvam submission:",
+        err,
+      );
+      jobId = null;
+      chunkMeta = null;
+    }
+  }
+
+  if (!jobId) {
+    const job = await createSarvamJob(
+      sarvamApiKey,
+      callbackUrl,
+      sarvamWebhookSecret,
+    );
+    console.log("[recall-pipeline] Sarvam job created (direct):", job.job_id);
+    await uploadToSarvamJob(sarvamApiKey, job.job_id, fileName, audioBlob);
+    console.log("[recall-pipeline] Audio uploaded to Sarvam job");
+    await startSarvamJob(sarvamApiKey, job.job_id);
+    console.log("[recall-pipeline] Sarvam job started:", job.job_id);
+    jobId = job.job_id;
+  }
 
   // 8. Build speaker timeline from Recall transcript for later mapping.
   // Each entry captures a time range → speaker name so we can map Sarvam's
@@ -402,11 +460,11 @@ export async function processRecallAudio(
     }
   }
 
-  // 9. Save sarvam_job_id + Recall speaker data
+  // 9. Save sarvam_job_id + Recall speaker data (+ chunk metadata when split)
   await supabase
     .from("meetings")
     .update({
-      sarvam_job_id: job.job_id,
+      sarvam_job_id: jobId,
       processing_config: {
         source: "recall",
         recall_bot_id: botId,
@@ -418,13 +476,14 @@ export async function processRecallAudio(
           recallSpeakerTimeline.length > 0 ? recallSpeakerTimeline : null,
         recall_participants:
           recallParticipants.length > 0 ? recallParticipants : null,
+        ...(chunkMeta || {}),
       },
     })
     .eq("id", meeting.id);
 
   console.log(
-    `[recall-pipeline] Meeting ${meeting.id} handed off to Sarvam (job: ${job.job_id})`,
+    `[recall-pipeline] Meeting ${meeting.id} handed off to Sarvam (job: ${jobId})`,
   );
 
-  return job.job_id;
+  return jobId;
 }

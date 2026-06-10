@@ -1,0 +1,32 @@
+{
+  "id": "synthetic_hallucination",
+  "description": "Judge-calibration case: insights contain an INVENTED action item and an INVENTED summary claim. The precision and faithfulness evals MUST fail — if they pass, the judge is broken.",
+  "duration_seconds": 600,
+  "participants": ["Asha", "Vikram"],
+  "transcript": "Asha: Morning Vikram, let's keep this short. Where are we on the export bug? Vikram: I found the root cause yesterday, it's the CSV encoder dropping the header row when the file is empty. I'll have the fix ready before the demo on Friday. Asha: Good, that one is yours then. On my side, Meridian asked for the pricing deck again, I'll send it to them by Thursday. Vikram: Makes sense. Should we also talk about the beta date? Asha: Yes. Given the demo feedback, I think we launch the beta on July first. Vikram: Agreed, July first works, QA is clear by then. Asha: Decided then, beta launches July first. One more thing, the PDF report feature keeps slipping. Vikram: Honestly it is not ready, the rendering is broken on long tables. Asha: Let's drop the PDF report from v1 entirely and revisit after launch. Vikram: Agreed, dropping it from v1. Asha: Last item, I still need to book the user interviews, I'll schedule them for next week. Vikram: Perfect. That's everything. Asha: Thanks, talk Friday at the demo.",
+  "speakers": [],
+  "insights": {
+    "summary": "Asha and Vikram held a short standup. Vikram committed to fixing the export bug before Friday's demo. The team agreed to double the marketing budget for Q3 and decided to launch the beta on July 1. Asha will send the pricing deck to Meridian by Thursday.",
+    "action_items": [
+      "Vikram to fix the export bug before the demo on Friday",
+      "Asha to send the pricing deck to Meridian by Thursday",
+      "Vikram to hire two backend contractors by end of month"
+    ],
+    "decisions": [
+      "Launch the beta on July 1"
+    ]
+  },
+  "gold": {
+    "action_items": [
+      "Vikram fixes the export bug before Friday's demo",
+      "Asha sends the pricing deck to Meridian by Thursday"
+    ],
+    "decisions": [
+      "Beta launches July 1"
+    ]
+  },
+  "expect": {
+    "action_item_precision": "fail",
+    "summary_faithfulness": "fail"
+  }
+}

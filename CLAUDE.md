@@ -19,7 +19,7 @@ npm run functions:serve  # Serve Supabase Edge Functions locally (needs supabase
 ## Architecture
 
 ### Recording Flow
-**Dashboard (bot-only):** User enters a meeting URL → `start-recall-recording` creates a Recall bot (with real-time transcription enabled via `recallai_streaming`) → bot joins and records → `recall-webhook` receives `audio_mixed.done` event → audio downloaded from Recall + Recall transcript fetched (via `media_shortcuts.transcript` download URL) for real participant names → audio submitted to Sarvam AI in translate mode (async, webhook callback) → `sarvam-webhook` receives the callback. If Sarvam returns a usable transcript, `sarvam-webhook` maps speakers (single-participant fast path or per-segment time-overlap with nearest-neighbor fallback against Recall's speaker timeline). **If Sarvam returns a download error, an empty transcript, or the well-known `KeyError: 'timestamps'` server bug on long audio, `sarvam-webhook` automatically falls back to Whisper via `process-meeting` with `forceWhisper: true`.** GPT-4o-mini generates insights → saves to DB → optionally delivers to Slack/email.
+**Dashboard (bot-only):** User enters a meeting URL → `start-recall-recording` creates a Recall bot (with real-time transcription enabled via `recallai_streaming`) → bot joins and records → `recall-webhook` receives `audio_mixed.done` event → audio downloaded from Recall + Recall transcript fetched (via `media_shortcuts.transcript` download URL) for real participant names → audio routed through the **Vercel `api/split-audio` function**, which ffmpeg-splits long audio into 300 s re-encoded chunks and submits them as ONE multi-file Sarvam job in translate mode (async, webhook callback); falls back to direct single-file Sarvam submission if the splitter is unavailable → `sarvam-webhook` receives the callback. **Chunking exists because Sarvam's saaras:v3 silently returns EMPTY transcripts for long audio (duration-triggered server bug, confirmed 2026-06-09: 47 min fails, 5–6 min chunks of the same file succeed; chunks must be re-encoded — stream-copy is rejected).** For chunked jobs the webhook downloads outputs `0.json..N.json` in order and stitches them, offsetting timestamps by `chunk_index × chunk_seconds`. If Sarvam returns a usable transcript, `sarvam-webhook` maps speakers (single-participant fast path or per-segment time-overlap with nearest-neighbor fallback against Recall's speaker timeline). **If Sarvam returns a download error, an empty transcript, or the well-known `KeyError: 'timestamps'` server bug, `sarvam-webhook` automatically falls back to Whisper via `process-meeting` with `forceWhisper: true`.** GPT-4o-mini generates insights → saves to DB → optionally delivers to Slack/email.
 
 **`bot.done` race-safety:** When `bot.done` arrives but `sarvam_job_id` is not yet written (because `audio_mixed.done` is still mid-flight), the handler queries Recall's `/audio_mixed/` endpoint directly for the actual audio status. Only `failed` / `missing` mark the meeting failed — `done`, `processing`, and `unknown` defer to the audio_mixed handler.
 
@@ -102,8 +102,14 @@ See `BRAND.md` for colors (orange/amber gradient primary, stone neutrals), typog
 - `SARVAM_API_KEY` -- Required for Sarvam STT
 - `RESEND_API_KEY` -- Required for email delivery via Resend
 - `RECALL_API_KEY` -- Required for bot-based meeting recording
+- `SPLIT_AUDIO_URL` -- URL of the Vercel split-audio function (`https://www.echobrief.in/api/split-audio`); if unset, recall-pipeline falls back to direct single-file Sarvam submission
+- `SPLIT_AUDIO_SECRET` -- Bearer secret for the split-audio function (must match the Vercel env var of the same name)
 - Google OAuth client ID/secret
 - Slack app credentials
+
+**Vercel (api/ functions — set in the Vercel dashboard of the account that owns echobrief.in; deploys happen via GitHub auto-deploy on push, NOT the CLI):**
+- `SARVAM_API_KEY` -- split-audio submits chunks to Sarvam directly
+- `SPLIT_AUDIO_SECRET` -- shared bearer secret (same value as the Supabase secret)
 
 ## Auth Flow Notes
 
@@ -116,7 +122,9 @@ See `BRAND.md` for colors (orange/amber gradient primary, stone neutrals), typog
 
 - **Test before committing or deploying:** After making any change — whether it's a frontend tweak, Edge Function update, or migration — verify it actually works before committing or deploying. For frontend changes, run `npm run build` to catch type errors and confirm the dev server renders correctly. For Edge Functions, run `npm run functions:serve` and exercise the relevant endpoint. For database migrations, apply locally and check the result. Don't assume a change works just because it looks right — confirm it. Only then commit and deploy.
 
-- **Run the pipeline harness before deploying any edge function or migration:** `python3 scripts/pipeline-test/harness.py`. Takes ~90 seconds, hits real prod against the deployed code, creates and deletes `[harness]`-prefixed test meetings. 8/8 must pass. The harness has already caught two real prod bugs that would have hit users (the missing `error_message` column and the `transcribing` deadlock). See [`scripts/pipeline-test/`](scripts/pipeline-test/).
+- **Run the pipeline harness before deploying any edge function or migration:** `python3 scripts/pipeline-test/harness.py`. Takes ~90 seconds, hits real prod against the deployed code, creates and deletes `[harness]`-prefixed test meetings. 9/9 must pass. The harness has already caught two real prod bugs that would have hit users (the missing `error_message` column and the `transcribing` deadlock). See [`scripts/pipeline-test/`](scripts/pipeline-test/).
+
+- **Run the output-quality evals before deploying anything that touches transcription or insights:** `python3 scripts/evals/run_evals.py`. 8 evals (4 deterministic + 4 LLM-judge) over the static dataset, including a judge-calibration case that must FAIL. Exit code gates the deploy. See [`scripts/evals/EVALS.md`](scripts/evals/EVALS.md) for the harness-vs-evals distinction and how to grow the dataset from prod meetings.
 
 - **Update `errors.md` and `known-patterns.ts` together:** When the monitor emails a `[ECHOBRIEF NEW ERROR]`, investigate, then add the new signature to **both** `errors.md` (human runbook) and `supabase/functions/monitor-stuck-meetings/known-patterns.ts` (programmatic mirror). They drift if you only update one.
 
@@ -131,7 +139,11 @@ See `BRAND.md` for colors (orange/amber gradient primary, stone neutrals), typog
 
 ## Operations
 
-- **Pipeline test harness:** [`scripts/pipeline-test/harness.py`](scripts/pipeline-test/harness.py). 8 scenarios covering happy path, the bot.done/audio_mixed.done race, audio_mixed.failed, kicked-from-waiting-room, sarvam-webhook idempotency, concurrent sarvam-webhook calls, monitor recovers a known signature, monitor logs+emails an unknown signature. Real DB, real edge functions, real Resend. Takes ~90s.
+- **Pipeline test harness:** [`scripts/pipeline-test/harness.py`](scripts/pipeline-test/harness.py). 9 scenarios covering happy path, chunked-stitch happy path (timestamp offsets + chunk ordering), the bot.done/audio_mixed.done race, audio_mixed.failed, kicked-from-waiting-room, sarvam-webhook idempotency, concurrent sarvam-webhook calls, monitor recovers a known signature, monitor logs+emails an unknown signature. Real DB, real edge functions, real Resend. Takes ~90s.
+
+- **Output-quality evals:** [`scripts/evals/`](scripts/evals/). 8 evals (schema, English output, stitch integrity, speaker attribution, action-item recall/precision, summary faithfulness, decision accuracy) with gpt-4o-mini as judge. `--snapshot <meeting-id>` pulls a prod meeting into the dataset (the production→eval feedback loop). See [`scripts/evals/EVALS.md`](scripts/evals/EVALS.md).
+
+- **Long-audio chunking:** [`api/split-audio.ts`](api/split-audio.ts) (Vercel function, ffmpeg). Splits >6-min audio into 300 s chunks for Sarvam (its saaras:v3 silently returns empty transcripts on long files — see `errors.md` `sarvam:silent_empty_output`). Deployed via GitHub auto-deploy; the Vercel account that owns echobrief.in is separate — do NOT use the local Vercel CLI for it.
 
 - **Errors runbook:** [`errors.md`](errors.md). Canonical list of every error pattern the pipeline can hit, with root cause, recovery action, and resolution status. The monitor cron's `KNOWN_PATTERNS` set in [`supabase/functions/monitor-stuck-meetings/known-patterns.ts`](supabase/functions/monitor-stuck-meetings/known-patterns.ts) is the programmatic mirror.
 

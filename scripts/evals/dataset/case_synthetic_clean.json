@@ -1,0 +1,40 @@
+{
+  "id": "synthetic_clean",
+  "description": "Controlled standup with known-by-construction gold. Every eval should pass.",
+  "duration_seconds": 600,
+  "participants": ["Asha", "Vikram"],
+  "transcript": "Asha: Morning Vikram, let's keep this short. Where are we on the export bug? Vikram: I found the root cause yesterday, it's the CSV encoder dropping the header row when the file is empty. I'll have the fix ready before the demo on Friday. Asha: Good, that one is yours then. On my side, Meridian asked for the pricing deck again, I'll send it to them by Thursday. Vikram: Makes sense. Should we also talk about the beta date? Asha: Yes. Given the demo feedback, I think we launch the beta on July first. Vikram: Agreed, July first works, QA is clear by then. Asha: Decided then, beta launches July first. One more thing, the PDF report feature keeps slipping. Vikram: Honestly it is not ready, the rendering is broken on long tables. Asha: Let's drop the PDF report from v1 entirely and revisit after launch. Vikram: Agreed, dropping it from v1. Asha: Last item, I still need to book the user interviews, I'll schedule them for next week. Vikram: Perfect. That's everything. Asha: Thanks, talk Friday at the demo.",
+  "speakers": [
+    { "speaker": "Asha", "text": "Morning Vikram, let's keep this short. Where are we on the export bug?", "start": 1.0, "end": 8.0 },
+    { "speaker": "Vikram", "text": "I found the root cause yesterday... I'll have the fix ready before the demo on Friday.", "start": 8.5, "end": 24.0 },
+    { "speaker": "Asha", "text": "Meridian asked for the pricing deck again, I'll send it to them by Thursday.", "start": 24.5, "end": 40.0 },
+    { "speaker": "Asha", "text": "Given the demo feedback, I think we launch the beta on July first.", "start": 41.0, "end": 52.0 },
+    { "speaker": "Vikram", "text": "Agreed, July first works, QA is clear by then.", "start": 52.5, "end": 60.0 },
+    { "speaker": "Asha", "text": "Let's drop the PDF report from v1 entirely and revisit after launch.", "start": 75.0, "end": 84.0 },
+    { "speaker": "Asha", "text": "I still need to book the user interviews, I'll schedule them for next week.", "start": 90.0, "end": 99.0 }
+  ],
+  "insights": {
+    "summary": "Asha and Vikram held a short standup. Vikram identified the root cause of the export bug (CSV encoder dropping the header row on empty files) and committed to fixing it before Friday's demo. Asha will send the pricing deck to Meridian by Thursday and will book user interviews for next week. The team decided to launch the beta on July 1 and to drop the PDF report feature from v1, revisiting it after launch.",
+    "action_items": [
+      "Vikram to fix the export bug (CSV header row) before the demo on Friday",
+      "Asha to send the pricing deck to Meridian by Thursday",
+      "Asha to book user interviews for next week"
+    ],
+    "decisions": [
+      "Launch the beta on July 1",
+      "Drop the PDF report feature from v1"
+    ]
+  },
+  "gold": {
+    "action_items": [
+      "Vikram fixes the export bug before Friday's demo",
+      "Asha sends the pricing deck to Meridian by Thursday",
+      "Asha books user interviews for next week"
+    ],
+    "decisions": [
+      "Beta launches July 1",
+      "PDF report feature dropped from v1"
+    ]
+  },
+  "expect": {}
+}

@@ -406,8 +406,78 @@ def monitor_logs_unknown_pattern() -> ScenarioResult:
         client.delete_meeting(meeting_id)
 
 
+@scenario
+def chunked_happy_path() -> ScenarioResult:
+    """Chunked meeting (split_method=vercel-ffmpeg, 2 chunks) → stitched transcript.
+
+    Asserts the webhook: (1) accepts ordered inline chunk results via the
+    __harness_inline seam, (2) concatenates both chunk texts into one
+    transcript, (3) offsets chunk 1's diarized timestamps by chunk_seconds
+    (segment 2 must start at >= 300s), (4) completes the meeting with insights.
+    """
+    job_id = f"test-chunked-{uuid.uuid4()}"
+    meeting_id = client.insert_meeting(
+        title="chunked_happy_path",
+        recall_bot_id=client.GOOD_BOT_ID,
+        sarvam_job_id=job_id,
+        status="processing",
+        processing_config={
+            "source": "recall",
+            "audio_file_name": "recall-audio.mp3",
+            "split_method": "vercel-ffmpeg",
+            "chunk_count": 2,
+            "chunk_seconds": 300,
+        },
+    )
+    try:
+        status, body = client.fire_sarvam_webhook(
+            fixtures.sarvam_webhook_chunked_success(job_id)
+        )
+        if status >= 300:
+            return ScenarioResult("chunked_happy_path", False, f"sarvam-webhook returned {status}: {body[:300]}")
+
+        result = client.wait_for_status(meeting_id, expected={"completed"}, timeout_s=30)
+        if not result.succeeded:
+            return ScenarioResult(
+                "chunked_happy_path", False,
+                f"meeting never completed; final status={result.final_meeting.get('status')!r}",
+            )
+        transcript = client.get_transcript(meeting_id)
+        if not transcript:
+            return ScenarioResult("chunked_happy_path", False, "transcript row not created")
+        content = transcript.get("content", "")
+        if fixtures.CHUNK_A_TEXT not in content or fixtures.CHUNK_B_TEXT not in content:
+            return ScenarioResult(
+                "chunked_happy_path", False,
+                f"stitched transcript missing chunk text; got {content[:200]!r}",
+            )
+        if content.find(fixtures.CHUNK_A_TEXT) > content.find(fixtures.CHUNK_B_TEXT):
+            return ScenarioResult("chunked_happy_path", False, "chunks stitched out of order")
+        speakers = transcript.get("speakers") or []
+        if len(speakers) != 2:
+            return ScenarioResult(
+                "chunked_happy_path", False,
+                f"expected 2 speaker segments, got {len(speakers)}",
+            )
+        seg2_start = speakers[1].get("start", 0)
+        if not (300 <= seg2_start <= 360):
+            return ScenarioResult(
+                "chunked_happy_path", False,
+                f"chunk 1 timestamps not offset: segment 2 starts at {seg2_start}, expected ~301",
+            )
+        if not client.get_insights(meeting_id):
+            return ScenarioResult("chunked_happy_path", False, "insights row not created")
+        return ScenarioResult(
+            "chunked_happy_path", True,
+            f"stitched {len(content)} chars, segment2.start={seg2_start} (offset applied)",
+        )
+    finally:
+        client.delete_meeting(meeting_id)
+
+
 ALL_SCENARIOS = [
     happy_path_sarvam,
+    chunked_happy_path,
     bot_done_defers_on_unknown_audio,
     audio_mixed_failed_marks_meeting_failed,
     bot_kicked_waiting_room,

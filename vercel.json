@@ -1,5 +1,10 @@
 {
+  "functions": {
+    "api/split-audio.ts": {
+      "maxDuration": 300
+    }
+  },
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }

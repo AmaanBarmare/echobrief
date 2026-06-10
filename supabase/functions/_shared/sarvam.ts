@@ -143,6 +143,71 @@ export async function startSarvamJob(
   }
 }
 
+/**
+ * Downloads ALL output files of a (possibly multi-file/chunked) Sarvam job,
+ * ordered by chunk index.
+ *
+ * Sarvam names multi-file outputs `0.json`, `1.json`, ... in input-file order
+ * (validated empirically 2026-06-10 with a 10-chunk job). We sort numerically
+ * so the caller can stitch transcripts back together in meeting order.
+ */
+export async function downloadAllSarvamResults(
+  apiKey: string,
+  jobId: string,
+): Promise<Record<string, unknown>[]> {
+  const statusRes = await fetch(`${SARVAM_BASE_URL}/${jobId}/status`, {
+    method: "GET",
+    headers: { "api-subscription-key": apiKey },
+  });
+  if (!statusRes.ok) {
+    throw new Error(
+      `Sarvam status for ${jobId} failed (${statusRes.status}): ${await statusRes.text()}`,
+    );
+  }
+  const statusData = await statusRes.json();
+  const jobDetails = Array.isArray(statusData.job_details)
+    ? statusData.job_details
+    : [];
+  const names: string[] = [];
+  for (const detail of jobDetails) {
+    for (const output of (Array.isArray(detail?.outputs) ? detail.outputs : [])) {
+      if (typeof output?.file_name === "string") names.push(output.file_name);
+    }
+  }
+  if (names.length === 0) {
+    throw new Error(`Sarvam job ${jobId} reports no output files`);
+  }
+  names.sort((a, b) => (parseInt(a, 10) || 0) - (parseInt(b, 10) || 0));
+
+  const dlRes = await fetch(`${SARVAM_BASE_URL}/download-files`, {
+    method: "POST",
+    headers: {
+      "api-subscription-key": apiKey,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ job_id: jobId, files: names }),
+  });
+  if (!dlRes.ok) {
+    throw new Error(
+      `Sarvam download-files for ${jobId} failed (${dlRes.status}): ${await dlRes.text()}`,
+    );
+  }
+  const dlData: SarvamDownloadResponse = await dlRes.json();
+
+  const results: Record<string, unknown>[] = [];
+  for (const name of names) {
+    const url = dlData.download_urls?.[name]?.file_url;
+    if (!url) throw new Error(`No download URL for output "${name}" of job ${jobId}`);
+    const fileRes = await fetch(url);
+    if (!fileRes.ok) {
+      throw new Error(`Fetching output "${name}" failed (${fileRes.status})`);
+    }
+    results.push(await fileRes.json());
+  }
+  console.log(`[sarvam] Downloaded ${results.length} chunk outputs for job ${jobId}`);
+  return results;
+}
+
 export async function downloadSarvamResults(
   apiKey: string,
   jobId: string,

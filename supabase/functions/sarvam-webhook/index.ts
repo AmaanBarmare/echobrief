@@ -1,7 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import OpenAI from "https://esm.sh/openai@4.20.1";
-import { downloadSarvamResults } from "../_shared/sarvam.ts";
+import {
+  downloadAllSarvamResults,
+  downloadSarvamResults,
+} from "../_shared/sarvam.ts";
 import {
   isLikelyHallucination,
   generateInsights,
@@ -78,9 +81,68 @@ serve(async (req) => {
     const config = meeting.processing_config || {};
 
     if (normalizedState === "COMPLETED") {
-      // Try to get results from webhook payload first, then download
+      // Chunked path: audio was split into N chunks by the Vercel split-audio
+      // function (one Sarvam job, N files). Download every chunk's output in
+      // order, offset its timestamps by chunk_index * chunk_seconds, and merge
+      // into a single result so everything downstream (hallucination check,
+      // speaker mapping, insights) runs unchanged.
+      const chunkCount = Number(config.chunk_count) || 0;
+      const chunkSeconds = Number(config.chunk_seconds) || 300;
+      const isChunked = config.split_method === "vercel-ffmpeg" && chunkCount >= 1;
+
       let result: Record<string, unknown>;
-      if (payload.results?.transcripts?.[0]) {
+
+      if (isChunked) {
+        let chunkResults: Record<string, unknown>[] = [];
+        // __harness_inline: test seam used by the pipeline harness to inject
+        // ordered chunk results without creating a real Sarvam job. Production
+        // callbacks never set it, so prod always downloads by output name
+        // (guaranteed ordering) rather than trusting inline payload order.
+        if (payload.__harness_inline && Array.isArray(payload.results?.transcripts)) {
+          chunkResults = payload.results.transcripts;
+          console.log(`[sarvam-webhook] Using ${chunkResults.length} inline chunk results (harness)`);
+        } else {
+          try {
+            chunkResults = await downloadAllSarvamResults(sarvamApiKey, job_id);
+          } catch (downloadErr) {
+            const errMsg = downloadErr instanceof Error ? downloadErr.message : String(downloadErr);
+            console.warn(
+              `[sarvam-webhook] Chunked download failed for job ${job_id} (${errMsg}) — will fall back to Whisper`,
+            );
+            chunkResults = [];
+          }
+        }
+
+        const mergedEntries: Record<string, unknown>[] = [];
+        const transcriptParts: string[] = [];
+        let mergedLanguage: string | null = null;
+        let emptyChunks = 0;
+        chunkResults.forEach((chunk: Record<string, unknown>, i: number) => {
+          const offset = i * chunkSeconds;
+          const text = String((chunk as any)?.transcript || "").trim();
+          if (text) transcriptParts.push(text);
+          else emptyChunks++;
+          if (!mergedLanguage && (chunk as any)?.language_code) {
+            mergedLanguage = (chunk as any).language_code;
+          }
+          const entries = (chunk as any)?.diarized_transcript?.entries || [];
+          for (const entry of entries) {
+            mergedEntries.push({
+              ...entry,
+              start_time_seconds: (entry.start_time_seconds ?? entry.start ?? 0) + offset,
+              end_time_seconds: (entry.end_time_seconds ?? entry.end ?? 0) + offset,
+            });
+          }
+        });
+        result = {
+          transcript: transcriptParts.join(" "),
+          language_code: mergedLanguage || "unknown",
+          diarized_transcript: { entries: mergedEntries },
+        };
+        console.log(
+          `[sarvam-webhook] Stitched ${chunkResults.length} chunks (${emptyChunks} empty) → ${transcriptParts.join(" ").length} chars, ${mergedEntries.length} diarized entries`,
+        );
+      } else if (payload.results?.transcripts?.[0]) {
         result = payload.results.transcripts[0];
         console.log("Using results from webhook payload");
       } else {

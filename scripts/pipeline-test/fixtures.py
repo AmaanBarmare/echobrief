@@ -66,3 +66,45 @@ def sarvam_webhook_success(job_id: str, *, transcript: str = CANNED_SARVAM_TRANS
 
 def sarvam_webhook_failed(job_id: str) -> dict[str, Any]:
     return {"job_id": job_id, "job_state": "FAILED"}
+
+
+CHUNK_A_TEXT = (
+    "First chunk of the harness meeting. The team reviewed the launch checklist "
+    "and agreed the beta starts Monday."
+)
+CHUNK_B_TEXT = (
+    "Second chunk of the harness meeting. Priya will draft the announcement "
+    "email and Rahul owns the rollback plan."
+)
+
+
+def sarvam_webhook_chunked_success(job_id: str) -> dict[str, Any]:
+    """Chunked-job webhook payload using the __harness_inline test seam.
+
+    sarvam-webhook treats results.transcripts as an ORDERED array of per-chunk
+    outputs when the meeting's processing_config has split_method=vercel-ffmpeg.
+    Timestamps here are chunk-relative; the webhook must offset chunk i by
+    i * chunk_seconds (300) when stitching.
+    """
+    def chunk(text: str) -> dict[str, Any]:
+        return {
+            "transcript": text,
+            "language_code": "en-IN",
+            "diarized_transcript": {
+                "entries": [
+                    {
+                        "speaker_id": "0",
+                        "transcript": text,
+                        "start_time_seconds": 1.0,
+                        "end_time_seconds": 29.0,
+                    }
+                ]
+            },
+        }
+
+    return {
+        "job_id": job_id,
+        "job_state": "COMPLETED",
+        "__harness_inline": True,
+        "results": {"transcripts": [chunk(CHUNK_A_TEXT), chunk(CHUNK_B_TEXT)]},
+    }

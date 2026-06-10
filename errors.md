@@ -11,11 +11,13 @@ This is the canonical list of error patterns the pipeline can hit, with root cau
 ### `sarvam:keyerror_timestamps`
 **What it looks like:** Sarvam job reports `job_state: Completed` at top level, but `successful_files_count: 0`, `failed_files_count: 1`, and `job_details[0].exception_name: "KeyError"` with `error_message: "'timestamps'"`.
 
-**Root cause:** Sarvam server-side bug in their saaras:v3 model when audio is longer than ~7 minutes. Reproduced across 4 different config combinations (translate/transcribe modes, en-IN/unknown languages, with timestamps on/off). Cannot be dodged with config flags. Reported to Sarvam Discord 2026-04-25.
+**Root cause:** Sarvam server-side bug in their saaras:v3 model when audio is longer than ~7 minutes. Reproduced across 4 different config combinations (translate/transcribe modes, en-IN/unknown languages, with timestamps on/off). Cannot be dodged with config flags. Reported to Sarvam Discord 2026-04-25. **Confirmed still live 2026-06-09** via controlled replay: the same 47-min file fails at full length but transcribes perfectly as 5–6-min chunks; an 8 MB/47-min file fails while a 6.8 MB/6-min file succeeds → trigger is **duration, not file size or config**.
 
-**Recovery:** Auto-fall-back to Whisper via `process-meeting` with `forceWhisper: true`. The `sarvam-webhook` already does this for any download error since 2026-04-24 fix.
+**Fix shipped 2026-06-10 (chunking):** `recall-pipeline` now routes audio through the Vercel `api/split-audio` function, which ffmpeg-splits long audio into 300 s re-encoded chunks (stream-copy chunks are rejected by Sarvam with "Audio contains no samples"), submits all chunks as ONE multi-file Sarvam job, and `sarvam-webhook` stitches the per-chunk outputs (offsetting timestamps by `chunk_index × chunk_seconds`). Validated end-to-end: the failing 47-min meeting produced 21k chars across 10/10 chunks.
 
-**Open issue:** Whisper fallback itself OOMs for audio > ~15 min in the edge function. See `whisper:oom`.
+**Recovery (if chunked path unavailable):** legacy fall-back chain still applies — direct single-file Sarvam submission, then Whisper via `process-meeting` with `forceWhisper: true`.
+
+**Open issue:** Whisper fallback OOMs/oversizes for long audio (see `whisper:oom`, `whisper:audio_too_large`) — but it is now only reached when both the chunked and direct Sarvam paths fail.
 
 ---
 
@@ -24,7 +26,7 @@ This is the canonical list of error patterns the pipeline can hit, with root cau
 
 **Root cause:** Same upstream bug as `sarvam:keyerror_timestamps`. When timestamps OR diarization is disabled in an attempt to dodge the KeyError, Sarvam's pipeline returns success metadata but produces no content. Likely the language-detection step itself fails on long audio and cascades to all output fields being null.
 
-**Recovery:** Same as `sarvam:keyerror_timestamps` — fall back to Whisper. The `sarvam-webhook` empty-transcript fallback handles this since the existing `!finalTranscript` branch.
+**Recovery:** Same as `sarvam:keyerror_timestamps` — primarily PREVENTED by the 2026-06-10 chunking fix (Vercel `api/split-audio` → multi-file Sarvam job → stitched in `sarvam-webhook`). If a chunked job still returns empty, the existing `!finalTranscript` branch falls back to Whisper.
 
 ---
 
