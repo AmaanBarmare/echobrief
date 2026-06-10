@@ -81,7 +81,8 @@ def fetch_meeting_case(env: dict[str, str], meeting_id: str) -> dict:
         "transcript": t.get("content") or "",
         "speakers": t.get("speakers") or [],
         "insights": {
-            "summary": ins.get("summary") or "",
+            # meeting_insights uses summary_short/summary_detailed (no `summary` column)
+            "summary": ins.get("summary_detailed") or ins.get("summary_short") or "",
             "action_items": ins.get("action_items") or [],
             "decisions": ins.get("decisions") or [],
         },

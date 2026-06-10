@@ -134,6 +134,13 @@ serve(async (req) => {
             });
           }
         });
+        // Sarvam's diarization can emit slightly out-of-order entries when
+        // speakers overlap; the dashboard timeline expects time-sorted
+        // segments (and the stitch_integrity eval enforces it).
+        mergedEntries.sort(
+          (a, b) =>
+            Number(a.start_time_seconds ?? 0) - Number(b.start_time_seconds ?? 0),
+        );
         result = {
           transcript: transcriptParts.join(" "),
           language_code: mergedLanguage || "unknown",
