@@ -8,7 +8,11 @@
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getSarvamJobStatus, downloadSarvamResults } from "../_shared/sarvam.ts";
+import {
+  downloadAllSarvamResults,
+  downloadSarvamResults,
+  getSarvamJobStatus,
+} from "../_shared/sarvam.ts";
 import { KNOWN_PATTERNS, isKnown, RecoveryAction } from "./known-patterns.ts";
 
 const STUCK_AFTER_MIN = 15;
@@ -114,29 +118,38 @@ async function detectSignature(meeting: Meeting): Promise<Detection | null> {
         };
       }
       if (successCount > 0) {
-        // Did it actually produce content?
+        // Did it actually produce content? Chunked jobs (split via the Vercel
+        // splitter) have MULTIPLE output files — checking only the first one
+        // would misclassify a good job whose chunk 0 happens to be silent.
         const config = meeting.processing_config || {};
-        const fileName = (config as any).audio_file_name || "audio.webm";
-        const resultFileName = fileName.replace(/\.[^.]+$/, ".json");
+        const isChunked = (config as any).split_method === "vercel-ffmpeg";
         try {
-          const result = await downloadSarvamResults(SARVAM_KEY, meeting.sarvam_job_id, resultFileName);
-          const transcript = String((result as any).transcript || "").trim();
-          if (!transcript) {
+          let hasContent: boolean;
+          if (isChunked) {
+            const all = await downloadAllSarvamResults(SARVAM_KEY, meeting.sarvam_job_id);
+            hasContent = all.some((r) => String((r as any).transcript || "").trim());
+          } else {
+            const fileName = (config as any).audio_file_name || "audio.webm";
+            const resultFileName = fileName.replace(/\.[^.]+$/, ".json");
+            const result = await downloadSarvamResults(SARVAM_KEY, meeting.sarvam_job_id, resultFileName);
+            hasContent = !!String((result as any).transcript || "").trim();
+          }
+          if (!hasContent) {
             return {
               signature: "stuck:processing:sarvam_silent_empty",
-              details: sarvamDetails,
+              details: { ...sarvamDetails, chunked: isChunked },
               age_minutes: ageMinutes,
             };
           }
           return {
             signature: "stuck:processing:sarvam_webhook_lost",
-            details: sarvamDetails,
+            details: { ...sarvamDetails, chunked: isChunked },
             age_minutes: ageMinutes,
           };
         } catch {
           return {
             signature: "stuck:processing:sarvam_silent_empty",
-            details: sarvamDetails,
+            details: { ...sarvamDetails, chunked: isChunked },
             age_minutes: ageMinutes,
           };
         }
@@ -397,9 +410,18 @@ serve(async (req) => {
       if (!detection) continue;
 
       const known = isKnown(detection.signature);
-      const recovery: RecoveryAction = known
+      let recovery: RecoveryAction = known
         ? KNOWN_PATTERNS[detection.signature].recovery
         : "none";
+      // Chunked meetings: full-file forceWhisper would reject >25 MB audio.
+      // Re-firing sarvam-webhook is strictly better — it stitches chunk
+      // outputs and carries its own chunk-wise Whisper fallback.
+      if (
+        recovery === "force_whisper" &&
+        (meeting.processing_config as any)?.split_method === "vercel-ffmpeg"
+      ) {
+        recovery = "trigger_sarvam_webhook";
+      }
 
       const recoveryResult = await attemptRecovery(recovery, meeting as Meeting, detection);
 

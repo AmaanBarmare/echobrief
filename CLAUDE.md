@@ -110,6 +110,7 @@ See `BRAND.md` for colors (orange/amber gradient primary, stone neutrals), typog
 **Vercel (api/ functions — set in the Vercel dashboard of the account that owns echobrief.in; deploys happen via GitHub auto-deploy on push, NOT the CLI):**
 - `SARVAM_API_KEY` -- split-audio submits chunks to Sarvam directly
 - `SPLIT_AUDIO_SECRET` -- shared bearer secret (same value as the Supabase secret)
+- `OPENAI_API_KEY` -- split-audio's `transcribe: "whisper"` mode (chunk-wise Whisper fallback when a chunked Sarvam job returns empty); mode 500s gracefully if unset and the webhook falls through to the legacy path
 
 ## Auth Flow Notes
 

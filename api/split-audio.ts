@@ -14,8 +14,19 @@
  * callback → upload all chunks → start job.
  *
  * Auth: requires `Authorization: Bearer ${SPLIT_AUDIO_SECRET}`.
- * Body: { audioUrl, callbackUrl, callbackToken }
- * Response: { job_id, chunk_count, chunk_seconds, duration_seconds }
+ *
+ * Modes:
+ *  - default (Sarvam): body { audioUrl, callbackUrl, callbackToken }
+ *    → splits + submits ONE multi-file Sarvam job with the webhook callback.
+ *    Response: { job_id, chunk_count, chunk_seconds, duration_seconds }
+ *  - transcribe: "whisper": body { audioUrl, transcribe: "whisper" }
+ *    → splits + transcribes every chunk SYNCHRONOUSLY via OpenAI Whisper
+ *    (each 300 s chunk is ~1 MB — far under Whisper's 25 MB limit, which is
+ *    what killed full-file Whisper fallbacks for long meetings). Used by
+ *    sarvam-webhook as the fallback when a chunked Sarvam job returns empty.
+ *    Requires OPENAI_API_KEY in the Vercel env.
+ *    Response: { transcript, language_code, segments: [{text,start,end}],
+ *                chunk_count, chunk_seconds, duration_seconds }
  */
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { spawn } from "node:child_process";
@@ -60,6 +71,43 @@ async function sarvamPost(apiKey: string, pathname: string, body: unknown) {
   return res.json();
 }
 
+interface WhisperSegment {
+  text: string;
+  start: number;
+  end: number;
+}
+
+async function whisperTranscribeChunk(
+  openaiKey: string,
+  bytes: Buffer,
+  fileName: string,
+): Promise<{ text: string; language: string; segments: WhisperSegment[] }> {
+  const form = new FormData();
+  form.append("file", new Blob([new Uint8Array(bytes)], { type: "audio/mpeg" }), fileName);
+  form.append("model", "whisper-1");
+  form.append("response_format", "verbose_json");
+  const res = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${openaiKey}` },
+    body: form,
+  });
+  if (!res.ok) {
+    throw new Error(`Whisper failed (${res.status}) for ${fileName}: ${(await res.text()).slice(0, 200)}`);
+  }
+  const data = await res.json();
+  return {
+    text: String(data.text || "").trim(),
+    language: String(data.language || "unknown"),
+    segments: Array.isArray(data.segments)
+      ? data.segments.map((s: { text?: string; start?: number; end?: number }) => ({
+          text: String(s.text || "").trim(),
+          start: Number(s.start || 0),
+          end: Number(s.end || 0),
+        }))
+      : [],
+  };
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "POST only" });
@@ -74,9 +122,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
-  const { audioUrl, callbackUrl, callbackToken } = req.body || {};
-  if (!audioUrl || !callbackUrl || !callbackToken) {
+  const { audioUrl, callbackUrl, callbackToken, transcribe } = req.body || {};
+  const whisperMode = transcribe === "whisper";
+  if (!audioUrl || (!whisperMode && (!callbackUrl || !callbackToken))) {
     return res.status(400).json({ error: "audioUrl, callbackUrl, callbackToken required" });
+  }
+  const openaiKey = process.env.OPENAI_API_KEY;
+  if (whisperMode && !openaiKey) {
+    return res.status(500).json({ error: "Whisper mode not configured (missing OPENAI_API_KEY)" });
   }
 
   const workDir = await mkdtemp(path.join(tmpdir(), "split-"));
@@ -127,6 +180,46 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const fileNames = chunkPaths.map((_, i) => `chunk_${String(i).padStart(3, "0")}.mp3`);
+
+    // Whisper mode: transcribe every chunk synchronously and return the
+    // stitched result — no Sarvam job, no callback. 4-way concurrency keeps a
+    // 47-min meeting (10 chunks) comfortably inside the 300 s limit.
+    if (whisperMode) {
+      const results: Awaited<ReturnType<typeof whisperTranscribeChunk>>[] = new Array(chunkPaths.length);
+      let next = 0;
+      async function worker() {
+        while (next < chunkPaths.length) {
+          const i = next++;
+          const bytes = await readFile(chunkPaths[i]);
+          results[i] = await whisperTranscribeChunk(openaiKey!, bytes, fileNames[i]);
+        }
+      }
+      await Promise.all(Array.from({ length: Math.min(4, chunkPaths.length) }, worker));
+
+      const segments: WhisperSegment[] = [];
+      const parts: string[] = [];
+      let language = "unknown";
+      results.forEach((r, i) => {
+        const offset = i * chunkSeconds;
+        if (r.text) parts.push(r.text);
+        if (language === "unknown" && r.language) language = r.language;
+        for (const s of r.segments) {
+          if (!s.text) continue;
+          segments.push({ text: s.text, start: s.start + offset, end: s.end + offset });
+        }
+      });
+      console.log(
+        `[split-audio] whisper mode: ${chunkPaths.length} chunks → ${parts.join(" ").length} chars`,
+      );
+      return res.status(200).json({
+        transcript: parts.join(" "),
+        language_code: language,
+        segments,
+        chunk_count: chunkPaths.length,
+        chunk_seconds: chunkSeconds,
+        duration_seconds: Math.round(durationSeconds),
+      });
+    }
 
     // 3. One Sarvam job for all chunks, with the meeting's webhook callback
     const job = await sarvamPost(sarvamApiKey, "", {

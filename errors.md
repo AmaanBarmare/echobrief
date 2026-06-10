@@ -42,9 +42,7 @@ This is the canonical list of error patterns the pipeline can hit, with root cau
 
 Audio ≥ ~15 MB blows the budget.
 
-**Recovery:** No automatic recovery yet. Manual: run [`/tmp/recover_meeting.py`](/tmp/recover_meeting.py) (downloads audio locally, calls Whisper API directly, generates insights, writes to DB).
-
-**Permanent fix:** Rewrite `process-meeting` Whisper path to stream the audio directly from a Supabase Storage signed URL into a manually-built multipart body with `duplex: "half"`. Bypasses the OpenAI SDK's buffering entirely. See open task in plan.
+**Recovery:** For chunked (Recall/split) meetings this path is now bypassed entirely — `sarvam-webhook` falls back to **chunk-wise Whisper via the Vercel `api/split-audio` function** (`transcribe: "whisper"` mode, shipped 2026-06-11): each 300 s chunk is ~1 MB, transcribed off-edge with 2 GB memory, so neither the edge OOM nor the 25 MB limit applies. Requires `OPENAI_API_KEY` in the Vercel env. The legacy in-edge `process-meeting` forceWhisper path remains only for non-chunked (extension/small) audio. Manual fallback: [`/tmp/recover_meeting.py`](/tmp/recover_meeting.py).
 
 ---
 
@@ -53,7 +51,7 @@ Audio ≥ ~15 MB blows the budget.
 
 **Root cause:** OpenAI Whisper's hard 25 MB upload limit. Affects roughly any audio > ~25 minutes at standard MP3 bitrate.
 
-**Recovery:** None automatic. Need chunked transcription (split by time, transcribe each chunk, concatenate) — not yet implemented.
+**Recovery:** For chunked (Recall/split) meetings: automatic since 2026-06-11 — `sarvam-webhook` retries via the Vercel splitter's chunk-wise Whisper mode (300 s chunks ≈ 1 MB each, far under the 25 MB limit). The monitor also routes `force_whisper` recoveries for chunked meetings to `trigger_sarvam_webhook` instead, which carries this fallback. Non-chunked uploads (extension path) still lack automatic recovery.
 
 ---
 

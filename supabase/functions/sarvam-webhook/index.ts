@@ -91,6 +91,7 @@ serve(async (req) => {
       const isChunked = config.split_method === "vercel-ffmpeg" && chunkCount >= 1;
 
       let result: Record<string, unknown>;
+      let sttProvider = "sarvam";
 
       if (isChunked) {
         let chunkResults: Record<string, unknown>[] = [];
@@ -149,6 +150,86 @@ serve(async (req) => {
         console.log(
           `[sarvam-webhook] Stitched ${chunkResults.length} chunks (${emptyChunks} empty) → ${transcriptParts.join(" ").length} chars, ${mergedEntries.length} diarized entries`,
         );
+
+        // Chunk-wise Whisper fallback: if the whole chunked Sarvam job came
+        // back empty, retry through the splitter's whisper mode. Each 300 s
+        // chunk is ~1 MB, so this works for ANY meeting length — unlike the
+        // legacy full-file forceWhisper path, which rejects >25 MB audio.
+        if (!String((result as any).transcript || "").trim() && meeting.audio_url) {
+          const splitUrl = Deno.env.get("SPLIT_AUDIO_URL");
+          const splitSecret = Deno.env.get("SPLIT_AUDIO_SECRET");
+          if (splitUrl && splitSecret) {
+            console.warn(
+              `[sarvam-webhook] Chunked job ${job_id} returned empty — retrying via chunk-wise Whisper`,
+            );
+            // Block concurrent re-entry while Whisper runs (same pattern as
+            // the legacy fallback). Restored to the normal flow on success
+            // because the completion update below sets status=completed.
+            await supabase
+              .from("meetings")
+              .update({ status: "transcribing" })
+              .eq("id", meeting.id);
+            try {
+              const storagePath = meeting.audio_url.replace(/^recordings\//, "");
+              const { data: signed } = await supabase.storage
+                .from("recordings")
+                .createSignedUrl(storagePath, 3600);
+              if (!signed?.signedUrl) throw new Error("could not sign audio URL");
+              const whisperRes = await fetch(splitUrl, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${splitSecret}`,
+                },
+                body: JSON.stringify({
+                  audioUrl: signed.signedUrl,
+                  transcribe: "whisper",
+                }),
+              });
+              if (!whisperRes.ok) {
+                throw new Error(
+                  `split-audio whisper mode returned ${whisperRes.status}: ${(await whisperRes.text()).substring(0, 200)}`,
+                );
+              }
+              const w = await whisperRes.json();
+              if (String(w.transcript || "").trim()) {
+                result = {
+                  transcript: w.transcript,
+                  language_code: w.language_code || "unknown",
+                  diarized_transcript: {
+                    entries: (w.segments || []).map(
+                      (s: { text: string; start: number; end: number }) => ({
+                        speaker_id: "0",
+                        transcript: s.text,
+                        start_time_seconds: s.start,
+                        end_time_seconds: s.end,
+                      }),
+                    ),
+                  },
+                };
+                sttProvider = "whisper-chunked";
+                console.log(
+                  `[sarvam-webhook] Whisper-chunked fallback succeeded: ${String(w.transcript).length} chars, ${(w.segments || []).length} segments`,
+                );
+              }
+              // Restore status so the normal completion flow (or the legacy
+              // fallback below, if Whisper also returned empty) proceeds.
+              await supabase
+                .from("meetings")
+                .update({ status: "processing" })
+                .eq("id", meeting.id);
+            } catch (whisperErr) {
+              console.warn(
+                "[sarvam-webhook] Whisper-chunked fallback failed, falling through to legacy path:",
+                whisperErr,
+              );
+              await supabase
+                .from("meetings")
+                .update({ status: "processing" })
+                .eq("id", meeting.id);
+            }
+          }
+        }
       } else if (payload.results?.transcripts?.[0]) {
         result = payload.results.transcripts[0];
         console.log("Using results from webhook payload");
@@ -340,7 +421,7 @@ serve(async (req) => {
           content: finalTranscript,
           speakers: speakerSegments,
           word_timestamps: (result as any).timestamps || [],
-          stt_provider: "sarvam",
+          stt_provider: sttProvider,
           language_detected: languageCode,
         });
       }
@@ -355,8 +436,18 @@ serve(async (req) => {
 
       const endTime = new Date();
       const startTime = new Date(meeting.start_time);
-      const durationSeconds = Math.floor(
-        (endTime.getTime() - startTime.getTime()) / 1000,
+      // Prefer the real audio duration (persisted by the split path), then the
+      // last transcript segment's end time, and only then wall-clock — which is
+      // inflated by processing time and wildly wrong for recovered meetings.
+      const audioDuration = Number(config.audio_duration_seconds) || 0;
+      const lastSegmentEnd = speakerSegments.reduce(
+        (max, seg) => Math.max(max, Number(seg.end) || 0),
+        0,
+      );
+      const durationSeconds = Math.round(
+        audioDuration ||
+          lastSegmentEnd ||
+          (endTime.getTime() - startTime.getTime()) / 1000,
       );
 
       await supabase

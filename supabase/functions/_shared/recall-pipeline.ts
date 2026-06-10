@@ -377,6 +377,7 @@ export async function processRecallAudio(
     split_method: string;
     chunk_count: number;
     chunk_seconds: number;
+    audio_duration_seconds: number;
   } | null = null;
 
   if (splitUrl && splitSecret && !uploadError) {
@@ -410,6 +411,7 @@ export async function processRecallAudio(
         split_method: "vercel-ffmpeg",
         chunk_count: splitData.chunk_count,
         chunk_seconds: splitData.chunk_seconds,
+        audio_duration_seconds: splitData.duration_seconds,
       };
       console.log(
         `[recall-pipeline] Split path: job=${jobId}, ${splitData.chunk_count} chunk(s) x ${splitData.chunk_seconds}s (duration ${splitData.duration_seconds}s)`,

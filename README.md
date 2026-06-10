@@ -164,7 +164,7 @@ Most meeting tools stop at transcription. EchoBrief goes deeper in both product 
 4. Once the bot finishes recording, EchoBrief downloads the audio from Recall and fetches Recall's transcript (which contains real participant names from the meeting platform).
 5. Audio is archived to Supabase Storage. A speaker timeline (participant name + time ranges) is built from the Recall transcript and stored in `processing_config`.
 6. The audio is routed through the **Vercel `api/split-audio` function**: ffmpeg probes the real duration; ≤6-min audio passes through untouched, longer audio is split into 300 s re-encoded chunks. All chunks are submitted as **one multi-file Sarvam batch job** (Sarvam's `saaras:v3` silently returns empty transcripts for long files — see Engineering Challenge #19). If the splitter is unreachable, the pipeline falls back to the legacy direct single-file submission.
-7. `sarvam-webhook` receives the completion callback. For chunked jobs it downloads outputs `0.json..N.json` in order, offsets each chunk's timestamps by `chunk_index × chunk_seconds`, time-sorts the merged segments, and stitches one transcript.
+7. `sarvam-webhook` receives the completion callback. For chunked jobs it downloads outputs `0.json..N.json` in order, offsets each chunk's timestamps by `chunk_index × chunk_seconds`, time-sorts the merged segments, and stitches one transcript. If the entire chunked job came back empty, it retries through the splitter's **chunk-wise Whisper mode** (each 300 s chunk ≈ 1 MB, so Whisper's 25 MB limit never applies — the fallback works for any meeting length).
 8. The webhook maps each Sarvam transcript segment to real participant names using per-segment time-overlap matching against the Recall speaker timeline (this approach works even when Sarvam's diarization assigns all segments to one speaker ID).
 9. Transcript with real speaker names is persisted, insights are generated, and downstream delivery (Slack/email) is triggered.
 
@@ -870,6 +870,7 @@ SPLIT_AUDIO_SECRET=...
 ```env
 SARVAM_API_KEY=...          # split-audio submits chunks to Sarvam directly
 SPLIT_AUDIO_SECRET=...      # must equal the Supabase secret of the same name
+OPENAI_API_KEY=...          # chunk-wise Whisper fallback (transcribe: "whisper" mode)
 ```
 
 ### Run the Web App
