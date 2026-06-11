@@ -475,9 +475,168 @@ def chunked_happy_path() -> ScenarioResult:
         client.delete_meeting(meeting_id)
 
 
+@scenario
+def speaker_mapping_happy_path() -> ScenarioResult:
+    """Speaker mapping: timeline overlap + nearest-neighbor fallback → real names.
+
+    Three Sarvam segments against a two-person Recall timeline. Segments 1-2
+    map by time overlap (Priya, Rahul); segment 3 sits outside every timeline
+    window and must resolve via nearest-neighbor (Rahul) — never SPEAKER_XX.
+    """
+    job_id = f"test-speakers-{uuid.uuid4()}"
+    meeting_id = client.insert_meeting(
+        title="speaker_mapping_happy_path",
+        recall_bot_id=client.GOOD_BOT_ID,
+        sarvam_job_id=job_id,
+        status="processing",
+        processing_config=fixtures.SPEAKER_MAP_CONFIG,
+    )
+    try:
+        status, body = client.fire_sarvam_webhook(
+            fixtures.sarvam_webhook_speaker_mapping(job_id)
+        )
+        if status >= 300:
+            return ScenarioResult("speaker_mapping_happy_path", False, f"sarvam-webhook returned {status}: {body[:300]}")
+
+        result = client.wait_for_status(meeting_id, expected={"completed"}, timeout_s=30)
+        if not result.succeeded:
+            return ScenarioResult(
+                "speaker_mapping_happy_path", False,
+                f"meeting never completed; final={result.final_meeting.get('status')!r}",
+            )
+        transcript = client.get_transcript(meeting_id)
+        if not transcript:
+            return ScenarioResult("speaker_mapping_happy_path", False, "transcript row not created")
+        names = [s.get("speaker") for s in (transcript.get("speakers") or [])]
+        if names != ["Priya", "Rahul", "Rahul"]:
+            return ScenarioResult(
+                "speaker_mapping_happy_path", False,
+                f"wrong speaker mapping: got {names}, expected ['Priya', 'Rahul', 'Rahul']",
+            )
+        if any(str(n).startswith("SPEAKER_") for n in names):
+            return ScenarioResult(
+                "speaker_mapping_happy_path", False,
+                f"phantom acoustic label leaked through: {names}",
+            )
+        return ScenarioResult(
+            "speaker_mapping_happy_path", True,
+            f"mapped {names} (overlap x2 + nearest-neighbor x1)",
+        )
+    finally:
+        client.delete_meeting(meeting_id)
+
+
+@scenario
+def split_audio_endpoint_probes() -> ScenarioResult:
+    """Deployed split-audio function: auth + validation behave as contracted.
+
+    Cheap liveness/config check of the Vercel function on every harness run:
+    401 without the bearer secret, 400 with auth but no payload. A 500 here
+    means the function's env (SARVAM_API_KEY/SPLIT_AUDIO_SECRET) is missing.
+    """
+    if not client.SPLIT_AUDIO_SECRET:
+        return ScenarioResult("split_audio_endpoint_probes", False, "SPLIT_AUDIO_SECRET not in .env")
+    status_unauth, _ = client.post_split_audio({}, authed=False, timeout=30)
+    if status_unauth != 401:
+        return ScenarioResult(
+            "split_audio_endpoint_probes", False,
+            f"unauthenticated probe: expected 401, got {status_unauth} (env missing or rewrite broken?)",
+        )
+    status_badbody, body = client.post_split_audio({}, authed=True, timeout=30)
+    if status_badbody != 400:
+        return ScenarioResult(
+            "split_audio_endpoint_probes", False,
+            f"authed empty-body probe: expected 400, got {status_badbody}: {body[:200]}",
+        )
+    return ScenarioResult("split_audio_endpoint_probes", True, "401 unauth / 400 bad-body — deployed + configured")
+
+
+@scenario
+def live_sarvam_e2e() -> ScenarioResult:
+    """LIVE: real fixture audio → deployed splitter → real Sarvam → stitched completion.
+
+    The only scenario that exercises stages E→F→G with the real providers:
+    Vercel ffmpeg split, a real chunked Sarvam batch job, the real callback,
+    stitching, insights. Uses a ~6.5 min Hindi fixture in Storage (2 chunks).
+    Costs a few paise of Sarvam+GPT per run; excluded from the default suite —
+    run with --live before risky deploys. Doubles as a Sarvam contract check
+    (catches upstream regressions like the silent long-audio empty bug).
+    """
+    fixture_path = "harness-fixtures/live-e2e.mp3"
+    meeting_id = client.insert_meeting(
+        title="live_sarvam_e2e",
+        recall_bot_id=None,
+        sarvam_job_id=None,
+        status="processing",
+        audio_url=f"recordings/{fixture_path}",
+        processing_config={"source": "recall", "audio_file_name": "recall-audio.mp3"},
+    )
+    try:
+        signed = client.create_signed_audio_url(fixture_path)
+        status, body = client.post_split_audio({
+            "audioUrl": signed,
+            "callbackUrl": f"{client.SUPABASE_URL}/functions/v1/sarvam-webhook",
+            "callbackToken": client.SARVAM_WEBHOOK_SECRET,
+        })
+        if status != 200:
+            return ScenarioResult("live_sarvam_e2e", False, f"split-audio returned {status}: {body[:300]}")
+        split = __import__("json").loads(body)
+        if split.get("chunk_count", 0) < 2:
+            return ScenarioResult(
+                "live_sarvam_e2e", False,
+                f"fixture should split into >=2 chunks, got {split.get('chunk_count')}",
+            )
+        client.update_meeting(meeting_id, {
+            "sarvam_job_id": split["job_id"],
+            "processing_config": {
+                "source": "recall",
+                "audio_file_name": "recall-audio.mp3",
+                "split_method": "vercel-ffmpeg",
+                "chunk_count": split["chunk_count"],
+                "chunk_seconds": split["chunk_seconds"],
+                "audio_duration_seconds": split["duration_seconds"],
+            },
+        })
+
+        result = client.wait_for_status(meeting_id, expected={"completed", "failed"}, timeout_s=300, interval_s=5)
+        final = result.final_meeting.get("status")
+        if final != "completed":
+            return ScenarioResult("live_sarvam_e2e", False, f"expected completed, got {final!r}")
+
+        transcript = client.get_transcript(meeting_id)
+        if not transcript or len(transcript.get("content") or "") < 100:
+            return ScenarioResult(
+                "live_sarvam_e2e", False,
+                f"transcript too short: {len((transcript or {}).get('content') or '')} chars — Sarvam regression?",
+            )
+        if transcript.get("stt_provider") != "sarvam":
+            return ScenarioResult(
+                "live_sarvam_e2e", False,
+                f"expected stt_provider=sarvam, got {transcript.get('stt_provider')!r} (fallback fired?)",
+            )
+        if not client.get_insights(meeting_id):
+            return ScenarioResult("live_sarvam_e2e", False, "insights row not created")
+        duration = result.final_meeting.get("duration_seconds") or 0
+        if not (split["duration_seconds"] - 45 <= duration <= split["duration_seconds"] + 45):
+            return ScenarioResult(
+                "live_sarvam_e2e", False,
+                f"duration_seconds={duration}, expected ~{split['duration_seconds']}",
+            )
+        return ScenarioResult(
+            "live_sarvam_e2e", True,
+            f"{split['chunk_count']} chunks via real Sarvam → {len(transcript.get('content') or '')} chars, duration={duration}s",
+        )
+    finally:
+        client.delete_meeting(meeting_id)
+
+
+LIVE_SCENARIOS = {"live_sarvam_e2e"}
+
 ALL_SCENARIOS = [
     happy_path_sarvam,
     chunked_happy_path,
+    speaker_mapping_happy_path,
+    split_audio_endpoint_probes,
     bot_done_defers_on_unknown_audio,
     audio_mixed_failed_marks_meeting_failed,
     bot_kicked_waiting_room,
@@ -485,12 +644,14 @@ ALL_SCENARIOS = [
     concurrent_sarvam_webhooks,
     monitor_recovers_known_pattern,
     monitor_logs_unknown_pattern,
+    live_sarvam_e2e,
 ]
 
 
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--only", help="Run only the scenario matching this name")
+    ap.add_argument("--live", action="store_true", help="Include live-provider scenarios (real Sarvam job, ~3 min, costs a little)")
     ap.add_argument("--cleanup-only", action="store_true", help="Delete all [harness] rows and exit")
     args = ap.parse_args()
 
@@ -499,7 +660,9 @@ def main() -> int:
         print(f"Deleted {n} [harness] meetings")
         return 0
 
-    scenarios = ALL_SCENARIOS
+    scenarios = ALL_SCENARIOS if args.live else [
+        s for s in ALL_SCENARIOS if s.__name__ not in LIVE_SCENARIOS
+    ]
     if args.only:
         scenarios = [s for s in ALL_SCENARIOS if s.__name__ == args.only]
         if not scenarios:

@@ -760,24 +760,57 @@ The pairing of a curated runbook (`errors.md`) with a programmatic mirror (`know
 
 ## Testing: Harness and Evals
 
-EchoBrief tests its AI pipeline at two distinct layers, because they answer two distinct questions:
+EchoBrief tests its AI pipeline as a four-tier pyramid — each tier answers a different question at a different cost:
 
-| Layer | Tool | Question it answers | When it runs |
+| Tier | Tool | Question it answers | Cost / when |
 |---|---|---|---|
-| **Integration harness** (plumbing) | [`scripts/pipeline-test/harness.py`](scripts/pipeline-test/harness.py) | *Did the pipeline run correctly?* Statuses transition, webhooks are idempotent, races don't corrupt state, failures persist, the monitor recovers. | Before every edge-function or migration deploy. 9/9 must pass. |
-| **Output-quality evals** | [`scripts/evals/run_evals.py`](scripts/evals/run_evals.py) | *Is the output any good?* Transcript accurate and in English, segments time-ordered, no hallucinated action items, summary faithful to what was said. | Before deploying anything that touches transcription, chunking, prompts, or insight generation. |
+| **0. Unit harness** (logic) | `deno test -A supabase/functions/tests/` | *Is the pure logic correct?* Recall API parsing & fallback chains, audio_mixed status mapping, chunk-stitch math (offsets/sort), Sarvam output discovery & numeric ordering. 26 tests, mocked fetch, zero prod contact. | Free, <1 s. Run on every change. |
+| **1. Integration harness** (plumbing) | [`scripts/pipeline-test/harness.py`](scripts/pipeline-test/harness.py) | *Does the deployed pipeline run correctly?* Statuses transition, webhooks idempotent, races don't corrupt, speaker mapping resolves real names, the splitter endpoint is alive & configured, the monitor recovers. | ~90 s against real prod. Before every deploy. 11/11 must pass. |
+| **2. Live-provider E2E** | `harness.py --live` | *Do the REAL providers still work end-to-end?* Real fixture audio → deployed Vercel splitter → real chunked Sarvam job → real callback → stitched transcript + insights. Doubles as a Sarvam contract check (catches upstream regressions like the silent long-audio bug). | ~3 min, costs pennies. Before risky deploys; periodically. |
+| **3. Full bot drill** (manual) | runbook below | *Does the entire product work, bot included?* Stages A–B (bot creation, joining, recording) need a real meeting. | ~5 min of human time. After bot-flow changes. |
+| **Output-quality evals** | [`scripts/evals/run_evals.py`](scripts/evals/run_evals.py) | *Is the output any good?* No hallucinated action items, faithful summary, English output, ordered segments, real speaker names. | Before deploying anything touching transcription/prompts. |
 
-The distinction matters: a meeting can flow through every status correctly and still produce a hallucinated summary — the harness stays green, only an eval catches it. Conversely, an idempotency race never shows up in output quality — only the harness catches it. Monitoring (the pg_cron stuck-meeting monitor above) is the third leg: it catches what slips past both, *in* production, after the fact.
+The distinction matters: a meeting can flow through every status correctly and still produce a hallucinated summary — the harness stays green, only an eval catches it. Conversely, an idempotency race never shows up in output quality — only the harness catches it. Monitoring (the pg_cron stuck-meeting monitor above) is the final leg: it catches what slips past everything, *in* production, after the fact.
 
-### The harness: 9 scenarios against real infrastructure
+### Tier 0: the unit harness
+
+Pure-logic tests with mocked `fetch` — no deployment, no database, no providers. They cover the previously-untested "stage D" of the pipeline (Recall data extraction) and the chunk-stitch math, extracted into [`_shared/stitch.ts`](supabase/functions/_shared/stitch.ts) precisely so it could be tested:
+
+- `getRecallTranscript`: media_shortcuts URL → recording_id query fallback → graceful null on failure/empty
+- `getAudioMixedStatus`: done/processing/failed pass through; missing results, HTTP errors, weird codes, thrown fetches all map to safe defer values (`missing`/`unknown`) — the race-safety contract
+- `stitchChunkResults`: per-chunk timestamp offsets, time-sorting of overlapping-speech entries, empty-chunk counting, legacy key handling
+- `downloadAllSarvamResults`: output-name discovery and **numeric** sort (`2.json` before `10.json` — chunk order depends on it), error propagation
+
+```bash
+npm run test:unit        # deno test -A supabase/functions/tests/
+```
+
+### Tier 1: the integration harness — 11 scenarios against real infrastructure
 
 Nothing is mocked. Each scenario inserts a synthetic `[harness]`-prefixed meeting into the production database, fires real signed webhook payloads (captured from prod logs, templated in [`fixtures.py`](scripts/pipeline-test/fixtures.py)) at the real deployed edge functions, polls for the expected end state, and always cleans up its rows — pass or fail.
 
 ```bash
-python3 scripts/pipeline-test/harness.py                       # all 9 scenarios (~90 s)
+python3 scripts/pipeline-test/harness.py                       # 11 default scenarios (~90 s)
+python3 scripts/pipeline-test/harness.py --live                # + live_sarvam_e2e (real Sarvam, ~3 min)
 python3 scripts/pipeline-test/harness.py --only chunked_happy_path   # one scenario
 python3 scripts/pipeline-test/harness.py --cleanup-only        # delete stray [harness] rows
 ```
+
+The 11 default scenarios: the original 9 (happy path, chunked stitch, bot.done race, audio_mixed.failed, waiting-room kick, idempotency, concurrency, monitor known/unknown) plus `speaker_mapping_happy_path` (timeline-overlap and nearest-neighbor name resolution — asserts `['Priya', 'Rahul', 'Rahul']`, zero `SPEAKER_XX`) and `split_audio_endpoint_probes` (deployed Vercel splitter answers 401 unauthenticated / 400 on bad body — a liveness+config check on every run).
+
+### Tier 2: the live-provider E2E (`--live`)
+
+`live_sarvam_e2e` runs the real E→F→G chain: a 6.5-minute Hindi fixture stored at `recordings/harness-fixtures/live-e2e.mp3` goes through the deployed splitter, becomes a real 2-chunk Sarvam batch job with the real webhook callback, and must come back `completed` with >100 chars, `stt_provider=sarvam`, insights present, and an accurate `duration_seconds`. If Sarvam ships another silent regression, this is the test that screams.
+
+### Tier 3: the full bot drill (manual runbook)
+
+The only stages no automation covers are bot creation and joining (A–B) — they need a real meeting. After changing bot-flow code or before re-enabling auto-join:
+
+1. Open a Google Meet yourself (instant meeting is fine).
+2. In the EchoBrief dashboard, paste the Meet URL and start a bot recording.
+3. Admit the bot when it knocks; play 2–3 minutes of any video with clear speech.
+4. End the meeting. Within ~5 minutes the meeting should reach **Completed** with a transcript, named speakers (you), and insights.
+5. If it sticks, the monitor will classify and email within 15–20 min — check `monitor_events` for the signature.
 
 **Debugging a failing scenario:** every failure message states the expected vs actual end state (e.g. `meeting never reached completed; final status='processing'`). The triage order that works: (1) re-run just that scenario with `--only`; (2) check the edge function logs in the Supabase dashboard for the function the scenario fires at; (3) check `monitor_events` / meeting row state via the REST API; (4) if the failure is a *new* pipeline behavior (not a regression), update the scenario's expectation **and** document the behavior change in `errors.md`. The two monitor scenarios send a real Resend email by design (subject `[ECHOBRIEF HARNESS TEST]`) — that email is the test passing, not an incident.
 

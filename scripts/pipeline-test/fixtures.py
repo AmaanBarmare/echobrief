@@ -68,6 +68,53 @@ def sarvam_webhook_failed(job_id: str) -> dict[str, Any]:
     return {"job_id": job_id, "job_state": "FAILED"}
 
 
+SPEAKER_MAP_TEXT_A = "Welcome everyone, let's review the launch checklist for this sprint and assign the remaining work."
+SPEAKER_MAP_TEXT_B = "Thanks Priya. The rollback plan is drafted and I will finish the deployment scripts by Thursday."
+SPEAKER_MAP_TEXT_C = "Perfect, sounds good to me."
+
+SPEAKER_MAP_CONFIG = {
+    "source": "recall",
+    "audio_file_name": "recall-audio.mp3",
+    "recall_participants": [
+        {"id": 1, "name": "Priya"},
+        {"id": 2, "name": "Rahul"},
+    ],
+    # Priya speaks 0-30s, Rahul 30-60s. The third Sarvam segment (65-68s)
+    # falls OUTSIDE both windows → must resolve via nearest-neighbor (Rahul,
+    # timeline midpoint 45 vs Priya's 15), never SPEAKER_XX.
+    "recall_speaker_timeline": [
+        {"speaker": "Priya", "start": 0.0, "end": 30.0},
+        {"speaker": "Rahul", "start": 30.0, "end": 60.0},
+    ],
+}
+
+
+def sarvam_webhook_speaker_mapping(job_id: str) -> dict[str, Any]:
+    """Payload whose diarized segments exercise all three mapping paths:
+    timeline overlap (A→Priya), timeline overlap (B→Rahul), and
+    nearest-neighbor fallback for an out-of-window segment (C→Rahul)."""
+    transcript = f"{SPEAKER_MAP_TEXT_A} {SPEAKER_MAP_TEXT_B} {SPEAKER_MAP_TEXT_C}"
+    return {
+        "job_id": job_id,
+        "job_state": "COMPLETED",
+        "results": {
+            "transcripts": [
+                {
+                    "transcript": transcript,
+                    "language_code": "en",
+                    "diarized_transcript": {
+                        "entries": [
+                            {"speaker_id": "0", "transcript": SPEAKER_MAP_TEXT_A, "start_time_seconds": 5.0, "end_time_seconds": 25.0},
+                            {"speaker_id": "0", "transcript": SPEAKER_MAP_TEXT_B, "start_time_seconds": 35.0, "end_time_seconds": 55.0},
+                            {"speaker_id": "1", "transcript": SPEAKER_MAP_TEXT_C, "start_time_seconds": 65.0, "end_time_seconds": 68.0},
+                        ]
+                    },
+                }
+            ]
+        },
+    }
+
+
 CHUNK_A_TEXT = (
     "First chunk of the harness meeting. The team reviewed the launch checklist "
     "and agreed the beta starts Monday."

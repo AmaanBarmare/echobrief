@@ -123,7 +123,9 @@ See `BRAND.md` for colors (orange/amber gradient primary, stone neutrals), typog
 
 - **Test before committing or deploying:** After making any change — whether it's a frontend tweak, Edge Function update, or migration — verify it actually works before committing or deploying. For frontend changes, run `npm run build` to catch type errors and confirm the dev server renders correctly. For Edge Functions, run `npm run functions:serve` and exercise the relevant endpoint. For database migrations, apply locally and check the result. Don't assume a change works just because it looks right — confirm it. Only then commit and deploy.
 
-- **Run the pipeline harness before deploying any edge function or migration:** `python3 scripts/pipeline-test/harness.py`. Takes ~90 seconds, hits real prod against the deployed code, creates and deletes `[harness]`-prefixed test meetings. 9/9 must pass. The harness has already caught two real prod bugs that would have hit users (the missing `error_message` column and the `transcribing` deadlock). See [`scripts/pipeline-test/`](scripts/pipeline-test/).
+- **Run the unit harness on any shared-logic change:** `npm run test:unit` (deno test, mocked fetch, <1 s, no prod contact). Covers recall-pipeline parsing/fallbacks, audio_mixed status mapping, chunk-stitch math (`_shared/stitch.ts`), and Sarvam output discovery/ordering.
+
+- **Run the pipeline harness before deploying any edge function or migration:** `python3 scripts/pipeline-test/harness.py`. Takes ~90 seconds, hits real prod against the deployed code, creates and deletes `[harness]`-prefixed test meetings. 11/11 must pass. Add `--live` before risky pipeline deploys: runs `live_sarvam_e2e` (real fixture audio → deployed splitter → real chunked Sarvam job → stitched completion, ~3 min) which doubles as a Sarvam contract check. The harness has already caught two real prod bugs that would have hit users (the missing `error_message` column and the `transcribing` deadlock). See [`scripts/pipeline-test/`](scripts/pipeline-test/).
 
 - **Run the output-quality evals before deploying anything that touches transcription or insights:** `python3 scripts/evals/run_evals.py`. 8 evals (4 deterministic + 4 LLM-judge) over the static dataset, including a judge-calibration case that must FAIL. Exit code gates the deploy. See [`scripts/evals/EVALS.md`](scripts/evals/EVALS.md) for the harness-vs-evals distinction and how to grow the dataset from prod meetings.
 
@@ -140,7 +142,11 @@ See `BRAND.md` for colors (orange/amber gradient primary, stone neutrals), typog
 
 ## Operations
 
-- **Pipeline test harness:** [`scripts/pipeline-test/harness.py`](scripts/pipeline-test/harness.py). 9 scenarios covering happy path, chunked-stitch happy path (timestamp offsets + chunk ordering), the bot.done/audio_mixed.done race, audio_mixed.failed, kicked-from-waiting-room, sarvam-webhook idempotency, concurrent sarvam-webhook calls, monitor recovers a known signature, monitor logs+emails an unknown signature. Real DB, real edge functions, real Resend. Takes ~90s.
+- **Unit harness:** [`supabase/functions/tests/`](supabase/functions/tests/) — `npm run test:unit`. 26 deno tests with mocked fetch: recall-pipeline URL-discovery/fallback chains, `getAudioMixedStatus` defer semantics, `stitchChunkResults` offsets/sorting, `downloadAllSarvamResults` numeric ordering.
+
+- **Pipeline test harness:** [`scripts/pipeline-test/harness.py`](scripts/pipeline-test/harness.py). 11 default scenarios: happy path, chunked-stitch (timestamp offsets + ordering), speaker mapping (timeline overlap + nearest-neighbor → real names, no SPEAKER_XX), split-audio endpoint probes (401/400 contract), the bot.done/audio_mixed.done race, audio_mixed.failed, kicked-from-waiting-room, sarvam-webhook idempotency, concurrent sarvam-webhook calls, monitor recovers known / logs unknown signature. `--live` adds `live_sarvam_e2e` (real Sarvam over the fixture at `recordings/harness-fixtures/live-e2e.mp3`). Real DB, real edge functions, real Resend. Takes ~90s (+~3 min with --live).
+
+- **Full bot drill (manual, stages A–B):** after bot-flow changes or before re-enabling auto-join — open a Meet, start a bot from the dashboard, admit it, play a few minutes of speech, verify the meeting completes with named speakers. Procedure in README's Testing section.
 
 - **Output-quality evals:** [`scripts/evals/`](scripts/evals/). 8 evals (schema, English output, stitch integrity, speaker attribution, action-item recall/precision, summary faithfulness, decision accuracy) with gpt-4o-mini as judge. `--snapshot <meeting-id>` pulls a prod meeting into the dataset (the production→eval feedback loop). See [`scripts/evals/EVALS.md`](scripts/evals/EVALS.md).
 

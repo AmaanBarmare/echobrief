@@ -5,6 +5,7 @@ import {
   downloadAllSarvamResults,
   downloadSarvamResults,
 } from "../_shared/sarvam.ts";
+import { stitchChunkResults } from "../_shared/stitch.ts";
 import {
   isLikelyHallucination,
   generateInsights,
@@ -114,41 +115,14 @@ serve(async (req) => {
           }
         }
 
-        const mergedEntries: Record<string, unknown>[] = [];
-        const transcriptParts: string[] = [];
-        let mergedLanguage: string | null = null;
-        let emptyChunks = 0;
-        chunkResults.forEach((chunk: Record<string, unknown>, i: number) => {
-          const offset = i * chunkSeconds;
-          const text = String((chunk as any)?.transcript || "").trim();
-          if (text) transcriptParts.push(text);
-          else emptyChunks++;
-          if (!mergedLanguage && (chunk as any)?.language_code) {
-            mergedLanguage = (chunk as any).language_code;
-          }
-          const entries = (chunk as any)?.diarized_transcript?.entries || [];
-          for (const entry of entries) {
-            mergedEntries.push({
-              ...entry,
-              start_time_seconds: (entry.start_time_seconds ?? entry.start ?? 0) + offset,
-              end_time_seconds: (entry.end_time_seconds ?? entry.end ?? 0) + offset,
-            });
-          }
-        });
-        // Sarvam's diarization can emit slightly out-of-order entries when
-        // speakers overlap; the dashboard timeline expects time-sorted
-        // segments (and the stitch_integrity eval enforces it).
-        mergedEntries.sort(
-          (a, b) =>
-            Number(a.start_time_seconds ?? 0) - Number(b.start_time_seconds ?? 0),
-        );
+        const stitched = stitchChunkResults(chunkResults, chunkSeconds);
         result = {
-          transcript: transcriptParts.join(" "),
-          language_code: mergedLanguage || "unknown",
-          diarized_transcript: { entries: mergedEntries },
+          transcript: stitched.transcript,
+          language_code: stitched.language_code,
+          diarized_transcript: stitched.diarized_transcript,
         };
         console.log(
-          `[sarvam-webhook] Stitched ${chunkResults.length} chunks (${emptyChunks} empty) → ${transcriptParts.join(" ").length} chars, ${mergedEntries.length} diarized entries`,
+          `[sarvam-webhook] Stitched ${chunkResults.length} chunks (${stitched.empty_chunks} empty) → ${stitched.transcript.length} chars, ${stitched.diarized_transcript.entries.length} diarized entries`,
         );
 
         // Chunk-wise Whisper fallback: if the whole chunked Sarvam job came

@@ -34,6 +34,8 @@ SUPABASE_URL: str = ENV["SUPABASE_URL"]
 SERVICE_KEY: str = ENV["SUPABASE_SERVICE_ROLE_KEY"]
 RECALL_WEBHOOK_SECRET: str = ENV["RECALL_WEBHOOK_SECRET"]
 SARVAM_WEBHOOK_SECRET: str = ENV["SARVAM_WEBHOOK_SECRET"]
+SPLIT_AUDIO_URL: str = ENV.get("SPLIT_AUDIO_URL", "https://www.echobrief.in/api/split-audio")
+SPLIT_AUDIO_SECRET: str = ENV.get("SPLIT_AUDIO_SECRET", "")
 
 # Real user id from the prod account — harness meetings are owned by this user
 # so RLS doesn't get in the way. The "[harness]" title prefix makes them easy
@@ -236,6 +238,39 @@ def call_monitor_stuck_meetings() -> tuple[int, str]:
         headers={"Content-Type": "application/json"},
         body=b"{}",
         timeout=120,
+    )
+    return status, body.decode()
+
+
+def update_meeting(meeting_id: str, fields: dict[str, Any]) -> None:
+    url = f"{SUPABASE_URL}/rest/v1/meetings?id=eq.{meeting_id}"
+    _request("PATCH", url, headers=_rest_headers(), body=json.dumps(fields).encode())
+
+
+def create_signed_audio_url(storage_path: str, expires_s: int = 3600) -> str:
+    """Sign a path inside the `recordings` bucket (path WITHOUT the bucket prefix)."""
+    url = f"{SUPABASE_URL}/storage/v1/object/sign/recordings/{storage_path}"
+    status, body = _request(
+        "POST",
+        url,
+        headers={**_rest_headers(), "Content-Type": "application/json"},
+        body=json.dumps({"expiresIn": expires_s}).encode(),
+    )
+    signed = json.loads(body)["signedURL"]
+    return f"{SUPABASE_URL}/storage/v1{signed}"
+
+
+def post_split_audio(payload: dict[str, Any] | None, *, authed: bool = True, timeout: int = 290) -> tuple[int, str]:
+    """POST to the deployed Vercel split-audio function."""
+    headers = {"Content-Type": "application/json"}
+    if authed:
+        headers["Authorization"] = f"Bearer {SPLIT_AUDIO_SECRET}"
+    status, body = _request(
+        "POST",
+        SPLIT_AUDIO_URL,
+        headers=headers,
+        body=json.dumps(payload or {}).encode(),
+        timeout=timeout,
     )
     return status, body.decode()
 
