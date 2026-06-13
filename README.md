@@ -663,6 +663,36 @@ This section is intentionally detailed because the hardest part of this project 
 
 **Why this matters:** evals and monitoring answer different questions — monitoring catches failures *in* production after users see them; evals catch quality regressions *before* deploy. The suite proved the distinction immediately by finding a defect that no status check, no harness scenario, and no human eyeball had noticed. Every future change to chunking, prompts, or providers now has to pass the same gate.
 
+### 21. The dashboard re-fetched everything on every visit — a missing client cache, not a slow database
+
+**Problem:** the dashboard showed a long "Loading meetings…" spinner *every single time* it was opened, even when nothing had changed. The instinct was that the database (Supabase/Postgres) was too slow and needed replacing with something "lighter."
+
+**Why it happened:** the data pages used raw `useState`/`useEffect` and re-fetched from scratch on every mount — with no cache, nothing was reused between visits. The dashboard also ran its reads as a **waterfall** (profile → meetings → insights, each awaiting the last) when the profile and meetings queries are independent, and `ProtectedRoute` gated the whole render on an auth `getSession()` round-trip first. TanStack Query was already installed and wired into `App.tsx` but went unused on these pages. The database itself was never the bottleneck (see #22 — every read was already served from RAM).
+
+**What I changed:**
+
+- Set global TanStack Query defaults in [`App.tsx`](src/App.tsx) (`staleTime` 60s, `refetchOnWindowFocus: false`) so revisiting a page renders **instantly from cache** and revalidates in the background instead of re-fetching cold.
+- Converted [`Dashboard.tsx`](src/pages/Dashboard.tsx) to cached queries and **parallelized** the independent profile + meetings reads (was sequential). Realtime `postgres_changes` updates now patch the query cache in place via `setQueryData`, so the live meeting list still updates without a refetch.
+- Consolidated [`MeetingDetail.tsx`](src/pages/MeetingDetail.tsx)'s nine separate `select('*')` reads into one cached composite query, so navigating dashboard → meeting → back is instant; realtime status changes invalidate that query (faithful to the old refetch-on-completion behavior).
+- **Deliberately left `Settings` on local state.** It's a form page with editable fields, write-on-load side effects, and lists mutated by user actions — a poor fit for read-caching, with near-zero payoff. Forcing it into the cache would have added regression risk for no benefit.
+
+**Why this matters:** the fix was to stop doing repeated work, not to swap the engine — a different database would have rebuilt everything and left the same waterfall and the same spinner. Knowing *which* layer owns a latency problem (client cache vs. query shape vs. engine) is the actual skill, and so is the judgment to **not** cache the one page where caching would hurt.
+
+### 22. Recurring "Disk IO Budget" alerts were caused by cron write-churn — not the slow reads everyone assumes
+
+**Problem:** Supabase kept emailing "your project is depleting its Disk IO Budget." The obvious hypothesis — the same one behind the slow dashboard (#21) — was "too many uncached reads are hammering the disk."
+
+**Why it happened (measurement disproved the hypothesis):** `supabase inspect db` showed a **table/index cache hit rate of 1.00** with only ~3 MB of actual table data (175 MB database total, but 96 MB of that was WAL) — meaning every read was already served from RAM and **nothing meaningful was being read from disk.** `pg_stat_statements` then named the real cost: a single query — `net.http_post(...)` fired by `pg_cron` — was **94.4% of all database execution time across 110,868 calls.** The database was being used as a per-minute HTTP scheduler: each tick wrote a `pg_net` request + response row and a `cron.job_run_details` row, generating constant WAL/`fsync` **write** IO 24/7. (The 471k sequential scans on the 4-row `user_oauth_tokens` table were the same per-minute crons, not a missing index — Postgres deliberately seq-scans tiny tables.)
+
+**What I changed** (migrations [`20260613120000`](supabase/migrations/20260613120000_reduce_cron_frequency.sql), [`20260613120100`](supabase/migrations/20260613120100_prune_cron_pgnet_bookkeeping.sql)):
+
+- `auto-join-meetings` cron **every 1 min → every 5 min** — ~80% fewer of the calls that dominated DB time. To keep the feature correct at the wider cadence, the edge function's look-ahead window was widened **2 → 7 min** so no meeting is missed between polls; its existing per-calendar-event dedup guard prevents duplicate bots.
+- `monitor-stuck-meetings` **every 5 min → every 15 min** (its stuck threshold is already >15 min, so finer polling bought nothing).
+- A daily `prune-job-logs` cron that trims `cron.job_run_details` and `net._http_response`, which `pg_cron`/`pg_net` accumulate indefinitely.
+- Documented the escalation if alerts persist: move scheduling **off** the database to a free external scheduler (cron-job.org / GitHub Actions) calling the edge functions directly — explicitly *not* Vercel Cron (its free tier caps cron jobs at once-per-day) and *not* a paid compute upgrade.
+
+**Why this matters:** measure before you fix. The intuitive "add caching" remedy would have done nothing here, because the bottleneck was writes the database inflicted on itself as a scheduler — not reads. The root cause was confirmed with `supabase inspect db` and `pg_stat_statements`, not assumed; the same "it's probably caching" instinct that was *right* for the dashboard (#21) was *wrong* for the disk IO, and only data told them apart.
+
 ### Dual Ingest Architecture
 
 EchoBrief supports both:
