@@ -85,7 +85,7 @@ Most meeting tools stop at transcription. EchoBrief goes deeper in both product 
 | **AI Insights** | Executive summary, short summary, action items, decisions, risks, questions, timeline, engagement-style meeting metrics |
 | **Calendar** | Google OAuth, multi-calendar support, calendar event syncing, meeting-link extraction, upcoming meeting views |
 | **Delivery** | Slack summary delivery, meeting email delivery, scheduled email workflows, digest report generation, WhatsApp report pipeline |
-| **Dashboard** | Authenticated dashboard, recordings view, meeting detail view, action item tracking, analytics chart, global search, settings (extension status banner removed — dashboard is bot-only) |
+| **Dashboard** | Authenticated dashboard, recordings view, meeting detail view, action item tracking, analytics chart, global search, per-meeting and bulk delete (clear all failed / all cancelled, completed untouched), settings (extension status banner removed — dashboard is bot-only) |
 | **User Experience** | Protected routes, onboarding, live status updates, responsive interface, animated transitions |
 | **Security** | Supabase Auth, Row Level Security, OAuth state tracking, service-role-only server operations, CORS and rate-limiting helpers |
 

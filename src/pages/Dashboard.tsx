@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
@@ -6,9 +6,14 @@ import { RecordingButton } from '@/components/dashboard/RecordingButton';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Meeting } from '@/types/meeting';
-import { ChevronRight, Mic, Clock, CheckCircle2, Sparkles } from 'lucide-react';
+import { ChevronRight, Mic, Clock, CheckCircle2, Sparkles, Trash2, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
+import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 interface CalendarAttendee {
   email: string;
@@ -56,11 +61,54 @@ function formatTotalHours(seconds: number) {
   return `${mins}m`;
 }
 
+// Confirm-then-delete button for clearing all meetings of one status.
+function BulkDeleteButton({ status, count, deleting, onConfirm }: {
+  status: 'failed' | 'cancelled';
+  count: number;
+  deleting: boolean;
+  onConfirm: () => void;
+}) {
+  const label = status === 'failed' ? 'Delete all failed meetings' : 'Delete all cancelled meetings';
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <button
+          type="button"
+          disabled={deleting}
+          className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[12.5px] font-medium transition-colors disabled:opacity-60"
+          style={{ border: '1px solid var(--rule)', background: 'var(--paper-card)', color: 'hsl(var(--destructive))' }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = 'color-mix(in oklch, hsl(var(--destructive)) 8%, transparent)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--paper-card)'; }}
+        >
+          {deleting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} strokeWidth={1.75} />}
+          {label}
+        </button>
+      </AlertDialogTrigger>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Delete all {status} meetings?</AlertDialogTitle>
+          <AlertDialogDescription>
+            This permanently deletes {count} {status} meeting{count === 1 ? '' : 's'} and their data. Completed meetings are not affected. This cannot be undone.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction onClick={onConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            Delete {count}
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 export default function Dashboard() {
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [deletingStatus, setDeletingStatus] = useState<'failed' | 'cancelled' | null>(null);
 
   const prefillMeeting = (location.state as { prefillMeeting?: PrefillMeeting })?.prefillMeeting;
 
@@ -141,6 +189,57 @@ export default function Dashboard() {
     return { totalMeetings, totalDuration, summarized, timeSavedMin };
   }, [meetings, insightCounts]);
 
+  const failedCount = useMemo(() => meetings.filter((m) => m.status === 'failed').length, [meetings]);
+  const cancelledCount = useMemo(() => meetings.filter((m) => m.status === 'cancelled').length, [meetings]);
+
+  // Bulk-delete every meeting of one status (and its child rows + audio), the
+  // same cleanup the single-meeting delete does. Completed meetings are never
+  // touched. Only the targeted status is offered via the UI.
+  const deleteMeetingsByStatus = async (status: 'failed' | 'cancelled') => {
+    if (!user) return;
+    setDeletingStatus(status);
+    try {
+      const { data: targets, error: fetchErr } = await supabase
+        .from('meetings')
+        .select('id, audio_url')
+        .eq('user_id', user.id)
+        .eq('status', status);
+      if (fetchErr) throw fetchErr;
+      const ids = (targets ?? []).map((m) => m.id);
+      if (ids.length === 0) {
+        toast({ title: 'Nothing to delete', description: `No ${status} meetings found.` });
+        return;
+      }
+      // Remove child rows first (mirrors the single-meeting delete).
+      await supabase.from('meeting_insights').delete().in('meeting_id', ids);
+      await supabase.from('transcripts').delete().in('meeting_id', ids);
+      await supabase.from('slack_messages').delete().in('meeting_id', ids);
+      const audioPaths = (targets ?? [])
+        .map((m) => m.audio_url)
+        .filter((p): p is string => !!p);
+      if (audioPaths.length > 0) {
+        await supabase.storage.from('recordings').remove(audioPaths);
+      }
+      const { error: delErr } = await supabase
+        .from('meetings')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('status', status);
+      if (delErr) throw delErr;
+      queryClient.setQueryData<Meeting[]>(['meetings', user.id], (prev = []) =>
+        prev.filter((m) => m.status !== status));
+      toast({ title: 'Deleted', description: `Removed ${ids.length} ${status} meeting${ids.length === 1 ? '' : 's'}.` });
+    } catch (err) {
+      toast({
+        title: 'Error',
+        description: err instanceof Error ? err.message : `Could not delete ${status} meetings`,
+        variant: 'destructive',
+      });
+    } finally {
+      setDeletingStatus(null);
+    }
+  };
+
   const firstName = user?.user_metadata?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || 'there';
 
   return (
@@ -220,18 +319,36 @@ export default function Dashboard() {
         )}
 
         {/* Section heading */}
-        <div className="mb-4 flex items-baseline justify-between">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h2
             className="text-[17px] font-semibold"
             style={{ color: 'var(--ink)', letterSpacing: '-0.01em' }}
           >
             Recent meetings
           </h2>
-          {!loading && meetings.length > 0 && (
-            <span className="text-[13px]" style={{ color: 'var(--ink-soft)' }}>
-              {meetings.length} total
-            </span>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            {!loading && failedCount > 0 && (
+              <BulkDeleteButton
+                status="failed"
+                count={failedCount}
+                deleting={deletingStatus === 'failed'}
+                onConfirm={() => deleteMeetingsByStatus('failed')}
+              />
+            )}
+            {!loading && cancelledCount > 0 && (
+              <BulkDeleteButton
+                status="cancelled"
+                count={cancelledCount}
+                deleting={deletingStatus === 'cancelled'}
+                onConfirm={() => deleteMeetingsByStatus('cancelled')}
+              />
+            )}
+            {!loading && meetings.length > 0 && (
+              <span className="text-[13px]" style={{ color: 'var(--ink-soft)' }}>
+                {meetings.length} total
+              </span>
+            )}
+          </div>
         </div>
 
         {/* List */}
