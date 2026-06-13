@@ -330,7 +330,7 @@ meeting_notifications
 | `start-recall-recording` | Creates a Recall bot and starts bot-based meeting capture |
 | `check-recall-status` | Polls Recall API for live bot status, syncs DB, and triggers the Sarvam pipeline as a fallback when webhooks are missed. Uses an atomic `sarvam_webhook_triggered_at IS NULL` lock (decoupled from `status` to avoid the `transcribing` deadlock). |
 | `recall-webhook` | Receives Recall status events and hands completed audio into the AI pipeline. `bot.done` queries Recall's `/audio_mixed/` endpoint to avoid race-marking good meetings as failed. |
-| `monitor-stuck-meetings` | Scheduled every 5 min via pg_cron. Detects meetings stuck >15 min in non-terminal status, classifies into a known signature, attempts canonical recovery (force Whisper / re-trigger Sarvam / check Recall / mark failed), logs every detection to `monitor_events`, and emails `amaan@oltaflock.ai` via Resend on recovery failure or unknown signature. |
+| `monitor-stuck-meetings` | Scheduled every 15 min via pg_cron. Detects meetings stuck >15 min in non-terminal status, classifies into a known signature, attempts canonical recovery (force Whisper / re-trigger Sarvam / check Recall / mark failed), logs every detection to `monitor_events`, and emails `amaan@oltaflock.ai` via Resend on recovery failure or unknown signature. |
 | `google-oauth-start` / `google-oauth-callback` / `google-oauth-redirect` | Google Calendar OAuth flow |
 | `sync-google-calendar` / `sync-calendars` / `fetch-calendar-events` | Calendar sync and event retrieval utilities |
 | `send-slack-message` | Delivers summaries to Slack |
@@ -764,7 +764,7 @@ Run before every deploy. The harness has already caught two real prod bugs that 
 
 **Stuck-meeting monitor** (`supabase/functions/monitor-stuck-meetings/`)
 
-Scheduled via `pg_cron` to run every 5 minutes. For every meeting in a non-terminal status older than 15 minutes, it:
+Scheduled via `pg_cron` to run every 15 minutes. For every meeting in a non-terminal status older than 15 minutes, it:
 
 1. Classifies the failure into a signature (e.g. `stuck:processing:sarvam_keyerror`, `stuck:transcribing:whisper_died`)
 2. Looks up the canonical recovery action in `KNOWN_PATTERNS` (mirrors [`errors.md`](errors.md))

@@ -34,6 +34,7 @@ npm run functions:serve  # Serve Supabase Edge Functions locally (needs supabase
 - `src/contexts/AuthContext.tsx` -- Supabase auth state, signIn/signUp/signOut, password recovery flow detection
 - `src/contexts/RecordingContext.tsx` -- Recording state management
 - `src/pages/` -- Dashboard, Recordings, MeetingDetail, Calendar, ActionItems, Settings, Auth, Landing
+- **Data fetching / caching:** `App.tsx` sets global TanStack Query defaults (`staleTime` 60s, `refetchOnWindowFocus: false`) so revisiting a page renders instantly from cache instead of re-fetching cold. `Dashboard.tsx` and `MeetingDetail.tsx` use cached queries (the dashboard runs its profile + meetings reads in parallel; realtime `postgres_changes` patches/invalidates the query cache rather than re-fetching). `Settings.tsx` intentionally stays on local `useState` — it's a form page with write-on-load side effects and user-mutated lists, a poor fit for read-caching. See README challenge #21.
 
 **Chrome Extension:**
 - `chrome-extension/background.js` -- Service worker: tab capture, state persistence to chrome.storage, upload logic
@@ -46,12 +47,22 @@ npm run functions:serve  # Serve Supabase Edge Functions locally (needs supabase
 - `supabase/functions/sarvam-webhook/` -- Async callback from Sarvam STT. Auto-falls-back to Whisper on any download error (covers Sarvam's `KeyError: 'timestamps'` server bug on long audio).
 - `supabase/functions/recall-webhook/` -- Receives Recall lifecycle events. `bot.done` queries Recall's `/audio_mixed/` endpoint to avoid race-marking good meetings as failed.
 - `supabase/functions/check-recall-status/` -- Polled by frontend; uses `sarvam_webhook_triggered_at` atomic lock to re-fire the Sarvam webhook when the callback was missed.
-- `supabase/functions/monitor-stuck-meetings/` -- Cron-scheduled (every 5 min via pg_cron). Detects meetings stuck >15 min in non-terminal status, classifies via signature, attempts known recovery, logs to `monitor_events`, emails `amaan@oltaflock.ai` via Resend on failure or unknown signature. Carries a copy of known signatures in `known-patterns.ts` mirroring `errors.md`.
+- `supabase/functions/monitor-stuck-meetings/` -- Cron-scheduled (every 15 min via pg_cron — see Scheduled Jobs below). Detects meetings stuck >15 min in non-terminal status, classifies via signature, attempts known recovery, logs to `monitor_events`, emails `amaan@oltaflock.ai` via Resend on failure or unknown signature. Carries a copy of known signatures in `known-patterns.ts` mirroring `errors.md`.
 - `supabase/functions/upload-recording/` -- Accepts audio upload, stores in Supabase Storage
 - `supabase/functions/_shared/insights.ts` -- Hallucination detection, GPT prompt, insight saving, delivery
 - `supabase/functions/_shared/sarvam.ts` -- Sarvam API client (create job, upload, start). Uses `mode: "translate"` to output English regardless of source language, with `with_diarization: true`.
 - `supabase/functions/_shared/recall-pipeline.ts` -- Shared Recall audio download + Sarvam submission logic (used by recall-webhook and check-recall-status). Fetches Recall's transcript via `media_shortcuts.transcript` download URL (the old `/bot/{id}/transcript/` endpoint is deprecated) to extract real participant names and build a speaker timeline (speaker name + time range) stored in `processing_config` for per-segment mapping in sarvam-webhook. Also exports `getAudioMixedStatus()` used by the bot.done race-safety check.
 - `supabase/functions/_shared/cors.ts` -- CORS headers shared across functions
+
+### Scheduled Jobs (pg_cron + pg_net)
+
+Three cron jobs invoke edge functions over HTTP via `pg_net`. **Frequencies are kept deliberately low to protect the Supabase Disk IO Budget:** each tick writes a `pg_net` request + response row and a `cron.job_run_details` row, and on a small compute instance that *write* churn — not reads (the dataset is tiny and fully cached, hit rate 1.00) — is what depletes the IO budget. Root-caused 2026-06-13; see README challenge #22.
+
+- `auto-join-meetings` — **every 5 min**. Sends a Recall bot to calendar meetings starting within the next 7 min. The look-ahead window must stay ≥ the cron interval so no meeting is missed between polls; the function's per-calendar-event dedup guard prevents duplicate bots.
+- `monitor-stuck-meetings` — **every 15 min**. Stuck-meeting detection (threshold >15 min).
+- `prune-job-logs` — **daily 03:15 UTC**. Trims `cron.job_run_details` (>7 d) and `net._http_response` (>1 d) so the bookkeeping tables don't accumulate.
+
+**Do not raise these frequencies without checking the Disk IO Budget.** If finer scheduling is ever required, move it off the database to a free external scheduler (cron-job.org / GitHub Actions) calling the edge functions directly — NOT Vercel Cron (its free tier caps cron jobs at once-per-day) and NOT a paid compute upgrade.
 
 ### Database
 
@@ -71,6 +82,8 @@ Migrations are in `supabase/migrations/`. Recent additions worth knowing about:
 - `20260424170000_meetings_error_message.sql` — adds the `error_message` column that all failure-path UPDATEs were silently failing on for weeks
 - `20260425170000_monitor_events.sql` — monitor audit trail
 - `20260425170100_monitor_stuck_meetings_cron.sql` — pg_cron schedule for the monitor
+- `20260613120000_reduce_cron_frequency.sql` — cuts auto-join (1→5 min) and monitor (5→15 min) cron frequency; the `net.http_post` calls these crons fired were 94.4% of all DB execution time and were depleting the Disk IO Budget (README #22)
+- `20260613120100_prune_cron_pgnet_bookkeeping.sql` — daily prune of `cron.job_run_details` + `net._http_response`
 
 ## Tech Stack
 
@@ -130,6 +143,8 @@ See `BRAND.md` for colors (orange/amber gradient primary, stone neutrals), typog
 - **Run the output-quality evals before deploying anything that touches transcription or insights:** `python3 scripts/evals/run_evals.py`. 8 evals (4 deterministic + 4 LLM-judge) over the static dataset, including a judge-calibration case that must FAIL. Exit code gates the deploy. See [`scripts/evals/EVALS.md`](scripts/evals/EVALS.md) for the harness-vs-evals distinction and how to grow the dataset from prod meetings.
 
 - **Update `errors.md` and `known-patterns.ts` together:** When the monitor emails a `[ECHOBRIEF NEW ERROR]`, investigate, then add the new signature to **both** `errors.md` (human runbook) and `supabase/functions/monitor-stuck-meetings/known-patterns.ts` (programmatic mirror). They drift if you only update one.
+
+- **Don't raise pg_cron frequency without checking the Disk IO Budget:** the database doubles as the job scheduler (`pg_cron` + `pg_net`), and on a small instance the *write* churn from frequent ticks — not reads — is what depletes the Disk IO Budget (root-caused 2026-06-13: `net.http_post` was 94.4% of all DB execution time). Current cadences (auto-join 5 min, monitor 15 min) are tuned for this. Before making any cron more frequent, confirm headroom with `supabase inspect db` (`db-stats` for cache hit rate, `outliers` for top queries by total time); if finer scheduling is genuinely needed, move it to a free external scheduler instead of the DB. See README challenge #22.
 
 ## Conventions
 
