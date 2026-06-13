@@ -329,7 +329,7 @@ meeting_notifications
 | `sarvam-webhook` | Handles async Sarvam callbacks. **For chunked jobs, downloads all chunk outputs in order, offsets timestamps by `chunk_index × chunk_seconds`, time-sorts, and stitches one transcript.** Auto-falls-back to Whisper on any Sarvam download failure (covers the known `KeyError: 'timestamps'` server bug on long audio). |
 | `start-recall-recording` | Creates a Recall bot and starts bot-based meeting capture |
 | `check-recall-status` | Polls Recall API for live bot status, syncs DB, and triggers the Sarvam pipeline as a fallback when webhooks are missed. Uses an atomic `sarvam_webhook_triggered_at IS NULL` lock (decoupled from `status` to avoid the `transcribing` deadlock). |
-| `recall-webhook` | Receives Recall status events and hands completed audio into the AI pipeline. `bot.done` queries Recall's `/audio_mixed/` endpoint to avoid race-marking good meetings as failed. |
+| `recall-webhook` | Receives Recall status events and hands completed audio into the AI pipeline. `bot.done` queries Recall's `/audio_mixed/` endpoint to avoid race-marking good meetings as failed. Bots kicked / not admitted *before* recording resolve to a neutral `cancelled` status; only genuine pipeline failures are `failed` (see challenge #23). |
 | `monitor-stuck-meetings` | Scheduled every 15 min via pg_cron. Detects meetings stuck >15 min in non-terminal status, classifies into a known signature, attempts canonical recovery (force Whisper / re-trigger Sarvam / check Recall / mark failed), logs every detection to `monitor_events`, and emails `amaan@oltaflock.ai` via Resend on recovery failure or unknown signature. |
 | `google-oauth-start` / `google-oauth-callback` / `google-oauth-redirect` | Google Calendar OAuth flow |
 | `sync-google-calendar` / `sync-calendars` / `fetch-calendar-events` | Calendar sync and event retrieval utilities |
@@ -693,6 +693,20 @@ This section is intentionally detailed because the hardest part of this project 
 
 **Why this matters:** measure before you fix. The intuitive "add caching" remedy would have done nothing here, because the bottleneck was writes the database inflicted on itself as a scheduler — not reads. The root cause was confirmed with `supabase inspect db` and `pg_stat_statements`, not assumed; the same "it's probably caching" instinct that was *right* for the dashboard (#21) was *wrong* for the disk IO, and only data told them apart.
 
+### 23. Kicked-out bots looked identical to real failures — split into `cancelled` vs `failed`
+
+**Problem:** the dashboard was full of red **Failed** meetings, but many weren't failures at all — they were meetings where the bot was kicked from the waiting room or never admitted, so nothing was ever recorded. Lumping "the host removed the bot" together with "the transcription pipeline broke" made the product look like it was constantly failing and buried the genuine failures worth attention.
+
+**Why it happened:** `recall-webhook` already knew *why* each bot ended — Recall sends a `sub_code` like `timeout_exceeded_waiting_room`, and the webhook even had friendly per-reason messages — but every terminal failure branch wrote the same `status: 'failed'`.
+
+**What I changed:**
+
+- Split the terminal sub-codes in [recall-webhook](supabase/functions/recall-webhook/index.ts) into `CANCELLED_SUB_CODES` (kicked / not admitted / never recorded → neutral **`cancelled`**) vs `FAILURE_SUB_CODES` (bad/expired link → **`failed`**, since the user must fix it). A `classifySubCode()` helper routes the `fatal`, `call_ended`, and `bot.done`-no-audio branches; genuine pipeline failures (`audio_mixed.failed`, transcription/insight errors) stay `failed`.
+- **Deliberately did not touch the recording/completion path.** A bot kicked *after* it has recorded still emits `audio_mixed.done` and completes into a normal summary — the common case, and it must not regress (the `happy_path` + `bot_done_defers` harness scenarios still pass).
+- Made `cancelled` terminal in the monitor's `TERMINAL_STATUSES` (so it isn't treated as "stuck") and added it to the frontend status renderers. Per product choice the `Cancelled` badge is the **same red** as `Failed` — only the label differs. No migration needed (`meetings.status` is free-text); the `bot_kicked_waiting_room` harness scenario now asserts `cancelled`.
+
+**Why this matters:** the webhook already had the information to tell "the host removed the bot" from "our pipeline broke" — it was just discarding it at the last step. Surfacing that one distinction turns a wall of scary red "Failed" badges into an honest signal, without changing anything about how recordings are actually processed.
+
 ### Dual Ingest Architecture
 
 EchoBrief supports both:
@@ -824,7 +838,7 @@ All 11 default scenarios, in plain words:
 | `split_audio_endpoint_probes` | The deployed Vercel splitter is alive and configured: it answers `401` with no auth and `400` on an empty body (a `500` here means its env vars are missing). |
 | `bot_done_defers_on_unknown_audio` | When Recall fires its two "done" events at the same moment, a good meeting is never wrongly marked failed. |
 | `audio_mixed_failed_marks_meeting_failed` | A real audio failure actually saves `failed` to the database (the bug where a missing column silently swallowed the update). |
-| `bot_kicked_waiting_room` | A bot kicked from the waiting room ends as `failed`, not stuck forever. |
+| `bot_kicked_waiting_room` | A bot kicked from the waiting room ends as `cancelled` (neutral, not `failed`), not stuck forever. |
 | `duplicate_sarvam_webhook_idempotency` | A replayed Sarvam callback is skipped, not re-processed into a duplicate transcript. |
 | `concurrent_sarvam_webhooks` | Two callbacks arriving at once don't both process and double-insert. |
 | `monitor_recovers_known_pattern` | The monitor recognizes a known stuck-signature and runs its canonical recovery. |

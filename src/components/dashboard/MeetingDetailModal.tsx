@@ -82,6 +82,7 @@ function mapDbStatusToDisplay(dbStatus: string): BotDisplayStatus {
     case 'processing': return 'processing';
     case 'completed': return 'completed';
     case 'failed': return 'failed';
+    case 'cancelled': return 'failed';
     default: return 'joining';
   }
 }

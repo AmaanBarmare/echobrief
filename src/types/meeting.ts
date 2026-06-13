@@ -8,7 +8,7 @@ export interface Meeting {
   start_time: string;
   end_time?: string;
   duration_seconds?: number;
-  status: 'scheduled' | 'recording' | 'processing' | 'completed' | 'failed';
+  status: 'scheduled' | 'recording' | 'processing' | 'completed' | 'failed' | 'cancelled';
   audio_url?: string;
   created_at: string;
   updated_at: string;

@@ -65,6 +65,7 @@ function StatusBadge({ status }: { status: string }) {
     processing: { color: 'hsl(var(--warning))', tint: 'color-mix(in oklch, hsl(var(--warning)) 14%, transparent)', label: 'Processing' },
     recording: { color: 'var(--ember)', tint: 'color-mix(in oklch, var(--ember) 12%, transparent)', label: 'Recording' },
     failed: { color: 'hsl(var(--destructive))', tint: 'color-mix(in oklch, hsl(var(--destructive)) 12%, transparent)', label: 'Failed' },
+    cancelled: { color: 'hsl(var(--destructive))', tint: 'color-mix(in oklch, hsl(var(--destructive)) 12%, transparent)', label: 'Cancelled' },
     scheduled: { color: 'var(--ink-soft)', tint: 'color-mix(in oklch, var(--ink) 8%, transparent)', label: 'Scheduled' },
   };
   const s = map[status] || map.scheduled;
@@ -268,7 +269,7 @@ export default function MeetingDetail() {
   // fallback call instead of hammering check-recall-status every 5 seconds.
   useEffect(() => {
     if (!user || !id || !meeting) return;
-    const terminalStatuses = ['completed', 'failed'];
+    const terminalStatuses = ['completed', 'failed', 'cancelled'];
     if (terminalStatuses.includes(meeting.status)) return;
 
     // Subscribe to realtime changes on this meeting row; any update refreshes
@@ -512,7 +513,7 @@ export default function MeetingDetail() {
                   </>
                 )}
               </div>
-              {meeting.status === 'failed' && meeting.error_message && (
+              {(meeting.status === 'failed' || meeting.status === 'cancelled') && meeting.error_message && (
                 <p className="mt-2 text-[13px]" style={{ color: 'hsl(var(--destructive))' }}>
                   {meeting.error_message}
                 </p>

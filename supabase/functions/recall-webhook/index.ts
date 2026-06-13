@@ -124,22 +124,42 @@ function extractSubCode(event: Record<string, any>): string | null {
   );
 }
 
-// Sub-codes that indicate the bot was never admitted or never recorded.
-// When we see these, the meeting should be marked as failed — not "processing".
-const FAILURE_SUB_CODES: Record<string, string> = {
+// Terminal sub-codes where the bot NEVER captured a recording.
+//
+// CANCELLED_SUB_CODES = the bot was kicked / not admitted before it could
+// record. There is no audio and nothing went wrong with EchoBrief, so these are
+// marked `cancelled` (a neutral terminal state) instead of `failed`.
+// IMPORTANT: this only covers the "never recorded" case. A bot kicked AFTER it
+// has recorded still emits audio_mixed.done and completes normally — that path
+// is untouched.
+const CANCELLED_SUB_CODES: Record<string, string> = {
   bot_kicked_from_waiting_room:
     "The recording bot was removed from the waiting room before it could join the meeting. Ask the meeting host to admit the bot.",
   bot_removed_from_waiting_room:
     "The recording bot was removed from the waiting room. Ask the meeting host to admit the bot.",
-  cannot_join_meeting:
-    "The recording bot could not join the meeting. The meeting link may be invalid or the meeting may have ended.",
-  meeting_not_found:
-    "The meeting was not found. Please check the meeting link and try again.",
   bot_not_accepted:
     "The recording bot was not accepted into the meeting. Ask the meeting host to admit the bot.",
   timeout_exceeded_waiting_room:
     "The recording bot timed out waiting to be admitted to the meeting. Ask the meeting host to admit the bot sooner.",
 };
+
+// FAILURE_SUB_CODES = a real, user-actionable problem (bad/expired link). The
+// bot also never recorded, but the user needs to fix something, so these stay
+// `failed` (visible) rather than `cancelled`.
+const FAILURE_SUB_CODES: Record<string, string> = {
+  cannot_join_meeting:
+    "The recording bot could not join the meeting. The meeting link may be invalid or the meeting may have ended.",
+  meeting_not_found:
+    "The meeting was not found. Please check the meeting link and try again.",
+};
+
+// Map a terminal sub_code to its target status + message, or null if unknown.
+function classifySubCode(subCode: string | null): { status: string; message: string } | null {
+  if (!subCode) return null;
+  if (CANCELLED_SUB_CODES[subCode]) return { status: "cancelled", message: CANCELLED_SUB_CODES[subCode] };
+  if (FAILURE_SUB_CODES[subCode]) return { status: "failed", message: FAILURE_SUB_CODES[subCode] };
+  return null;
+}
 
 // Returns the top-level event type prefix, e.g. "bot" or "audio_mixed"
 function getEventCategory(event: Record<string, any>): string | null {
@@ -225,27 +245,32 @@ serve(async (req) => {
       console.log(`[recall-webhook] statusCode=${statusCode}, subCode=${subCode}, eventCategory=${eventCategory}`);
 
       if (statusCode === "fatal") {
-        const errorMsg = subCode ? FAILURE_SUB_CODES[subCode] || `Bot error: ${subCode}` : "Recording bot encountered a fatal error";
+        // A kick/not-admitted reason → cancelled (no recording, neutral); any
+        // other fatal → failed. This only sets a status; it does not touch the
+        // audio download / completion path.
+        const classified = classifySubCode(subCode);
+        const newStatus = classified?.status ?? "failed";
+        const errorMsg = classified?.message ?? (subCode ? `Bot error: ${subCode}` : "Recording bot encountered a fatal error");
         await supabase
           .from("meetings")
-          .update({ status: "failed", error_message: errorMsg })
+          .update({ status: newStatus, error_message: errorMsg })
           .eq("id", meeting.id);
-        console.error(`[recall-webhook] Bot ${botId} failed: ${errorMsg}`);
+        console.error(`[recall-webhook] Bot ${botId} ${newStatus}: ${errorMsg}`);
       } else if (eventCategory === "audio_mixed" && statusCode === "failed") {
         await supabase
           .from("meetings")
           .update({ status: "failed", error_message: "Audio processing failed in Recall" })
           .eq("id", meeting.id);
         console.error(`[recall-webhook] Audio processing failed for bot ${botId}`);
-      } else if (statusCode === "call_ended" && subCode && FAILURE_SUB_CODES[subCode]) {
-        // Bot was kicked from waiting room or otherwise never entered the call.
-        // Mark as failed immediately — audio_mixed.done will never arrive.
-        const errorMsg = FAILURE_SUB_CODES[subCode];
+      } else if (statusCode === "call_ended" && classifySubCode(subCode)) {
+        // Bot was kicked / not admitted and never entered the call — no audio
+        // will arrive. Kick/not-admitted → cancelled; bad-link → failed.
+        const classified = classifySubCode(subCode)!;
         await supabase
           .from("meetings")
-          .update({ status: "failed", error_message: errorMsg })
+          .update({ status: classified.status, error_message: classified.message })
           .eq("id", meeting.id);
-        console.warn(`[recall-webhook] Bot ${botId} call_ended with failure sub_code: ${subCode}`);
+        console.warn(`[recall-webhook] Bot ${botId} call_ended sub_code=${subCode} → ${classified.status}`);
       } else if (eventCategory === "bot" && statusCode === "done" && !meeting.sarvam_job_id) {
         // bot.done fired but sarvam_job_id isn't in the DB yet. Two possibilities:
         //   (a) audio_mixed.done fired near-simultaneously and processRecallAudio
@@ -269,15 +294,20 @@ serve(async (req) => {
           // status polling and audio_mixed.done/failed webhooks rather than risk
           // failing a good meeting.
           if (audioStatus === "failed" || audioStatus === "missing") {
-            const errorMsg = subCode && FAILURE_SUB_CODES[subCode]
-              ? FAILURE_SUB_CODES[subCode]
-              : "The recording bot finished without capturing any audio. The bot may not have been admitted to the meeting.";
+            // Bot finished but captured no audio → nothing was recorded.
+            // Bad-link sub_code → failed; otherwise cancelled (neutral). A bot
+            // kicked AFTER recording has audio_mixed=done/processing and never
+            // reaches here — it completes via the normal path.
+            const classified = classifySubCode(subCode);
+            const newStatus = classified?.status ?? "cancelled";
+            const errorMsg = classified?.message
+              ?? "The recording bot finished without capturing any audio. The bot may not have been admitted to the meeting.";
             await supabase
               .from("meetings")
-              .update({ status: "failed", error_message: errorMsg })
+              .update({ status: newStatus, error_message: errorMsg })
               .eq("id", meeting.id);
             console.warn(
-              `[recall-webhook] Bot ${botId} done with no audio (audio_mixed=${audioStatus}) — marking as failed`,
+              `[recall-webhook] Bot ${botId} done with no audio (audio_mixed=${audioStatus}) — marking as ${newStatus}`,
             );
           } else {
             console.log(

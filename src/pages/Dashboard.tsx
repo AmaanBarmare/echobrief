@@ -29,6 +29,7 @@ function statusConfig(status: string) {
     case 'processing': return { label: 'Processing', color: 'hsl(var(--warning))', tint: 'color-mix(in oklch, hsl(var(--warning)) 14%, transparent)' };
     case 'completed': return { label: 'Completed', color: 'hsl(var(--success))', tint: 'color-mix(in oklch, hsl(var(--success)) 14%, transparent)' };
     case 'failed': return { label: 'Failed', color: 'hsl(var(--destructive))', tint: 'color-mix(in oklch, hsl(var(--destructive)) 12%, transparent)' };
+    case 'cancelled': return { label: 'Cancelled', color: 'hsl(var(--destructive))', tint: 'color-mix(in oklch, hsl(var(--destructive)) 12%, transparent)' };
     default: return { label: 'Scheduled', color: 'var(--ink-soft)', tint: 'color-mix(in oklch, var(--ink) 8%, transparent)' };
   }
 }

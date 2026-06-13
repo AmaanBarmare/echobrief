@@ -86,6 +86,8 @@ Audio ≥ ~15 MB blows the budget.
 
 **Fix shipped 2026-04-25:** Added migration `20260424170000_meetings_error_message.sql`. The column now exists and writes succeed.
 
+**Current behavior (2026-06-13):** A bot kicked / not admitted *before* it could record now resolves to a terminal **`cancelled`** status (neutral, not `failed`), via `recall-webhook`'s `CANCELLED_SUB_CODES` classification — see README challenge #23. A bot kicked *after* it has recorded still completes normally (`audio_mixed.done` arrives). `cancelled` is in the monitor's `TERMINAL_STATUSES`, and the `bot_kicked_waiting_room` harness scenario asserts `cancelled`.
+
 **Recovery if it happens again:** This shouldn't recur. If it does, check whether another column referenced in the failing UPDATE was added by code without a matching migration.
 
 ---

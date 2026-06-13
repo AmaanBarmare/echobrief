@@ -170,7 +170,7 @@ def audio_mixed_failed_marks_meeting_failed() -> ScenarioResult:
 
 @scenario
 def bot_kicked_waiting_room() -> ScenarioResult:
-    """bot.call_ended with sub_code=timeout_exceeded_waiting_room → status=failed."""
+    """bot.call_ended with sub_code=timeout_exceeded_waiting_room → status=cancelled."""
     test_bot_id = f"test-bot-{uuid.uuid4()}"
     meeting_id = client.insert_meeting(
         title="bot_kicked_waiting_room",
@@ -189,13 +189,13 @@ def bot_kicked_waiting_room() -> ScenarioResult:
                 "bot_kicked_waiting_room", False,
                 f"recall-webhook returned {status}: {body[:300]}",
             )
-        result = client.wait_for_status(meeting_id, expected={"failed"}, timeout_s=8)
+        result = client.wait_for_status(meeting_id, expected={"cancelled"}, timeout_s=8)
         if not result.succeeded:
             return ScenarioResult(
                 "bot_kicked_waiting_room", False,
-                f"status should be failed; actual={result.final_meeting.get('status')!r}",
+                f"status should be cancelled; actual={result.final_meeting.get('status')!r}",
             )
-        return ScenarioResult("bot_kicked_waiting_room", True, "marked failed as expected")
+        return ScenarioResult("bot_kicked_waiting_room", True, "marked cancelled as expected")
     finally:
         client.delete_meeting(meeting_id)
 

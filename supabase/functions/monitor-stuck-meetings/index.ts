@@ -29,7 +29,7 @@ const SARVAM_WEBHOOK_SECRET = Deno.env.get("SARVAM_WEBHOOK_SECRET")!;
 // Terminal statuses we DON'T watch — anything else is potentially stuck.
 // Excluding by terminal-set means a future code path that introduces a new
 // status string will still be observable to the monitor without an update.
-const TERMINAL_STATUSES = ["completed", "failed"];
+const TERMINAL_STATUSES = ["completed", "failed", "cancelled"];
 
 interface Meeting {
   id: string;
