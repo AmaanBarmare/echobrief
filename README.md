@@ -728,21 +728,9 @@ After hitting a streak of timing-related production bugs in the webhook pipeline
 
 **Pipeline test harness** ([`scripts/pipeline-test/harness.py`](scripts/pipeline-test/harness.py))
 
-A self-contained Python script that exercises the real deployed edge functions against the real database in ~90 seconds. It creates `[harness]`-prefixed test meetings, fires real signed webhooks at `recall-webhook`, `sarvam-webhook`, and `check-recall-status`, polls for expected end-state, and cleans up — even on failure. Nine scenarios:
+A self-contained Python script that exercises the real deployed edge functions against the real database in ~90 seconds. It creates `[harness]`-prefixed test meetings, fires real signed webhooks at `recall-webhook`, `sarvam-webhook`, and `check-recall-status`, polls for expected end-state, and cleans up — even on failure. It runs **11 scenarios** covering the happy path, chunked stitching, speaker mapping, the webhook races, failure persistence, idempotency/concurrency, splitter liveness, and the monitor's own recovery + alerting (plus a 12th live-provider scenario behind `--live`).
 
-| Scenario | What it protects against |
-|---|---|
-| `happy_path_sarvam` | end-to-end flow: webhook → transcript → insights → completed |
-| `chunked_happy_path` | chunked-job stitching: chunk ordering + `chunk_index × chunk_seconds` timestamp offsets |
-| `bot_done_defers_on_unknown_audio` | the bot.done race overwriting good meetings |
-| `audio_mixed_failed_marks_meeting_failed` | failure paths actually persist to DB (the missing-column bug) |
-| `bot_kicked_waiting_room` | waiting-room-kicked bots transition to `failed` |
-| `duplicate_sarvam_webhook_idempotency` | replayed Sarvam callbacks don't re-process |
-| `concurrent_sarvam_webhooks` | two parallel callbacks don't double-insert |
-| `monitor_recovers_known_pattern` | monitor classifies + attempts canonical recovery |
-| `monitor_logs_unknown_pattern` | monitor flags new error signatures + emails admin (real Resend send, under a filterable `[ECHOBRIEF HARNESS TEST]` subject) |
-
-Run before every deploy. The harness has already caught two real prod bugs that would have hit users (the `error_message` column being missing, the `transcribing` deadlock). See [Testing: Harness and Evals](#testing-harness-and-evals) for the full testing story.
+Run before every deploy. The harness has already caught two real prod bugs that would have hit users (the `error_message` column being missing, the `transcribing` deadlock). The full per-scenario breakdown lives in [Testing: Harness and Evals](#testing-harness-and-evals) — this section is just the operational summary.
 
 **Stuck-meeting monitor** (`supabase/functions/monitor-stuck-meetings/`)
 
@@ -796,7 +784,23 @@ python3 scripts/pipeline-test/harness.py --only chunked_happy_path   # one scena
 python3 scripts/pipeline-test/harness.py --cleanup-only        # delete stray [harness] rows
 ```
 
-The 11 default scenarios: the original 9 (happy path, chunked stitch, bot.done race, audio_mixed.failed, waiting-room kick, idempotency, concurrency, monitor known/unknown) plus `speaker_mapping_happy_path` (timeline-overlap and nearest-neighbor name resolution — asserts `['Priya', 'Rahul', 'Rahul']`, zero `SPEAKER_XX`) and `split_audio_endpoint_probes` (deployed Vercel splitter answers 401 unauthenticated / 400 on bad body — a liveness+config check on every run).
+All 11 default scenarios, in plain words:
+
+| Scenario | What it checks |
+|---|---|
+| `happy_path_sarvam` | A normal finished transcription turns into a completed meeting with the transcript and insights actually saved. |
+| `chunked_happy_path` | A multi-chunk job is stitched back in the right order, with each chunk's timestamps shifted into real meeting time. |
+| `speaker_mapping_happy_path` | Diarized segments get real names (Priya/Rahul) by matching speaking times, and a segment outside every window falls back to the nearest speaker — never a generic `SPEAKER_01`. |
+| `split_audio_endpoint_probes` | The deployed Vercel splitter is alive and configured: it answers `401` with no auth and `400` on an empty body (a `500` here means its env vars are missing). |
+| `bot_done_defers_on_unknown_audio` | When Recall fires its two "done" events at the same moment, a good meeting is never wrongly marked failed. |
+| `audio_mixed_failed_marks_meeting_failed` | A real audio failure actually saves `failed` to the database (the bug where a missing column silently swallowed the update). |
+| `bot_kicked_waiting_room` | A bot kicked from the waiting room ends as `failed`, not stuck forever. |
+| `duplicate_sarvam_webhook_idempotency` | A replayed Sarvam callback is skipped, not re-processed into a duplicate transcript. |
+| `concurrent_sarvam_webhooks` | Two callbacks arriving at once don't both process and double-insert. |
+| `monitor_recovers_known_pattern` | The monitor recognizes a known stuck-signature and runs its canonical recovery. |
+| `monitor_logs_unknown_pattern` | The monitor flags a never-seen signature and emails an alert — a real Resend send, under the `[ECHOBRIEF HARNESS TEST]` subject. |
+
+(Behind `--live`, a 12th scenario `live_sarvam_e2e` runs — described in Tier 2 above.)
 
 ### Tier 2: the live-provider E2E (`--live`)
 
