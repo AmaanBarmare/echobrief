@@ -1,4 +1,5 @@
-import { useEffect, useState, useMemo, useRef } from 'react';
+import { useEffect, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { RecordingButton } from '@/components/dashboard/RecordingButton';
@@ -58,83 +59,78 @@ export default function Dashboard() {
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const [meetings, setMeetings] = useState<Meeting[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [insightCounts, setInsightCounts] = useState<Record<string, boolean>>({});
-  const [fetchError, setFetchError] = useState<string | null>(null);
-  const aliveRef = useRef(true);
+  const queryClient = useQueryClient();
 
   const prefillMeeting = (location.state as { prefillMeeting?: PrefillMeeting })?.prefillMeeting;
 
-  const withTimeout = <T,>(promise: Promise<T>, ms: number, label: string): Promise<T> =>
-    new Promise((resolve, reject) => {
-      const t = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
-      promise.then((v) => { clearTimeout(t); resolve(v); }).catch((e) => { clearTimeout(t); reject(e); });
-    });
-
-  useEffect(() => { aliveRef.current = true; return () => { aliveRef.current = false; }; }, []);
+  // Onboarding gate — independent of meetings, so it runs in parallel.
+  const { data: profile } = useQuery({
+    queryKey: ['profile-onboarding', user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('onboarding_completed')
+        .eq('user_id', user!.id)
+        .maybeSingle();
+      return data ?? null;
+    },
+  });
 
   useEffect(() => {
-    if (!user) { setLoading(false); return; }
-    setLoading(true);
-    setFetchError(null);
+    if (profile && !profile.onboarding_completed) navigate('/onboarding');
+  }, [profile, navigate]);
 
-    const run = async () => {
-      try {
-        const { data: profile } = await withTimeout(
-          supabase.from('profiles').select('onboarding_completed').eq('user_id', user.id).maybeSingle(),
-          25_000, 'Profile load');
-        if (!aliveRef.current) return;
-        if (profile && !profile.onboarding_completed) { navigate('/onboarding'); return; }
+  const { data: meetings = [], isLoading: loading, error } = useQuery({
+    queryKey: ['meetings', user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('meetings')
+        .select('*')
+        .eq('user_id', user!.id)
+        .order('start_time', { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as Meeting[];
+    },
+  });
 
-        const { data, error } = await withTimeout(
-          supabase.from('meetings').select('*').eq('user_id', user.id).order('start_time', { ascending: false }),
-          25_000, 'Meetings load');
-        if (!aliveRef.current) return;
-        if (error) {
-          setFetchError(error.message || 'Could not load meetings');
-          setMeetings([]);
-          return;
-        }
-        if (data) {
-          setMeetings(data as Meeting[]);
-          if (data.length > 0) {
-            const { data: insights } = await withTimeout(
-              supabase.from('meeting_insights').select('meeting_id').in('meeting_id', data.map((m) => m.id)),
-              25_000, 'Insights load');
-            if (!aliveRef.current) return;
-            if (insights) {
-              const counts: Record<string, boolean> = {};
-              insights.forEach((i) => { counts[i.meeting_id] = true; });
-              setInsightCounts(counts);
-            }
-          }
-        }
-      } catch (err) {
-        if (aliveRef.current) {
-          setFetchError(err instanceof Error ? err.message : 'Could not load meetings');
-          setMeetings([]);
-        }
-      } finally {
-        if (aliveRef.current) setLoading(false);
-      }
-    };
+  const fetchError = error ? (error instanceof Error ? error.message : 'Could not load meetings') : null;
 
-    void run();
+  const meetingIds = meetings.map((m) => m.id);
+  const { data: insightCounts = {} } = useQuery({
+    queryKey: ['meeting-insight-flags', user?.id, meetingIds],
+    enabled: !!user && meetingIds.length > 0,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('meeting_insights')
+        .select('meeting_id')
+        .in('meeting_id', meetingIds);
+      const counts: Record<string, boolean> = {};
+      (data ?? []).forEach((i) => { counts[i.meeting_id] = true; });
+      return counts;
+    },
+  });
 
+  // Realtime: patch the cached meetings list in place instead of refetching.
+  useEffect(() => {
+    if (!user) return;
     const channel = supabase
       .channel(`meetings-changes-${user.id}`)
       .on('postgres_changes',
         { event: '*', schema: 'public', table: 'meetings', filter: `user_id=eq.${user.id}` },
         (payload) => {
-          if (payload.eventType === 'INSERT') setMeetings((prev) => [payload.new as Meeting, ...prev]);
-          else if (payload.eventType === 'UPDATE') setMeetings((prev) => prev.map((m) => (m.id === payload.new.id ? (payload.new as Meeting) : m)));
-          else if (payload.eventType === 'DELETE') setMeetings((prev) => prev.filter((m) => m.id !== payload.old.id));
+          queryClient.setQueryData<Meeting[]>(['meetings', user.id], (prev = []) => {
+            if (payload.eventType === 'INSERT') return [payload.new as Meeting, ...prev];
+            if (payload.eventType === 'UPDATE') return prev.map((m) => (m.id === (payload.new as Meeting).id ? (payload.new as Meeting) : m));
+            if (payload.eventType === 'DELETE') return prev.filter((m) => m.id !== (payload.old as Meeting).id);
+            return prev;
+          });
         })
       .subscribe();
 
     return () => { void supabase.removeChannel(channel); };
-  }, [user, navigate]);
+  }, [user, queryClient]);
 
   const stats = useMemo(() => {
     const totalMeetings = meetings.length;

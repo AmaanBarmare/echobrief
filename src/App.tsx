@@ -26,7 +26,19 @@ import Docs from "./pages/Docs";
 import ChromeExtensionGuide from "./pages/ChromeExtensionGuide";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+// Cache server reads so revisiting a page renders instantly from cache and
+// revalidates in the background, instead of refetching from scratch every mount.
+// refetchOnWindowFocus is disabled to avoid a refetch storm on every tab focus.
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60_000, // 1 min — treat data as fresh; no refetch on remount within this window
+      gcTime: 5 * 60_000, // keep unused cache 5 min before garbage-collecting
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 
 function AppRoutes() {
   const { user, loading, isPasswordRecovery } = useAuth();

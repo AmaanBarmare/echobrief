@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { SlackDeliverySelector } from '@/components/dashboard/SlackDeliverySelector';
@@ -42,6 +43,19 @@ interface Attendee {
   displayName?: string | null;
   responseStatus?: string | null;
   organizer?: boolean;
+}
+
+// All reads for the meeting-detail page, bundled into one cached query.
+interface MeetingDetailData {
+  meeting: Meeting;
+  attendees: Attendee[];
+  transcript: Transcript | null;
+  speakerSegments: SpeakerSegment[];
+  insights: MeetingInsights | null;
+  slackChannelId?: string;
+  slackChannelName?: string;
+  emailMessages: any[];
+  slackMessages: any[];
 }
 
 // ─── Clean modern badges ───
@@ -123,18 +137,9 @@ export default function MeetingDetail() {
   const { user, session } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [meeting, setMeeting] = useState<Meeting | null>(null);
-  const [attendees, setAttendees] = useState<Attendee[]>([]);
-  const [transcript, setTranscript] = useState<Transcript | null>(null);
-  const [speakerSegments, setSpeakerSegments] = useState<SpeakerSegment[]>([]);
-  const [insights, setInsights] = useState<MeetingInsights | null>(null);
-  const [emailMessages, setEmailMessages] = useState<any[]>([]);
-  const [slackMessages, setSlackMessages] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
   const [deleting, setDeleting] = useState(false);
   const [slackDialogOpen, setSlackDialogOpen] = useState(false);
-  const [slackChannelId, setSlackChannelId] = useState<string | undefined>();
-  const [slackChannelName, setSlackChannelName] = useState<string | undefined>();
   const [whatsappDialogOpen, setWhatsappDialogOpen] = useState(false);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('summary');
@@ -142,120 +147,122 @@ export default function MeetingDetail() {
 
   const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
-  useEffect(() => {
-    if (!user || !id) return;
-
-    const fetchMeetingData = async () => {
+  // All meeting-detail reads in one cached query, so revisiting a meeting
+  // renders instantly from cache instead of refetching every mount.
+  const { data, isLoading: loading } = useQuery({
+    queryKey: ['meeting-detail', id, user?.id],
+    enabled: !!user && !!id,
+    queryFn: async (): Promise<MeetingDetailData | null> => {
       const { data: meetingData } = await supabase
         .from('meetings')
         .select('*')
-        .eq('id', id)
-        .eq('user_id', user.id)
+        .eq('id', id!)
+        .eq('user_id', user!.id)
         .single();
 
-      if (meetingData) {
-        setMeeting(meetingData as Meeting);
-        
-        if (meetingData.attendees && Array.isArray(meetingData.attendees)) {
-          setAttendees(meetingData.attendees as unknown as Attendee[]);
-        }
+      if (!meetingData) return null;
 
-        // Also derive attendees from transcript speaker segments if attendees is empty
-        // (bot recordings don't populate the attendees field, but speakers are in the transcript)
+      const meeting = meetingData as Meeting;
+      let attendees: Attendee[] = [];
+      if (meetingData.attendees && Array.isArray(meetingData.attendees)) {
+        attendees = meetingData.attendees as unknown as Attendee[];
+      }
 
-        const { data: transcriptData } = await supabase
-          .from('transcripts')
-          .select('*')
-          .eq('meeting_id', id)
-          .single();
+      // Bot recordings don't populate attendees, but speakers are in the transcript.
+      const { data: transcriptData } = await supabase
+        .from('transcripts')
+        .select('*')
+        .eq('meeting_id', id!)
+        .single();
 
-        if (transcriptData) {
-          setTranscript({
-            ...transcriptData,
-            speakers: (transcriptData.speakers as any) || [],
-            word_timestamps: (transcriptData.word_timestamps as any) || [],
-          } as Transcript);
-          
-          if (transcriptData.speakers && Array.isArray(transcriptData.speakers)) {
-            const segments = transcriptData.speakers as unknown as SpeakerSegment[];
-            setSpeakerSegments(segments);
+      let transcript: Transcript | null = null;
+      let speakerSegments: SpeakerSegment[] = [];
+      if (transcriptData) {
+        transcript = {
+          ...transcriptData,
+          speakers: (transcriptData.speakers as any) || [],
+          word_timestamps: (transcriptData.word_timestamps as any) || [],
+        } as Transcript;
 
-            // Derive attendees from speaker names if not already set
-            if (!meetingData.attendees || (meetingData.attendees as any[]).length === 0) {
-              const uniqueNames = [...new Set(segments.map((s) => s.speaker).filter(Boolean))];
-              const derived: Attendee[] = uniqueNames.map((name) => ({
-                email: '',
-                displayName: name,
-              }));
-              setAttendees(derived);
-            }
+        if (transcriptData.speakers && Array.isArray(transcriptData.speakers)) {
+          const segments = transcriptData.speakers as unknown as SpeakerSegment[];
+          speakerSegments = segments;
+          // Derive attendees from speaker names if not already set
+          if (!meetingData.attendees || (meetingData.attendees as any[]).length === 0) {
+            const uniqueNames = [...new Set(segments.map((s) => s.speaker).filter(Boolean))];
+            attendees = uniqueNames.map((name) => ({ email: '', displayName: name }));
           }
-        }
-
-        const { data: insightsRows } = await supabase
-          .from('meeting_insights')
-          .select('*')
-          .eq('meeting_id', id)
-          .order('created_at', { ascending: false })
-          .limit(1);
-
-        const insightsData = insightsRows?.[0] || null;
-        if (insightsData) {
-          setInsights({
-            ...insightsData,
-            key_points: (insightsData.key_points as any) || [],
-            action_items: (insightsData.action_items as any) || [],
-            decisions: (insightsData.decisions as any) || [],
-            risks: (insightsData.risks as any) || [],
-            follow_ups: (insightsData.follow_ups as any) || [],
-            strategic_insights: (insightsData.strategic_insights as any) || [],
-            speaker_highlights: (insightsData.speaker_highlights as any) || [],
-            open_questions: (insightsData.open_questions as any) || [],
-            timeline_entries: (insightsData.timeline_entries as any) || [],
-            meeting_metrics: (insightsData.meeting_metrics as any) || {},
-            summary_short: insightsData.summary_short || '',
-            summary_detailed: insightsData.summary_detailed || '',
-          } as MeetingInsights);
-        }
-
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('slack_channel_id, slack_channel_name')
-          .eq('user_id', user.id)
-          .single();
-
-        if (profile) {
-          setSlackChannelId(profile.slack_channel_id || undefined);
-          setSlackChannelName(profile.slack_channel_name || undefined);
-        }
-
-        // Fetch delivery history
-        const { data: emailMsgs } = await supabase
-          .from('email_messages')
-          .select('*')
-          .eq('meeting_id', id)
-          .order('created_at', { ascending: false });
-
-        if (emailMsgs) {
-          setEmailMessages(emailMsgs);
-        }
-
-        const { data: slackMsgs } = await supabase
-          .from('slack_messages')
-          .select('*')
-          .eq('meeting_id', id)
-          .order('created_at', { ascending: false });
-
-        if (slackMsgs) {
-          setSlackMessages(slackMsgs);
         }
       }
 
-      setLoading(false);
-    };
+      const { data: insightsRows } = await supabase
+        .from('meeting_insights')
+        .select('*')
+        .eq('meeting_id', id!)
+        .order('created_at', { ascending: false })
+        .limit(1);
 
-    fetchMeetingData();
-  }, [user, id]);
+      const insightsData = insightsRows?.[0] || null;
+      let insights: MeetingInsights | null = null;
+      if (insightsData) {
+        insights = {
+          ...insightsData,
+          key_points: (insightsData.key_points as any) || [],
+          action_items: (insightsData.action_items as any) || [],
+          decisions: (insightsData.decisions as any) || [],
+          risks: (insightsData.risks as any) || [],
+          follow_ups: (insightsData.follow_ups as any) || [],
+          strategic_insights: (insightsData.strategic_insights as any) || [],
+          speaker_highlights: (insightsData.speaker_highlights as any) || [],
+          open_questions: (insightsData.open_questions as any) || [],
+          timeline_entries: (insightsData.timeline_entries as any) || [],
+          meeting_metrics: (insightsData.meeting_metrics as any) || {},
+          summary_short: insightsData.summary_short || '',
+          summary_detailed: insightsData.summary_detailed || '',
+        } as MeetingInsights;
+      }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('slack_channel_id, slack_channel_name')
+        .eq('user_id', user!.id)
+        .single();
+
+      const { data: emailMsgs } = await supabase
+        .from('email_messages')
+        .select('*')
+        .eq('meeting_id', id!)
+        .order('created_at', { ascending: false });
+
+      const { data: slackMsgs } = await supabase
+        .from('slack_messages')
+        .select('*')
+        .eq('meeting_id', id!)
+        .order('created_at', { ascending: false });
+
+      return {
+        meeting,
+        attendees,
+        transcript,
+        speakerSegments,
+        insights,
+        slackChannelId: profile?.slack_channel_id || undefined,
+        slackChannelName: profile?.slack_channel_name || undefined,
+        emailMessages: emailMsgs ?? [],
+        slackMessages: slackMsgs ?? [],
+      };
+    },
+  });
+
+  const meeting = data?.meeting ?? null;
+  const attendees = data?.attendees ?? [];
+  const transcript = data?.transcript ?? null;
+  const speakerSegments = data?.speakerSegments ?? [];
+  const insights = data?.insights ?? null;
+  const slackChannelId = data?.slackChannelId;
+  const slackChannelName = data?.slackChannelName;
+  const emailMessages = data?.emailMessages ?? [];
+  const slackMessages = data?.slackMessages ?? [];
 
   // Listen for status updates via Supabase Realtime + a single backend
   // fallback call instead of hammering check-recall-status every 5 seconds.
@@ -264,60 +271,15 @@ export default function MeetingDetail() {
     const terminalStatuses = ['completed', 'failed'];
     if (terminalStatuses.includes(meeting.status)) return;
 
-    // Subscribe to realtime changes on this meeting row
+    // Subscribe to realtime changes on this meeting row; any update refreshes
+    // the cached composite (which re-pulls transcript + insights on completion).
     const channel = supabase
       .channel(`meeting-status-${id}`)
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'meetings', filter: `id=eq.${id}` },
-        async (payload) => {
-          const updatedMeeting = payload.new as Meeting;
-          setMeeting(updatedMeeting);
-
-          if (updatedMeeting.status === 'completed') {
-            const { data: transcriptData } = await supabase
-              .from('transcripts')
-              .select('*')
-              .eq('meeting_id', id)
-              .single();
-
-            if (transcriptData) {
-              setTranscript({
-                ...transcriptData,
-                speakers: (transcriptData.speakers as any) || [],
-                word_timestamps: (transcriptData.word_timestamps as any) || [],
-              } as Transcript);
-              if (transcriptData.speakers && Array.isArray(transcriptData.speakers)) {
-                setSpeakerSegments(transcriptData.speakers as unknown as SpeakerSegment[]);
-              }
-            }
-
-            const { data: insightsRows } = await supabase
-              .from('meeting_insights')
-              .select('*')
-              .eq('meeting_id', id)
-              .order('created_at', { ascending: false })
-              .limit(1);
-
-            const insightsData = insightsRows?.[0] || null;
-            if (insightsData) {
-              setInsights({
-                ...insightsData,
-                key_points: (insightsData.key_points as any) || [],
-                action_items: (insightsData.action_items as any) || [],
-                decisions: (insightsData.decisions as any) || [],
-                risks: (insightsData.risks as any) || [],
-                follow_ups: (insightsData.follow_ups as any) || [],
-                strategic_insights: (insightsData.strategic_insights as any) || [],
-                speaker_highlights: (insightsData.speaker_highlights as any) || [],
-                open_questions: (insightsData.open_questions as any) || [],
-                timeline_entries: (insightsData.timeline_entries as any) || [],
-                meeting_metrics: (insightsData.meeting_metrics as any) || {},
-                summary_short: insightsData.summary_short || '',
-                summary_detailed: insightsData.summary_detailed || '',
-              } as MeetingInsights);
-            }
-          }
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['meeting-detail', id, user.id] });
         }
       )
       .subscribe();
@@ -354,7 +316,7 @@ export default function MeetingDetail() {
       clearTimeout(initialTimeout);
       clearInterval(fallbackInterval);
     };
-  }, [user, id, meeting?.status, meeting?.recall_bot_id]);
+  }, [user, id, meeting?.status, meeting?.recall_bot_id, queryClient]);
 
   const handleDelete = async () => {
     if (!meeting || !user) return;
@@ -368,6 +330,8 @@ export default function MeetingDetail() {
       }
       const { error } = await supabase.from('meetings').delete().eq('id', meeting.id).eq('user_id', user.id);
       if (error) throw error;
+      queryClient.removeQueries({ queryKey: ['meeting-detail', id] });
+      queryClient.invalidateQueries({ queryKey: ['meetings', user.id] });
       toast({ title: 'Meeting deleted', description: 'The meeting and all related data have been removed.' });
       navigate('/dashboard');
     } catch (err: any) {

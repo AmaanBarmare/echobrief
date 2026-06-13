@@ -8,7 +8,10 @@ const RECALL_BASE_URL = `${RECALL_API_BASE_URL}/api/v1`
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
-// Called by a pg_cron job every minute to auto-join calendar meetings
+// Called by a pg_cron job every 5 minutes to auto-join calendar meetings.
+// The look-ahead window (joinMinutes) must be >= the cron interval so no
+// meeting slips between polls; the per-event dedup guard below prevents the
+// wider window from sending duplicate bots on successive runs.
 serve(async (req) => {
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
@@ -70,9 +73,11 @@ serve(async (req) => {
         }
       }
 
-      // Look for calendar events starting within the next 2 minutes
+      // Look for calendar events starting within the next 7 minutes.
+      // Window is > the 5-min cron cadence so every meeting is caught at least
+      // one poll before it starts; dedup (below) stops repeat bots.
       const now = new Date()
-      const joinMinutes = 2
+      const joinMinutes = 7
       const checkWindow = new Date(now.getTime() + (joinMinutes + 1) * 60 * 1000)
 
       const calendarResponse = await fetch(
