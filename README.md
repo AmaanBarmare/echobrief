@@ -776,7 +776,7 @@ All 11 default scenarios, in plain words:
 | `duplicate_sarvam_webhook_idempotency` | A replayed Sarvam callback is skipped, not re-processed into a duplicate transcript. |
 | `concurrent_sarvam_webhooks` | Two callbacks arriving at once don't both process and double-insert. |
 | `monitor_recovers_known_pattern` | The monitor recognizes a known stuck-signature and runs its canonical recovery. |
-| `monitor_logs_unknown_pattern` | The monitor flags a never-seen signature and emails an alert — a real Resend send, under the `[ECHOBRIEF HARNESS TEST]` subject. |
+| `monitor_logs_unknown_pattern` | The monitor flags a never-seen signature and writes the `monitor_events` audit row. The alert email is suppressed for `[harness]` meetings unless `HARNESS_EMAILS=true` is set. |
 
 (Behind `--live`, a 12th scenario `live_sarvam_e2e` runs — described in Tier 2 above.)
 
@@ -794,7 +794,7 @@ The only stages no automation covers are bot creation and joining (A–B) — th
 4. End the meeting. Within ~5 minutes the meeting should reach **Completed** with a transcript, named speakers (you), and insights.
 5. If it sticks, the monitor will classify and email within 15–20 min — check `monitor_events` for the signature.
 
-**Debugging a failing scenario:** every failure message states the expected vs actual end state (e.g. `meeting never reached completed; final status='processing'`). The triage order that works: (1) re-run just that scenario with `--only`; (2) check the edge function logs in the Supabase dashboard for the function the scenario fires at; (3) check `monitor_events` / meeting row state via the REST API; (4) if the failure is a *new* pipeline behavior (not a regression), update the scenario's expectation **and** document the behavior change in `errors.md`. The two monitor scenarios send a real Resend email by design (subject `[ECHOBRIEF HARNESS TEST]`) — that email is the test passing, not an incident.
+**Debugging a failing scenario:** every failure message states the expected vs actual end state (e.g. `meeting never reached completed; final status='processing'`). The triage order that works: (1) re-run just that scenario with `--only`; (2) check the edge function logs in the Supabase dashboard for the function the scenario fires at; (3) check `monitor_events` / meeting row state via the REST API; (4) if the failure is a *new* pipeline behavior (not a regression), update the scenario's expectation **and** document the behavior change in `errors.md`. Harness runs send no email by default — summary delivery and monitor alerts are both skipped for `[harness]`-titled meetings. To verify real Resend delivery end-to-end, set the `HARNESS_EMAILS=true` Supabase secret for that run (subject `[ECHOBRIEF HARNESS TEST]`), then unset it.
 
 One design detail worth noting: the chunked scenario injects ordered chunk results through an explicit `__harness_inline` test seam in `sarvam-webhook` rather than creating a real Sarvam job (slow, costly, non-deterministic). Production callbacks never set the flag, so prod always downloads outputs by name — the seam tests the stitch logic without weakening the production path.
 

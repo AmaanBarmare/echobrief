@@ -270,6 +270,14 @@ export async function saveInsights(
   }
 }
 
+export function isHarnessMeeting(title?: string | null): boolean {
+  return typeof title === "string" && title.startsWith("[harness]");
+}
+
+export function harnessEmailsEnabled(): boolean {
+  return Deno.env.get("HARNESS_EMAILS") === "true";
+}
+
 export async function deliverResults(
   supabase: any,
   meeting: Record<string, any>,
@@ -281,6 +289,14 @@ export async function deliverResults(
   },
 ) {
   let emailSent = false;
+
+  // Harness-created meetings ([harness] title prefix) run against prod on every
+  // harness invocation — ~6 summary emails a run. Suppress delivery for them
+  // unless HARNESS_EMAILS=true is explicitly set for a delivery-verification run.
+  if (isHarnessMeeting(meeting.title) && !harnessEmailsEnabled()) {
+    console.log(`[deliverResults] Skipping email for harness meeting ${meeting.id} (HARNESS_EMAILS not enabled)`);
+    return { emailSent: false, skippedHarness: true };
+  }
 
   const { data: profile } = await supabase
     .from("profiles")

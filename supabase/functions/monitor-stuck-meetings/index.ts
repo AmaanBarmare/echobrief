@@ -313,10 +313,15 @@ async function sendAlertEmail(
   recoveryOk: boolean,
   isNewPattern: boolean,
 ): Promise<boolean> {
-  // Harness-created test meetings still send a real email (so the pipeline
-  // harness verifies actual Resend delivery end-to-end) but under a clearly
-  // non-alarming, filterable subject.
+  // Harness-created test meetings are noise in the inbox on every harness run,
+  // so their alert is suppressed unless HARNESS_EMAILS=true is set for a
+  // delivery-verification run. The monitor_events audit row is written either
+  // way — that is what the harness actually asserts.
   const isHarnessMeeting = meeting.title.startsWith("[harness]");
+  if (isHarnessMeeting && Deno.env.get("HARNESS_EMAILS") !== "true") {
+    console.log(`[monitor] Skipping alert email for harness meeting ${meeting.id} (HARNESS_EMAILS not enabled)`);
+    return false;
+  }
   const subjectPrefix = isHarnessMeeting
     ? "[ECHOBRIEF HARNESS TEST]"
     : isNewPattern
