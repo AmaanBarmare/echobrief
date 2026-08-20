@@ -17,7 +17,11 @@ from dataclasses import dataclass
 from typing import Any
 
 
-def load_env(path: str = "/Users/amaanbarmare/Desktop/echobrief/.env") -> dict[str, str]:
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+DEFAULT_ENV_PATH = os.environ.get("ECHOBRIEF_ENV", os.path.join(REPO_ROOT, ".env"))
+
+
+def load_env(path: str = DEFAULT_ENV_PATH) -> dict[str, str]:
     env: dict[str, str] = {}
     with open(path) as f:
         for line in f:
