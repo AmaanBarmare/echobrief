@@ -72,57 +72,62 @@ export default function Chat() {
           </p>
         </div>
 
-        <div className="flex-1 overflow-y-auto space-y-4 pr-1">
-          {turns.length === 0 && (
-            <div className="text-center text-muted-foreground py-16">
+        {/* Turns sit at the BOTTOM of the scroll area (mt-auto), so a short
+            conversation reads next to the composer instead of stranding it
+            below a tall empty band. */}
+        <div className="flex-1 overflow-y-auto pr-1 flex flex-col">
+          {turns.length === 0 && !loading && (
+            <div className="m-auto text-center text-muted-foreground">
               <MessageSquare className="w-8 h-8 mx-auto mb-3 opacity-50" />
               <p className="text-sm">Try: “What did we decide about pricing?”</p>
             </div>
           )}
 
-          {turns.map((t, i) => (
-            <div
-              key={i}
-              className={cn(
-                'rounded-lg px-4 py-3 text-sm',
-                t.role === 'user'
-                  ? 'bg-primary/10 ml-auto max-w-[80%]'
-                  : 'bg-muted mr-auto max-w-[90%]',
-              )}
-            >
-              <p className="whitespace-pre-wrap">{t.content}</p>
+          <div className="mt-auto space-y-4">
+            {turns.map((t, i) => (
+              <div
+                key={i}
+                className={cn(
+                  'rounded-lg px-4 py-3 text-sm',
+                  t.role === 'user'
+                    ? 'bg-primary/10 ml-auto max-w-[80%]'
+                    : 'bg-muted mr-auto max-w-[90%]',
+                )}
+              >
+                <p className="whitespace-pre-wrap">{t.content}</p>
 
-              {t.truncated && (
-                <p className="mt-2 text-xs text-warning">
-                  Only your most recent meetings fit in context — older ones were not searched.
-                </p>
-              )}
+                {t.truncated && (
+                  <p className="mt-2 text-xs text-warning">
+                    Only your most recent meetings fit in context — older ones were not searched.
+                  </p>
+                )}
 
-              {t.citations && t.citations.length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {t.citations.map((c) => (
-                    <button
-                      key={c.meeting_id}
-                      onClick={() => navigate(`/meeting/${c.meeting_id}`)}
-                      className="text-xs px-2 py-1 rounded-md border border-border hover:bg-background transition-colors"
-                    >
-                      {c.title} · {c.date}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
+                {t.citations && t.citations.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {t.citations.map((c) => (
+                      <button
+                        key={c.meeting_id}
+                        onClick={() => navigate(`/meeting/${c.meeting_id}`)}
+                        className="text-xs px-2 py-1 rounded-md border border-border hover:bg-background transition-colors"
+                      >
+                        {c.title} · {c.date}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
 
-          {loading && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Searching your meetings…
-            </div>
-          )}
+            {loading && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Searching your meetings…
+              </div>
+            )}
 
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          <div ref={endRef} />
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            <div ref={endRef} />
+          </div>
         </div>
 
         <form

@@ -19,6 +19,28 @@ import { getCorsHeaders, handleCorsPrelight } from "../_shared/cors.ts";
 
 const MAX_CONTEXT_TOKENS = 100_000;
 
+/**
+ * Retrieval hygiene. Three classes of row are real in this database and all
+ * three make answers worse by being in context:
+ *   1. the literal "no clear speech" placeholder the pipeline writes when a
+ *      recording captured nothing — the model quotes it back as if it were a
+ *      finding about the meeting;
+ *   2. sub-threshold fragments ("Hmm hmm. Hello Can you hear me?") that carry
+ *      no content but still get cited;
+ *   3. [harness] test meetings, whose fabricated "quarterly roadmap" transcript
+ *      would otherwise be answered as though it were the user's own.
+ */
+const MIN_TRANSCRIPT_CHARS = 250;
+const NO_SPEECH_SENTINEL = "no clear speech was detected";
+
+function isUsableTranscript(title: string, content: string): boolean {
+  if (title.startsWith("[harness]")) return false;
+  const trimmed = content.trim();
+  if (trimmed.length < MIN_TRANSCRIPT_CHARS) return false;
+  if (trimmed.slice(0, 120).toLowerCase().includes(NO_SPEECH_SENTINEL)) return false;
+  return true;
+}
+
 interface MeetingContext {
   meeting_id: string;
   title: string;
@@ -38,7 +60,12 @@ function estimateTokens(text: string): number {
  */
 async function buildContext(
   supabase: SupabaseClient,
-): Promise<{ items: MeetingContext[]; truncated: boolean; tokens: number }> {
+): Promise<{
+  items: MeetingContext[];
+  truncated: boolean;
+  tokens: number;
+  skipped: number;
+}> {
   const { data, error } = await supabase
     .from("transcripts")
     .select("meeting_id, content, meetings(title, start_time)")
@@ -46,14 +73,15 @@ async function buildContext(
 
   if (error) throw new Error(`transcript query failed: ${error.message}`);
 
-  const all: MeetingContext[] = (data ?? [])
-    .filter((r: any) => String(r.content ?? "").trim())
-    .map((r: any) => ({
-      meeting_id: r.meeting_id,
-      title: r.meetings?.title || "Untitled meeting",
-      date: (r.meetings?.start_time || "").slice(0, 10),
-      content: String(r.content),
-    }));
+  const rows: MeetingContext[] = (data ?? []).map((r: any) => ({
+    meeting_id: r.meeting_id,
+    title: r.meetings?.title || "Untitled meeting",
+    date: (r.meetings?.start_time || "").slice(0, 10),
+    content: String(r.content ?? ""),
+  }));
+
+  const all = rows.filter((r) => isUsableTranscript(r.title, r.content));
+  const skipped = rows.length - all.length;
 
   // Newest first, so truncation drops the oldest.
   const kept: MeetingContext[] = [];
@@ -68,7 +96,7 @@ async function buildContext(
     kept.push(item);
     tokens += cost;
   }
-  return { items: kept, truncated, tokens };
+  return { items: kept, truncated, tokens, skipped };
 }
 
 function renderContext(items: MeetingContext[]): string {
@@ -111,15 +139,16 @@ serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } },
     );
 
-    const { items, truncated, tokens } = await buildContext(supabase);
+    const { items, truncated, tokens, skipped } = await buildContext(supabase);
     console.log(
-      `[chat-transcripts] meetings=${items.length} tokens=${tokens} truncated=${truncated}`,
+      `[chat-transcripts] meetings=${items.length} tokens=${tokens} truncated=${truncated} skipped=${skipped}`,
     );
 
     if (items.length === 0) {
       return json({
-        answer:
-          "I could not find any transcripts in your meeting history yet. Once a meeting has been recorded and transcribed, I can answer questions about it.",
+        answer: skipped > 0
+          ? "None of your recorded meetings have a usable transcript yet — the ones on file captured no clear speech. Once a meeting records properly, I can answer questions about it."
+          : "I could not find any transcripts in your meeting history yet. Once a meeting has been recorded and transcribed, I can answer questions about it.",
         citations: [],
         context_meetings: 0,
         context_tokens: 0,
