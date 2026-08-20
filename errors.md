@@ -151,19 +151,13 @@ Audio ≥ ~15 MB blows the budget.
 3. `recall-pipeline` records `split_method: "direct-fallback"` plus the reason in `split_error` whenever it submits whole-file, so the failure is diagnosable instead of invisible.
 4. `api/split-audio` uploads chunks 6-way concurrently instead of serially, and returns an explicit 504 if it runs past its 270 s internal budget.
 
-**Tested and rejected 2026-08-20 — do not re-attempt without new evidence:** downmixing chunks to 16 kHz mono looks like an obvious win (smaller uploads, faster encode, and it is the rate every STT engine resamples to internally). It is not. A/B against real Sarvam over two fixtures:
+**Chunk encoding — settled 2026-08-20. Do not revisit without new measurements.**
 
-| Fixture | Encoding | Bytes | Result |
-|---|---|---|---|
-| Clean single-voice TTS | `-q:a 4` | 149,631 | "we decide I need to roll back", "next. print" |
-| Clean single-voice TTS | 16k mono 32k | 86,643 | fully correct |
-| **2 speakers + pink noise** | `-q:a 4` | 200,343 | "patched the **read** path, not the **write** path"; speakers `[0,1]` |
-| **2 speakers + pink noise** | 16k mono 48k | 163,863 | "patched the **reed** path, not the **right** path"; speakers `[0,1,2]` |
-| **2 speakers + pink noise** | 16k mono 32k | 109,395 | "patched the **reed** path, not the **right** path"; speakers `[0,1,2]` |
+Recall's `audio_mixed` output is **16 kHz mono 128 kbps mp3**, already Sarvam's preferred input. That makes the whole "optimise the encoding" idea moot — there is nothing to downsample to.
 
-Clean speech flatters the downmix; realistic audio exposes it. 48k and 32k degrade *identically*, so the damage comes from the 16 kHz resample, not the bitrate — it destroys precisely the consonant distinctions technical discussion depends on, and it invents a phantom third speaker, feeding directly into `speakers:phantom_speaker_when_one_participant`.
-
-The wall-clock problem must therefore be solved by concurrency and by a higher `maxDuration` (Vercel Pro, 800 s), not by degrading the audio.
+- **Stream-copy works and is the answer.** `-f segment -segment_format mp3 -c copy -reset_timestamps 1` segments a real 29-min Recall recording in **0.21 s vs 2.44 s** re-encoding, and Sarvam returned **28,426 chars vs the re-encode path's 28,557** — 0.5% apart, 6/6 chunks non-empty. Frame-aligned boundaries drift ≤0.02 s per chunk, well inside what fixed `chunk_seconds` stitching absorbs. The earlier claim that stream-copy fails with "Audio contains no samples" was wrong; that attempt almost certainly omitted `-segment_format mp3`, leaving ffmpeg to infer a container that does not carry copied frames.
+- **Do not resample or drop the bitrate.** An A/B of `-ac 1 -ar 16000` at 48k and 32k corrupted technical vocabulary ("read/write" → "reed/right") and invented a phantom third speaker. That fixture was 24 kHz synthetic audio and so was NOT representative of production — but the conclusion holds for a simpler reason: re-encoding a file already at the target format is pure loss for zero gain.
+- **Encoding was never the wall-clock bottleneck, and `maxDuration` was a misdiagnosis.** 2.44 s to re-encode 29 minutes extrapolates to ~6 s for 70 minutes against a 300 s budget. The long-meeting failures blamed on `maxDuration` were actually `storage:bucket_full_blocks_pipeline`: with the bucket full, `audio_url` was NULL and split-audio was never invoked at all. Buying Vercel Pro would have fixed nothing.
 
 **If it recurs:** the meeting will now be `failed` with a specific `error_message`, and the Vercel logs for `api/split-audio` will show either the 504 budget message or the underlying ffmpeg/upload error. The durable fix is a Vercel Pro plan (`maxDuration: 800`).
 
