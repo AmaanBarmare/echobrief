@@ -13,7 +13,7 @@ const faqs = [
   },
   {
     q: 'Where do the summaries go?',
-    a: 'WhatsApp numbers, email, or Notion pages. You choose per workspace or per user in settings, with per-language routing when a Hindi team and an English team share the same meeting.',
+    a: 'WhatsApp numbers or email. You choose per workspace or per user in settings, with per-language routing when a Hindi team and an English team share the same meeting.',
   },
   {
     q: 'What happens to my audio?',

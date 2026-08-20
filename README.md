@@ -129,7 +129,6 @@ Most meeting tools stop at transcription. EchoBrief goes deeper in both product 
 │  - Google Calendar API: calendar sync                                        │
 │  - Resend: email delivery                                                    │
 │  - Recall AI: bot-based meeting capture                                      │
-│  - Notion OAuth: workspace integration hooks                                 │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -233,7 +232,7 @@ echobrief/
 │   │   ├── start-recall-recording/ # Recall bot creation
 │   │   ├── recall-webhook/         # Recall lifecycle + handoff to transcription
 │   │   ├── google-oauth-*          # OAuth start/callback/redirect flows
-│   │   ├── sync-*                  # Calendar and Notion sync entrypoints
+│   │   ├── sync-*                  # Calendar sync entrypoints
 │   │   ├── send-*                  # Email, WhatsApp, scheduled delivery
 │   │   ├── generate-*              # Digest and meeting insight generation
 │   │   └── _shared/                # CORS, rate limit, Sarvam helpers, insight helpers, Recall pipeline (speaker timeline + audio download)
@@ -267,7 +266,6 @@ user_oauth_tokens
 google_oauth_states
 calendars
 calendar_events
-notion_connections
 meeting_notifications
 ```
 
@@ -296,7 +294,6 @@ meeting_notifications
 | `generate-digest-report` | Builds weekly/monthly meeting digest reports |
 | `send-whatsapp-report` | WhatsApp-style report delivery pipeline |
 | `generate-meeting-insights` | Insight generation endpoint support |
-| `sync-notion` / `notion-oauth-*` | Notion integration plumbing |
 | `queue-onboarding-emails` / `send-scheduled-emails` | Lifecycle and scheduled communications |
 
 One function intentionally lives **outside** Supabase: [`api/split-audio.ts`](api/split-audio.ts) runs on Vercel because audio chunking needs real ffmpeg and ~2 GB of memory — Supabase edge functions cap at ~256 MB with no ffmpeg binary (the same constraint that makes the in-edge Whisper path OOM on large files). The edge pipeline calls it over HTTPS with a shared bearer secret and falls back to direct Sarvam submission if it is unreachable.

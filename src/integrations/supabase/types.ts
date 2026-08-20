@@ -239,96 +239,6 @@ export type Database = {
         }
         Relationships: []
       }
-      notion_connections: {
-        Row: {
-          access_token: string | null
-          bot_id: string | null
-          connected: boolean
-          created_at: string
-          id: string
-          reports_database_id: string | null
-          tasks_database_id: string | null
-          updated_at: string
-          user_id: string
-          workspace_id: string | null
-          workspace_name: string | null
-        }
-        Insert: {
-          access_token?: string | null
-          bot_id?: string | null
-          connected?: boolean
-          created_at?: string
-          id?: string
-          reports_database_id?: string | null
-          tasks_database_id?: string | null
-          updated_at?: string
-          user_id: string
-          workspace_id?: string | null
-          workspace_name?: string | null
-        }
-        Update: {
-          access_token?: string | null
-          bot_id?: string | null
-          connected?: boolean
-          created_at?: string
-          id?: string
-          reports_database_id?: string | null
-          tasks_database_id?: string | null
-          updated_at?: string
-          user_id?: string
-          workspace_id?: string | null
-          workspace_name?: string | null
-        }
-        Relationships: []
-      }
-      calendars: {
-        Row: {
-          calendar_id: string
-          calendar_name: string
-          created_at: string | null
-          credentials: Json | null
-          email: string | null
-          id: string
-          is_active: boolean | null
-          is_primary: boolean | null
-          last_synced_at: string | null
-          provider: string
-          sync_enabled: boolean | null
-          updated_at: string | null
-          user_id: string
-        }
-        Insert: {
-          calendar_id: string
-          calendar_name: string
-          created_at?: string | null
-          credentials?: Json | null
-          email?: string | null
-          id?: string
-          is_active?: boolean | null
-          is_primary?: boolean | null
-          last_synced_at?: string | null
-          provider: string
-          sync_enabled?: boolean | null
-          updated_at?: string | null
-          user_id: string
-        }
-        Update: {
-          calendar_id?: string
-          calendar_name?: string
-          created_at?: string | null
-          credentials?: Json | null
-          email?: string | null
-          id?: string
-          is_active?: boolean | null
-          is_primary?: boolean | null
-          last_synced_at?: string | null
-          provider?: string
-          sync_enabled?: boolean | null
-          updated_at?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
       calendar_events: {
         Row: {
           attendees: Json | null
@@ -387,6 +297,54 @@ export type Database = {
           start_time?: string
           sync_status?: string | null
           title?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      calendars: {
+        Row: {
+          calendar_id: string
+          calendar_name: string
+          created_at: string | null
+          credentials: Json | null
+          email: string | null
+          id: string
+          is_active: boolean | null
+          is_primary: boolean | null
+          last_synced_at: string | null
+          provider: string
+          sync_enabled: boolean | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          calendar_id: string
+          calendar_name: string
+          created_at?: string | null
+          credentials?: Json | null
+          email?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_primary?: boolean | null
+          last_synced_at?: string | null
+          provider: string
+          sync_enabled?: boolean | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          calendar_id?: string
+          calendar_name?: string
+          created_at?: string | null
+          credentials?: Json | null
+          email?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_primary?: boolean | null
+          last_synced_at?: string | null
+          provider?: string
+          sync_enabled?: boolean | null
           updated_at?: string | null
           user_id?: string
         }

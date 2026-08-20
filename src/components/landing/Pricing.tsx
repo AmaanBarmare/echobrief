@@ -63,7 +63,6 @@ const tiers: Tier[] = [
       '25 meeting-hours / month',
       '₹99/hr after that',
       'Everything in Starter',
-      'Notion export and CRM sync',
       'Custom vocabulary and priority processing',
       '90-day retention',
     ],

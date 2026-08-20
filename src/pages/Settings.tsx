@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Loader2, Lock, Mail, Bell, LogOut, X, Trash2, Calendar, FileText } from 'lucide-react';
+import { Loader2, Lock, Mail, Bell, LogOut, X, Trash2, Calendar } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { displayNameFromUserMetadata } from '@/lib/userDisplayName';
 
@@ -58,7 +58,6 @@ export default function Settings() {
 
   // Integrations
   const [connectingGoogle, setConnectingGoogle] = useState(false);
-  const [connectingNotion, setConnectingNotion] = useState(false);
   const [savingEmailPref, setSavingEmailPref] = useState(false);
   const [googleCalendars, setGoogleCalendars] = useState<GoogleCalendar[]>([]);
 
@@ -318,32 +317,6 @@ export default function Settings() {
     }
   }, [user]);
 
-  const handleConnectNotion = async () => {
-    if (!session?.access_token) {
-      toast({ title: 'Error', description: 'Please sign in to connect Notion', variant: 'destructive' });
-      return;
-    }
-    setConnectingNotion(true);
-    try {
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/notion-oauth-start`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ returnTo: '/settings?tab=integrations', origin: window.location.origin }),
-      });
-
-      const data = await response.json();
-      if (data.error) throw new Error(data.message || data.error);
-      if (!data.authUrl) throw new Error('Notion did not return an authorization URL');
-      window.location.href = data.authUrl;
-    } catch (error: any) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-      setConnectingNotion(false);
-    }
-  };
-
   // Backs deliverResults() in supabase/functions/_shared/insights.ts, which
   // treats a missing/true value as "send the summary".
   const handleToggleEmailSummaries = async (enabled: boolean) => {
@@ -600,29 +573,6 @@ export default function Settings() {
                 >
                   {savingEmailPref ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   {profile?.email_summaries_enabled === false ? 'Turn on' : 'Turn off'}
-                </Button>
-              </div>
-            </div>
-
-            {/* Notion */}
-            <div className="rounded-2xl border border-border bg-card p-6 text-card-foreground shadow-sm">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex flex-1 items-center gap-3">
-                  <FileText size={32} className="shrink-0 text-foreground" />
-                  <div>
-                    <h3 className="mb-1 text-[15px] font-semibold text-foreground">Notion</h3>
-                    <p className="text-[13px] text-muted-foreground">
-                      Push meeting summaries and action items into a Notion workspace.
-                    </p>
-                  </div>
-                </div>
-                <Button
-                  onClick={handleConnectNotion}
-                  disabled={connectingNotion}
-                  className="bg-orange-500 text-white hover:bg-orange-600"
-                >
-                  {connectingNotion ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  Connect
                 </Button>
               </div>
             </div>

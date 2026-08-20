@@ -21,15 +21,6 @@ verify_jwt = false
 [functions.disconnect-google]
 verify_jwt = false
 
-[functions.notion-oauth-start]
-verify_jwt = false
-
-[functions.notion-oauth-callback]
-verify_jwt = false
-
-[functions.sync-notion]
-verify_jwt = false
-
 [functions.sarvam-webhook]
 verify_jwt = false
 

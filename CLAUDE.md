@@ -65,7 +65,7 @@ PostgreSQL with Row-Level Security. Key tables:
 - `monitor_events` -- audit trail of every stuck-meeting detection from the monitor cron. Deduped via a generated `hour_bucket` column (one row per meeting+signature+hour). See `errors.md` for signature reference.
 - `profiles` -- user settings, integration flags
 - `user_oauth_tokens` -- Google OAuth tokens
-- `notion_connections`, `meeting_notifications`, `action_item_completions`
+- `meeting_notifications`, `action_item_completions`
 
 All user-scoped tables enforce `auth.uid() = user_id` RLS policies. `monitor_events` is service-role-only.
 
@@ -82,7 +82,7 @@ Migrations are in `supabase/migrations/`. Recent additions worth knowing about:
 - **Frontend:** React 18, TypeScript, Vite, Tailwind CSS, shadcn/ui, React Router v6, TanStack Query, Framer Motion
 - **Backend:** Supabase (PostgreSQL, Auth, Storage, Edge Functions on Deno)
 - **AI:** Sarvam AI (STT in translate mode — outputs English from any language), OpenAI Whisper (fallback STT), GPT-4o-mini (insights)
-- **Integrations:** Google Calendar OAuth, Notion OAuth, email delivery
+- **Integrations:** Google Calendar OAuth, email delivery
 - **Hosting:** Vercel (frontend), Supabase (backend)
 
 ## UI Component Library

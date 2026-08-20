@@ -1,0 +1,1152 @@
+<title>EchoBrief System Map</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600&family=DM+Sans:ital,wght@0,400;0,500;1,400&family=JetBrains+Mono:wght@400;500&display=swap">
+
+<style>
+  /* ---- Warm Dispatch tokens: mirrored from src/lib/theme.ts ---------- */
+  :root {
+    --bg:        #F6F2EB;
+    --card:      #FCFAF5;
+    --raised:    #EFEADE;
+    --rule:      #E3DCCD;
+    --rule-2:    #D5CCBA;
+    --text:      #1D1712;
+    --text-s:    #5B4F44;
+    --text-m:    #8C7F71;
+    --ember:     #D93F0B;
+    --gold:      #D4900A;
+    --green:     #2E8E52;
+    --blue:      #3B6FB8;
+    --purple:    #8A5AC0;
+    --red:       #C94330;
+    --shadow:    0 1px 2px rgba(29,23,18,.05), 0 8px 24px -16px rgba(29,23,18,.22);
+    --diagram-bg:#FFFDF8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg:        #1A1612;
+      --card:      #26201A;
+      --raised:    #2F2920;
+      --rule:      #3A3127;
+      --rule-2:    #4A4035;
+      --text:      #ECE3D2;
+      --text-s:    #B8AD9C;
+      --text-m:    #897E6E;
+      --ember:     #E8430A;
+      --gold:      #F5C842;
+      --green:     #3FBE6C;
+      --blue:      #4B8BD9;
+      --purple:    #B07AD8;
+      --red:       #E8654B;
+      --shadow:    0 1px 2px rgba(0,0,0,.3), 0 10px 30px -18px rgba(0,0,0,.7);
+      --diagram-bg:#221C16;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg:        #1A1612;
+    --card:      #26201A;
+    --raised:    #2F2920;
+    --rule:      #3A3127;
+    --rule-2:    #4A4035;
+    --text:      #ECE3D2;
+    --text-s:    #B8AD9C;
+    --text-m:    #897E6E;
+    --ember:     #E8430A;
+    --gold:      #F5C842;
+    --green:     #3FBE6C;
+    --blue:      #4B8BD9;
+    --purple:    #B07AD8;
+    --red:       #E8654B;
+    --shadow:    0 1px 2px rgba(0,0,0,.3), 0 10px 30px -18px rgba(0,0,0,.7);
+    --diagram-bg:#221C16;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    margin: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---- shell -------------------------------------------------------- */
+  .shell { display: grid; grid-template-columns: 232px minmax(0, 1fr); gap: 0; }
+  .rail {
+    position: sticky; top: 0; align-self: start; height: 100vh;
+    border-right: 1px solid var(--rule);
+    padding: 30px 20px; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 22px;
+  }
+  .mark { display: flex; align-items: baseline; gap: 2px; font-family: "Outfit", sans-serif; font-weight: 600; font-size: 19px; letter-spacing: -.01em; }
+  .mark span { color: var(--ember); }
+  .rail nav { display: flex; flex-direction: column; gap: 1px; }
+  .rail nav a {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 11.5px; letter-spacing: .01em;
+    color: var(--text-s); text-decoration: none;
+    padding: 6px 9px; border-radius: 5px;
+    display: flex; gap: 9px; align-items: baseline;
+    border-left: 2px solid transparent;
+  }
+  .rail nav a i { color: var(--text-m); font-style: normal; font-size: 10.5px; }
+  .rail nav a:hover { background: var(--raised); color: var(--text); border-left-color: var(--ember); }
+  .rail nav a:focus-visible { outline: 2px solid var(--ember); outline-offset: 1px; }
+  .rail-note { font-size: 11.5px; color: var(--text-m); line-height: 1.5; border-top: 1px solid var(--rule); padding-top: 14px; margin-top: auto; }
+
+  main { padding: 0 44px 120px; max-width: 1180px; }
+
+  /* ---- type --------------------------------------------------------- */
+  h1, h2, h3 { font-family: "Outfit", sans-serif; font-weight: 600; text-wrap: balance; margin: 0; letter-spacing: -.015em; }
+  h1 { font-size: clamp(30px, 4.2vw, 44px); line-height: 1.08; }
+  h2 { font-size: 25px; line-height: 1.2; }
+  h3 { font-size: 16.5px; font-weight: 500; line-height: 1.3; }
+  p { margin: 0; max-width: 68ch; }
+  a { color: var(--ember); }
+
+  .eyebrow {
+    font-family: "JetBrains Mono", monospace; font-size: 11px;
+    text-transform: uppercase; letter-spacing: .13em; color: var(--text-m);
+  }
+  code, .mono { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: .86em; }
+  code { background: var(--raised); border: 1px solid var(--rule); border-radius: 4px; padding: 1px 5px; color: var(--text); }
+
+  /* ---- sections ----------------------------------------------------- */
+  section { padding: 52px 0 4px; border-top: 1px solid var(--rule); scroll-margin-top: 16px; }
+  section:first-of-type { border-top: none; }
+  .sec-head { display: flex; flex-direction: column; gap: 8px; margin-bottom: 26px; }
+  .sec-head p { color: var(--text-s); }
+  .stack { display: flex; flex-direction: column; gap: 22px; }
+
+  /* ---- hero --------------------------------------------------------- */
+  header.hero { padding: 58px 0 46px; display: flex; flex-direction: column; gap: 20px; }
+  header.hero p.lede { font-size: 18px; color: var(--text-s); max-width: 62ch; }
+  .ember-bar { height: 4px; width: 96px; border-radius: 2px; background: linear-gradient(135deg, var(--ember), var(--gold)); }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(122px, 1fr)); gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; margin-top: 6px; }
+  .stats div { background: var(--card); padding: 13px 15px; display: flex; flex-direction: column; gap: 2px; }
+  .stats b { font-family: "Outfit", sans-serif; font-size: 23px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .stats span { font-family: "JetBrains Mono", monospace; font-size: 10.5px; color: var(--text-m); text-transform: uppercase; letter-spacing: .07em; }
+
+  /* ---- figures ------------------------------------------------------ */
+  figure { margin: 0; border: 1px solid var(--rule); border-radius: 12px; background: var(--diagram-bg); box-shadow: var(--shadow); overflow: hidden; }
+  .fig-scroll { overflow-x: auto; padding: 22px 22px 6px; }
+  figure svg { display: block; max-width: 100%; height: auto; min-width: 660px; color: var(--text); }
+  figcaption { border-top: 1px solid var(--rule); padding: 11px 22px; font-size: 13px; color: var(--text-s); background: var(--card); }
+  figcaption b { font-weight: 500; color: var(--text); }
+
+  /* svg primitives */
+  .box { fill: var(--card); stroke: var(--rule-2); stroke-width: 1.2; }
+  .box-em { fill: var(--card); stroke: var(--ember); stroke-width: 1.6; }
+  .box-ghost { fill: none; stroke: var(--rule-2); stroke-width: 1.2; stroke-dasharray: 4 4; }
+  .lbl { font-family: "DM Sans", sans-serif; font-size: 13px; fill: var(--text); }
+  .lbl-b { font-family: "Outfit", sans-serif; font-size: 13.5px; font-weight: 600; fill: var(--text); }
+  .sub { font-family: "JetBrains Mono", monospace; font-size: 10.5px; fill: var(--text-m); }
+  .edge { stroke: var(--text-m); stroke-width: 1.3; fill: none; }
+  .edge-em { stroke: var(--ember); stroke-width: 1.6; fill: none; }
+  .edge-warn { stroke: var(--red); stroke-width: 1.4; fill: none; stroke-dasharray: 5 4; }
+  .edge-poll { stroke: var(--blue); stroke-width: 1.4; fill: none; stroke-dasharray: 5 4; }
+  .elbl { font-family: "JetBrains Mono", monospace; font-size: 10px; fill: var(--text-s); }
+  .elbl-warn { font-family: "JetBrains Mono", monospace; font-size: 10px; fill: var(--red); }
+  .elbl-poll { font-family: "JetBrains Mono", monospace; font-size: 10px; fill: var(--blue); }
+
+  /* ---- cards / grids ------------------------------------------------ */
+  .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(232px, 1fr)); gap: 14px; }
+  .card { background: var(--card); border: 1px solid var(--rule); border-radius: 10px; padding: 17px 18px; display: flex; flex-direction: column; gap: 8px; }
+  .card h3 { display: flex; align-items: center; gap: 8px; }
+  .card p, .card li { font-size: 14px; color: var(--text-s); }
+  .card ul { margin: 0; padding-left: 17px; display: flex; flex-direction: column; gap: 5px; }
+  .card .path { font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--text-m); word-break: break-all; }
+
+  .tick { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+  .t-green { background: var(--green); } .t-red { background: var(--red); }
+  .t-gold  { background: var(--gold);  } .t-blue { background: var(--blue); }
+  .t-purple{ background: var(--purple);}
+
+  /* ---- tables ------------------------------------------------------- */
+  .t-wrap { overflow-x: auto; border: 1px solid var(--rule); border-radius: 10px; background: var(--card); }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; min-width: 560px; }
+  th, td { text-align: left; padding: 9px 14px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th { font-family: "JetBrains Mono", monospace; font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--text-m); font-weight: 400; background: var(--raised); }
+  tr:last-child td { border-bottom: none; }
+  td.mono, td .mono { font-size: 12px; color: var(--text-s); }
+  td b { font-weight: 500; }
+
+  .pill { display: inline-flex; align-items: center; gap: 6px; font-family: "JetBrains Mono", monospace; font-size: 10.5px; padding: 2px 8px; border-radius: 20px; border: 1px solid var(--rule-2); color: var(--text-s); white-space: nowrap; }
+  .pill.ok   { border-color: color-mix(in srgb, var(--green) 45%, transparent); color: var(--green); }
+  .pill.warn { border-color: color-mix(in srgb, var(--gold) 55%, transparent);  color: var(--gold); }
+  .pill.bad  { border-color: color-mix(in srgb, var(--red) 45%, transparent);   color: var(--red); }
+  .pill.info { border-color: color-mix(in srgb, var(--blue) 45%, transparent);  color: var(--blue); }
+
+  /* ---- callout ------------------------------------------------------ */
+  .callout { border: 1px solid var(--rule); border-left: 3px solid var(--gold); border-radius: 8px; background: var(--card); padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
+  .callout.danger { border-left-color: var(--red); }
+  .callout .eyebrow { color: var(--text-s); }
+  .callout p { font-size: 14px; color: var(--text-s); }
+
+  /* ---- steps -------------------------------------------------------- */
+  ol.steps { list-style: none; counter-reset: s; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; }
+  ol.steps li { counter-increment: s; background: var(--card); padding: 13px 16px 13px 46px; position: relative; font-size: 14px; color: var(--text-s); }
+  ol.steps li::before { content: counter(s, decimal-leading-zero); position: absolute; left: 15px; top: 13px; font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--ember); }
+  ol.steps li b { color: var(--text); font-weight: 500; }
+  pre { margin: 0; background: var(--raised); border: 1px solid var(--rule); border-radius: 8px; padding: 12px 14px; overflow-x: auto; font-family: "JetBrains Mono", monospace; font-size: 12.5px; line-height: 1.65; color: var(--text); }
+
+  @media (max-width: 880px) {
+    .shell { grid-template-columns: 1fr; }
+    .rail { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--rule); }
+    .rail nav { flex-direction: row; flex-wrap: wrap; }
+    .rail-note { margin-top: 0; }
+    main { padding: 0 20px 80px; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="shell">
+  <aside class="rail">
+    <div class="mark">echo<span>brief</span></div>
+    <nav>
+      <a href="#glance"><i>01</i> System at a glance</a>
+      <a href="#pipeline"><i>02</i> The recording spine</a>
+      <a href="#states"><i>03</i> Meeting state machine</a>
+      <a href="#fallbacks"><i>04</i> Failure &amp; fallback</a>
+      <a href="#races"><i>05</i> Races and locks</a>
+      <a href="#healing"><i>06</i> Self-healing layer</a>
+      <a href="#data"><i>07</i> Data model</a>
+      <a href="#frontend"><i>08</i> Frontend map</a>
+      <a href="#functions"><i>09</i> Function inventory</a>
+      <a href="#testing"><i>10</i> Test tiers</a>
+      <a href="#next"><i>11</i> Get it working</a>
+    </nav>
+    <div class="rail-note">Drawn from the repo at <span class="mono">5d1a307</span> on <span class="mono">main</span>. Every claim here maps to a file in the tree.</div>
+  </aside>
+
+  <main>
+    <header class="hero">
+      <div class="ember-bar"></div>
+      <span class="eyebrow">Architecture map · 2026-08-20</span>
+      <h1>A meeting goes in as audio.<br>It comes out as decisions.</h1>
+      <p class="lede">EchoBrief is one product spread over four runtimes: a React SPA, 29 Deno edge functions, a Postgres database that doubles as the job scheduler, and one Node function on Vercel that exists purely because ffmpeg does not fit anywhere else. This page draws how they fit together, where the pipeline breaks, and what it takes to get it running end-to-end.</p>
+      <div class="stats">
+        <div><b>29</b><span>Edge functions</span></div>
+        <div><b>12.7k</b><span>Frontend LOC</span></div>
+        <div><b>36</b><span>Migrations</span></div>
+        <div><b>6</b><span>External providers</span></div>
+        <div><b>3</b><span>Cron jobs</span></div>
+        <div><b>45</b><span>Automated tests</span></div>
+      </div>
+    </header>
+
+    <!-- ============================ 01 ============================ -->
+    <section id="glance">
+      <div class="sec-head">
+        <span class="eyebrow">01 — System at a glance</span>
+        <h2>Four runtimes, one meetings table</h2>
+        <p>The browser never talks to Recall, Sarvam or OpenAI. It talks to Supabase, and every provider hop happens inside an edge function holding a service-role key. The single exception is <code>api/split-audio</code>, which lives on Vercel because ffmpeg needs 2&nbsp;GB and a real binary.</p>
+      </div>
+
+      <figure>
+        <div class="fig-scroll">
+          <svg viewBox="0 0 1000 530" role="img" aria-label="Topology: React SPA and the Recall bot feed into Supabase, whose edge functions call out over HTTPS to Recall, Sarvam, OpenAI, Google and Resend, plus the Vercel split-audio function.">
+            <defs>
+              <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+              </marker>
+            </defs>
+
+            <!-- client -->
+            <rect class="box" x="40" y="34" width="600" height="66" rx="8"/>
+            <text class="lbl-b" x="58" y="60">React SPA — Vite + TypeScript</text>
+            <text class="sub" x="58" y="80">88 files · 12.7k LOC · static on Vercel · echobrief.in</text>
+
+            <!-- supabase container -->
+            <rect class="box-em" x="40" y="150" width="600" height="190" rx="10"/>
+            <text class="lbl-b" x="58" y="176">Supabase project</text>
+            <text class="sub" x="176" y="176">lekkpfpojlspbuwrtmzt</text>
+
+            <rect class="box" x="58" y="192" width="124" height="46" rx="6"/>
+            <text class="lbl" x="70" y="213">Auth</text>
+            <text class="sub" x="70" y="229">JWT sessions</text>
+
+            <rect class="box" x="194" y="192" width="166" height="46" rx="6"/>
+            <text class="lbl" x="206" y="213">Postgres + RLS</text>
+            <text class="sub" x="206" y="229">auth.uid() = user_id</text>
+
+            <rect class="box" x="372" y="192" width="118" height="46" rx="6"/>
+            <text class="lbl" x="384" y="213">Storage</text>
+            <text class="sub" x="384" y="229">audio mp3</text>
+
+            <rect class="box" x="502" y="192" width="120" height="46" rx="6"/>
+            <text class="lbl" x="514" y="213">pg_cron</text>
+            <text class="sub" x="514" y="229">+ pg_net</text>
+
+            <rect class="box" x="58" y="262" width="564" height="60" rx="6"/>
+            <text class="lbl-b" x="72" y="286">Edge Functions (Deno) × 29</text>
+            <text class="sub" x="72" y="306">recall-webhook · sarvam-webhook · process-meeting · monitor-stuck-meetings · oauth · delivery</text>
+
+            <!-- cron into functions -->
+            <line class="edge" x1="562" y1="238" x2="562" y2="260" marker-end="url(#a1)"/>
+            <text class="elbl" x="572" y="254">3 jobs</text>
+
+            <!-- client to supabase -->
+            <line class="edge-em" x1="340" y1="100" x2="340" y2="148" marker-end="url(#a1)"/>
+            <text class="elbl" x="352" y="122">supabase-js: auth · RLS reads · realtime · functions.invoke</text>
+
+            <!-- vercel function -->
+            <rect class="box" x="40" y="400" width="330" height="72" rx="8"/>
+            <text class="lbl-b" x="58" y="426">Vercel function — api/split-audio</text>
+            <text class="sub" x="58" y="446">ffmpeg · 2 GB · 300 s cap</text>
+            <text class="sub" x="58" y="462">chunking + chunk-wise Whisper</text>
+
+            <line class="edge-em" x1="205" y1="322" x2="205" y2="398" marker-end="url(#a1)"/>
+            <text class="elbl" x="216" y="352">POST + bearer secret</text>
+            <text class="elbl" x="216" y="368">SPLIT_AUDIO_SECRET</text>
+
+            <!-- bus -->
+            <line class="edge" x1="622" y1="292" x2="700" y2="292"/>
+            <line class="edge" x1="370" y1="436" x2="700" y2="436"/>
+            <line class="edge" x1="700" y1="60" x2="700" y2="436"/>
+            <text class="elbl" x="676" y="28">HTTPS ⇄ webhooks</text>
+
+            <!-- providers -->
+            <rect class="box" x="760" y="34" width="200" height="52" rx="7"/>
+            <text class="lbl" x="774" y="56">Recall.ai</text>
+            <text class="sub" x="774" y="73">bot joins Meet/Zoom/Teams</text>
+            <line class="edge" x1="700" y1="60" x2="758" y2="60" marker-end="url(#a1)" marker-start="url(#a1)"/>
+
+            <rect class="box" x="760" y="118" width="200" height="52" rx="7"/>
+            <text class="lbl" x="774" y="140">Sarvam AI</text>
+            <text class="sub" x="774" y="157">batch STT · translate mode</text>
+            <line class="edge" x1="700" y1="144" x2="758" y2="144" marker-end="url(#a1)" marker-start="url(#a1)"/>
+
+            <rect class="box" x="760" y="202" width="200" height="52" rx="7"/>
+            <text class="lbl" x="774" y="224">OpenAI</text>
+            <text class="sub" x="774" y="241">Whisper + GPT-4o-mini</text>
+            <line class="edge" x1="700" y1="228" x2="758" y2="228" marker-end="url(#a1)"/>
+
+            <rect class="box" x="760" y="286" width="200" height="52" rx="7"/>
+            <text class="lbl" x="774" y="308">Google Calendar</text>
+            <text class="sub" x="774" y="325">OAuth + event sync</text>
+            <line class="edge" x1="700" y1="312" x2="758" y2="312" marker-end="url(#a1)"/>
+
+            <rect class="box" x="760" y="370" width="200" height="52" rx="7"/>
+            <text class="lbl" x="774" y="392">Resend · Notion</text>
+            <text class="sub" x="774" y="409">email delivery · sync</text>
+            <line class="edge" x1="700" y1="396" x2="758" y2="396" marker-end="url(#a1)"/>
+
+            <text class="sub" x="40" y="500">Double-headed arrows are two-way: EchoBrief calls out, the provider calls back by webhook.</text>
+          </svg>
+        </div>
+        <figcaption><b>Trust boundary:</b> provider API keys live only in Supabase secrets and the Vercel env. The browser holds nothing but the anon key, so every read is fenced by RLS.</figcaption>
+      </figure>
+
+      <div class="grid-3" style="margin-top:18px">
+        <div class="card">
+          <h3><span class="tick t-gold"></span>Why Vercel at all</h3>
+          <p>Supabase edge functions cap at ~256&nbsp;MB and ship no ffmpeg. Chunking a 47-minute MP3 needs both. So one function moved out, reached over HTTPS with a shared bearer secret.</p>
+        </div>
+        <div class="card">
+          <h3><span class="tick t-blue"></span>Why the DB schedules jobs</h3>
+          <p><code>pg_cron</code> + <code>pg_net</code> fire the three recurring jobs. Cheap, but every tick writes rows — which is exactly what drained the Disk IO budget once already.</p>
+        </div>
+        <div class="card">
+          <h3><span class="tick t-purple"></span>One ingest, one pipeline</h3>
+          <p>The Chrome extension path is gone. Everything is bot-recorded now, and everything downstream of <code>meetings</code> is ingest-agnostic.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================ 02 ============================ -->
+    <section id="pipeline">
+      <div class="sec-head">
+        <span class="eyebrow">02 — The recording spine</span>
+        <h2>Ten hops from &ldquo;join this call&rdquo; to a summary in an inbox</h2>
+        <p>This is the path that has to work. Solid arrows are the happy path; dashed red is the fallback rail; dashed blue is the poller that re-enters the flow when a webhook never lands.</p>
+      </div>
+
+      <figure>
+        <div class="fig-scroll">
+          <svg viewBox="0 0 1000 1010" role="img" aria-label="Ten-stage pipeline from bot dispatch through Recall, the Vercel splitter, Sarvam, stitching, speaker mapping and GPT insight generation, with fallback and polling rails on the right.">
+            <defs>
+              <marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+              </marker>
+            </defs>
+
+            <!-- 1 -->
+            <rect class="box" x="40" y="24" width="420" height="56" rx="7"/>
+            <text class="lbl-b" x="56" y="47">1 · User dispatches a bot</text>
+            <text class="sub" x="56" y="66">dashboard URL, or auto-join-meetings from a calendar event</text>
+            <line class="edge-em" x1="250" y1="80" x2="250" y2="118" marker-end="url(#a2)"/>
+            <text class="elbl" x="262" y="103">start-recall-recording · bot_name from profiles</text>
+
+            <!-- 2 -->
+            <rect class="box" x="40" y="120" width="420" height="56" rx="7"/>
+            <text class="lbl-b" x="56" y="143">2 · Recall bot joins and records</text>
+            <text class="sub" x="56" y="162">realtime transcription on (recallai_streaming)</text>
+            <line class="edge-em" x1="250" y1="176" x2="250" y2="214" marker-end="url(#a2)"/>
+            <text class="elbl" x="262" y="199">webhook: audio_mixed.done  ← the only trigger</text>
+
+            <!-- 3 -->
+            <rect class="box" x="40" y="216" width="420" height="56" rx="7"/>
+            <text class="lbl-b" x="56" y="239">3 · recall-webhook</text>
+            <text class="sub" x="56" y="258">bot.done is status-only — it never starts pipeline work</text>
+            <line class="edge-em" x1="250" y1="272" x2="250" y2="310" marker-end="url(#a2)"/>
+
+            <!-- 4 -->
+            <rect class="box" x="40" y="312" width="420" height="66" rx="7"/>
+            <text class="lbl-b" x="56" y="335">4 · recall-pipeline collects the raw material</text>
+            <text class="sub" x="56" y="354">mp3 → Supabase Storage · Recall transcript → speaker timeline</text>
+            <text class="sub" x="56" y="370">timeline saved into meetings.processing_config</text>
+            <line class="edge-em" x1="250" y1="378" x2="250" y2="416" marker-end="url(#a2)"/>
+            <text class="elbl" x="262" y="401">signed audio URL + callback URL</text>
+
+            <!-- 5 -->
+            <rect class="box-em" x="40" y="418" width="420" height="66" rx="7"/>
+            <text class="lbl-b" x="56" y="441">5 · api/split-audio (Vercel)</text>
+            <text class="sub" x="56" y="460">ffmpeg probes duration · ≤6 min passes through</text>
+            <text class="sub" x="56" y="476">longer → 300 s re-encoded chunks, max 20 per job</text>
+            <line class="edge-em" x1="250" y1="484" x2="250" y2="522" marker-end="url(#a2)"/>
+
+            <!-- 6 -->
+            <rect class="box" x="40" y="524" width="420" height="66" rx="7"/>
+            <text class="lbl-b" x="56" y="547">6 · ONE multi-file Sarvam job</text>
+            <text class="sub" x="56" y="566">saaras:v3 · mode=translate → English out · diarization on</text>
+            <text class="sub" x="56" y="582">job id written to meetings.sarvam_job_id</text>
+            <line class="edge-em" x1="250" y1="590" x2="250" y2="628" marker-end="url(#a2)"/>
+            <text class="elbl" x="262" y="613">async callback, minutes later</text>
+
+            <!-- 7 -->
+            <rect class="box-em" x="40" y="630" width="420" height="66" rx="7"/>
+            <text class="lbl-b" x="56" y="653">7 · sarvam-webhook stitches</text>
+            <text class="sub" x="56" y="672">downloads 0.json..N.json in numeric order</text>
+            <text class="sub" x="56" y="688">offsets each ts by chunk_index × 300 s, then time-sorts</text>
+            <line class="edge-em" x1="250" y1="696" x2="250" y2="734" marker-end="url(#a2)"/>
+
+            <!-- 8 -->
+            <rect class="box" x="40" y="736" width="420" height="66" rx="7"/>
+            <text class="lbl-b" x="56" y="759">8 · Speaker mapping</text>
+            <text class="sub" x="56" y="778">per-segment time overlap vs the Recall timeline</text>
+            <text class="sub" x="56" y="794">nearest-neighbour fallback · solo-meeting fast path</text>
+            <line class="edge-em" x1="250" y1="802" x2="250" y2="840" marker-end="url(#a2)"/>
+            <text class="elbl" x="262" y="825">real names, not SPEAKER_01</text>
+
+            <!-- 9 -->
+            <rect class="box" x="40" y="842" width="420" height="66" rx="7"/>
+            <text class="lbl-b" x="56" y="865">9 · _shared/insights.ts</text>
+            <text class="sub" x="56" y="884">hallucination heuristics filter low-signal transcripts</text>
+            <text class="sub" x="56" y="900">GPT-4o-mini returns structured JSON, not prose</text>
+            <line class="edge-em" x1="250" y1="908" x2="250" y2="946" marker-end="url(#a2)"/>
+
+            <!-- 10 -->
+            <rect class="box" x="40" y="948" width="420" height="56" rx="7"/>
+            <text class="lbl-b" x="56" y="971">10 · Persist + deliver</text>
+            <text class="sub" x="56" y="990">transcripts · meeting_insights · email if email_summaries_enabled</text>
+
+            <!-- rail: splitter down -->
+            <rect class="box-ghost" x="560" y="418" width="400" height="66" rx="7"/>
+            <text class="lbl" x="576" y="441">Splitter unreachable</text>
+            <text class="sub" x="576" y="460">→ direct single-file Sarvam submit (legacy path)</text>
+            <text class="sub" x="576" y="476">fails silently for audio &gt; ~7 min — see §04</text>
+            <path class="edge-warn" d="M460,451 H558" marker-end="url(#a2)"/>
+
+            <!-- rail: poller -->
+            <rect class="box-ghost" x="560" y="524" width="400" height="66" rx="7"/>
+            <text class="lbl" x="576" y="547">check-recall-status (poll)</text>
+            <text class="sub" x="576" y="566">claims sarvam_webhook_triggered_at (atomic IS NULL)</text>
+            <text class="sub" x="576" y="582">re-fires the webhook when the callback never arrived</text>
+            <path class="edge-poll" d="M560,557 H520 V663 H462" marker-end="url(#a2)"/>
+            <text class="elbl-poll" x="470" y="620">re-enter at 7</text>
+
+            <!-- rail: empty transcript -->
+            <rect class="box-ghost" x="560" y="630" width="400" height="66" rx="7"/>
+            <text class="lbl" x="576" y="653">Empty result or KeyError: 'timestamps'</text>
+            <text class="sub" x="576" y="672">→ splitter's chunk-wise Whisper mode (~1 MB per chunk)</text>
+            <text class="sub" x="576" y="688">→ then in-edge Whisper, which OOMs above ~15 MB</text>
+            <path class="edge-warn" d="M460,663 H558" marker-end="url(#a2)"/>
+
+            <!-- rail: bad transcript -->
+            <rect class="box-ghost" x="560" y="842" width="400" height="66" rx="7"/>
+            <text class="lbl" x="576" y="865">Transcript judged hallucinated</text>
+            <text class="sub" x="576" y="884">insight generation is skipped rather than fed junk</text>
+            <text class="sub" x="576" y="900">meeting lands in a distinct product state</text>
+            <path class="edge-warn" d="M460,875 H558" marker-end="url(#a2)"/>
+
+            <text class="sub" x="560" y="740">Everything on this rail is dashed because it should</text>
+            <text class="sub" x="560" y="756">never run. When it runs often, something upstream broke.</text>
+          </svg>
+        </div>
+        <figcaption><b>The load-bearing decision:</b> chunking at stage 5. Sarvam's <span class="mono">saaras:v3</span> silently returns an empty transcript for long audio — 47&nbsp;min fails, the same file as 5–6&nbsp;min chunks succeeds. Duration is the trigger, not file size or config.</figcaption>
+      </figure>
+    </section>
+
+    <!-- ============================ 03 ============================ -->
+    <section id="states">
+      <div class="sec-head">
+        <span class="eyebrow">03 — Meeting state machine</span>
+        <h2><code>meetings.status</code> is the product</h2>
+        <p>Nine values, three of them terminal. Both webhooks, the poller and the monitor all write this one column — which is precisely why it caused two production deadlocks before the lock moved to its own column.</p>
+      </div>
+
+      <figure>
+        <div class="fig-scroll">
+          <svg viewBox="0 0 1000 460" role="img" aria-label="State machine: scheduled to joining to in_call to recording to processing to transcribing to completed, with cancelled and failed as alternative terminal states.">
+            <defs>
+              <marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+              </marker>
+            </defs>
+
+            <!-- main chain, y=110 -->
+            <rect class="box" x="30" y="86" width="118" height="48" rx="24"/>
+            <text class="lbl" x="60" y="115">scheduled</text>
+            <line class="edge" x1="148" y1="110" x2="196" y2="110" marker-end="url(#a3)"/>
+            <text class="elbl" x="150" y="100">joining_call</text>
+
+            <rect class="box" x="196" y="86" width="112" height="48" rx="24"/>
+            <text class="lbl" x="226" y="115">joining</text>
+            <line class="edge" x1="308" y1="110" x2="356" y2="110" marker-end="url(#a3)"/>
+            <text class="elbl" x="310" y="100">admitted</text>
+
+            <rect class="box" x="356" y="86" width="112" height="48" rx="24"/>
+            <text class="lbl" x="384" y="115">in_call</text>
+            <line class="edge" x1="468" y1="110" x2="516" y2="110" marker-end="url(#a3)"/>
+            <text class="elbl" x="466" y="100">recording ok</text>
+
+            <rect class="box-em" x="516" y="86" width="122" height="48" rx="24"/>
+            <text class="lbl" x="542" y="115">recording</text>
+            <line class="edge" x1="638" y1="110" x2="686" y2="110" marker-end="url(#a3)"/>
+            <text class="elbl" x="636" y="100">call_ended</text>
+
+            <rect class="box-em" x="686" y="86" width="126" height="48" rx="24"/>
+            <text class="lbl" x="710" y="115">processing</text>
+
+            <!-- down to transcribing -->
+            <path class="edge" d="M749,134 V196" marker-end="url(#a3)"/>
+            <text class="elbl" x="760" y="170">Sarvam job created</text>
+
+            <rect class="box-em" x="686" y="198" width="126" height="48" rx="24"/>
+            <text class="lbl" x="706" y="227">transcribing</text>
+
+            <path class="edge" d="M686,222 H560" marker-end="url(#a3)"/>
+            <text class="elbl" x="574" y="212">transcript + insights saved</text>
+
+            <rect class="box" x="428" y="198" width="128" height="48" rx="24"/>
+            <text class="lbl" x="452" y="227" style="fill:var(--green)">completed</text>
+
+            <!-- terminals -->
+            <rect class="box" x="428" y="316" width="128" height="48" rx="24"/>
+            <text class="lbl" x="464" y="345" style="fill:var(--red)">failed</text>
+
+            <rect class="box" x="196" y="316" width="132" height="48" rx="24"/>
+            <text class="lbl" x="224" y="345" style="fill:var(--gold)">cancelled</text>
+
+            <!-- kicked before recording -->
+            <path class="edge-warn" d="M252,134 V316" marker-end="url(#a3)"/>
+            <text class="elbl-warn" x="60" y="200">bot kicked / not admitted</text>
+            <text class="elbl-warn" x="60" y="216">→ no audio was ever captured</text>
+            <text class="elbl-warn" x="60" y="232">→ neutral, not a failure</text>
+
+            <path class="edge-warn" d="M412,134 V296 H492 V314" marker-end="url(#a3)"/>
+            <text class="elbl-warn" x="330" y="290">bad / expired link</text>
+
+            <path class="edge-warn" d="M812,222 H880 V340 H558" marker-end="url(#a3)"/>
+            <text class="elbl-warn" x="700" y="332">all transcription paths exhausted</text>
+
+            <!-- monitor -->
+            <rect class="box-ghost" x="620" y="392" width="350" height="48" rx="7"/>
+            <text class="lbl" x="636" y="414">monitor-stuck-meetings, every 15 min</text>
+            <text class="sub" x="636" y="431">anything non-terminal for &gt;15 min gets classified and nudged</text>
+            <path class="edge-poll" d="M795,392 V262" marker-end="url(#a3)"/>
+            <text class="elbl-poll" x="806" y="300">recovery</text>
+
+            <text class="sub" x="30" y="404">Terminal states: completed, failed, cancelled.</text>
+            <text class="sub" x="30" y="422">Everything else is a claim that work is still moving.</text>
+            <text class="sub" x="30" y="440">If it stops moving, §06 is what notices.</text>
+          </svg>
+        </div>
+        <figcaption><b>Why <span class="mono">cancelled</span> exists:</b> a bot removed from the waiting room and a genuinely broken pipeline used to look identical in the UI. Splitting them means &ldquo;host never let us in&rdquo; stops reading as a product failure.</figcaption>
+      </figure>
+
+      <div class="t-wrap" style="margin-top:18px">
+        <table>
+          <thead><tr><th>Status</th><th>Set by</th><th>Means</th></tr></thead>
+          <tbody>
+            <tr><td><span class="pill">scheduled</span></td><td class="mono">start-recall-recording / auto-join</td><td>Bot created at Recall, hasn't joined yet.</td></tr>
+            <tr><td><span class="pill">joining</span></td><td class="mono">recall-webhook</td><td><span class="mono">joining_call</span> or sitting in the waiting room.</td></tr>
+            <tr><td><span class="pill">in_call</span></td><td class="mono">recall-webhook</td><td>In the meeting, not yet recording.</td></tr>
+            <tr><td><span class="pill info">recording</span></td><td class="mono">recall-webhook</td><td>Capture is live.</td></tr>
+            <tr><td><span class="pill info">processing</span></td><td class="mono">recall-webhook</td><td>Call ended; audio being fetched, chunked, submitted.</td></tr>
+            <tr><td><span class="pill info">transcribing</span></td><td class="mono">sarvam-webhook / process-meeting</td><td>STT in flight. Also the webhook's idempotency guard.</td></tr>
+            <tr><td><span class="pill ok">completed</span></td><td class="mono">sarvam-webhook / process-meeting</td><td>Transcript + insights persisted. Terminal.</td></tr>
+            <tr><td><span class="pill warn">cancelled</span></td><td class="mono">recall-webhook · classifySubCode()</td><td>Bot never recorded, and that isn't our bug. Terminal.</td></tr>
+            <tr><td><span class="pill bad">failed</span></td><td class="mono">any handler + monitor</td><td>Real failure with an <code>error_message</code>. Terminal.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============================ 04 ============================ -->
+    <section id="fallbacks">
+      <div class="sec-head">
+        <span class="eyebrow">04 — Failure &amp; fallback</span>
+        <h2>Four transcription paths, tried in order</h2>
+        <p>Each rung exists because the one above it failed in production. Read top to bottom as a descent: the further down a meeting falls, the more likely a human has to touch it.</p>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <h3><span class="tick t-green"></span>Rung 1 — chunked Sarvam <span class="pill ok">default</span></h3>
+          <p>Splitter cuts 300&nbsp;s chunks, one multi-file job, webhook stitches. Handles any length. This is the path that should carry ~100% of traffic.</p>
+          <span class="path">api/split-audio.ts → _shared/sarvam.ts → sarvam-webhook</span>
+        </div>
+        <div class="card">
+          <h3><span class="tick t-gold"></span>Rung 2 — direct Sarvam <span class="pill warn">degraded</span></h3>
+          <p>Taken only when the splitter is unreachable or <code>SPLIT_AUDIO_URL</code> is unset. Works under ~6&nbsp;min, silently returns empty above ~7&nbsp;min. A misconfigured env var lands you here without an error.</p>
+          <span class="path">_shared/recall-pipeline.ts — legacy submit</span>
+        </div>
+        <div class="card">
+          <h3><span class="tick t-blue"></span>Rung 3 — chunk-wise Whisper <span class="pill info">automatic</span></h3>
+          <p>Sarvam returned empty, or threw its <code>KeyError: 'timestamps'</code>. The webhook re-calls the splitter in <code>transcribe: "whisper"</code> mode; each chunk is ~1&nbsp;MB, so Whisper's 25&nbsp;MB limit never bites. Needs <code>OPENAI_API_KEY</code> in the Vercel env.</p>
+          <span class="path">api/split-audio.ts?transcribe=whisper</span>
+        </div>
+        <div class="card">
+          <h3><span class="tick t-red"></span>Rung 4 — in-edge Whisper <span class="pill bad">known broken &gt;15 MB</span></h3>
+          <p><code>process-meeting</code> with <code>forceWhisper: true</code>. Three copies of the blob in ~256&nbsp;MB of RAM means <code>WORKER_RESOURCE_LIMIT</code> for anything sizeable. Only reachable for non-chunked audio; recovery below it is a manual script that isn't in the repo.</p>
+          <span class="path">supabase/functions/process-meeting/index.ts</span>
+        </div>
+      </div>
+
+      <div class="callout danger" style="margin-top:18px">
+        <span class="eyebrow">Sharpest edge in the system</span>
+        <p>Rungs 1 and 3 both route through Vercel. If <code>SPLIT_AUDIO_URL</code>, <code>SPLIT_AUDIO_SECRET</code> (Supabase) or <code>SPLIT_AUDIO_SECRET</code>, <code>SARVAM_API_KEY</code>, <code>OPENAI_API_KEY</code> (Vercel) drift out of sync, long meetings fail <em>quietly</em> — a completed Sarvam job with an empty transcript, no exception anywhere. Verifying those five values is step one of any "why is nothing working" investigation.</p>
+      </div>
+
+      <div class="t-wrap" style="margin-top:18px">
+        <table>
+          <thead><tr><th>Signature</th><th>What it looks like</th><th>Automatic recovery</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">sarvam:keyerror_timestamps</td><td>Job completed, <code>failed_files_count: 1</code>, exception <code>KeyError 'timestamps'</code>. Server-side, duration-triggered.</td><td>Prevented by chunking; else Whisper rung 3</td></tr>
+            <tr><td class="mono">sarvam:silent_empty_output</td><td>Job reports success, output JSON is <code>transcript: ""</code>. No exception raised.</td><td>Prevented by chunking; else Whisper rung 3</td></tr>
+            <tr><td class="mono">whisper:oom</td><td><code>WORKER_RESOURCE_LIMIT</code> from process-meeting.</td><td>None on the edge — chunk-wise mode bypasses it</td></tr>
+            <tr><td class="mono">whisper:audio_too_large</td><td>&gt;25 MB rejected by the Whisper API.</td><td>Chunk-wise mode (300 s ≈ 1 MB)</td></tr>
+            <tr><td class="mono">recall:race_bot_done_before_audio_mixed</td><td>Good meeting flipped to failed milliseconds after <code>bot.done</code>.</td><td>Fixed — see §05</td></tr>
+            <tr><td class="mono">recall:transcribing_deadlock</td><td>Stuck at <code>transcribing</code>; webhook answers "already transcribing, skipping" forever.</td><td>Fixed — dedicated lock column</td></tr>
+            <tr><td class="mono">recall:bot_kicked_silent_failure</td><td>Bot removed before recording.</td><td>Classified to <code>cancelled</code></td></tr>
+            <tr><td class="mono">speakers:phantom_speaker_when_one_participant</td><td>Solo meeting shows a second SPEAKER_01.</td><td>Single-participant fast path</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="margin-top:10px; font-size:13px; color:var(--text-m)">Canonical list lives in <code>errors.md</code>; the monitor's programmatic mirror is <code>known-patterns.ts</code>. They drift if you update only one.</p>
+    </section>
+
+    <!-- ============================ 05 ============================ -->
+    <section id="races">
+      <div class="sec-head">
+        <span class="eyebrow">05 — Races and locks</span>
+        <h2>Two webhooks, one row, milliseconds apart</h2>
+        <p>Recall fires <code>audio_mixed.done</code> and <code>bot.done</code> almost simultaneously. Every serious bug in this pipeline's history came from two handlers reading the same row before either had written to it.</p>
+      </div>
+
+      <figure>
+        <div class="fig-scroll">
+          <svg viewBox="0 0 1000 420" role="img" aria-label="Before and after of the bot.done race: previously both handlers read sarvam_job_id as null and one wrongly marked the meeting failed; now bot.done queries Recall's audio_mixed endpoint and defers.">
+            <defs>
+              <marker id="a5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+              </marker>
+            </defs>
+
+            <text class="lbl-b" x="30" y="28">Before — both events act on the row</text>
+            <text class="lbl-b" x="540" y="28">After — only one event acts</text>
+            <line class="edge" x1="505" y1="10" x2="505" y2="400" stroke-dasharray="3 5"/>
+
+            <!-- BEFORE -->
+            <rect class="box" x="30" y="52" width="190" height="46" rx="6"/>
+            <text class="lbl" x="44" y="74">audio_mixed.done</text>
+            <text class="sub" x="44" y="90">t = 0 ms</text>
+
+            <rect class="box" x="270" y="52" width="190" height="46" rx="6"/>
+            <text class="lbl" x="284" y="74">bot.done</text>
+            <text class="sub" x="284" y="90">t = 16 ms</text>
+
+            <rect class="box" x="140" y="150" width="220" height="52" rx="6"/>
+            <text class="lbl" x="156" y="172">read meetings row</text>
+            <text class="sub" x="156" y="190">sarvam_job_id = null (both)</text>
+
+            <line class="edge" x1="125" y1="98" x2="200" y2="148" marker-end="url(#a5)"/>
+            <line class="edge" x1="365" y1="98" x2="300" y2="148" marker-end="url(#a5)"/>
+
+            <rect class="box" x="30" y="248" width="200" height="52" rx="6"/>
+            <text class="lbl" x="44" y="270">start full pipeline</text>
+            <text class="sub" x="44" y="288">download → chunk → Sarvam</text>
+            <line class="edge" x1="200" y1="202" x2="130" y2="246" marker-end="url(#a5)"/>
+
+            <rect class="box" x="266" y="248" width="200" height="52" rx="6" stroke="var(--red)"/>
+            <text class="lbl" x="280" y="270" style="fill:var(--red)">mark failed</text>
+            <text class="sub" x="280" y="288">"no audio processed"</text>
+            <line class="edge-warn" x1="300" y1="202" x2="366" y2="246" marker-end="url(#a5)"/>
+
+            <text class="sub" x="30" y="336">Result: two Sarvam jobs billed, or a good</text>
+            <text class="sub" x="30" y="352">meeting marked failed while its audio</text>
+            <text class="sub" x="30" y="368">was still being transcribed.</text>
+
+            <!-- AFTER -->
+            <rect class="box-em" x="540" y="52" width="190" height="46" rx="6"/>
+            <text class="lbl" x="554" y="74">audio_mixed.done</text>
+            <text class="sub" x="554" y="90">the only trigger</text>
+
+            <rect class="box" x="770" y="52" width="190" height="46" rx="6"/>
+            <text class="lbl" x="784" y="74">bot.done</text>
+            <text class="sub" x="784" y="90">status-only</text>
+
+            <rect class="box" x="540" y="150" width="190" height="52" rx="6"/>
+            <text class="lbl" x="554" y="172">run pipeline</text>
+            <text class="sub" x="554" y="190">writes sarvam_job_id</text>
+            <line class="edge-em" x1="635" y1="98" x2="635" y2="148" marker-end="url(#a5)"/>
+
+            <rect class="box" x="770" y="150" width="190" height="52" rx="6"/>
+            <text class="lbl" x="784" y="172">ask Recall directly</text>
+            <text class="sub" x="784" y="190">GET /audio_mixed/</text>
+            <line class="edge" x1="865" y1="98" x2="865" y2="148" marker-end="url(#a5)"/>
+
+            <rect class="box" x="770" y="248" width="190" height="66" rx="6"/>
+            <text class="lbl" x="784" y="270">failed / missing → fail</text>
+            <text class="lbl" x="784" y="290" style="fill:var(--green)">done / processing</text>
+            <text class="lbl" x="784" y="308" style="fill:var(--green)">/ unknown → defer</text>
+            <line class="edge" x1="865" y1="202" x2="865" y2="246" marker-end="url(#a5)"/>
+
+            <text class="sub" x="540" y="352">Ambiguity is resolved by asking the</text>
+            <text class="sub" x="540" y="368">source of truth, not by guessing from</text>
+            <text class="sub" x="540" y="384">a possibly-stale local read.</text>
+          </svg>
+        </div>
+        <figcaption><b>The general rule this taught the codebase:</b> a database read is not atomic with the write that follows it. Where two handlers must coordinate, they claim an explicit column — not a status string that means different things to each of them.</figcaption>
+      </figure>
+
+      <div class="grid-3" style="margin-top:18px">
+        <div class="card">
+          <h3><span class="tick t-red"></span>The <code>transcribing</code> deadlock</h3>
+          <p><code>check-recall-status</code> used <code>status = 'transcribing'</code> as an optimistic lock. <code>sarvam-webhook</code> had that same value in its skip list. Two handlers, one string, opposite meanings — permanent stall.</p>
+          <p><b>Fix:</b> <code>meetings.sarvam_webhook_triggered_at</code>, claimed with an atomic <code>IS NULL</code> update and released on failure.</p>
+        </div>
+        <div class="card">
+          <h3><span class="tick t-red"></span>The missing column</h3>
+          <p>Every failure path wrote <code>error_message</code> to a column that did not exist. The UPDATEs no-op'd for weeks, so failures were invisible in the UI.</p>
+          <p><b>Fix:</b> migration <code>20260424170000</code>, plus a harness scenario that would have caught it.</p>
+        </div>
+        <div class="card">
+          <h3><span class="tick t-red"></span>The infinite retry</h3>
+          <p>A 23-second silent meeting: Sarvam wrote no output, the webhook threw a 500, and the poller retried every 5&nbsp;s forever.</p>
+          <p><b>Fix:</b> a missing output is a legitimate outcome, not an exception — handle and terminate.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================ 06 ============================ -->
+    <section id="healing">
+      <div class="sec-head">
+        <span class="eyebrow">06 — Self-healing layer</span>
+        <h2>The database is also the scheduler — and that costs IO</h2>
+        <p>Three <code>pg_cron</code> jobs call edge functions over HTTP via <code>pg_net</code>. Cheap in money, expensive in write churn: at one tick per minute, <code>net.http_post</code> was 94.4% of all database execution time.</p>
+      </div>
+
+      <figure>
+        <div class="fig-scroll">
+          <svg viewBox="0 0 1000 430" role="img" aria-label="pg_cron fires three jobs into edge functions; the monitor classifies stuck meetings against known patterns, logs to monitor_events and emails via Resend on unknown signatures.">
+            <defs>
+              <marker id="a6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+              </marker>
+            </defs>
+
+            <rect class="box-em" x="30" y="150" width="160" height="86" rx="8"/>
+            <text class="lbl-b" x="46" y="180">pg_cron</text>
+            <text class="sub" x="46" y="200">+ pg_net</text>
+            <text class="sub" x="46" y="220">inside Postgres</text>
+
+            <!-- three lanes -->
+            <rect class="box" x="270" y="40" width="250" height="60" rx="7"/>
+            <text class="lbl" x="286" y="63">auto-join-meetings</text>
+            <text class="sub" x="286" y="82">bots for events starting ≤7 min out</text>
+            <line class="edge" x1="190" y1="176" x2="240" y2="176" />
+            <path class="edge" d="M240,176 V70 H268" marker-end="url(#a6)"/>
+            <text class="elbl" x="196" y="132">*/5 * * * *</text>
+
+            <rect class="box" x="270" y="152" width="250" height="60" rx="7"/>
+            <text class="lbl" x="286" y="175">monitor-stuck-meetings</text>
+            <text class="sub" x="286" y="194">non-terminal &gt; 15 min</text>
+            <path class="edge" d="M240,176 H268" marker-end="url(#a6)"/>
+            <text class="elbl" x="196" y="222">*/15 * * * *</text>
+
+            <rect class="box" x="270" y="264" width="250" height="60" rx="7"/>
+            <text class="lbl" x="286" y="287">prune-job-logs</text>
+            <text class="sub" x="286" y="306">trims job_run_details + _http_response</text>
+            <path class="edge" d="M240,176 V294 H268" marker-end="url(#a6)"/>
+            <text class="elbl" x="196" y="290">03:15 UTC</text>
+
+            <!-- classification -->
+            <rect class="box" x="590" y="140" width="180" height="84" rx="7"/>
+            <text class="lbl" x="604" y="163">classify signature</text>
+            <text class="sub" x="604" y="182">known-patterns.ts</text>
+            <text class="sub" x="604" y="200">mirrors errors.md</text>
+            <text class="sub" x="604" y="216">13 known signatures</text>
+            <line class="edge" x1="520" y1="182" x2="588" y2="182" marker-end="url(#a6)"/>
+
+            <rect class="box" x="820" y="52" width="150" height="70" rx="7"/>
+            <text class="lbl" x="834" y="75" style="fill:var(--green)">known</text>
+            <text class="sub" x="834" y="94">force_whisper ·</text>
+            <text class="sub" x="834" y="110">trigger_sarvam_webhook</text>
+            <path class="edge" d="M770,166 H796 V87 H818" marker-end="url(#a6)"/>
+
+            <rect class="box" x="820" y="152" width="150" height="70" rx="7"/>
+            <text class="lbl" x="834" y="175" style="fill:var(--gold)">unknown</text>
+            <text class="sub" x="834" y="194">email amaan@</text>
+            <text class="sub" x="834" y="210">[NEW ERROR]</text>
+            <path class="edge" d="M770,187 H818" marker-end="url(#a6)"/>
+
+            <rect class="box" x="590" y="272" width="380" height="56" rx="7"/>
+            <text class="lbl" x="606" y="295">monitor_events — service-role-only audit trail</text>
+            <text class="sub" x="606" y="314">deduped by generated hour_bucket: one row per meeting + signature + hour</text>
+            <path class="edge" d="M680,224 V270" marker-end="url(#a6)"/>
+
+            <text class="sub" x="30" y="380">Look-ahead ≥ cron interval, always: auto-join scans 7 minutes out because it only wakes every 5.</text>
+            <text class="sub" x="30" y="400">Shrink the window below the interval and meetings fall between polls.</text>
+          </svg>
+        </div>
+        <figcaption><b>Do not raise these frequencies.</b> The dataset is tiny and fully cached (hit rate 1.00) — reads are not the problem. Each tick writes a pg_net request row, a response row and a job_run_details row, and that write churn is what depletes the Disk IO budget on a small instance.</figcaption>
+      </figure>
+
+      <div class="callout" style="margin-top:18px">
+        <span class="eyebrow">If you ever need finer scheduling</span>
+        <p>Move it off the database to a free external scheduler (cron-job.org, GitHub Actions) hitting the edge functions directly. Not Vercel Cron — its free tier caps at once per day — and not a paid compute upgrade to paper over write churn.</p>
+      </div>
+    </section>
+
+    <!-- ============================ 07 ============================ -->
+    <section id="data">
+      <div class="sec-head">
+        <span class="eyebrow">07 — Data model</span>
+        <h2><code>meetings</code> is the hub; everything else hangs off it</h2>
+        <p>Every user-scoped table enforces <code>auth.uid() = user_id</code> at the database level, so the SPA's anon key is safe to ship. <code>monitor_events</code> is the one service-role-only table.</p>
+      </div>
+
+      <figure>
+        <div class="fig-scroll">
+          <svg viewBox="0 0 1000 540" role="img" aria-label="Entity relationship diagram centred on the meetings table, linked to transcripts, meeting insights, action item completions, notifications, profiles, calendars, calendar events, OAuth tokens and Notion connections.">
+            <defs>
+              <marker id="a7" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+              </marker>
+            </defs>
+
+            <!-- auth.users -->
+            <rect class="box-ghost" x="392" y="24" width="216" height="46" rx="6"/>
+            <text class="lbl" x="410" y="46">auth.users</text>
+            <text class="sub" x="410" y="62">Supabase Auth · cascade parent</text>
+
+            <!-- meetings hub -->
+            <rect class="box-em" x="360" y="212" width="280" height="120" rx="8"/>
+            <text class="lbl-b" x="378" y="238">meetings</text>
+            <text class="sub" x="378" y="258">status · source · audio_url</text>
+            <text class="sub" x="378" y="274">sarvam_job_id · error_message</text>
+            <text class="sub" x="378" y="290">sarvam_webhook_triggered_at</text>
+            <text class="sub" x="378" y="306">processing_config (jsonb)</text>
+            <text class="sub" x="378" y="322">recall_bot_id · attendees</text>
+
+            <line class="edge" x1="500" y1="70" x2="500" y2="210" marker-end="url(#a7)"/>
+            <text class="elbl" x="510" y="146">user_id → 1:N</text>
+
+            <!-- left column: user scope -->
+            <rect class="box" x="30" y="96" width="212" height="52" rx="6"/>
+            <text class="lbl" x="46" y="118">profiles</text>
+            <text class="sub" x="46" y="135">notetaker_name · auto_join · email opt-in</text>
+            <path class="edge" d="M242,122 H310 V52 H390" marker-end="url(#a7)"/>
+
+            <rect class="box" x="30" y="172" width="212" height="52" rx="6"/>
+            <text class="lbl" x="46" y="194">calendars</text>
+            <text class="sub" x="46" y="211">multi-provider · active flag</text>
+
+            <rect class="box" x="30" y="248" width="212" height="52" rx="6"/>
+            <text class="lbl" x="46" y="270">calendar_events</text>
+            <text class="sub" x="46" y="287">meeting links → auto-join source</text>
+            <line class="edge" x1="136" y1="224" x2="136" y2="246" marker-end="url(#a7)"/>
+            <path class="edge" d="M242,274 H358" marker-end="url(#a7)"/>
+            <text class="elbl" x="252" y="266">dispatches</text>
+
+            <rect class="box" x="30" y="324" width="212" height="52" rx="6"/>
+            <text class="lbl" x="46" y="346">user_oauth_tokens</text>
+            <text class="sub" x="46" y="363">google refresh + access</text>
+
+            <rect class="box" x="30" y="400" width="212" height="52" rx="6"/>
+            <text class="lbl" x="46" y="422">notion_connections</text>
+            <text class="sub" x="46" y="439">workspace + database id</text>
+
+            <!-- right column: meeting children -->
+            <rect class="box" x="740" y="130" width="230" height="52" rx="6"/>
+            <text class="lbl" x="756" y="152">transcripts</text>
+            <text class="sub" x="756" y="169">full text + speaker segments (jsonb)</text>
+            <path class="edge" d="M640,250 H700 V156 H738" marker-end="url(#a7)"/>
+
+            <rect class="box" x="740" y="206" width="230" height="52" rx="6"/>
+            <text class="lbl" x="756" y="228">meeting_insights</text>
+            <text class="sub" x="756" y="245">summary · actions · decisions · risks</text>
+            <path class="edge" d="M640,250 H700 V232 H738" marker-end="url(#a7)"/>
+
+            <rect class="box" x="740" y="282" width="230" height="52" rx="6"/>
+            <text class="lbl" x="756" y="304">action_item_completions</text>
+            <text class="sub" x="756" y="321">ticks that survive a refresh</text>
+            <path class="edge" d="M640,290 H700 V308 H738" marker-end="url(#a7)"/>
+
+            <rect class="box" x="740" y="358" width="230" height="52" rx="6"/>
+            <text class="lbl" x="756" y="380">meeting_notifications</text>
+            <text class="sub" x="756" y="397">pre-meeting nudges</text>
+            <path class="edge" d="M640,300 H700 V384 H738" marker-end="url(#a7)"/>
+
+            <!-- monitor events -->
+            <rect class="box" x="360" y="410" width="280" height="62" rx="6" stroke="var(--gold)"/>
+            <text class="lbl" x="378" y="432">monitor_events</text>
+            <text class="sub" x="378" y="449">signature · recovery · hour_bucket (generated)</text>
+            <text class="sub" x="378" y="465">service-role only — no user policy</text>
+            <line class="edge" x1="500" y1="332" x2="500" y2="408" marker-end="url(#a7)"/>
+
+            <text class="sub" x="30" y="500">All arrows are foreign keys with ON DELETE CASCADE. Deleting a user removes every trace; deleting a meeting removes its transcript, insights and ticks.</text>
+            <text class="sub" x="30" y="520">JSONB is used deliberately for shape-unstable data: attendees, speaker segments, action items, processing config.</text>
+          </svg>
+        </div>
+        <figcaption><b>Schema evolution is visible in the migrations:</b> 36 files carrying Sarvam support, Recall integration, multi-calendar rework, the lock column, the monitor's audit table and the cron cadence cut.</figcaption>
+      </figure>
+    </section>
+
+    <!-- ============================ 08 ============================ -->
+    <section id="frontend">
+      <div class="sec-head">
+        <span class="eyebrow">08 — Frontend map</span>
+        <h2>Four providers, twelve routes, seven of them fenced</h2>
+        <p>Server state lives in TanStack Query; client state lives in three contexts. The one rule worth memorising: password recovery is checked <em>before</em> session, or the user gets redirected past the form they came for.</p>
+      </div>
+
+      <figure>
+        <div class="fig-scroll">
+          <svg viewBox="0 0 1000 470" role="img" aria-label="Frontend structure: nested provider tree wrapping the router, with public routes, protected routes and the caching strategy.">
+            <defs>
+              <marker id="a8" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+              </marker>
+            </defs>
+
+            <text class="lbl-b" x="30" y="30">Provider tree — src/App.tsx</text>
+
+            <rect class="box" x="30" y="46" width="420" height="250" rx="8"/>
+            <text class="sub" x="44" y="66">QueryClientProvider — staleTime 60 s · gcTime 5 min · no refetch on focus</text>
+
+            <rect class="box" x="46" y="78" width="388" height="204" rx="7"/>
+            <text class="sub" x="60" y="98">ThemeProvider — warm dispatch tokens, light + dark</text>
+
+            <rect class="box" x="62" y="110" width="356" height="158" rx="6"/>
+            <text class="sub" x="76" y="130">TooltipProvider + Toasters</text>
+
+            <rect class="box" x="78" y="142" width="324" height="112" rx="6"/>
+            <text class="sub" x="92" y="162">BrowserRouter</text>
+
+            <rect class="box-em" x="94" y="174" width="292" height="66" rx="6"/>
+            <text class="sub" x="108" y="194">AuthProvider — session + isPasswordRecovery</text>
+            <text class="sub" x="108" y="212">CalendarProvider</text>
+            <text class="sub" x="108" y="230">AppRoutes + PreMeetingNotification</text>
+
+            <text class="sub" x="30" y="322">isPasswordRecovery is set synchronously from URL params,</text>
+            <text class="sub" x="30" y="340">before Supabase clears the hash — and is checked before session,</text>
+            <text class="sub" x="30" y="358">otherwise recovery links land on the dashboard.</text>
+
+            <!-- routes -->
+            <text class="lbl-b" x="520" y="30">Routes</text>
+
+            <rect class="box" x="520" y="46" width="200" height="152" rx="7"/>
+            <text class="sub" x="534" y="66">PUBLIC</text>
+            <text class="lbl" x="534" y="88">/ — Landing</text>
+            <text class="lbl" x="534" y="110">/auth</text>
+            <text class="lbl" x="534" y="132">/docs</text>
+            <text class="lbl" x="534" y="154">/privacy · /terms</text>
+            <text class="lbl" x="534" y="186">* — NotFound</text>
+
+            <rect class="box-em" x="754" y="46" width="216" height="250" rx="7"/>
+            <text class="sub" x="768" y="66">PROTECTED — ProtectedRoute</text>
+            <text class="lbl" x="768" y="90">/dashboard</text>
+            <text class="lbl" x="768" y="112">/recordings</text>
+            <text class="lbl" x="768" y="134">/meeting/:id</text>
+            <text class="lbl" x="768" y="156">/calendar</text>
+            <text class="lbl" x="768" y="178">/action-items</text>
+            <text class="lbl" x="768" y="200">/settings</text>
+            <text class="lbl" x="768" y="222">/onboarding</text>
+            <text class="sub" x="768" y="252">redirects to /auth without a session</text>
+            <text class="sub" x="768" y="270">RLS blocks the data anyway —</text>
+            <text class="sub" x="768" y="288">the guard is UX, not security</text>
+
+            <!-- data flow -->
+            <rect class="box" x="520" y="330" width="450" height="112" rx="7"/>
+            <text class="lbl-b" x="536" y="354">How a meeting page stays current</text>
+            <text class="sub" x="536" y="376">1 · cached query renders instantly from TanStack cache</text>
+            <text class="sub" x="536" y="394">2 · realtime postgres_changes patches the cache in place</text>
+            <text class="sub" x="536" y="412">3 · check-recall-status polled while a bot is live</text>
+            <text class="sub" x="536" y="430">Settings stays on useState — it's a form, not a read surface</text>
+            <path class="edge" d="M862,296 V328" marker-end="url(#a8)"/>
+          </svg>
+        </div>
+        <figcaption><b>Bundle shape:</b> the app shipped as one ~900&nbsp;KB chunk, so a landing-page visitor downloaded the whole dashboard, charts and animation runtime first. <span class="mono">vite.config.ts</span> now splits react, recharts, framer-motion, supabase and query into vendor chunks that cache independently of app code.</figcaption>
+      </figure>
+
+      <div class="t-wrap" style="margin-top:18px">
+        <table>
+          <thead><tr><th>Heaviest files</th><th>LOC</th><th>What lives there</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">src/pages/MeetingDetail.tsx</td><td>956</td><td>Transcript, insights, metrics, timeline tabs.</td></tr>
+            <tr><td class="mono">src/pages/Settings.tsx</td><td>742</td><td>Profile, notetaker name, calendars, Notion, email opt-in.</td></tr>
+            <tr><td class="mono">src/pages/ActionItems.tsx</td><td>588</td><td>Cross-meeting task list; ticks persist to <code>action_item_completions</code>.</td></tr>
+            <tr><td class="mono">src/components/dashboard/MeetingDetailModal.tsx</td><td>533</td><td>Quick-look modal from the dashboard grid.</td></tr>
+            <tr><td class="mono">src/pages/Dashboard.tsx</td><td>459</td><td>Parallel profile + meetings reads, realtime patching.</td></tr>
+            <tr><td class="mono">src/pages/Auth.tsx</td><td>435</td><td>Sign in / up / recovery, including the recovery-first branch.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============================ 09 ============================ -->
+    <section id="functions">
+      <div class="sec-head">
+        <span class="eyebrow">09 — Function inventory</span>
+        <h2>29 edge functions, grouped by what they're for</h2>
+        <p>Roughly 7.8k lines across functions and shared modules. The five in the pipeline group are the ones that matter for &ldquo;is it working&rdquo;; the rest are integrations and delivery.</p>
+      </div>
+
+      <div class="t-wrap">
+        <table>
+          <thead><tr><th>Group</th><th>Functions</th><th>Notes</th></tr></thead>
+          <tbody>
+            <tr>
+              <td><b>Pipeline</b><br><span class="pill bad">critical</span></td>
+              <td class="mono">recall-webhook (349) · sarvam-webhook (503) · process-meeting (395) · check-recall-status (320) · start-recall-recording (112)</td>
+              <td>Everything user-visible flows through these. Shared logic in <code>_shared/recall-pipeline.ts</code> (489), <code>sarvam.ts</code> (311), <code>insights.ts</code> (321), <code>stitch.ts</code> (64).</td>
+            </tr>
+            <tr>
+              <td><b>Reliability</b><br><span class="pill warn">ops</span></td>
+              <td class="mono">monitor-stuck-meetings (495) · auto-join-meetings (190)</td>
+              <td>Both cron-driven. The monitor carries <code>known-patterns.ts</code>, the code mirror of <code>errors.md</code>.</td>
+            </tr>
+            <tr>
+              <td><b>Calendar</b></td>
+              <td class="mono">sync-google-calendar · sync-calendars · sync-calendar-events · fetch-google-calendars · fetch-calendar-events · get-user-calendars</td>
+              <td>Multi-calendar model: <code>calendars</code> + <code>calendar_events</code>. Careful — syncing writes rows, so never poll it from a UI timer.</td>
+            </tr>
+            <tr>
+              <td><b>Auth / OAuth</b></td>
+              <td class="mono">google-oauth-start · -callback · -redirect · get-google-client-id · disconnect-google · notion-oauth-start · -callback</td>
+              <td>State tracked in <code>google_oauth_states</code>; tokens in <code>user_oauth_tokens</code>.</td>
+            </tr>
+            <tr>
+              <td><b>Delivery</b></td>
+              <td class="mono">send-meeting-email · send-meeting-summary-email · send-email-report · send-scheduled-emails · queue-onboarding-emails · send-whatsapp-report</td>
+              <td>Resend for email. WhatsApp path needs Gupshup credentials and is peripheral.</td>
+            </tr>
+            <tr>
+              <td><b>Derived output</b></td>
+              <td class="mono">generate-meeting-insights · generate-digest-report · sync-notion</td>
+              <td>Weekly/monthly digests and Notion push. Not on the critical path.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============================ 10 ============================ -->
+    <section id="testing">
+      <div class="sec-head">
+        <span class="eyebrow">10 — Test tiers</span>
+        <h2>Four tiers, and each one has caught a real bug</h2>
+        <p>Run them in order of cost. The bottom two are free and fast; the top two cost real API calls and prod writes.</p>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <h3><span class="tick t-green"></span>Tier 0 — unit, &lt;1 s</h3>
+          <p>26 deno tests, fetch mocked, no network. Covers recall-pipeline URL discovery and fallbacks, <code>getAudioMixedStatus</code> defer semantics, chunk-stitch offsets and ordering, Sarvam output discovery.</p>
+          <pre>npm run test:unit</pre>
+          <p><b>Run on:</b> any shared-logic change.</p>
+        </div>
+        <div class="card">
+          <h3><span class="tick t-blue"></span>Tier 1 — integration, ~90 s</h3>
+          <p>11 scenarios against real deployed functions and the real database, creating and deleting <code>[harness]</code>-prefixed meetings. Already caught two prod bugs: the missing <code>error_message</code> column and the <code>transcribing</code> deadlock.</p>
+          <pre>python3 scripts/pipeline-test/harness.py</pre>
+          <p><b>Run on:</b> any edge function or migration, before deploying.</p>
+        </div>
+        <div class="card">
+          <h3><span class="tick t-gold"></span>Tier 2 — live provider, ~3 min extra</h3>
+          <p>Real fixture audio through the deployed splitter, a real chunked Sarvam job, real stitched completion. Doubles as a contract check against Sarvam's API.</p>
+          <pre>python3 scripts/pipeline-test/harness.py --live</pre>
+          <p><b>Run on:</b> risky pipeline deploys.</p>
+        </div>
+        <div class="card">
+          <h3><span class="tick t-purple"></span>Output quality — 8 evals</h3>
+          <p>4 deterministic + 4 LLM-judge graders over a static dataset: schema, English output, stitch integrity, speaker attribution, action-item recall and precision, summary faithfulness, decision accuracy. One case must FAIL — that's the judge calibration.</p>
+          <pre>python3 scripts/evals/run_evals.py</pre>
+          <p><b>Run on:</b> anything touching transcription or insights.</p>
+        </div>
+      </div>
+
+      <div class="callout" style="margin-top:18px">
+        <span class="eyebrow">Tier 3 — the manual drill</span>
+        <p>No harness substitutes for it after bot-flow changes: open a Meet, dispatch a bot from the dashboard, admit it, talk for a few minutes, confirm the meeting completes with real participant names rather than <code>SPEAKER_00</code>.</p>
+      </div>
+    </section>
+
+    <!-- ============================ 11 ============================ -->
+    <section id="next">
+      <div class="sec-head">
+        <span class="eyebrow">11 — Get it working</span>
+        <h2>The shortest path from cold repo to a completed meeting</h2>
+        <p>Config drift, not code, is what usually breaks this system. Work down the list; each step fails loudly if the one before it didn't take.</p>
+      </div>
+
+      <ol class="steps">
+        <li><b>Reconcile secrets in three places.</b> Frontend <code>.env</code> (2 vars) · Supabase Edge Function secrets (Sarvam, OpenAI, Recall, Resend, Google, <code>SPLIT_AUDIO_URL</code>, <code>SPLIT_AUDIO_SECRET</code>) · Vercel env (<code>SARVAM_API_KEY</code>, <code>OPENAI_API_KEY</code>, <code>SPLIT_AUDIO_SECRET</code>). The two <code>SPLIT_AUDIO_SECRET</code> values must be byte-identical.</li>
+        <li><b>Confirm the splitter answers.</b> An unauthenticated POST should return 401 and a bad body 400 — the harness probes exactly this. A 404 here means every long meeting silently degrades to rung 2 and comes back empty.</li>
+        <li><b>Run the free tiers.</b> <code>npm run test:unit</code>, then <code>npm run build</code>. Both should be green before anything is deployed.</li>
+        <li><b>Run the integration harness.</b> 11/11, or read the failure — it names the scenario and the meeting id it left behind. Expect a <code>[ECHOBRIEF HARNESS TEST]</code> email; real delivery is part of the test.</li>
+        <li><b>Check the cron jobs are actually scheduled.</b> Three rows in <code>cron.job</code>: auto-join every 5 min, monitor every 15 min, prune daily at 03:15 UTC. Absent crons mean nothing self-heals and stuck meetings sit forever.</li>
+        <li><b>Do the manual bot drill.</b> One real Meet, a few minutes of speech, and check the result has real names on the segments. This is the only test that exercises Recall's transcript path end-to-end.</li>
+        <li><b>Then run the evals</b> before touching prompts or transcription: <code>python3 scripts/evals/run_evals.py</code>. Exit code gates the deploy.</li>
+      </ol>
+
+      <h3 style="margin-top:30px; margin-bottom:14px">Known gaps, worth deciding on before building anything new</h3>
+      <div class="grid-2">
+        <div class="card">
+          <h3><span class="tick t-red"></span>In-edge Whisper still OOMs</h3>
+          <p>Rung 4 is broken above ~15&nbsp;MB and has no automatic recovery for non-chunked audio. The documented manual fallback (<code>/tmp/recover_meeting.py</code>) is not in the repo and does not currently exist on this machine.</p>
+          <p><b>Options:</b> stream the upload instead of buffering three copies, or route every Whisper attempt through the splitter and delete the in-edge path.</p>
+        </div>
+        <div class="card">
+          <h3><span class="tick t-gold"></span>Types compile-clean only by accident</h3>
+          <p><code>npm run build</code> is green because Vite uses SWC and skips type checking. <code>tsc --noEmit</code> still reports pre-existing errors — a const-widening mismatch in <code>src/lib/theme.ts</code> and lucide icon prop types in <code>Auth.tsx</code>.</p>
+          <p><b>Options:</b> fix the two patterns and add <code>tsc --noEmit</code> to CI, or accept it and stop pretending the build type-checks.</p>
+        </div>
+        <div class="card">
+          <h3><span class="tick t-gold"></span>Silent degradation on config drift</h3>
+          <p>A missing <code>SPLIT_AUDIO_URL</code> produces no error — just short meetings that work and long ones that come back empty. The failure is invisible until a user complains.</p>
+          <p><b>Options:</b> a startup assertion in <code>recall-pipeline</code>, or a monitor signature for "fell back to direct submit".</p>
+        </div>
+        <div class="card">
+          <h3><span class="tick t-blue"></span>Peripheral integrations carry weight</h3>
+          <p>WhatsApp (Gupshup), Notion sync and digest reports are wired but off the critical path. They add functions, secrets and surface area to keep alive.</p>
+          <p><b>Options:</b> confirm each is wanted for launch, or park them the way the Chrome extension and Slack were removed.</p>
+        </div>
+      </div>
+
+      <div class="callout" style="margin-top:22px">
+        <span class="eyebrow">Two rules the repo will enforce on you</span>
+        <p><b>95% confidence:</b> don't change code you aren't 95% sure about — ask instead. <b>Test before deploying:</b> unit harness on shared logic, pipeline harness before any edge function or migration, evals before anything touching transcription or insights. And when the monitor emails a new error, update <code>errors.md</code> and <code>known-patterns.ts</code> together or they drift.</p>
+      </div>
+    </section>
+  </main>
+</div>
