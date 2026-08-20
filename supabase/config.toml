@@ -1,5 +1,8 @@
 project_id = "lekkpfpojlspbuwrtmzt"
 
+[functions.chat-transcripts]
+verify_jwt = true
+
 [functions.process-meeting]
 verify_jwt = false
 
