@@ -178,6 +178,27 @@ The wall-clock problem must therefore be solved by concurrency and by a higher `
 
 ---
 
+## Storage errors
+
+### `storage:bucket_full_blocks_pipeline`
+**What it looks like:** Transcription stops working entirely, with no error anywhere. Meetings still finish and still say `completed`, but `audio_url` is NULL, `processing_config.split_method` is absent, and there is no transcript. Found 2026-08-20: the pipeline had been dead since 2026-08-14 and nothing alerted.
+
+**Root cause:** The `recordings` bucket reached **1073 MB against the 1 GB free-tier cap**. Nothing had ever deleted archived audio, and each long meeting adds ~46 MB. Once the bucket is full, EVERY storage upload fails — and `recall-pipeline` only logs that failure and carries on. With no archived audio it cannot mint a signed URL, so it skips the splitter entirely (the `!uploadError` guard), submits the whole file to Sarvam (which returns an empty transcript above ~6 min — see `sarvam:silent_empty_output`), then falls back to whole-file Whisper, which rejects anything over 25 MB (`whisper:audio_too_large`). `process-meeting` then wrote `status='completed'` regardless (`pipeline:completed_with_no_transcript`).
+
+Five separate failures chained, every one of them silent. The bucket being full was the first domino and the least visible.
+
+**Fix shipped 2026-08-20:**
+1. Deleted 388 MB of orphaned audio — 29 folders whose meeting row no longer existed. Bucket back to 685 MB with 339 MB headroom.
+2. New `prune-recordings` edge function + daily 03:30 UTC cron (`20260820160000_prune_recordings_cron.sql`) deletes archived mp3s for meetings older than 30 days that already have a non-empty transcript, and drops to a 7-day retention if the bucket goes above 85% of the cap. It never deletes audio for a meeting we failed to transcribe — that is the one case where the recording is the only copy.
+3. `recall-pipeline` now records `split_method: 'direct-fallback'` with `split_error` naming the storage failure, so this specific chain is greppable instead of invisible.
+4. `process-meeting` marks transcript-less meetings `failed`, so the monitor and the user both find out.
+
+**Check it manually:** `GET /functions/v1/prune-recordings?dry_run=1` reports current bucket bytes, headroom, and what would be deleted, without touching anything.
+
+**If it recurs:** headroom is the number to watch. 1 GB is roughly 20 long meetings. Upgrading Supabase to Pro (100 GB) removes the ceiling; the prune job keeps growth flat either way.
+
+---
+
 ## How this file is maintained
 
 1. The `monitor-stuck-meetings` cron carries a `KNOWN_SIGNATURES` set in code. When it detects a stuck meeting whose signature is **not** in that set, it sends an email to `amaan@oltaflock.ai` with subject `[ECHOBRIEF NEW ERROR] <signature>`.

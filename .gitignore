@@ -51,3 +51,4 @@ __pycache__/
 *.tgz
 .cache
 .vercel
+.env*
