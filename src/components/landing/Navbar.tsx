@@ -3,6 +3,7 @@ import { Logo } from '@/components/ui/Logo';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { useState, useEffect } from 'react';
 import { Menu, X } from 'lucide-react';
+import { openWaitlist } from '@/lib/waitlist';
 
 const links = [
   { label: 'Features', href: '#features' },
@@ -71,13 +72,14 @@ export function Navbar() {
           >
             Sign in
           </Link>
-          <Link
-            to="/auth"
-            className="hidden items-center rounded-md px-4 py-2 text-[14px] font-semibold text-white no-underline transition-opacity hover:opacity-90 sm:inline-flex"
+          <button
+            type="button"
+            onClick={() => openWaitlist('navbar')}
+            className="hidden items-center rounded-md px-4 py-2 text-[14px] font-semibold text-white transition-opacity hover:opacity-90 sm:inline-flex"
             style={{ background: 'var(--ember)' }}
           >
-            Get started
-          </Link>
+            Join waitlist
+          </button>
 
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
@@ -115,14 +117,17 @@ export function Navbar() {
               >
                 Sign in
               </Link>
-              <Link
-                to="/auth"
-                onClick={() => setMobileOpen(false)}
-                className="flex-1 rounded-md px-4 py-2.5 text-center text-[14px] font-semibold text-white no-underline"
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileOpen(false);
+                  openWaitlist('navbar-mobile');
+                }}
+                className="flex-1 rounded-md px-4 py-2.5 text-center text-[14px] font-semibold text-white"
                 style={{ background: 'var(--ember)' }}
               >
-                Get started
-              </Link>
+                Join waitlist
+              </button>
             </div>
           </div>
         </div>

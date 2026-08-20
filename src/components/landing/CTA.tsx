@@ -1,14 +1,15 @@
 import { Link } from 'react-router-dom';
 import { motion, useInView } from 'framer-motion';
 import { useRef } from 'react';
-import { ArrowRight } from 'lucide-react';
+import { WaitlistForm } from './WaitlistForm';
+import { WAITLIST_ANCHOR } from '@/lib/waitlist';
 
 export function CTA() {
   const ref = useRef(null);
   const inView = useInView(ref, { once: true, margin: '-80px' });
 
   return (
-    <section id="pricing" ref={ref} className="scroll-mt-24 py-20 md:py-28">
+    <section id={WAITLIST_ANCHOR} ref={ref} className="scroll-mt-24 py-20 md:py-28">
       <div className="mx-auto max-w-[1100px] px-6 md:px-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -38,7 +39,7 @@ export function CTA() {
             style={{ background: 'color-mix(in oklch, var(--gold) 10%, transparent)' }}
           />
 
-          <span className="eyebrow relative" style={{ justifyContent: 'center' }}>Free to start</span>
+          <span className="eyebrow relative" style={{ justifyContent: 'center' }}>Early access</span>
 
           <h2
             className="relative mt-5 leading-[1.06]"
@@ -59,22 +60,13 @@ export function CTA() {
             className="relative mx-auto mt-5 max-w-[46ch] text-[16px] leading-[1.65]"
             style={{ color: 'var(--ink-mid)' }}
           >
-            Connect your calendar in thirty seconds. EchoBrief handles every
-            meeting that follows, in the language your team actually speaks.
+            We're onboarding in small batches while we tune quality. Leave your
+            details and we'll email you the moment a seat opens up.
           </p>
 
-          <div className="relative mt-9 flex flex-wrap items-center justify-center gap-3">
-            <Link
-              to="/auth"
-              className="group inline-flex items-center gap-2 rounded-full px-7 py-3.5 text-[15px] font-bold text-white no-underline transition-all hover:-translate-y-0.5"
-              style={{
-                background: 'var(--ember)',
-                boxShadow: '0 8px 28px color-mix(in oklch, var(--ember) 30%, transparent)',
-              }}
-            >
-              Start free
-              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" strokeWidth={2.25} />
-            </Link>
+          <WaitlistForm />
+
+          <div className="relative mt-6 flex flex-wrap items-center justify-center gap-3">
             <Link
               to="/docs"
               className="inline-flex items-center rounded-full px-6 py-3 text-[14.5px] font-semibold no-underline"
@@ -95,7 +87,7 @@ export function CTA() {
               letterSpacing: '0.06em',
             }}
           >
-            3 MEETINGS FREE · NO CARD · CANCEL ANYTIME
+            NO CARD · WE ONLY EMAIL YOU ABOUT YOUR SEAT
           </p>
         </motion.div>
       </div>

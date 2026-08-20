@@ -41,17 +41,41 @@ SARVAM_WEBHOOK_SECRET: str = ENV["SARVAM_WEBHOOK_SECRET"]
 SPLIT_AUDIO_URL: str = ENV.get("SPLIT_AUDIO_URL", "https://www.echobrief.in/api/split-audio")
 SPLIT_AUDIO_SECRET: str = ENV.get("SPLIT_AUDIO_SECRET", "")
 
-# Real user id from the prod account — harness meetings are owned by this user
-# so RLS doesn't get in the way. The "[harness]" title prefix makes them easy
-# to find and delete.
-TEST_USER_ID = "3060d862-6e54-478a-8095-a391d8ba17c2"
+# Harness meetings are owned by a real prod user so RLS doesn't get in the way;
+# the "[harness]" title prefix makes them easy to find and delete.
+#
+# Resolved at import rather than hardcoded. The previous hardcoded id belonged to
+# a user who was later deleted from auth.users, which failed 10 of 11 scenarios
+# with an opaque foreign-key 23503 that looked nothing like the real problem.
+# Override with HARNESS_USER_ID if you need a specific account.
+def _resolve_user_id() -> str:
+    override = ENV.get("HARNESS_USER_ID") or os.environ.get("HARNESS_USER_ID")
+    if override:
+        return override
+    req = urllib.request.Request(
+        f"{SUPABASE_URL}/rest/v1/profiles?select=user_id&limit=1",
+        headers={"apikey": SERVICE_KEY, "Authorization": f"Bearer {SERVICE_KEY}"},
+    )
+    rows = json.loads(urllib.request.urlopen(req, timeout=30).read())
+    if not rows:
+        raise RuntimeError("no profiles rows — cannot pick a harness user id")
+    return rows[0]["user_id"]
 
-# Bot ids captured from real meetings. Reusing real ids means calls like
-# getRecallBot() actually succeed when handlers query Recall.
-#   - GOOD_BOT: bot that recorded audio successfully (audio_mixed=done)
-#   - KICKED_BOT: bot that was kicked from waiting room (no recording)
-GOOD_BOT_ID = "f64b8bb7-54b8-45e3-beaf-b811c24501c1"    # 04/23 test daily sync
-KICKED_BOT_ID = "3a764938-0d87-483f-a5b1-98825fff1662"   # 04/24 kicked from waiting room
+
+TEST_USER_ID: str = _resolve_user_id()
+
+# Bot ids from real meetings. Reusing real ids means calls like getRecallBot()
+# actually succeed when handlers query Recall.
+#   - GOOD_BOT: bot that reached recording_done/done
+#   - KICKED_BOT: bot that went joining_call -> fatal (never admitted, no recording)
+#
+# These are workspace- AND region-scoped: Recall regions are separate deployments,
+# and a bot id from another workspace returns 404. Re-point them (or set the env
+# overrides) whenever the Recall account changes. Recall also ages out recorded
+# media, so an old GOOD_BOT eventually reports audio_mixed "missing" rather than
+# "done" — only bot_done_defers_on_unknown_audio actually cares.
+GOOD_BOT_ID = ENV.get("HARNESS_GOOD_BOT_ID") or "d16b6ebf-5890-4826-be61-fbebe9bee95b"
+KICKED_BOT_ID = ENV.get("HARNESS_KICKED_BOT_ID") or "98eacdd6-9cc8-4973-86b5-3838007adffc"
 
 
 class HTTPError(Exception):

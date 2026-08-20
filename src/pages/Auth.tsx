@@ -8,6 +8,11 @@ import { useToast } from '@/hooks/use-toast';
 import { Logo } from '@/components/ui/Logo';
 import { ThemeToggle } from '@/components/ThemeToggle';
 
+// Signups are closed. The Supabase auth server also has `disable_signup: true`,
+// so flipping this back to `true` alone will NOT re-open registration — the
+// project's auth config has to be changed too.
+const SIGNUPS_ENABLED = false;
+
 const inputClass =
   'w-full rounded-md px-3 py-2.5 text-[14.5px] outline-none transition-colors placeholder:opacity-60';
 
@@ -88,7 +93,7 @@ export default function Auth() {
     e.preventDefault();
     setLoading(true);
     try {
-      if (isSignUp) {
+      if (isSignUp && SIGNUPS_ENABLED) {
         const { error } = await signUp(email, password, fullName);
         if (error) throw error;
         setEmailSent(true);
@@ -361,17 +366,30 @@ export default function Auth() {
                     </SubmitButton>
                   </form>
 
-                  <p className="mt-6 text-center text-[13.5px]" style={{ color: 'var(--ink-mid)' }}>
-                    {isSignUp ? 'Already have an account? ' : "Don't have an account? "}
-                    <button
-                      type="button"
-                      onClick={() => setIsSignUp(!isSignUp)}
-                      className="no-underline"
-                      style={{ color: 'var(--ember-deep)', fontWeight: 600 }}
-                    >
-                      {isSignUp ? 'Sign in' : 'Sign up'}
-                    </button>
-                  </p>
+                  {SIGNUPS_ENABLED ? (
+                    <p className="mt-6 text-center text-[13.5px]" style={{ color: 'var(--ink-mid)' }}>
+                      {isSignUp ? 'Already have an account? ' : "Don't have an account? "}
+                      <button
+                        type="button"
+                        onClick={() => setIsSignUp(!isSignUp)}
+                        className="no-underline"
+                        style={{ color: 'var(--ember-deep)', fontWeight: 600 }}
+                      >
+                        {isSignUp ? 'Sign in' : 'Sign up'}
+                      </button>
+                    </p>
+                  ) : (
+                    <p className="mt-6 text-center text-[13.5px]" style={{ color: 'var(--ink-mid)' }}>
+                      New signups are closed right now.{' '}
+                      <Link
+                        to="/#waitlist"
+                        className="no-underline"
+                        style={{ color: 'var(--ember-deep)', fontWeight: 600 }}
+                      >
+                        Join the waitlist
+                      </Link>
+                    </p>
+                  )}
                 </>
               )}
             </>

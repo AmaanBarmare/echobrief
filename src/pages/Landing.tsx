@@ -9,8 +9,20 @@ import { Pricing } from '@/components/landing/Pricing';
 import { LandingFAQ } from '@/components/landing/LandingFAQ';
 import { CTA } from '@/components/landing/CTA';
 import { Footer } from '@/components/landing/Footer';
+import { useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 
 export default function Landing() {
+  const { hash } = useLocation();
+
+  // Arriving at /#waitlist (from the Auth page) lands here before the section
+  // exists, so the browser's own hash scroll is a no-op. Do it once on mount.
+  useEffect(() => {
+    if (!hash) return;
+    const el = document.getElementById(hash.slice(1));
+    if (el) window.setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'center' }), 120);
+  }, [hash]);
+
   return (
     <div
       className="landing-shell landing-mesh landing-grain min-h-screen antialiased"

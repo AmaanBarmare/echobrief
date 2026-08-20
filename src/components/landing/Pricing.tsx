@@ -1,7 +1,7 @@
 import { motion, useInView } from 'framer-motion';
 import { useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { Check } from 'lucide-react';
+import { openWaitlist } from '@/lib/waitlist';
 
 type Billing = 'monthly' | 'annual';
 
@@ -13,7 +13,6 @@ type Tier = {
   unit: string;
   features: string[];
   cta: string;
-  ctaHref: string;
   featured?: boolean;
   footnote?: string;
 };
@@ -33,8 +32,7 @@ const tiers: Tier[] = [
       'Email delivery',
       '14-day retention',
     ],
-    cta: 'Start free',
-    ctaHref: '/auth',
+    cta: 'Join waitlist',
   },
   {
     name: 'Starter',
@@ -50,8 +48,7 @@ const tiers: Tier[] = [
       'Speaker identification',
       '30-day retention',
     ],
-    cta: 'Get Starter',
-    ctaHref: '/auth',
+    cta: 'Join waitlist',
   },
   {
     name: 'Pro',
@@ -66,8 +63,7 @@ const tiers: Tier[] = [
       'Custom vocabulary and priority processing',
       '90-day retention',
     ],
-    cta: 'Get Pro',
-    ctaHref: '/auth',
+    cta: 'Join waitlist',
     featured: true,
   },
   {
@@ -84,8 +80,7 @@ const tiers: Tier[] = [
       'Admin dashboard and usage analytics',
       'Priority support',
     ],
-    cta: 'Get Team',
-    ctaHref: '/auth',
+    cta: 'Join waitlist',
   },
 ];
 
@@ -293,9 +288,10 @@ export function Pricing() {
                   </p>
                 </div>
 
-                <Link
-                  to={tier.ctaHref}
-                  className="mt-6 inline-flex items-center justify-center rounded-md px-4 py-2.5 text-[14px] font-semibold no-underline transition-opacity hover:opacity-90"
+                <button
+                  type="button"
+                  onClick={() => openWaitlist(`pricing:${tier.name}`)}
+                  className="mt-6 inline-flex w-full items-center justify-center rounded-md px-4 py-2.5 text-[14px] font-semibold transition-opacity hover:opacity-90"
                   style={
                     isFeatured
                       ? { background: 'var(--ember)', color: 'white' }
@@ -307,7 +303,7 @@ export function Pricing() {
                   }
                 >
                   {tier.cta}
-                </Link>
+                </button>
 
                 <ul className="mt-7 space-y-3">
                   {tier.features.map((f) => (
