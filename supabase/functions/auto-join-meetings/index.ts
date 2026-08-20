@@ -94,22 +94,36 @@ serve(async (req) => {
       const events = calendarData.items || []
 
       for (const event of events) {
+        // Skip events cancelled/deleted on the calendar.
+        if (event.status === 'cancelled') continue
+
         // Only process events with a video meeting link
         const meetingUrl = event.hangoutLink ||
           event.conferenceData?.entryPoints?.find((e: any) => e.entryPointType === 'video')?.uri
 
         if (!meetingUrl) continue
 
-        // Dedup: skip if we already sent a bot to this calendar event
-        const { data: existingMeeting } = await supabase
-          .from('meetings')
-          .select('id')
-          .eq('user_id', pref.user_id)
-          .eq('calendar_event_id', event.id)
-          .eq('source', 'auto-join')
-          .maybeSingle()
+        // Only join meetings this user actually intends to attend. Without this
+        // filter the bot fired on ANY calendar event carrying a video link —
+        // dead recurring series, declined invites, invitations never answered —
+        // which is where the bulk of the "no audio captured" results and
+        // waiting-room timeouts came from (prod analysis 2026-08-20).
+        // Join when the user accepted, or when they own the event and have not
+        // declined it (organizers commonly show responseStatus 'accepted', but
+        // self-created events sometimes carry no attendee entry at all).
+        const selfAttendee = (event.attendees || []).find((a: any) => a.self)
+        const responseStatus = selfAttendee?.responseStatus
+        const isOwner = event.organizer?.self === true || event.creator?.self === true
+        const shouldJoin =
+          responseStatus === 'accepted' ||
+          (isOwner && responseStatus !== 'declined')
 
-        if (existingMeeting) continue
+        if (!shouldJoin) {
+          console.log(
+            `[auto-join] Skipping "${event.summary}" — responseStatus=${responseStatus ?? 'none'}, owner=${isOwner}`,
+          )
+          continue
+        }
 
         // Only join if the meeting starts within the join window
         const eventStart = new Date(event.start?.dateTime || event.start?.date)
@@ -122,6 +136,34 @@ serve(async (req) => {
         if (meetingUrl.includes('teams.microsoft.com')) platform = 'teams'
         else if (meetingUrl.includes('zoom.us')) platform = 'zoom'
         else if (meetingUrl.includes('meet.google.com')) platform = 'google_meet'
+
+        // Claim the calendar event BEFORE sending a bot. The unique index
+        // meetings_autojoin_dedup (migration 20260820150000) makes the database
+        // the arbiter: a concurrent invocation that lost the race gets 23505 here
+        // and skips. Reading first and inserting only after the bot call is what
+        // produced 88 duplicate bots, all created 1-2 s apart.
+        const { data: claimed, error: claimError } = await supabase
+          .from('meetings')
+          .insert({
+            user_id: pref.user_id,
+            title: event.summary || 'Untitled Meeting',
+            source: 'auto-join',
+            calendar_event_id: event.id,
+            meeting_link: meetingUrl,
+            platform,
+            status: 'joining',
+            start_time: eventStart.toISOString(),
+          })
+          .select('id')
+          .single()
+
+        if (claimError || !claimed) {
+          // 23505 = unique_violation: another invocation already claimed it.
+          if (claimError?.code !== '23505') {
+            console.error(`[auto-join] Could not claim event ${event.id}:`, claimError)
+          }
+          continue
+        }
 
         // Send the bot
         const botResponse = await fetch(`${RECALL_BASE_URL}/bot/`, {
@@ -153,26 +195,27 @@ serve(async (req) => {
 
         const botData = await botResponse.json()
 
-        if (botResponse.ok && botData.id) {
-          await supabase.from('meetings').insert({
-            user_id: pref.user_id,
-            title: event.summary || 'Untitled Meeting',
-            source: 'auto-join',
-            calendar_event_id: event.id,
-            meeting_link: meetingUrl,
-            platform,
-            status: 'recording',
-            start_time: eventStart.toISOString(),
-            recall_bot_id: botData.id,
-          })
-
-          results.push({
-            user_id: pref.user_id,
-            event: event.summary,
-            bot_id: botData.id,
-            status: 'joined'
-          })
+        if (!botResponse.ok || !botData.id) {
+          // Release the claim so a later poll can retry this event.
+          console.error(
+            `[auto-join] Recall bot creation failed for event ${event.id} (HTTP ${botResponse.status}):`,
+            JSON.stringify(botData).substring(0, 300),
+          )
+          await supabase.from('meetings').delete().eq('id', claimed.id)
+          continue
         }
+
+        await supabase
+          .from('meetings')
+          .update({ status: 'recording', recall_bot_id: botData.id })
+          .eq('id', claimed.id)
+
+        results.push({
+          user_id: pref.user_id,
+          event: event.summary,
+          bot_id: botData.id,
+          status: 'joined'
+        })
       }
     }
 

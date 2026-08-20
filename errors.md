@@ -116,6 +116,68 @@ Audio ≥ ~15 MB blows the budget.
 
 ---
 
+## Auto-join errors
+
+### `autojoin:duplicate_bots`
+**What it looks like:** One calendar event has 2-3 `meetings` rows, all `source = 'auto-join'`, all with different `recall_bot_id`s, all created within 1-2 seconds of each other. Only one bot ever gets useful audio; the rest burn Recall minutes and land in `failed` / `cancelled`. Found in prod 2026-08-20: 79 events affected, 88 wasted bots.
+
+**Root cause:** `auto-join-meetings` deduped with a plain `SELECT ... maybeSingle()` against `idx_meetings_calendar_source`, a **non-unique** index, and only INSERTed the meeting row *after* the Recall bot had been created. Two concurrent cron invocations both read "no existing meeting", both created a bot, and both inserted. The dedup was assuming a uniqueness guarantee the database never made.
+
+**Fix shipped 2026-08-20:** Migration `20260820150000_autojoin_dedup_unique_index.sql` adds `meetings_autojoin_dedup`, a UNIQUE partial index on `(user_id, calendar_event_id, source) WHERE calendar_event_id IS NOT NULL`, and drops the redundant non-unique index. `auto-join-meetings` now INSERTs first to claim the event and only sends a bot once the insert succeeds; a losing racer gets `23505` and skips. If Recall then rejects the bot, the claim row is deleted so a later poll can retry.
+
+**Note on the migration:** pre-existing duplicates are not deleted — the losing rows have their `calendar_event_id` set to NULL, which frees the unique slot while keeping the row visible to the user.
+
+---
+
+### `autojoin:bot_joins_meetings_nobody_attends`
+**What it looks like:** Large numbers of auto-join meetings ending in "no audio captured", waiting-room timeouts, or the bot being removed. Prod 2026-08-20: 141 / 38 / 26 respectively, and auto-join accounted for **every** failure in the dataset (manual recordings were 19/19).
+
+**Root cause:** Two compounding problems. (1) `auto-join-meetings` sent a bot to **any** calendar event carrying a video link — dead recurring series, declined invites, invitations the user never answered, meetings owned by other people. (2) `profiles.auto_join_enabled` defaulted to `true` until migration `20260820120000`, so every pre-existing account was opted in without asking.
+
+**Fix shipped 2026-08-20:** `auto-join-meetings` now skips `event.status === 'cancelled'` and only joins when the user's own attendee entry has `responseStatus === 'accepted'`, or when they organize/created the event and haven't declined it. Migration `20260820150100` resets every existing profile to `auto_join_enabled = false`; users opt back in from Settings.
+
+**Not the lever:** raising Recall's `automatic_leave.waiting_room_timeout` does not help — its default is already 1200 s (20 min), and the bot arrives only 7 min early. The waiting-room timeouts were bots nobody ever intended to admit.
+
+---
+
+### `pipeline:completed_with_no_transcript`
+**What it looks like:** A meeting shows `status = 'completed'` in the dashboard, but has **no** row in `transcripts` (or an empty one) and insights that read "No clear speech detected". Always long meetings (66-72 min) with `processing_config.split_method` unset. The stuck-meeting monitor never fires because `completed` is terminal.
+
+**Root cause:** A chain of silent fallbacks. `api/split-audio` is capped at `maxDuration: 300` (the Vercel Hobby ceiling) and could not download ~46 MB, re-encode ~15-20 chunks and upload them in time. `recall-pipeline` caught the failure and fell back to whole-file Sarvam submission — which cannot work for long audio (see `sarvam:silent_empty_output`). Sarvam returned an empty transcript, the Whisper fallback rejected the 45.9 MB file, and `process-meeting` then wrote `status = 'completed'` anyway with a placeholder "no clear speech" transcript row.
+
+**Fix shipped 2026-08-20, four parts:**
+1. `process-meeting` marks a meeting `failed` with an `error_message` when no usable transcript was produced, instead of `completed`, and no longer writes the placeholder transcript row or delivers an email.
+2. `sarvam-webhook`'s chunk-wise Whisper retry (via the splitter's `transcribe: "whisper"` mode, which works at any length) was hoisted out of the chunked-only branch — it now runs for *any* empty Sarvam result, including whole-file fallbacks.
+3. `recall-pipeline` records `split_method: "direct-fallback"` plus the reason in `split_error` whenever it submits whole-file, so the failure is diagnosable instead of invisible.
+4. `api/split-audio` uploads chunks 6-way concurrently instead of serially, and returns an explicit 504 if it runs past its 270 s internal budget.
+
+**Tested and rejected 2026-08-20 — do not re-attempt without new evidence:** downmixing chunks to 16 kHz mono looks like an obvious win (smaller uploads, faster encode, and it is the rate every STT engine resamples to internally). It is not. A/B against real Sarvam over two fixtures:
+
+| Fixture | Encoding | Bytes | Result |
+|---|---|---|---|
+| Clean single-voice TTS | `-q:a 4` | 149,631 | "we decide I need to roll back", "next. print" |
+| Clean single-voice TTS | 16k mono 32k | 86,643 | fully correct |
+| **2 speakers + pink noise** | `-q:a 4` | 200,343 | "patched the **read** path, not the **write** path"; speakers `[0,1]` |
+| **2 speakers + pink noise** | 16k mono 48k | 163,863 | "patched the **reed** path, not the **right** path"; speakers `[0,1,2]` |
+| **2 speakers + pink noise** | 16k mono 32k | 109,395 | "patched the **reed** path, not the **right** path"; speakers `[0,1,2]` |
+
+Clean speech flatters the downmix; realistic audio exposes it. 48k and 32k degrade *identically*, so the damage comes from the 16 kHz resample, not the bitrate — it destroys precisely the consonant distinctions technical discussion depends on, and it invents a phantom third speaker, feeding directly into `speakers:phantom_speaker_when_one_participant`.
+
+The wall-clock problem must therefore be solved by concurrency and by a higher `maxDuration` (Vercel Pro, 800 s), not by degrading the audio.
+
+**If it recurs:** the meeting will now be `failed` with a specific `error_message`, and the Vercel logs for `api/split-audio` will show either the 504 budget message or the underlying ffmpeg/upload error. The durable fix is a Vercel Pro plan (`maxDuration: 800`).
+
+---
+
+### `pipeline:duration_from_wall_clock`
+**What it looks like:** "Hours saved" and per-meeting duration are wildly inflated — a 70-minute meeting recovered hours later reports many hours.
+
+**Root cause:** `processing_config.audio_duration_seconds` is only written by the split path, so any meeting that skipped chunking had no real duration and `process-meeting` fell straight through to wall-clock (`end_time - start_time`), which counts processing and recovery time.
+
+**Fix shipped 2026-08-20:** `process-meeting` now uses the same precedence `sarvam-webhook` already used — real audio duration, then the last transcript segment's end time, then wall-clock.
+
+---
+
 ## How this file is maintained
 
 1. The `monitor-stuck-meetings` cron carries a `KNOWN_SIGNATURES` set in code. When it detects a stuck meeting whose signature is **not** in that set, it sends an email to `amaan@oltaflock.ai` with subject `[ECHOBRIEF NEW ERROR] <signature>`.

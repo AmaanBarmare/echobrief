@@ -158,12 +158,13 @@ Only include segments where you can make a reasonable attribution.`;
         .eq("meeting_id", meetingId)
         .single();
 
-      if (!existingTranscript) {
+      // Only persist a transcript when there is something to persist. Writing a
+      // placeholder "no clear speech" row made a failed transcription look like a
+      // successful one to every downstream reader (and to the evals).
+      if (!existingTranscript && transcript.trim()) {
         await supabase.from("transcripts").insert({
           meeting_id: meetingId,
-          content: hallucinated
-            ? "No clear speech was detected in this recording. The audio may have been too quiet or contained only background noise. Make sure your microphone is working and that meeting participants are audible."
-            : transcript,
+          content: transcript,
           speakers: speakerSegments,
           word_timestamps: wordTimestamps,
           stt_provider: "whisper",
@@ -193,6 +194,38 @@ Only include segments where you can make a reasonable attribution.`;
   }
 
   const noUsableTranscript = !transcript || transcript.trim().length < 20;
+  const endTime = new Date();
+
+  // A meeting with no usable transcript is a FAILURE, not a completion.
+  // Writing status="completed" here is how 66-72 min meetings ended up in the
+  // dashboard looking fine while their insights read "No clear speech detected"
+  // — a terminal status the stuck-meeting monitor never inspects, so nobody was
+  // ever told. Mark it failed so the monitor and the user both see it, and skip
+  // insight generation + delivery (there is nothing to summarise or send).
+  if (noUsableTranscript) {
+    console.error(
+      `[whisper] No usable transcript for meeting ${meetingId} — marking failed instead of completed`,
+    );
+    await supabase
+      .from("meetings")
+      .update({
+        status: "failed",
+        end_time: endTime.toISOString(),
+        error_message:
+          "No usable transcript could be produced from this recording. The audio may have been silent, or both Sarvam and Whisper failed to transcribe it.",
+      })
+      .eq("id", meetingId);
+
+    return {
+      success: false,
+      hasTranscript: false,
+      hasInsights: false,
+      hasSpeakerSegments: speakerSegments.length > 0,
+      noAudioDetected: true,
+      emailSent: false,
+    };
+  }
+
   const insights = await generateInsights(
     openai,
     meeting,
@@ -201,10 +234,21 @@ Only include segments where you can make a reasonable attribution.`;
   );
   await saveInsights(supabase, meetingId, insights);
 
-  const endTime = new Date();
   const startTime = new Date(meeting.start_time);
-  const durationSeconds = Math.floor(
-    (endTime.getTime() - startTime.getTime()) / 1000,
+  // Same precedence as sarvam-webhook: real audio duration (written by the
+  // split path) first, then the last transcript segment's end time, and only
+  // then wall-clock — which counts processing time and is wildly wrong for
+  // meetings recovered hours later.
+  const audioDuration =
+    Number(meeting.processing_config?.audio_duration_seconds) || 0;
+  const lastSegmentEnd = speakerSegments.reduce(
+    (max, seg) => Math.max(max, Number(seg.end) || 0),
+    0,
+  );
+  const durationSeconds = Math.round(
+    audioDuration ||
+      lastSegmentEnd ||
+      (endTime.getTime() - startTime.getTime()) / 1000,
   );
 
   await supabase
@@ -225,10 +269,10 @@ Only include segments where you can make a reasonable attribution.`;
 
   return {
     success: true,
-    hasTranscript: !noUsableTranscript,
-    hasInsights: !noUsableTranscript,
+    hasTranscript: true,
+    hasInsights: true,
     hasSpeakerSegments: speakerSegments.length > 0,
-    noAudioDetected: noUsableTranscript,
+    noAudioDetected: false,
     emailSent,
   };
 }

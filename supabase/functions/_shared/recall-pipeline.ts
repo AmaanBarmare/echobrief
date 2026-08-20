@@ -373,12 +373,8 @@ export async function processRecallAudio(
   const splitSecret = Deno.env.get("SPLIT_AUDIO_SECRET");
 
   let jobId: string | null = null;
-  let chunkMeta: {
-    split_method: string;
-    chunk_count: number;
-    chunk_seconds: number;
-    audio_duration_seconds: number;
-  } | null = null;
+  let chunkMeta: Record<string, unknown> | null = null;
+  let splitError: string | null = null;
 
   if (splitUrl && splitSecret && !uploadError) {
     try {
@@ -417,16 +413,30 @@ export async function processRecallAudio(
         `[recall-pipeline] Split path: job=${jobId}, ${splitData.chunk_count} chunk(s) x ${splitData.chunk_seconds}s (duration ${splitData.duration_seconds}s)`,
       );
     } catch (err) {
+      splitError = err instanceof Error ? err.message : String(err);
       console.warn(
         "[recall-pipeline] split-audio failed, falling back to direct single-file Sarvam submission:",
-        err,
+        splitError,
       );
       jobId = null;
       chunkMeta = null;
     }
+  } else if (uploadError) {
+    splitError = "audio was not archived to Storage, so it could not be signed for the splitter";
+  } else {
+    splitError = "SPLIT_AUDIO_URL / SPLIT_AUDIO_SECRET not configured";
   }
 
   if (!jobId) {
+    // Whole-file submission. This path CANNOT work for long audio — Sarvam's
+    // saaras:v3 silently returns an empty transcript above ~6 min — so record why
+    // we ended up here. Without this the failure was invisible: the job came back
+    // "COMPLETED" with nothing in it and there was no trace of the splitter ever
+    // having been attempted.
+    chunkMeta = { split_method: "direct-fallback", split_error: splitError };
+    console.warn(
+      `[recall-pipeline] Falling back to whole-file Sarvam for ${audioSizeMB.toFixed(1)} MB of audio — reason: ${splitError}`,
+    );
     const job = await createSarvamJob(
       sarvamApiKey,
       callbackUrl,

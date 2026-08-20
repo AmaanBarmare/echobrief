@@ -39,6 +39,38 @@ const SARVAM_BASE_URL = "https://api.sarvam.ai/speech-to-text/job/v1";
 const CHUNK_SECONDS = 300; // empirically safe (5-6 min works; 47 min fails)
 const SINGLE_FILE_MAX_SECONDS = 360; // ≤6 min: proven fine unchunked
 const MAX_FILES_PER_JOB = 20; // Sarvam batch limit
+const UPLOAD_CONCURRENCY = 6;
+
+// vercel.json pins maxDuration to 300 s (the Hobby ceiling). A 66-72 min meeting
+// has to download ~46 MB, re-encode ~15-20 chunks and upload them all inside that
+// window; when it didn't, the caller silently fell back to whole-file Sarvam,
+// which returns an empty transcript for long audio, and the meeting ended up
+// marked "completed" with nothing in it. Mitigations: chunk uploads run
+// concurrently instead of serially, and this budget makes an overrun an
+// explicit, logged 504 instead of a silent partial submission.
+const TIME_BUDGET_MS = 270_000;
+
+function elapsedMs(t0: number) {
+  return Date.now() - t0;
+}
+
+async function mapWithConcurrency<T>(
+  count: number,
+  limit: number,
+  fn: (index: number) => Promise<T>,
+): Promise<T[]> {
+  const out: T[] = new Array(count);
+  let next = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(limit, count) }, async () => {
+      while (next < count) {
+        const i = next++;
+        out[i] = await fn(i);
+      }
+    }),
+  );
+  return out;
+}
 
 function runFfmpeg(args: string[]): Promise<{ code: number; stderr: string }> {
   return new Promise((resolve, reject) => {
@@ -132,6 +164,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ error: "Whisper mode not configured (missing OPENAI_API_KEY)" });
   }
 
+  const t0 = Date.now();
   const workDir = await mkdtemp(path.join(tmpdir(), "split-"));
   try {
     // 1. Download the audio
@@ -161,6 +194,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           `[split-audio] duration ${durationSeconds}s needs >20 chunks; using ${chunkSeconds}s chunks (may exceed Sarvam-safe length)`,
         );
       }
+      // NOTE: downmixing to 16 kHz mono would cut encode time and upload bytes,
+      // but it changes what Sarvam actually receives and could not be validated
+      // (the Sarvam account is out of credits, so the --live A/B could not run).
+      // Left at the proven encoding until that test is possible. See errors.md
+      // `pipeline:completed_with_no_transcript`.
       const { code, stderr } = await runFfmpeg([
         "-v", "error", "-y",
         "-i", inputPath,
@@ -180,6 +218,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const fileNames = chunkPaths.map((_, i) => `chunk_${String(i).padStart(3, "0")}.mp3`);
+    console.log(
+      `[split-audio] prepared ${chunkPaths.length} chunk(s) x ${chunkSeconds}s in ${elapsedMs(t0)}ms`,
+    );
 
     // Whisper mode: transcribe every chunk synchronously and return the
     // stitched result — no Sarvam job, no callback. 4-way concurrency keeps a
@@ -194,7 +235,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           results[i] = await whisperTranscribeChunk(openaiKey!, bytes, fileNames[i]);
         }
       }
-      await Promise.all(Array.from({ length: Math.min(4, chunkPaths.length) }, worker));
+      await Promise.all(Array.from({ length: Math.min(6, chunkPaths.length) }, worker));
 
       const segments: WhisperSegment[] = [];
       const parts: string[] = [];
@@ -238,10 +279,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       job_id: jobId,
       files: fileNames,
     });
-    for (let i = 0; i < chunkPaths.length; i++) {
+    // Uploaded concurrently: 20 sequential round-trips to Azure blob storage was
+    // a large share of the wall-clock that pushed long meetings past maxDuration.
+    await mapWithConcurrency(chunkPaths.length, UPLOAD_CONCURRENCY, async (i) => {
       const presigned = upload.upload_urls?.[fileNames[i]]?.file_url;
       if (!presigned) {
-        return res.status(502).json({ error: `No presigned URL for ${fileNames[i]}` });
+        throw new Error(`No presigned URL for ${fileNames[i]}`);
       }
       const bytes = await readFile(chunkPaths[i]);
       const put = await fetch(presigned, {
@@ -250,8 +293,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         body: new Uint8Array(bytes),
       });
       if (!put.ok) {
-        return res.status(502).json({ error: `Chunk upload failed (${put.status}) for ${fileNames[i]}` });
+        throw new Error(`Chunk upload failed (${put.status}) for ${fileNames[i]}`);
       }
+    });
+
+    if (elapsedMs(t0) > TIME_BUDGET_MS) {
+      // Uploads finished but we are out of runway; starting the job now risks the
+      // platform killing us mid-call and leaving a job that never runs. Fail
+      // explicitly so the caller records a real error instead of silently
+      // dropping to the whole-file path that cannot work for long audio.
+      return res.status(504).json({
+        error: `split-audio exceeded its time budget (${Math.round(elapsedMs(t0) / 1000)}s) before starting job ${jobId}`,
+      });
     }
 
     // 5. Start the job
