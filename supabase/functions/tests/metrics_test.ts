@@ -116,3 +116,33 @@ Deno.test("missing start/end are treated as zero-length, not NaN", () => {
   assertEquals(m.total_speaking_seconds, 10);
   assertEquals(m.speaker_participation.find((s) => s.speaker === "Alice")!.seconds, 0);
 });
+
+import { mergeMeetingMetrics } from "../_shared/metrics.ts";
+
+Deno.test("merge drops model keys that are not sentiment_score", () => {
+  const computed = computeConversationMetrics([seg("Alice", 0, 30)], 60);
+  const merged = mergeMeetingMetrics(
+    { engagement_score: 80, sentiment_score: 0.5, speaker_participation: [{ bogus: true }] },
+    computed,
+  );
+  assertEquals("engagement_score" in merged, false);
+  assertEquals(merged.sentiment_score, 0.5);
+  assertEquals(merged.speaker_participation, computed.speaker_participation);
+});
+
+Deno.test("merge tolerates a missing or non-numeric sentiment_score", () => {
+  const computed = computeConversationMetrics([seg("Alice", 0, 30)], 60);
+  assertEquals("sentiment_score" in mergeMeetingMetrics(null, computed), false);
+  assertEquals("sentiment_score" in mergeMeetingMetrics({}, computed), false);
+  assertEquals(
+    "sentiment_score" in mergeMeetingMetrics({ sentiment_score: "warm" }, computed),
+    false,
+  );
+});
+
+Deno.test("computed values always win over model values of the same name", () => {
+  const computed = computeConversationMetrics([seg("Alice", 0, 30)], 60);
+  const merged = mergeMeetingMetrics({ total_speaking_seconds: 999, turn_count: 42 }, computed);
+  assertEquals(merged.total_speaking_seconds, 30);
+  assertEquals(merged.turn_count, 1);
+});

@@ -150,3 +150,25 @@ export function computeConversationMetrics(
     participation_balance: round(1 - gini(participation.map((p) => p.seconds))),
   };
 }
+
+/**
+ * Merge the model's meeting_metrics with the computed ones.
+ *
+ * A whitelist, not a spread. Removing engagement_score from the prompt does not
+ * stop gpt-4o-mini from volunteering it in JSON mode — observed in production on
+ * 2026-08-20, where a plain `{...model, ...computed}` merge let `engagement_score: 80`
+ * back into the row because no computed key shadowed it. sentiment_score is the
+ * only model-produced value we keep, because it is a genuine judgment call rather
+ * than a measurement the transcript already contains.
+ */
+export function mergeMeetingMetrics(
+  modelMetrics: Record<string, unknown> | null | undefined,
+  computed: ConversationMetrics,
+): ConversationMetrics & { sentiment_score?: number } {
+  const raw = (modelMetrics ?? {}) as Record<string, unknown>;
+  const sentiment = Number(raw.sentiment_score);
+  return {
+    ...computed,
+    ...(Number.isFinite(sentiment) ? { sentiment_score: sentiment } : {}),
+  };
+}

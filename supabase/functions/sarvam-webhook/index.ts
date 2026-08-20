@@ -6,7 +6,7 @@ import {
   downloadSarvamResults,
 } from "../_shared/sarvam.ts";
 import { stitchChunkResults } from "../_shared/stitch.ts";
-import { computeConversationMetrics } from "../_shared/metrics.ts";
+import { computeConversationMetrics, mergeMeetingMetrics } from "../_shared/metrics.ts";
 import { fetchSpeakerContext } from "../_shared/recall-pipeline.ts";
 import {
   isLikelyHallucination,
@@ -473,11 +473,11 @@ serve(async (req) => {
         finalTranscript,
         speakerSegments,
       );
-      // Computed values overwrite anything the model returned for these keys.
-      insights.meeting_metrics = {
-        ...(insights.meeting_metrics || {}),
-        ...computeConversationMetrics(speakerSegments, durationSeconds),
-      };
+      // Whitelist merge: only sentiment_score survives from the model.
+      insights.meeting_metrics = mergeMeetingMetrics(
+        insights.meeting_metrics,
+        computeConversationMetrics(speakerSegments, durationSeconds),
+      );
       await saveInsights(supabase, meeting.id, insights);
 
       await supabase

@@ -14,7 +14,7 @@ import {
   deliverResults,
   SpeakerSegment,
 } from "../_shared/insights.ts";
-import { computeConversationMetrics } from "../_shared/metrics.ts";
+import { computeConversationMetrics, mergeMeetingMetrics } from "../_shared/metrics.ts";
 
 async function whisperTranscribe(
   openai: OpenAI,
@@ -251,11 +251,11 @@ Only include segments where you can make a reasonable attribution.`;
     transcript,
     speakerSegments,
   );
-  // Computed values overwrite anything the model returned for these keys.
-  insights.meeting_metrics = {
-    ...(insights.meeting_metrics || {}),
-    ...computeConversationMetrics(speakerSegments, durationSeconds),
-  };
+  // Whitelist merge: only sentiment_score survives from the model.
+  insights.meeting_metrics = mergeMeetingMetrics(
+    insights.meeting_metrics,
+    computeConversationMetrics(speakerSegments, durationSeconds),
+  );
   await saveInsights(supabase, meetingId, insights);
 
   await supabase
