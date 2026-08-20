@@ -131,8 +131,8 @@ export function Pricing() {
               className="mt-4 max-w-[54ch] text-[16px] leading-[1.65]"
               style={{ color: 'var(--ink-mid)' }}
             >
-              Start free. Upgrade when you need more. Annual plans get two
-              months on the house.
+              These are the plans waiting for you. Tell us which one fits and
+              we'll hold it. Annual plans get two months on the house.
             </p>
           </div>
 
