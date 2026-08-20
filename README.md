@@ -1,6 +1,6 @@
 # EchoBrief
 
-**AI meeting intelligence platform that records meetings, transcribes conversations, extracts decision-grade insights, and delivers structured follow-ups across dashboard, Slack, email, and digest workflows.**
+**AI meeting intelligence platform that records meetings, transcribes conversations, extracts decision-grade insights, and delivers structured follow-ups across dashboard, email, and digest workflows.**
 
 [![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
@@ -53,7 +53,7 @@ The result is not just a transcript. EchoBrief produces:
 - decisions and commitments
 - action items with ownership metadata
 - timeline-style meeting breakdowns
-- delivery to Slack or email
+- delivery by email
 - digest-style recap reports across a week or month
 
 From an engineering perspective, this project demonstrates end-to-end product ownership across frontend, backend, database design, OAuth integrations, asynchronous pipelines, and operational edge cases.
@@ -67,7 +67,7 @@ Most meeting tools stop at transcription. EchoBrief goes deeper in both product 
 - **No single-surface app**: this system spans a React SPA, Supabase Edge Functions, PostgreSQL, storage, a third-party recording bot, and multiple AI/integration providers.
 - **Real asynchronous workflow design**: transcription is not a synchronous request/response toy flow. Sarvam jobs are submitted asynchronously and completed later by webhook.
 - **Multi-provider fault tolerance**: the pipeline automatically falls back from Sarvam to Whisper when needed.
-- **Real-world integration complexity**: Google Calendar OAuth, Slack delivery, email delivery, Recall bot orchestration, and multi-calendar support.
+- **Real-world integration complexity**: Google Calendar OAuth, email delivery, Recall bot orchestration, and multi-calendar support.
 - **Portfolio value for recruiters**: the codebase shows the kind of practical full-stack debugging, systems thinking, and product-minded tradeoff handling that entry-level software engineers are expected to grow into quickly.
 
 ---
@@ -80,7 +80,7 @@ Most meeting tools stop at transcription. EchoBrief goes deeper in both product 
 | **Transcription** | Sarvam batch STT in translate mode (any language → English), OpenAI Whisper fallback, speaker diarization with real name resolution (Recall transcript → per-segment time-overlap matching), timestamp handling, hallucination filtering |
 | **AI Insights** | Executive summary, short summary, action items, decisions, risks, questions, timeline, engagement-style meeting metrics |
 | **Calendar** | Google OAuth, multi-calendar support, calendar event syncing, meeting-link extraction, upcoming meeting views |
-| **Delivery** | Slack summary delivery, meeting email delivery, scheduled email workflows, digest report generation, WhatsApp report pipeline |
+| **Delivery** | Meeting email delivery, scheduled email workflows, digest report generation, WhatsApp report pipeline |
 | **Dashboard** | Authenticated dashboard, recordings view, meeting detail view, action item tracking, analytics chart, global search, per-meeting and bulk delete (clear all failed / all cancelled, completed untouched), settings |
 | **User Experience** | Protected routes, onboarding, live status updates, responsive interface, animated transitions |
 | **Security** | Supabase Auth, Row Level Security, OAuth state tracking, service-role-only server operations, CORS and rate-limiting helpers |
@@ -127,7 +127,6 @@ Most meeting tools stop at transcription. EchoBrief goes deeper in both product 
 │  - Sarvam AI: primary async STT + diarization (chunked batch jobs)           │
 │  - OpenAI: Whisper fallback + GPT-4o-mini insight generation + eval judge    │
 │  - Google Calendar API: calendar sync                                        │
-│  - Slack API: message delivery                                               │
 │  - Resend: email delivery                                                    │
 │  - Recall AI: bot-based meeting capture                                      │
 │  - Notion OAuth: workspace integration hooks                                 │
@@ -148,7 +147,7 @@ Most meeting tools stop at transcription. EchoBrief goes deeper in both product 
 6. The audio is routed through the **Vercel `api/split-audio` function**: ffmpeg probes the real duration; ≤6-min audio passes through untouched, longer audio is split into 300 s re-encoded chunks. All chunks are submitted as **one multi-file Sarvam batch job** (Sarvam's `saaras:v3` silently returns empty transcripts for long files — see Engineering Challenge #19). If the splitter is unreachable, the pipeline falls back to the legacy direct single-file submission.
 7. `sarvam-webhook` receives the completion callback. For chunked jobs it downloads outputs `0.json..N.json` in order, offsets each chunk's timestamps by `chunk_index × chunk_seconds`, time-sorts the merged segments, and stitches one transcript. If the entire chunked job came back empty, it retries through the splitter's **chunk-wise Whisper mode** (each 300 s chunk ≈ 1 MB, so Whisper's 25 MB limit never applies — the fallback works for any meeting length).
 8. The webhook maps each Sarvam transcript segment to real participant names using per-segment time-overlap matching against the Recall speaker timeline (this approach works even when Sarvam's diarization assigns all segments to one speaker ID).
-9. Transcript with real speaker names is persisted, insights are generated, and downstream delivery (Slack/email) is triggered.
+9. Transcript with real speaker names is persisted, insights are generated, and downstream delivery (email) is triggered.
 
 ### 2. Insight Generation Flow
 
@@ -156,7 +155,7 @@ Most meeting tools stop at transcription. EchoBrief goes deeper in both product 
 2. Low-signal transcripts are filtered with hallucination heuristics.
 3. GPT-4o-mini produces structured JSON outputs instead of freeform text.
 4. Results are stored in `meeting_insights`.
-5. Delivery functions format summaries for Slack, email, and digest reports.
+5. Delivery functions format summaries for email and digest reports.
 
 ---
 
@@ -194,7 +193,6 @@ Most meeting tools stop at transcription. EchoBrief goes deeper in both product 
 | **OpenAI Whisper** | Reliable fallback transcription path |
 | **GPT-4o-mini** | Structured insight generation from transcripts |
 | **Google Calendar API** | Meeting discovery and calendar sync |
-| **Slack API** | Delivery of meeting summaries to channels |
 | **Resend** | Transactional email delivery |
 | **Recall AI** | Bot-driven meeting recording for calendar-based automation |
 
@@ -236,7 +234,7 @@ echobrief/
 │   │   ├── recall-webhook/         # Recall lifecycle + handoff to transcription
 │   │   ├── google-oauth-*          # OAuth start/callback/redirect flows
 │   │   ├── sync-*                  # Calendar and Notion sync entrypoints
-│   │   ├── send-*                  # Slack, email, WhatsApp, scheduled delivery
+│   │   ├── send-*                  # Email, WhatsApp, scheduled delivery
 │   │   ├── generate-*              # Digest and meeting insight generation
 │   │   └── _shared/                # CORS, rate limit, Sarvam helpers, insight helpers, Recall pipeline (speaker timeline + audio download)
 │   ├── migrations/                 # Schema evolution and feature rollout history
@@ -270,7 +268,6 @@ google_oauth_states
 calendars
 calendar_events
 notion_connections
-slack_messages
 meeting_notifications
 ```
 
@@ -295,7 +292,6 @@ meeting_notifications
 | `monitor-stuck-meetings` | Scheduled every 15 min via pg_cron. Detects meetings stuck >15 min in non-terminal status, classifies into a known signature, attempts canonical recovery (force Whisper / re-trigger Sarvam / check Recall / mark failed), logs every detection to `monitor_events`, and emails `amaan@oltaflock.ai` via Resend on recovery failure or unknown signature. |
 | `google-oauth-start` / `google-oauth-callback` / `google-oauth-redirect` | Google Calendar OAuth flow |
 | `sync-google-calendar` / `sync-calendars` / `fetch-calendar-events` | Calendar sync and event retrieval utilities |
-| `send-slack-message` | Delivers summaries to Slack |
 | `send-meeting-email` / `send-meeting-summary-email` / `send-email-report` | Email delivery and reporting flows |
 | `generate-digest-report` | Builds weekly/monthly meeting digest reports |
 | `send-whatsapp-report` | WhatsApp-style report delivery pipeline |
@@ -450,7 +446,6 @@ This section is intentionally detailed because the hardest part of this project 
 
 **What I changed:**
 
-- added Slack delivery
 - added meeting email delivery
 - added weekly/monthly digest generation
 - tracked delivery flows separately from core meeting processing
@@ -676,7 +671,7 @@ Summaries are not stored as one blob of generated text. The system aims for stru
 - meeting detail tabs
 - action item tracking
 - digest reports
-- Slack/email formatting
+- email formatting
 
 That makes the AI output application-ready rather than merely readable.
 
@@ -878,7 +873,6 @@ OPENAI_API_KEY=sk-...
 SARVAM_API_KEY=...
 SARVAM_WEBHOOK_SECRET=...
 RESEND_API_KEY=...
-SLACK_BOT_TOKEN=...
 GOOGLE_CLIENT_ID=...
 GOOGLE_CLIENT_SECRET=...
 RECALL_API_KEY=...
@@ -923,7 +917,6 @@ npm run functions:serve
 | `SARVAM_API_KEY` | Primary transcription provider |
 | `SARVAM_WEBHOOK_SECRET` | Sarvam callback validation |
 | `RESEND_API_KEY` | Email delivery |
-| `SLACK_BOT_TOKEN` | Slack delivery |
 | `GOOGLE_CLIENT_ID` | Google OAuth |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth |
 | `RECALL_API_KEY` | Recall bot orchestration |

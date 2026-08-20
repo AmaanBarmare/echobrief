@@ -18,7 +18,6 @@ export default function Onboarding() {
   const [languages, setLanguages] = useState<string[]>(['English']);
   const [notificationFreq, setNotificationFreq] = useState('daily');
   const [calendarEnabled, setCalendarEnabled] = useState(false);
-  const [slackEnabled, setSlackEnabled] = useState(false);
 
   useEffect(() => {
     // Check if already onboarded
@@ -49,7 +48,6 @@ export default function Onboarding() {
           preferred_languages: languages,
           notification_frequency: notificationFreq,
           google_calendar_connected: calendarEnabled,
-          slack_connected: slackEnabled,
         })
         .eq('user_id', user.id);
 

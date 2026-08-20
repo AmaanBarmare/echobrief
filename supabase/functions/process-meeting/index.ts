@@ -20,7 +20,6 @@ async function whisperTranscribe(
   supabase: any,
   meeting: Record<string, any>,
   meetingId: string,
-  slackDestination: any,
   sendEmail: boolean,
   supabaseUrl: string,
   supabaseServiceKey: string,
@@ -30,7 +29,6 @@ async function whisperTranscribe(
   hasInsights: boolean;
   hasSpeakerSegments: boolean;
   noAudioDetected: boolean;
-  slackSent: boolean;
   emailSent: boolean;
 }> {
   let transcript = "";
@@ -187,7 +185,6 @@ Only include segments where you can make a reasonable attribution.`;
           hasInsights: false,
           hasSpeakerSegments: false,
           noAudioDetected: false,
-          slackSent: false,
           emailSent: false,
         };
       }
@@ -219,11 +216,11 @@ Only include segments where you can make a reasonable attribution.`;
     })
     .eq("id", meetingId);
 
-  const { slackSent, emailSent } = await deliverResults(
+  const { emailSent } = await deliverResults(
     supabase,
     meeting,
     insights,
-    { slackDestination, sendEmail, supabaseUrl, supabaseServiceKey },
+    { sendEmail, supabaseUrl, supabaseServiceKey },
   );
 
   return {
@@ -232,7 +229,6 @@ Only include segments where you can make a reasonable attribution.`;
     hasInsights: !noUsableTranscript,
     hasSpeakerSegments: speakerSegments.length > 0,
     noAudioDetected: noUsableTranscript,
-    slackSent,
     emailSent,
   };
 }
@@ -245,7 +241,7 @@ serve(async (req) => {
   const corsHeaders = getCorsHeaders(origin);
 
   try {
-    const { meetingId, slackDestination, sendEmail, forceWhisper } = await req.json();
+    const { meetingId, sendEmail, forceWhisper } = await req.json();
 
     if (!meetingId) {
       return new Response(
@@ -328,13 +324,17 @@ serve(async (req) => {
         await startSarvamJob(sarvamApiKey, job.job_id);
         console.log("Sarvam job started:", job.job_id);
 
+        // MERGE, never overwrite: processing_config carries the Recall speaker
+        // timeline, participant list and chunk metadata written by
+        // recall-pipeline. A blind overwrite here silently destroys speaker-name
+        // resolution and chunk stitching for the meeting.
         await supabase
           .from("meetings")
           .update({
             sarvam_job_id: job.job_id,
             processing_config: {
-              slackDestination: slackDestination || null,
-              sendEmail: sendEmail || false,
+              ...(meeting.processing_config || {}),
+              sendEmail: sendEmail ?? meeting.processing_config?.sendEmail ?? false,
               audio_file_name: fileName,
             },
           })
@@ -369,7 +369,6 @@ serve(async (req) => {
       supabase,
       meeting,
       meetingId,
-      slackDestination,
       sendEmail,
       supabaseUrl,
       supabaseServiceKey,

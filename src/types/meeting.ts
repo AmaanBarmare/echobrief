@@ -109,9 +109,6 @@ export interface Profile {
   email?: string;
   avatar_url?: string;
   google_calendar_connected: boolean;
-  slack_connected: boolean;
-  slack_channel_id?: string;
-  slack_channel_name?: string;
   auto_join_enabled?: boolean;
   notetaker_name?: string;
   pre_meeting_notification_minutes?: number;

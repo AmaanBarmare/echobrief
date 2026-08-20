@@ -226,14 +226,9 @@ function getEmailTemplate(template: string, userEmail: string): string {
 <p style="margin:0;font-size:14px;color:#4a4a68;">Meetings in Hindi, Tamil, or Hinglish? EchoBrief handles 22 Indian languages.</p>
 </div>
 
-<div style="margin:0 0 16px;padding:16px;background:#f8f8fa;border-radius:8px;">
+<div style="margin:0 0 24px;padding:16px;background:#f8f8fa;border-radius:8px;">
 <p style="margin:0 0 4px;font-size:14px;font-weight:600;color:#1a1a2e;">✅ Action item tracking</p>
 <p style="margin:0;font-size:14px;color:#4a4a68;">Every summary includes action items with owners. No more "who was supposed to do that?"</p>
-</div>
-
-<div style="margin:0 0 24px;padding:16px;background:#f8f8fa;border-radius:8px;">
-<p style="margin:0 0 4px;font-size:14px;font-weight:600;color:#1a1a2e;">💬 Slack delivery (coming soon)</p>
-<p style="margin:0;font-size:14px;color:#4a4a68;">Get summaries posted directly to your Slack channel.</p>
 </div>
 
 <table cellpadding="0" cellspacing="0" style="margin:0 0 24px;"><tr><td style="background:linear-gradient(135deg,#F97316,#F59E0B);border-radius:8px;padding:14px 32px;">

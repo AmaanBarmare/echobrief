@@ -125,7 +125,7 @@ export default function Auth() {
   const bullets = [
     '22 Indian languages',
     'Auto-join Meet, Zoom & Teams',
-    'Delivered to Slack, WhatsApp, email',
+    'Delivered to WhatsApp and email',
   ];
 
   return (
@@ -171,7 +171,7 @@ export default function Auth() {
             style={{ color: 'var(--ink-mid)' }}
           >
             Auto-join your calls, transcribe accurately in 22 Indian languages,
-            and deliver clear summaries to Slack, WhatsApp, or email.
+            and deliver clear summaries to WhatsApp or email.
           </p>
 
           <ul className="mt-8 space-y-3">

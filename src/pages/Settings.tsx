@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Loader2, Lock, Mail, Bell, LogOut, X, Trash2, Calendar, MessageCircle } from 'lucide-react';
+import { Loader2, Lock, Mail, Bell, LogOut, X, Trash2, Calendar, FileText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { displayNameFromUserMetadata } from '@/lib/userDisplayName';
 
@@ -15,10 +15,7 @@ interface Profile {
   full_name: string | null;
   email: string | null;
   google_calendar_connected: boolean;
-  slack_connected: boolean;
-  slack_channel_id: string | null;
-  slack_channel_name: string | null;
-  auto_join_meetings: boolean;
+  email_summaries_enabled: boolean | null;
   recording_preference: 'audio_only' | 'audio_video';
 }
 
@@ -61,9 +58,8 @@ export default function Settings() {
 
   // Integrations
   const [connectingGoogle, setConnectingGoogle] = useState(false);
-  const [connectingSlack, setConnectingSlack] = useState(false);
-  const [slackChannelId, setSlackChannelId] = useState('');
-  const [slackChannelName, setSlackChannelName] = useState('');
+  const [connectingNotion, setConnectingNotion] = useState(false);
+  const [savingEmailPref, setSavingEmailPref] = useState(false);
   const [googleCalendars, setGoogleCalendars] = useState<GoogleCalendar[]>([]);
 
   // Delete account
@@ -108,8 +104,6 @@ export default function Settings() {
             .update({ full_name: resolvedName })
             .eq('user_id', user.id);
         }
-        setSlackChannelId(profileData.slack_channel_id || '');
-        setSlackChannelName(profileData.slack_channel_name || '');
       } else {
         setProfile(null);
         setFullName(fromAuthMeta);
@@ -324,28 +318,55 @@ export default function Settings() {
     }
   }, [user]);
 
-  const handleConnectSlack = async () => {
-    if (!user || !slackChannelId.trim()) return;
-    setConnectingSlack(true);
+  const handleConnectNotion = async () => {
+    if (!session?.access_token) {
+      toast({ title: 'Error', description: 'Please sign in to connect Notion', variant: 'destructive' });
+      return;
+    }
+    setConnectingNotion(true);
+    try {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/notion-oauth-start`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ returnTo: '/settings?tab=integrations', origin: window.location.origin }),
+      });
+
+      const data = await response.json();
+      if (data.error) throw new Error(data.message || data.error);
+      if (!data.authUrl) throw new Error('Notion did not return an authorization URL');
+      window.location.href = data.authUrl;
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      setConnectingNotion(false);
+    }
+  };
+
+  // Backs deliverResults() in supabase/functions/_shared/insights.ts, which
+  // treats a missing/true value as "send the summary".
+  const handleToggleEmailSummaries = async (enabled: boolean) => {
+    if (!user) return;
+    setSavingEmailPref(true);
     try {
       const { error } = await supabase
         .from('profiles')
-        .update({
-          slack_connected: true,
-          slack_channel_id: slackChannelId.trim(),
-          slack_channel_name: slackChannelName.trim() || slackChannelId.trim(),
-        })
+        .update({ email_summaries_enabled: enabled })
         .eq('user_id', user.id);
 
       if (error) throw error;
-      setProfile(prev => prev ? { ...prev, slack_connected: true, slack_channel_id: slackChannelId, slack_channel_name: slackChannelName } : null);
-      toast({ title: 'Connected!', description: 'Slack integration is now active.' });
-      setSlackChannelId('');
-      setSlackChannelName('');
+      setProfile(prev => (prev ? { ...prev, email_summaries_enabled: enabled } : null));
+      toast({
+        title: enabled ? 'Email summaries on' : 'Email summaries off',
+        description: enabled
+          ? 'You will get a summary email when a meeting finishes processing.'
+          : 'Meeting summaries will no longer be emailed to you.',
+      });
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } finally {
-      setConnectingSlack(false);
+      setSavingEmailPref(false);
     }
   };
 
@@ -559,56 +580,53 @@ export default function Settings() {
               )}
             </div>
 
-            {/* Slack */}
+            {/* Email summaries */}
             <div className="rounded-2xl border border-border bg-card p-6 text-card-foreground shadow-sm">
-              <div className="mb-4 flex items-center gap-3">
-                <MessageCircle size={32} className="shrink-0 text-[#E01E5A]" />
-                <h3 className="text-[15px] font-semibold text-foreground">Slack</h3>
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex flex-1 items-center gap-3">
+                  <Mail size={32} className="shrink-0 text-orange-500" />
+                  <div>
+                    <h3 className="mb-1 text-[15px] font-semibold text-foreground">Email summaries</h3>
+                    <p className="text-[13px] text-muted-foreground">
+                      Get the summary, decisions and action items in your inbox when a meeting finishes processing.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => handleToggleEmailSummaries(profile?.email_summaries_enabled === false)}
+                  disabled={savingEmailPref}
+                  className="border-border"
+                >
+                  {savingEmailPref ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  {profile?.email_summaries_enabled === false ? 'Turn on' : 'Turn off'}
+                </Button>
               </div>
-              {!profile?.slack_connected ? (
-                <div className="flex flex-col gap-3">
-                  <div>
-                    <label className="mb-2 block text-[13px] font-medium text-foreground">Slack Channel ID</label>
-                    <Input
-                      value={slackChannelId}
-                      onChange={(e) => setSlackChannelId(e.target.value)}
-                      placeholder="e.g., C0123456789"
-                      className="border-border bg-background text-foreground"
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-2 block text-[13px] font-medium text-foreground">Channel Name (optional)</label>
-                    <Input
-                      value={slackChannelName}
-                      onChange={(e) => setSlackChannelName(e.target.value)}
-                      placeholder="e.g., #meetings"
-                      className="border-border bg-background text-foreground"
-                    />
-                  </div>
-                  <Button
-                    onClick={handleConnectSlack}
-                    disabled={connectingSlack || !slackChannelId.trim()}
-                    className="bg-orange-500 text-white hover:bg-orange-600"
-                  >
-                    {connectingSlack ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    Connect
-                  </Button>
-                </div>
-              ) : (
-                <div>
-                  <p className="mb-3 text-[13px] text-green-600 dark:text-green-400">
-                    ✓ Connected to {profile.slack_channel_name || profile.slack_channel_id}
-                  </p>
-                  <Button
-                    variant="outline"
-                    onClick={() => setProfile(prev => (prev ? { ...prev, slack_connected: false } : null))}
-                    className="border-border text-muted-foreground hover:bg-muted"
-                  >
-                    Disconnect
-                  </Button>
-                </div>
-              )}
             </div>
+
+            {/* Notion */}
+            <div className="rounded-2xl border border-border bg-card p-6 text-card-foreground shadow-sm">
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex flex-1 items-center gap-3">
+                  <FileText size={32} className="shrink-0 text-foreground" />
+                  <div>
+                    <h3 className="mb-1 text-[15px] font-semibold text-foreground">Notion</h3>
+                    <p className="text-[13px] text-muted-foreground">
+                      Push meeting summaries and action items into a Notion workspace.
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  onClick={handleConnectNotion}
+                  disabled={connectingNotion}
+                  className="bg-orange-500 text-white hover:bg-orange-600"
+                >
+                  {connectingNotion ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Connect
+                </Button>
+              </div>
+            </div>
+
           </div>
         )}
 

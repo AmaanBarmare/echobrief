@@ -29,7 +29,7 @@ export default function Docs() {
       icon: <Zap size={24} />,
       items: [
         { name: '22 Indian Languages', id: 'languages' },
-        { name: 'Email & Slack Integration', id: 'integrations' },
+        { name: 'Integrations', id: 'integrations' },
         { name: 'Scheduled Digests', id: 'digests' },
         { name: 'Transcript Storage', id: 'transcripts' },
         { name: 'Delivery History', id: 'history' },
@@ -98,7 +98,7 @@ export default function Docs() {
             <section id="what-is">
               <h2>What is EchoBrief?</h2>
               <p>
-                EchoBrief is an AI-powered meeting intelligence platform built for India. It automatically records, transcribes, and analyzes your meetings in 22 Indian languages, then delivers actionable summaries via email, Slack, or WhatsApp.
+                EchoBrief is an AI-powered meeting intelligence platform built for India. It automatically records, transcribes, and analyzes your meetings in 22 Indian languages, then delivers actionable summaries via email or WhatsApp.
               </p>
               <p>
                 Whether you're in a sales call, team standup, or client meeting, EchoBrief captures the important details so you don't have to.
@@ -141,7 +141,6 @@ export default function Docs() {
               <h2>Delivery Options</h2>
               <ul>
                 <li><strong>Email</strong>: HTML-formatted reports with summary, key points, decisions, and action items</li>
-                <li><strong>Slack</strong>: Thread-based summaries in your chosen Slack channel</li>
                 <li><strong>WhatsApp</strong>: Text-based reports delivered to your WhatsApp number</li>
                 <li><strong>Dashboard</strong>: View all reports in one place with full search & filters</li>
               </ul>

@@ -1,9 +1,6 @@
-project_id = "qjhysesjocanowmdkeme"
+project_id = "lekkpfpojlspbuwrtmzt"
 
 [functions.process-meeting]
-verify_jwt = false
-
-[functions.send-slack-message]
 verify_jwt = false
 
 [functions.sync-google-calendar]
@@ -22,9 +19,6 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.disconnect-google]
-verify_jwt = false
-
-[functions.test-slack-connection]
 verify_jwt = false
 
 [functions.notion-oauth-start]

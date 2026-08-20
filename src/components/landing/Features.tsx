@@ -34,7 +34,7 @@ const features = [
   {
     icon: MessageSquare,
     title: 'Delivered where you work',
-    body: 'Summaries arrive in Slack, WhatsApp, or email, with per-language routing when you need it.',
+    body: 'Summaries arrive on WhatsApp or email, with per-language routing when you need it.',
   },
   {
     icon: Shield,

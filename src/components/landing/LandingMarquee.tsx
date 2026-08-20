@@ -3,7 +3,7 @@ const phrases = [
   '22 Indian languages',
   'Accurate speaker names',
   'Clear action items',
-  'Slack · WhatsApp · Email',
+  'WhatsApp · Email · Calendar',
   'Data stays in India',
 ];
 

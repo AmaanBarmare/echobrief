@@ -281,97 +281,116 @@ export type Database = {
         }
         Relationships: []
       }
+      calendar_events: {
+        Row: {
+          attendees: Json | null
+          calendar_id: string
+          created_at: string | null
+          description: string | null
+          end_time: string | null
+          event_id: string
+          id: string
+          is_recurring: boolean | null
+          location: string | null
+          meeting_link: string | null
+          organizer_email: string | null
+          organizer_name: string | null
+          raw_data: Json | null
+          start_time: string
+          sync_status: string | null
+          title: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          attendees?: Json | null
+          calendar_id: string
+          created_at?: string | null
+          description?: string | null
+          end_time?: string | null
+          event_id: string
+          id?: string
+          is_recurring?: boolean | null
+          location?: string | null
+          meeting_link?: string | null
+          organizer_email?: string | null
+          organizer_name?: string | null
+          raw_data?: Json | null
+          start_time: string
+          sync_status?: string | null
+          title: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          attendees?: Json | null
+          calendar_id?: string
+          created_at?: string | null
+          description?: string | null
+          end_time?: string | null
+          event_id?: string
+          id?: string
+          is_recurring?: boolean | null
+          location?: string | null
+          meeting_link?: string | null
+          organizer_email?: string | null
+          organizer_name?: string | null
+          raw_data?: Json | null
+          start_time?: string
+          sync_status?: string | null
+          title?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           auto_join_enabled: boolean | null
           avatar_url: string | null
+          bot_color: string | null
           created_at: string
           email: string | null
+          email_summaries_enabled: boolean | null
           full_name: string | null
           google_calendar_connected: boolean | null
           id: string
           notetaker_name: string | null
           pre_meeting_notification_minutes: number | null
-          slack_channel_id: string | null
-          slack_channel_name: string | null
-          slack_connected: boolean | null
           updated_at: string
           user_id: string
         }
         Insert: {
           auto_join_enabled?: boolean | null
           avatar_url?: string | null
+          bot_color?: string | null
           created_at?: string
           email?: string | null
+          email_summaries_enabled?: boolean | null
           full_name?: string | null
           google_calendar_connected?: boolean | null
           id?: string
           notetaker_name?: string | null
           pre_meeting_notification_minutes?: number | null
-          slack_channel_id?: string | null
-          slack_channel_name?: string | null
-          slack_connected?: boolean | null
           updated_at?: string
           user_id: string
         }
         Update: {
           auto_join_enabled?: boolean | null
           avatar_url?: string | null
+          bot_color?: string | null
           created_at?: string
           email?: string | null
+          email_summaries_enabled?: boolean | null
           full_name?: string | null
           google_calendar_connected?: boolean | null
           id?: string
           notetaker_name?: string | null
           pre_meeting_notification_minutes?: number | null
-          slack_channel_id?: string | null
-          slack_channel_name?: string | null
-          slack_connected?: boolean | null
           updated_at?: string
           user_id?: string
         }
         Relationships: []
-      }
-      slack_messages: {
-        Row: {
-          channel_id: string
-          created_at: string
-          error_message: string | null
-          id: string
-          meeting_id: string
-          message_ts: string | null
-          sent_at: string | null
-          status: string | null
-        }
-        Insert: {
-          channel_id: string
-          created_at?: string
-          error_message?: string | null
-          id?: string
-          meeting_id: string
-          message_ts?: string | null
-          sent_at?: string | null
-          status?: string | null
-        }
-        Update: {
-          channel_id?: string
-          created_at?: string
-          error_message?: string | null
-          id?: string
-          meeting_id?: string
-          message_ts?: string | null
-          sent_at?: string | null
-          status?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "slack_messages_meeting_id_fkey"
-            columns: ["meeting_id"]
-            isOneToOne: false
-            referencedRelation: "meetings"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       transcripts: {
         Row: {

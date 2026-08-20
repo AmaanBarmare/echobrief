@@ -471,8 +471,6 @@ export async function processRecallAudio(
         source: "recall",
         recall_bot_id: botId,
         audio_file_name: fileName,
-        slackDestination:
-          meeting.processing_config?.slackDestination || null,
         sendEmail: meeting.processing_config?.sendEmail || false,
         recall_speaker_timeline:
           recallSpeakerTimeline.length > 0 ? recallSpeakerTimeline : null,

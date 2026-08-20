@@ -13,7 +13,7 @@ const lines: Line[] = [
     time: '01:24',
     initials: 'PK',
     name: 'PRIYA K.',
-    text: 'हम इस quarter में तीन priorities पर focus करेंगे. Sarvam pipeline पहले, फिर Slack rollout.',
+    text: 'हम इस quarter में तीन priorities पर focus करेंगे. Sarvam pipeline पहले, फिर pricing rollout.',
     accent: 'ember',
   },
   {

@@ -78,7 +78,7 @@ export function Hero() {
           >
             EchoBrief joins your Meet, Zoom, and Teams calls, transcribes
             Hindi, Tamil, and Hinglish the way your team actually speaks,
-            and delivers summaries to Slack, WhatsApp, or email automatically.
+            and delivers summaries to WhatsApp or email automatically.
           </motion.p>
 
           <motion.div

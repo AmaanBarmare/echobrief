@@ -30,7 +30,10 @@ interface PrefillMeeting {
 
 function statusConfig(status: string) {
   switch (status) {
+    case 'joining': return { label: 'Joining', color: 'hsl(var(--warning))', tint: 'color-mix(in oklch, hsl(var(--warning)) 14%, transparent)' };
+    case 'in_call': return { label: 'In call', color: 'hsl(var(--warning))', tint: 'color-mix(in oklch, hsl(var(--warning)) 14%, transparent)' };
     case 'recording': return { label: 'Recording', color: 'var(--ember)', tint: 'color-mix(in oklch, var(--ember) 12%, transparent)' };
+    case 'transcribing': return { label: 'Transcribing', color: 'hsl(var(--warning))', tint: 'color-mix(in oklch, hsl(var(--warning)) 14%, transparent)' };
     case 'processing': return { label: 'Processing', color: 'hsl(var(--warning))', tint: 'color-mix(in oklch, hsl(var(--warning)) 14%, transparent)' };
     case 'completed': return { label: 'Completed', color: 'hsl(var(--success))', tint: 'color-mix(in oklch, hsl(var(--success)) 14%, transparent)' };
     case 'failed': return { label: 'Failed', color: 'hsl(var(--destructive))', tint: 'color-mix(in oklch, hsl(var(--destructive)) 12%, transparent)' };
@@ -213,7 +216,6 @@ export default function Dashboard() {
       // Remove child rows first (mirrors the single-meeting delete).
       await supabase.from('meeting_insights').delete().in('meeting_id', ids);
       await supabase.from('transcripts').delete().in('meeting_id', ids);
-      await supabase.from('slack_messages').delete().in('meeting_id', ids);
       const audioPaths = (targets ?? [])
         .map((m) => m.audio_url)
         .filter((p): p is string => !!p);

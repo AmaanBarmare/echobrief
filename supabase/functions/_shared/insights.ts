@@ -277,168 +277,27 @@ export async function deliverResults(
   meeting: Record<string, any>,
   insights: Record<string, any>,
   config: {
-    slackDestination?: any;
     sendEmail?: boolean;
     supabaseUrl: string;
     supabaseServiceKey: string;
   },
 ) {
-  const slackToken = Deno.env.get("SLACK_BOT_TOKEN");
-  let slackSent = false;
   let emailSent = false;
-
-  const attendeesList = (meeting.attendees || [])
-    .map((a: any) => a.displayName || a.email)
-    .filter(Boolean);
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("slack_connected, slack_channel_id")
+    .select("email_summaries_enabled")
     .eq("user_id", meeting.user_id)
     .single();
 
-  let targetChannelId = null;
-  if (config.slackDestination) {
-    if (config.slackDestination.type === "dm") {
-      targetChannelId = profile?.slack_channel_id;
-    } else {
-      targetChannelId = config.slackDestination.channelId;
-    }
-  } else if (profile?.slack_connected && profile?.slack_channel_id) {
-    targetChannelId = profile.slack_channel_id;
-  }
+  // Deliver by email when the caller explicitly asked for it, or when the user
+  // has email summaries enabled (the default). Nothing in the bot pipeline sets
+  // `sendEmail`, so without this profile fallback no bot-recorded meeting would
+  // ever be emailed — despite onboarding promising exactly that.
+  const emailEnabled =
+    config.sendEmail === true || profile?.email_summaries_enabled !== false;
 
-  if (slackToken && targetChannelId) {
-    try {
-      const endTime = new Date();
-      const startTime = new Date(meeting.start_time);
-      const durationSeconds = Math.floor(
-        (endTime.getTime() - startTime.getTime()) / 1000,
-      );
-      const durationMinutes = Math.round(durationSeconds / 60);
-
-      const actionItems =
-        (insights.action_items || [])
-          .map((item: any) => {
-            const owner = item.owner ? ` → ${item.owner}` : "";
-            const confidence = item.confidence ? ` [${item.confidence}]` : "";
-            return `• ${item.task}${owner}${confidence}`;
-          })
-          .join("\n") || "None identified";
-
-      const decisions =
-        (insights.decisions || []).map((d: string) => `• ${d}`).join("\n") ||
-        "None identified";
-
-      const strategicInsights =
-        (insights.strategic_insights || [])
-          .slice(0, 3)
-          .map((s: any) => `• ${s.insight}`)
-          .join("\n") || "None identified";
-
-      const risksAndQuestions =
-        [
-          ...(insights.risks || []).map((r: string) => `⚠️ ${r}`),
-          ...(insights.open_questions || []).map((q: string) => `❓ ${q}`),
-        ]
-          .slice(0, 4)
-          .join("\n") || "None identified";
-
-      const participantsList =
-        attendeesList.length > 0
-          ? `*Participants:* ${attendeesList.join(", ")}\n`
-          : "";
-
-      const blocks = [
-        {
-          type: "header",
-          text: {
-            type: "plain_text",
-            text: `📋 ${meeting.title}`,
-            emoji: true,
-          },
-        },
-        {
-          type: "context",
-          elements: [
-            {
-              type: "mrkdwn",
-              text: `📅 ${new Date(meeting.start_time).toLocaleDateString()} • ⏱️ ${durationMinutes} min${participantsList ? ` • 👥 ${attendeesList.length} participants` : ""}`,
-            },
-          ],
-        },
-        { type: "divider" },
-        {
-          type: "section",
-          text: {
-            type: "mrkdwn",
-            text: `*📝 Executive Summary*\n${insights.summary_short || "No summary available"}`,
-          },
-        },
-        {
-          type: "section",
-          text: {
-            type: "mrkdwn",
-            text: `*🧠 Strategic Insights*\n${strategicInsights}`,
-          },
-        },
-        {
-          type: "section",
-          text: {
-            type: "mrkdwn",
-            text: `*✅ Action Items*\n${actionItems}`,
-          },
-        },
-        {
-          type: "section",
-          text: {
-            type: "mrkdwn",
-            text: `*📋 Decisions*\n${decisions}`,
-          },
-        },
-        {
-          type: "section",
-          text: {
-            type: "mrkdwn",
-            text: `*⚠️ Risks & Open Questions*\n${risksAndQuestions}`,
-          },
-        },
-      ];
-
-      const slackResponse = await fetch(
-        "https://slack.com/api/chat.postMessage",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${slackToken}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            channel: targetChannelId,
-            blocks,
-            text: `Meeting Summary: ${meeting.title}`,
-          }),
-        },
-      );
-
-      const slackResult = await slackResponse.json();
-      console.log("Slack API response:", JSON.stringify(slackResult));
-      slackSent = slackResult.ok;
-
-      await supabase.from("slack_messages").insert({
-        meeting_id: meeting.id,
-        channel_id: targetChannelId,
-        status: slackResult.ok ? "sent" : "failed",
-        message_ts: slackResult.ts || null,
-        sent_at: slackResult.ok ? new Date().toISOString() : null,
-        error_message: slackResult.ok ? null : slackResult.error,
-      });
-    } catch (slackError) {
-      console.error("Slack notification error:", slackError);
-    }
-  }
-
-  if (config.sendEmail) {
+  if (emailEnabled) {
     try {
       const emailUrl = `${config.supabaseUrl}/functions/v1/send-meeting-email`;
       const emailResponse = await fetch(emailUrl, {
@@ -458,5 +317,5 @@ export async function deliverResults(
     }
   }
 
-  return { slackSent, emailSent };
+  return { emailSent };
 }

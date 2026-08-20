@@ -20,7 +20,7 @@ npm run functions:serve  # Serve Supabase Edge Functions locally (needs supabase
 ## Architecture
 
 ### Recording Flow
-**Dashboard (bot-only):** User enters a meeting URL → `start-recall-recording` creates a Recall bot (with real-time transcription enabled via `recallai_streaming`) → bot joins and records → `recall-webhook` receives `audio_mixed.done` event → audio downloaded from Recall + Recall transcript fetched (via `media_shortcuts.transcript` download URL) for real participant names → audio routed through the **Vercel `api/split-audio` function**, which ffmpeg-splits long audio into 300 s re-encoded chunks and submits them as ONE multi-file Sarvam job in translate mode (async, webhook callback); falls back to direct single-file Sarvam submission if the splitter is unavailable → `sarvam-webhook` receives the callback. **Chunking exists because Sarvam's saaras:v3 silently returns EMPTY transcripts for long audio (duration-triggered server bug, confirmed 2026-06-09: 47 min fails, 5–6 min chunks of the same file succeed; chunks must be re-encoded — stream-copy is rejected).** For chunked jobs the webhook downloads outputs `0.json..N.json` in order and stitches them, offsetting timestamps by `chunk_index × chunk_seconds`. If Sarvam returns a usable transcript, `sarvam-webhook` maps speakers (single-participant fast path or per-segment time-overlap with nearest-neighbor fallback against Recall's speaker timeline). **If Sarvam returns a download error, an empty transcript, or the well-known `KeyError: 'timestamps'` server bug, `sarvam-webhook` automatically falls back to Whisper via `process-meeting` with `forceWhisper: true`.** GPT-4o-mini generates insights → saves to DB → optionally delivers to Slack/email.
+**Dashboard (bot-only):** User enters a meeting URL → `start-recall-recording` creates a Recall bot (with real-time transcription enabled via `recallai_streaming`) → bot joins and records → `recall-webhook` receives `audio_mixed.done` event → audio downloaded from Recall + Recall transcript fetched (via `media_shortcuts.transcript` download URL) for real participant names → audio routed through the **Vercel `api/split-audio` function**, which ffmpeg-splits long audio into 300 s re-encoded chunks and submits them as ONE multi-file Sarvam job in translate mode (async, webhook callback); falls back to direct single-file Sarvam submission if the splitter is unavailable → `sarvam-webhook` receives the callback. **Chunking exists because Sarvam's saaras:v3 silently returns EMPTY transcripts for long audio (duration-triggered server bug, confirmed 2026-06-09: 47 min fails, 5–6 min chunks of the same file succeed; chunks must be re-encoded — stream-copy is rejected).** For chunked jobs the webhook downloads outputs `0.json..N.json` in order and stitches them, offsetting timestamps by `chunk_index × chunk_seconds`. If Sarvam returns a usable transcript, `sarvam-webhook` maps speakers (single-participant fast path or per-segment time-overlap with nearest-neighbor fallback against Recall's speaker timeline). **If Sarvam returns a download error, an empty transcript, or the well-known `KeyError: 'timestamps'` server bug, `sarvam-webhook` automatically falls back to Whisper via `process-meeting` with `forceWhisper: true`.** GPT-4o-mini generates insights → saves to DB → optionally delivers via email.
 
 **`bot.done` race-safety:** When `bot.done` arrives but `sarvam_job_id` is not yet written (because `audio_mixed.done` is still mid-flight), the handler queries Recall's `/audio_mixed/` endpoint directly for the actual audio status. Only `failed` / `missing` mark the meeting failed — `done`, `processing`, and `unknown` defer to the audio_mixed handler.
 
@@ -65,7 +65,7 @@ PostgreSQL with Row-Level Security. Key tables:
 - `monitor_events` -- audit trail of every stuck-meeting detection from the monitor cron. Deduped via a generated `hour_bucket` column (one row per meeting+signature+hour). See `errors.md` for signature reference.
 - `profiles` -- user settings, integration flags
 - `user_oauth_tokens` -- Google OAuth tokens
-- `notion_connections`, `slack_messages`, `meeting_notifications`, `action_item_completions`
+- `notion_connections`, `meeting_notifications`, `action_item_completions`
 
 All user-scoped tables enforce `auth.uid() = user_id` RLS policies. `monitor_events` is service-role-only.
 
@@ -82,7 +82,7 @@ Migrations are in `supabase/migrations/`. Recent additions worth knowing about:
 - **Frontend:** React 18, TypeScript, Vite, Tailwind CSS, shadcn/ui, React Router v6, TanStack Query, Framer Motion
 - **Backend:** Supabase (PostgreSQL, Auth, Storage, Edge Functions on Deno)
 - **AI:** Sarvam AI (STT in translate mode — outputs English from any language), OpenAI Whisper (fallback STT), GPT-4o-mini (insights)
-- **Integrations:** Google Calendar OAuth, Slack API, Notion OAuth, email delivery
+- **Integrations:** Google Calendar OAuth, Notion OAuth, email delivery
 - **Hosting:** Vercel (frontend), Supabase (backend)
 
 ## UI Component Library
@@ -109,7 +109,6 @@ See `BRAND.md` for colors (orange/amber gradient primary, stone neutrals), typog
 - `SPLIT_AUDIO_URL` -- URL of the Vercel split-audio function (`https://www.echobrief.in/api/split-audio`); if unset, recall-pipeline falls back to direct single-file Sarvam submission
 - `SPLIT_AUDIO_SECRET` -- Bearer secret for the split-audio function (must match the Vercel env var of the same name)
 - Google OAuth client ID/secret
-- Slack app credentials
 
 **Vercel (api/ functions — set in the Vercel dashboard of the account that owns echobrief.in; deploys happen via GitHub auto-deploy on push, NOT the CLI):**
 - `SARVAM_API_KEY` -- split-audio submits chunks to Sarvam directly

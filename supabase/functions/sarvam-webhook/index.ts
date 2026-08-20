@@ -69,9 +69,15 @@ serve(async (req) => {
       return new Response("Meeting not found", { status: 404 });
     }
 
-    // Idempotency guard: if meeting is already completed, failed, or being transcribed
-    // by Whisper, skip processing. This prevents cascade re-triggers.
-    if (meeting.status === "completed" || meeting.status === "failed" || meeting.status === "transcribing") {
+    // Idempotency guard: if the meeting already reached a terminal state
+    // (completed / failed / cancelled) or is being transcribed by Whisper,
+    // skip processing. This prevents cascade re-triggers.
+    if (
+      meeting.status === "completed" ||
+      meeting.status === "failed" ||
+      meeting.status === "cancelled" ||
+      meeting.status === "transcribing"
+    ) {
       console.log(`[sarvam-webhook] Meeting ${meeting.id} already ${meeting.status}, skipping`);
       return new Response(JSON.stringify({ success: true, skipped: true, reason: `already_${meeting.status}` }), {
         status: 200,
@@ -358,7 +364,6 @@ serve(async (req) => {
             },
             body: JSON.stringify({
               meetingId: meeting.id,
-              slackDestination: config.slackDestination,
               sendEmail: config.sendEmail,
               forceWhisper: true,
             }),
@@ -434,7 +439,6 @@ serve(async (req) => {
         .eq("id", meeting.id);
 
       await deliverResults(supabase, meeting, insights, {
-        slackDestination: config.slackDestination,
         sendEmail: config.sendEmail,
         supabaseUrl,
         supabaseServiceKey,
@@ -460,7 +464,6 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             meetingId: meeting.id,
-            slackDestination: config.slackDestination,
             sendEmail: config.sendEmail,
             forceWhisper: true,
           }),

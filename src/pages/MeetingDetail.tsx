@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
-import { SlackDeliverySelector } from '@/components/dashboard/SlackDeliverySelector';
 import { WhatsAppDeliverySelector } from '@/components/dashboard/WhatsAppDeliverySelector';
 import { EmailReportSelector } from '@/components/dashboard/EmailReportSelector';
 import { supabase } from '@/integrations/supabase/client';
@@ -22,7 +21,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { 
-  ArrowLeft, Calendar, Clock, Loader2, ChevronRight, Trash2, Users, Send, 
+  ArrowLeft, Calendar, Clock, Loader2, ChevronRight, Trash2, Users, 
   Lightbulb, AlertTriangle, HelpCircle, RefreshCw, Zap, CheckCircle2, 
   FileText, Globe, MessageCircle, Mail, Languages, Bot
 } from 'lucide-react';
@@ -52,17 +51,22 @@ interface MeetingDetailData {
   transcript: Transcript | null;
   speakerSegments: SpeakerSegment[];
   insights: MeetingInsights | null;
-  slackChannelId?: string;
-  slackChannelName?: string;
   emailMessages: any[];
-  slackMessages: any[];
 }
+
+// Non-terminal pipeline statuses. The backend moves a meeting through
+// joining -> in_call -> recording -> processing -> (transcribing) -> completed,
+// so anything in this list means "still working", not "never started".
+const IN_PROGRESS_STATUSES = ['joining', 'in_call', 'recording', 'processing', 'transcribing'];
 
 // ─── Clean modern badges ───
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { color: string; tint: string; label: string }> = {
     completed: { color: 'hsl(var(--success))', tint: 'color-mix(in oklch, hsl(var(--success)) 14%, transparent)', label: 'Completed' },
     processing: { color: 'hsl(var(--warning))', tint: 'color-mix(in oklch, hsl(var(--warning)) 14%, transparent)', label: 'Processing' },
+    joining: { color: 'hsl(var(--warning))', tint: 'color-mix(in oklch, hsl(var(--warning)) 14%, transparent)', label: 'Joining' },
+    in_call: { color: 'hsl(var(--warning))', tint: 'color-mix(in oklch, hsl(var(--warning)) 14%, transparent)', label: 'In call' },
+    transcribing: { color: 'hsl(var(--warning))', tint: 'color-mix(in oklch, hsl(var(--warning)) 14%, transparent)', label: 'Transcribing' },
     recording: { color: 'var(--ember)', tint: 'color-mix(in oklch, var(--ember) 12%, transparent)', label: 'Recording' },
     failed: { color: 'hsl(var(--destructive))', tint: 'color-mix(in oklch, hsl(var(--destructive)) 12%, transparent)', label: 'Failed' },
     cancelled: { color: 'hsl(var(--destructive))', tint: 'color-mix(in oklch, hsl(var(--destructive)) 12%, transparent)', label: 'Cancelled' },
@@ -140,7 +144,6 @@ export default function MeetingDetail() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [deleting, setDeleting] = useState(false);
-  const [slackDialogOpen, setSlackDialogOpen] = useState(false);
   const [whatsappDialogOpen, setWhatsappDialogOpen] = useState(false);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('summary');
@@ -223,20 +226,8 @@ export default function MeetingDetail() {
         } as MeetingInsights;
       }
 
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('slack_channel_id, slack_channel_name')
-        .eq('user_id', user!.id)
-        .single();
-
       const { data: emailMsgs } = await supabase
         .from('email_messages')
-        .select('*')
-        .eq('meeting_id', id!)
-        .order('created_at', { ascending: false });
-
-      const { data: slackMsgs } = await supabase
-        .from('slack_messages')
         .select('*')
         .eq('meeting_id', id!)
         .order('created_at', { ascending: false });
@@ -247,10 +238,7 @@ export default function MeetingDetail() {
         transcript,
         speakerSegments,
         insights,
-        slackChannelId: profile?.slack_channel_id || undefined,
-        slackChannelName: profile?.slack_channel_name || undefined,
         emailMessages: emailMsgs ?? [],
-        slackMessages: slackMsgs ?? [],
       };
     },
   });
@@ -260,10 +248,7 @@ export default function MeetingDetail() {
   const transcript = data?.transcript ?? null;
   const speakerSegments = data?.speakerSegments ?? [];
   const insights = data?.insights ?? null;
-  const slackChannelId = data?.slackChannelId;
-  const slackChannelName = data?.slackChannelName;
   const emailMessages = data?.emailMessages ?? [];
-  const slackMessages = data?.slackMessages ?? [];
 
   // Listen for status updates via Supabase Realtime + a single backend
   // fallback call instead of hammering check-recall-status every 5 seconds.
@@ -325,7 +310,6 @@ export default function MeetingDetail() {
     try {
       await supabase.from('meeting_insights').delete().eq('meeting_id', meeting.id);
       await supabase.from('transcripts').delete().eq('meeting_id', meeting.id);
-      await supabase.from('slack_messages').delete().eq('meeting_id', meeting.id);
       if (meeting.audio_url) {
         await supabase.storage.from('recordings').remove([meeting.audio_url]);
       }
@@ -346,23 +330,6 @@ export default function MeetingDetail() {
     if (name) return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
     if (email) return email.slice(0, 2).toUpperCase();
     return '??';
-  };
-
-  const handleSendToSlack = async (destination: { type: 'dm' | 'channel'; channelId: string; channelName?: string }) => {
-    if (!meeting || !session?.access_token) return;
-    try {
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/process-meeting`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ meetingId: meeting.id, slackDestination: destination }),
-      });
-      const data = await response.json();
-      if (data.slackSent) {
-        toast({ title: 'Sent to Slack', description: `Summary sent to ${destination.channelName || destination.channelId}` });
-      } else throw new Error('Failed to send');
-    } catch (error) {
-      toast({ title: 'Error', description: 'Failed to send summary to Slack', variant: 'destructive' });
-    }
   };
 
   const handleSendToWhatsApp = async (phoneNumber: string) => {
@@ -523,7 +490,6 @@ export default function MeetingDetail() {
             <div className="flex flex-wrap items-center gap-2">
               {insights && (
                 <>
-                  <ShareButton icon={Send} label="Slack" onClick={() => setSlackDialogOpen(true)} />
                   <ShareButton icon={Mail} label="Email" onClick={() => setEmailDialogOpen(true)} />
                   <ShareButton icon={MessageCircle} label="WhatsApp" onClick={() => setWhatsappDialogOpen(true)} />
                 </>
@@ -559,16 +525,6 @@ export default function MeetingDetail() {
             </div>
           </div>
         </div>
-
-        {/* Slack Delivery Selector */}
-        <SlackDeliverySelector
-          open={slackDialogOpen}
-          onOpenChange={setSlackDialogOpen}
-          meetingTitle={meeting.title}
-          defaultChannel={slackChannelId}
-          defaultChannelName={slackChannelName}
-          onSend={handleSendToSlack}
-        />
 
         {/* Email Report Selector */}
         <EmailReportSelector
@@ -965,53 +921,25 @@ export default function MeetingDetail() {
                   </>
                 )}
 
-                {/* Slack Deliveries */}
-                {slackMessages.length > 0 && (
-                  <>
-                    <h3 className="text-[15px] font-semibold text-foreground mb-3 mt-6 flex items-center gap-2" style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.01em' }}>
-                      <Send size={16} style={{ color: 'var(--ember)' }} /> Slack Deliveries
-                    </h3>
-                    {slackMessages.map((msg, i) => (
-                      <ProtoCard key={i} style={{ padding: 16 }}>
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <div className="text-sm font-medium text-foreground">{msg.channel_id}</div>
-                            <div className="mt-1 text-xs text-muted-foreground">
-                              {format(new Date(msg.sent_at || msg.created_at), 'MMM d, yyyy h:mm a')}
-                            </div>
-                            {msg.error_message && (
-                              <div className="mt-1 text-xs text-destructive">
-                                Error: {msg.error_message}
-                              </div>
-                            )}
-                          </div>
-                          <span
-                            className={cn(
-                              'rounded-full px-2.5 py-1 text-[11px] font-semibold',
-                              msg.status === 'sent' ? 'bg-green-500/15 text-green-600 dark:text-green-400' : 'bg-muted text-muted-foreground'
-                            )}
-                          >
-                            {msg.status === 'sent' ? '✓ Sent' : msg.status === 'failed' ? '✗ Failed' : 'Pending'}
-                          </span>
-                        </div>
-                      </ProtoCard>
-                    ))}
-                  </>
-                )}
-
-                {emailMessages.length === 0 && slackMessages.length === 0 && (
+                {emailMessages.length === 0 && (
                   <ProtoCard style={{ textAlign: 'center', padding: 40 }}>
                     <Mail size={32} className="mx-auto mb-3 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">No deliveries yet. Send this report via Email or Slack above.</p>
+                    <p className="text-sm text-muted-foreground">No deliveries yet. Send this report via Email or WhatsApp above.</p>
                   </ProtoCard>
                 )}
               </div>
             )}
           </div>
-        ) : meeting.status === 'processing' ? (
+        ) : IN_PROGRESS_STATUSES.includes(meeting.status) ? (
           <div className="py-16 text-center">
             <Loader2 className="mx-auto mb-4 h-12 w-12 animate-spin text-muted-foreground" />
-            <p className="mb-1 text-base font-medium text-foreground">Processing meeting...</p>
+            <p className="mb-1 text-base font-medium text-foreground">
+              {meeting.status === 'transcribing'
+                ? 'Transcribing meeting...'
+                : meeting.status === 'joining' || meeting.status === 'in_call'
+                  ? 'Bot is joining the meeting...'
+                  : 'Processing meeting...'}
+            </p>
             <p className="mx-auto max-w-sm text-sm text-muted-foreground">
               AI is analyzing your recording. This usually takes a few minutes.
             </p>

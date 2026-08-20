@@ -45,7 +45,7 @@ sequenceDiagram
     Webhook->>Sarvam: download transcript results
     Webhook-->>Webhook: save diarized transcript
     Webhook->>GPT: generate insights
-    Webhook-->>Webhook: deliver Slack/email, mark completed
+    Webhook-->>Webhook: deliver email, mark completed
     Note over Webhook: on Sarvam failure
     Webhook->>Process: fallback to Whisper flow
 ```
@@ -73,7 +73,7 @@ This function currently does everything (lines 1-622). Refactor it into two path
   3. `PUT <presigned_url>` -- upload the audio binary
   4. `POST https://api.sarvam.ai/speech-to-text/job/v1/{job_id}/start` -- kick off processing
 - Save `sarvam_job_id` on the meeting row
-- Store `slackDestination` and `sendEmail` preferences on the meeting row (or a new `meeting_processing_config` JSONB column) so the webhook function knows how to deliver
+- Store the `sendEmail` preference on the meeting row (or a new `meeting_processing_config` JSONB column) so the webhook function knows how to deliver
 - Return immediately (meeting stays in `processing` status)
 
 **Whisper path (existing, fallback):**
@@ -97,7 +97,7 @@ Receives the callback from Sarvam when the batch job completes:
   6. Save to `transcripts` table with `stt_provider: "sarvam"` and `language_detected`
   7. Build speaker-labeled transcript and run GPT-4o-mini insight generation (reuse existing prompt from `process-meeting`, lines 259-370)
   8. Save insights to `meeting_insights` table
-  9. Deliver via Slack/email (reuse existing delivery logic, lines 457-600)
+  9. Deliver via email (reuse existing delivery logic, lines 457-600)
   10. Mark meeting as `completed`
 - If `job_state === "FAILED"`:
   1. Log the error
@@ -119,7 +119,7 @@ Extract the GPT-4o-mini insight generation + delivery logic from `process-meetin
 
 - `generateInsights(openai, meeting, transcript, speakerSegments)` -- runs GPT-4o-mini
 - `saveInsights(supabase, meetingId, insights)` -- saves to `meeting_insights`
-- `deliverResults(supabase, meeting, insights, config)` -- Slack + email delivery
+- `deliverResults(supabase, meeting, insights, config)` -- email delivery
 
 ### 6. Update summarizer prompt
 
@@ -154,4 +154,4 @@ Per Sarvam docs, supported formats are: **WAV, MP3, AAC, FLAC, OGG**. WebM is no
 - Frontend dashboard, meeting detail views, transcript display components
 - `meeting_insights` table schema
 - GPT-4o-mini model choice for summarization
-- Slack/email delivery format
+- email delivery format

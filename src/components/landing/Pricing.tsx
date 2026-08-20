@@ -45,7 +45,7 @@ const tiers: Tier[] = [
     features: [
       '10 meeting-hours / month',
       '₹129/hr overage, capped at +10 hrs',
-      'Slack, email, and Google Calendar',
+      'Email, WhatsApp, and Google Calendar',
       'Full AI insights',
       'Speaker identification',
       '30-day retention',
