@@ -80,7 +80,7 @@ Most meeting tools stop at transcription. EchoBrief goes deeper in both product 
 | **Transcription** | Sarvam batch STT in translate mode (any language → English), OpenAI Whisper fallback, speaker diarization with real name resolution (Recall transcript → per-segment time-overlap matching), timestamp handling, hallucination filtering |
 | **AI Insights** | Executive summary, short summary, action items, decisions, risks, questions, timeline, engagement-style meeting metrics |
 | **Calendar** | Google OAuth, multi-calendar support, calendar event syncing, meeting-link extraction, upcoming meeting views |
-| **Delivery** | Meeting email delivery, scheduled email workflows, digest report generation, WhatsApp report pipeline |
+| **Delivery** | Meeting email delivery, scheduled email workflows, digest report generation |
 | **Dashboard** | Authenticated dashboard, recordings view, meeting detail view, action item tracking, analytics chart, global search, per-meeting and bulk delete (clear all failed / all cancelled, completed untouched), settings |
 | **User Experience** | Protected routes, onboarding, live status updates, responsive interface, animated transitions |
 | **Security** | Supabase Auth, Row Level Security, OAuth state tracking, service-role-only server operations, CORS and rate-limiting helpers |
@@ -233,7 +233,7 @@ echobrief/
 │   │   ├── recall-webhook/         # Recall lifecycle + handoff to transcription
 │   │   ├── google-oauth-*          # OAuth start/callback/redirect flows
 │   │   ├── sync-*                  # Calendar sync entrypoints
-│   │   ├── send-*                  # Email, WhatsApp, scheduled delivery
+│   │   ├── send-*                  # Email and scheduled delivery
 │   │   ├── generate-*              # Digest and meeting insight generation
 │   │   └── _shared/                # CORS, rate limit, Sarvam helpers, insight helpers, Recall pipeline (speaker timeline + audio download)
 │   ├── migrations/                 # Schema evolution and feature rollout history
@@ -292,7 +292,6 @@ meeting_notifications
 | `sync-google-calendar` / `sync-calendars` / `fetch-calendar-events` | Calendar sync and event retrieval utilities |
 | `send-meeting-email` / `send-meeting-summary-email` / `send-email-report` | Email delivery and reporting flows |
 | `generate-digest-report` | Builds weekly/monthly meeting digest reports |
-| `send-whatsapp-report` | WhatsApp-style report delivery pipeline |
 | `generate-meeting-insights` | Insight generation endpoint support |
 | `queue-onboarding-emails` / `send-scheduled-emails` | Lifecycle and scheduled communications |
 

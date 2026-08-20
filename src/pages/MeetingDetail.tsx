@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
-import { WhatsAppDeliverySelector } from '@/components/dashboard/WhatsAppDeliverySelector';
 import { EmailReportSelector } from '@/components/dashboard/EmailReportSelector';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -23,7 +22,7 @@ import {
 import { 
   ArrowLeft, Calendar, Clock, Loader2, ChevronRight, Trash2, Users, 
   Lightbulb, AlertTriangle, HelpCircle, RefreshCw, Zap, CheckCircle2, 
-  FileText, Globe, MessageCircle, Mail, Languages, Bot
+  FileText, Globe, Mail, Languages, Bot
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -144,7 +143,6 @@ export default function MeetingDetail() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [deleting, setDeleting] = useState(false);
-  const [whatsappDialogOpen, setWhatsappDialogOpen] = useState(false);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('summary');
   const [summaryLang, setSummaryLang] = useState('English');
@@ -332,28 +330,6 @@ export default function MeetingDetail() {
     return '??';
   };
 
-  const handleSendToWhatsApp = async (phoneNumber: string) => {
-    if (!meeting || !user || !session?.access_token) return;
-    try {
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/send-whatsapp-report`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          meeting_id: meeting.id, 
-          user_id: user.id,
-          phone_number: phoneNumber,
-          language: summaryLang.toLowerCase(),
-        }),
-      });
-      const data = await response.json();
-      if (data.success) {
-        toast({ title: 'Sent to WhatsApp', description: `Report sent to ${phoneNumber}` });
-      } else throw new Error(data.error || 'Failed to send');
-    } catch (error: any) {
-      toast({ title: 'Error', description: error.message || 'Failed to send to WhatsApp', variant: 'destructive' });
-    }
-  };
-
   const handleSendEmail = async (emailAddress: string) => {
     if (!meeting || !user || !session?.access_token) return;
     try {
@@ -491,7 +467,6 @@ export default function MeetingDetail() {
               {insights && (
                 <>
                   <ShareButton icon={Mail} label="Email" onClick={() => setEmailDialogOpen(true)} />
-                  <ShareButton icon={MessageCircle} label="WhatsApp" onClick={() => setWhatsappDialogOpen(true)} />
                 </>
               )}
               <AlertDialog>
@@ -533,14 +508,6 @@ export default function MeetingDetail() {
           meetingTitle={meeting.title}
           userEmail={user?.email || undefined}
           onSend={handleSendEmail}
-        />
-
-        {/* WhatsApp Delivery Selector */}
-        <WhatsAppDeliverySelector
-          open={whatsappDialogOpen}
-          onOpenChange={setWhatsappDialogOpen}
-          meetingTitle={meeting.title}
-          onSend={handleSendToWhatsApp}
         />
 
         {insights && (
@@ -924,7 +891,7 @@ export default function MeetingDetail() {
                 {emailMessages.length === 0 && (
                   <ProtoCard style={{ textAlign: 'center', padding: 40 }}>
                     <Mail size={32} className="mx-auto mb-3 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground">No deliveries yet. Send this report via Email or WhatsApp above.</p>
+                    <p className="text-sm text-muted-foreground">No deliveries yet. Send this report by email above.</p>
                   </ProtoCard>
                 )}
               </div>
