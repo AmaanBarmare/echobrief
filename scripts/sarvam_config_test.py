@@ -12,6 +12,7 @@ Creates a fresh Sarvam job, uploads the stored audio, starts it, prints job_id.
 Read-only on the DB. Does NOT modify the meeting row.
 """
 import json
+import os
 import sys
 import urllib.request
 
@@ -38,7 +39,8 @@ for arg in sys.argv[2:]:
         params[k] = v
 
 env = {}
-with open("/Users/amaanbarmare/Desktop/echobrief/.env") as f:
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+with open(os.path.join(REPO_ROOT, ".env")) as f:
     for line in f:
         line = line.strip()
         if not line or line.startswith("#") or "=" not in line:

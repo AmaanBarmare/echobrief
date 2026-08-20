@@ -6,7 +6,7 @@
  * signature here with the appropriate recovery action.
  *
  * If the monitor encounters a signature NOT in this set, it logs to
- * `monitor_events` with `is_new_pattern = true` and emails amaan@oltaflock.ai
+ * `monitor_events` with `is_new_pattern = true` and emails ALERT_EMAIL_TO (default admin@oltaflock.ai)
  * so the new pattern can be investigated and added.
  */
 

@@ -4,7 +4,8 @@
  * Runs every 5 minutes via pg_cron. For each meeting in a non-terminal state
  * older than the threshold (15 min), classifies the failure into a signature,
  * attempts a known recovery, logs to `monitor_events`, and emails
- * amaan@oltaflock.ai when (a) recovery fails or (b) the signature is new.
+ * ALERT_EMAIL_TO (default admin@oltaflock.ai) when (a) recovery fails or
+ * (b) the signature is new.
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -17,7 +18,10 @@ import { KNOWN_PATTERNS, isKnown, RecoveryAction } from "./known-patterns.ts";
 
 const STUCK_AFTER_MIN = 15;
 const SARVAM_TAKING_TOO_LONG_MIN = 30;
-const ALERT_TO = "amaan@oltaflock.ai";
+// Overridable so a departure never silently orphans the alerts again. It was
+// previously pinned to an individual's mailbox; after they left the company on
+// 2026-08-20 every stuck-meeting alert was delivered to a mailbox nobody read.
+const ALERT_TO = Deno.env.get("ALERT_EMAIL_TO") || "admin@oltaflock.ai";
 const ALERT_FROM = "EchoBrief Monitor <hello@echobrief.in>";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;

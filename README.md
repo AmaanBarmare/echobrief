@@ -287,7 +287,7 @@ meeting_notifications
 | `start-recall-recording` | Creates a Recall bot and starts bot-based meeting capture |
 | `check-recall-status` | Polls Recall API for live bot status, syncs DB, and triggers the Sarvam pipeline as a fallback when webhooks are missed. Uses an atomic `sarvam_webhook_triggered_at IS NULL` lock (decoupled from `status` to avoid the `transcribing` deadlock). |
 | `recall-webhook` | Receives Recall status events and hands completed audio into the AI pipeline. `bot.done` queries Recall's `/audio_mixed/` endpoint to avoid race-marking good meetings as failed. Bots kicked / not admitted *before* recording resolve to a neutral `cancelled` status; only genuine pipeline failures are `failed` (see challenge #23). |
-| `monitor-stuck-meetings` | Scheduled every 15 min via pg_cron. Detects meetings stuck >15 min in non-terminal status, classifies into a known signature, attempts canonical recovery (force Whisper / re-trigger Sarvam / check Recall / mark failed), logs every detection to `monitor_events`, and emails `amaan@oltaflock.ai` via Resend on recovery failure or unknown signature. |
+| `monitor-stuck-meetings` | Scheduled every 15 min via pg_cron. Detects meetings stuck >15 min in non-terminal status, classifies into a known signature, attempts canonical recovery (force Whisper / re-trigger Sarvam / check Recall / mark failed), logs every detection to `monitor_events`, and emails `ALERT_EMAIL_TO` (default `admin@oltaflock.ai`) via Resend on recovery failure or unknown signature. |
 | `google-oauth-start` / `google-oauth-callback` / `google-oauth-redirect` | Google Calendar OAuth flow |
 | `sync-google-calendar` / `sync-calendars` / `fetch-calendar-events` | Calendar sync and event retrieval utilities |
 | `send-meeting-email` / `send-meeting-summary-email` / `send-email-report` | Email delivery and reporting flows |
@@ -552,7 +552,7 @@ This section is intentionally detailed because the hardest part of this project 
 
 ### 18. Speaker diarization returned generic labels instead of real participant names
 
-**Problem:** meeting transcripts showed "SPEAKER_00" and "SPEAKER_01" instead of actual participant names like "Amaan" or "Priya", making transcripts hard to follow.
+**Problem:** meeting transcripts showed "SPEAKER_00" and "SPEAKER_01" instead of actual participant names like "Ravi" or "Priya", making transcripts hard to follow.
 
 **Why it happened:** the pipeline was designed so Recall only provided audio to Sarvam, and Sarvam's diarization only returns acoustic speaker IDs (0, 1, 2). There was no mechanism to map those IDs back to real names, even though Recall had access to participant information from the meeting platform.
 
@@ -718,7 +718,7 @@ Scheduled via `pg_cron` to run every 15 minutes. For every meeting in a non-term
 2. Looks up the canonical recovery action in `KNOWN_PATTERNS` (mirrors [`errors.md`](errors.md))
 3. Attempts the recovery (`force_whisper`, `trigger_sarvam_webhook`, `check_recall_status`, `mark_failed`)
 4. Logs the detection to `monitor_events` with hourly dedup
-5. Emails `amaan@oltaflock.ai` via Resend if recovery fails OR the signature is unrecognized (subject prefix `[ECHOBRIEF NEW ERROR]`)
+5. Emails `ALERT_EMAIL_TO` (default `admin@oltaflock.ai`) via Resend if recovery fails OR the signature is unrecognized (subject prefix `[ECHOBRIEF NEW ERROR]`)
 
 The pairing of a curated runbook (`errors.md`) with a programmatic mirror (`known-patterns.ts`) means every error pattern has both a human-readable diagnosis and an automated recovery path. New error patterns surface as `[ECHOBRIEF NEW ERROR]` emails so the runbook stays in sync with reality.
 

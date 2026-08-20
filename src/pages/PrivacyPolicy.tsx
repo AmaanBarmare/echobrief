@@ -102,10 +102,10 @@ export default function PrivacyPolicy() {
             <p>If you have questions about this Privacy Policy, please contact:</p>
             <p>
               <a
-                href="mailto:amaan@oltaflock.ai"
+                href="mailto:admin@oltaflock.ai"
                 className="text-accent hover:underline font-medium"
               >
-                amaan@oltaflock.ai
+                admin@oltaflock.ai
               </a>
             </p>
           </article>

@@ -4,6 +4,7 @@ Usage:
     python3 scripts/resubmit_to_sarvam.py <meeting_id>
 """
 import json
+import os
 import sys
 import urllib.request
 
@@ -11,7 +12,8 @@ MEETING_ID = sys.argv[1] if len(sys.argv) > 1 else "09429b6c-9b67-4468-9074-2c2f
 
 # Load env
 env = {}
-with open("/Users/amaanbarmare/Desktop/echobrief/.env") as f:
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+with open(os.path.join(REPO_ROOT, ".env")) as f:
     for line in f:
         line = line.strip()
         if not line or line.startswith("#") or "=" not in line:

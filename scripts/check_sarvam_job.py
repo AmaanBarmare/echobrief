@@ -7,6 +7,7 @@ Prints job status, then downloads the output JSON and shows transcript length,
 language detected, and a preview. Designed for quick triage of empty-output bugs.
 """
 import json
+import os
 import sys
 import urllib.request
 
@@ -17,7 +18,8 @@ if len(sys.argv) < 2:
 JOB_ID = sys.argv[1]
 
 env = {}
-with open("/Users/amaanbarmare/Desktop/echobrief/.env") as f:
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+with open(os.path.join(REPO_ROOT, ".env")) as f:
     for line in f:
         line = line.strip()
         if not line or line.startswith("#") or "=" not in line:

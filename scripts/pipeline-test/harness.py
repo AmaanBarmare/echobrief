@@ -14,6 +14,7 @@ Run:
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import threading
 import time
@@ -22,7 +23,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Callable
 
-sys.path.insert(0, "/Users/amaanbarmare/Desktop/echobrief/scripts/pipeline-test")
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import client  # type: ignore
 import fixtures  # type: ignore

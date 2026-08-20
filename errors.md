@@ -1,6 +1,6 @@
 # Known Errors Runbook
 
-This is the canonical list of error patterns the pipeline can hit, with root cause and recovery steps. The `monitor-stuck-meetings` cron carries a copy of these signatures in code; when it sees a *new* signature, it emails `amaan@oltaflock.ai` so we can investigate and add it here.
+This is the canonical list of error patterns the pipeline can hit, with root cause and recovery steps. The `monitor-stuck-meetings` cron carries a copy of these signatures in code; when it sees a *new* signature, it emails the address in `ALERT_EMAIL_TO` (default `admin@oltaflock.ai`) so we can investigate and add it here.
 
 **Source of truth:** this file. **Audit log:** `monitor_events` table in the DB. The cron's known-pattern list in [`supabase/functions/monitor-stuck-meetings/known-patterns.ts`](supabase/functions/monitor-stuck-meetings/known-patterns.ts) must stay in sync with this file.
 
@@ -201,7 +201,7 @@ Five separate failures chained, every one of them silent. The bucket being full 
 
 ## How this file is maintained
 
-1. The `monitor-stuck-meetings` cron carries a `KNOWN_SIGNATURES` set in code. When it detects a stuck meeting whose signature is **not** in that set, it sends an email to `amaan@oltaflock.ai` with subject `[ECHOBRIEF NEW ERROR] <signature>`.
+1. The `monitor-stuck-meetings` cron carries a `KNOWN_SIGNATURES` set in code. When it detects a stuck meeting whose signature is **not** in that set, it sends an email to `ALERT_EMAIL_TO` (default `admin@oltaflock.ai`) with subject `[ECHOBRIEF NEW ERROR] <signature>`.
 2. When you receive such an email, investigate the meeting, then:
    - Add the new error to this file with the same structure (signature / what it looks like / root cause / recovery).
    - Add the signature to `KNOWN_SIGNATURES` in [`supabase/functions/monitor-stuck-meetings/known-patterns.ts`](supabase/functions/monitor-stuck-meetings/known-patterns.ts).
