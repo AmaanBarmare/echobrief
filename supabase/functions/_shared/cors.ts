@@ -12,8 +12,7 @@ const ALLOWED_ORIGINS = [
 export function getCorsHeaders(origin: string | null): Record<string, string> {
   const isAllowed = origin && (
     ALLOWED_ORIGINS.includes(origin) ||
-    origin.endsWith(".vercel.app") ||
-    origin.startsWith("chrome-extension://")
+    origin.endsWith(".vercel.app")
   );
   const allowedOrigin = isAllowed ? origin : ALLOWED_ORIGINS[0];
   

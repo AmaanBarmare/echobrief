@@ -110,7 +110,6 @@ export default function Docs() {
               <ol>
                 <li>Sign up at <strong>echobrief.in</strong></li>
                 <li>Complete the 5-step onboarding (select languages, integrations, notification preferences)</li>
-                <li>Install the Chrome extension (if using browser recording)</li>
                 <li>Customize your bot name and icon color in Settings</li>
                 <li>Start recording your first meeting!</li>
               </ol>

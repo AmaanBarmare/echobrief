@@ -438,7 +438,7 @@ export async function deliverResults(
     }
   }
 
-  if (config.sendEmail || meeting.source === "chrome-extension") {
+  if (config.sendEmail) {
     try {
       const emailUrl = `${config.supabaseUrl}/functions/v1/send-meeting-email`;
       const emailResponse = await fetch(emailUrl, {

@@ -252,10 +252,6 @@ export function MeetingDetailModal({ event, onClose, onRecordWithBot }: MeetingD
     }
   };
 
-  const handleOpenMeeting = () => {
-    if (event.meetingUrl) window.open(event.meetingUrl, '_blank');
-  };
-
   const truncateUrl = (url: string, max: number = 45) => {
     return url.length > max ? url.substring(0, max) + '...' : url;
   };
@@ -426,122 +422,88 @@ export function MeetingDetailModal({ event, onClose, onRecordWithBot }: MeetingD
         <div>
           <div className="mb-4 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">Record This Meeting</div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-            {/* Extension Option */}
-            <div
-              className="rounded-xl border border-border bg-background/50 p-4 transition-colors hover:border-orange-500/30 hover:bg-orange-500/[0.04] dark:bg-transparent"
-              style={{
-                cursor: event.hasMeetingLink ? 'pointer' : 'not-allowed',
-                opacity: event.hasMeetingLink ? 1 : 0.4,
-              }}
-              title={!event.hasMeetingLink ? 'No meeting link to join' : ''}
-            >
-              <p className="text-[13px] font-semibold text-foreground" style={{ margin: '0 0 6px 0' }}>
-                📋 Record with Extension
-              </p>
-              <p className="mb-3 text-[12px] leading-snug text-muted-foreground" style={{ margin: '0 0 12px 0' }}>
-                Open the meeting and your Chrome extension will capture the audio automatically.
-              </p>
+          {/* Bot Option */}
+          <div
+            className="cursor-pointer rounded-xl border border-orange-500/25 bg-orange-500/[0.06] p-4 dark:bg-orange-500/[0.08]"
+            style={{
+              cursor: event.hasMeetingLink ? 'pointer' : 'not-allowed',
+              opacity: event.hasMeetingLink ? 1 : 0.4,
+            }}
+          >
+            <p className="text-[13px] font-semibold text-foreground" style={{ margin: '0 0 6px 0' }}>
+              🤖 Send Bot to Join
+            </p>
+            <p className="mb-3 text-[12px] leading-snug text-muted-foreground" style={{ margin: '0 0 12px 0' }}>
+              EchoBrief's bot will join the meeting automatically and record it for you.
+            </p>
+
+            {botStatus === 'idle' && (
               <Button
-                onClick={handleOpenMeeting}
+                onClick={handleSendBot}
                 disabled={!event.hasMeetingLink}
                 style={{
-                  background: 'transparent',
-                  border: '1px solid rgba(249,115,22,0.2)',
-                  color: '#FB923C',
+                  background: event.hasMeetingLink ? 'linear-gradient(135deg, #F97316, #F59E0B)' : '#44403C',
+                  color: 'white',
                   fontSize: 12,
                   padding: '8px 12px',
+                  border: 'none',
                   cursor: event.hasMeetingLink ? 'pointer' : 'not-allowed',
-                  opacity: event.hasMeetingLink ? 1 : 0.5,
                 }}
               >
-                Open Meeting →
+                Send Bot →
               </Button>
-            </div>
+            )}
 
-            {/* Bot Option */}
-            <div
-              className="cursor-pointer rounded-xl border border-orange-500/25 bg-orange-500/[0.06] p-4 dark:bg-orange-500/[0.08]"
-              style={{
-                cursor: event.hasMeetingLink ? 'pointer' : 'not-allowed',
-                opacity: event.hasMeetingLink ? 1 : 0.4,
-              }}
-            >
-              <p className="text-[13px] font-semibold text-foreground" style={{ margin: '0 0 6px 0' }}>
-                🤖 Send Bot to Join
-              </p>
-              <p className="mb-3 text-[12px] leading-snug text-muted-foreground" style={{ margin: '0 0 12px 0' }}>
-                EchoBrief's bot will join the meeting automatically and record it for you.
-              </p>
+            {(botStatus === 'sending' || botStatus === 'joining') && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#FB923C', fontSize: 12 }}>
+                <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />
+                {BOT_STATUS_DISPLAY[botStatus].label}
+              </div>
+            )}
 
-              {botStatus === 'idle' && (
-                <Button
-                  onClick={handleSendBot}
-                  disabled={!event.hasMeetingLink}
-                  style={{
-                    background: event.hasMeetingLink ? 'linear-gradient(135deg, #F97316, #F59E0B)' : '#44403C',
-                    color: 'white',
-                    fontSize: 12,
-                    padding: '8px 12px',
-                    border: 'none',
-                    cursor: event.hasMeetingLink ? 'pointer' : 'not-allowed',
-                  }}
-                >
-                  Send Bot →
-                </Button>
-              )}
+            {botStatus === 'in_call' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#22c55e', fontSize: 12 }}>
+                <CheckCircle2 size={14} />
+                <span>{BOT_STATUS_DISPLAY[botStatus].label}</span>
+                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', animation: 'pulse 2s infinite' }} />
+              </div>
+            )}
 
-              {(botStatus === 'sending' || botStatus === 'joining') && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#FB923C', fontSize: 12 }}>
-                  <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />
+            {botStatus === 'recording' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#22c55e', fontSize: 12 }}>
+                <Mic size={14} />
+                <span>{BOT_STATUS_DISPLAY[botStatus].label}</span>
+                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#EF4444', animation: 'pulse 1s infinite' }} />
+              </div>
+            )}
+
+            {botStatus === 'processing' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#FB923C', fontSize: 12 }}>
+                <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />
+                <span>{BOT_STATUS_DISPLAY[botStatus].label}</span>
+              </div>
+            )}
+
+            {botStatus === 'completed' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#22c55e', fontSize: 12 }}>
+                <CheckCircle2 size={14} />
+                <span>{BOT_STATUS_DISPLAY[botStatus].label}</span>
+              </div>
+            )}
+
+            {botStatus === 'failed' && (
+              <div style={{ color: '#EF4444', fontSize: 12 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <AlertCircle size={14} />
                   {BOT_STATUS_DISPLAY[botStatus].label}
                 </div>
-              )}
-
-              {botStatus === 'in_call' && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#22c55e', fontSize: 12 }}>
-                  <CheckCircle2 size={14} />
-                  <span>{BOT_STATUS_DISPLAY[botStatus].label}</span>
-                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', animation: 'pulse 2s infinite' }} />
-                </div>
-              )}
-
-              {botStatus === 'recording' && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#22c55e', fontSize: 12 }}>
-                  <Mic size={14} />
-                  <span>{BOT_STATUS_DISPLAY[botStatus].label}</span>
-                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#EF4444', animation: 'pulse 1s infinite' }} />
-                </div>
-              )}
-
-              {botStatus === 'processing' && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#FB923C', fontSize: 12 }}>
-                  <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />
-                  <span>{BOT_STATUS_DISPLAY[botStatus].label}</span>
-                </div>
-              )}
-
-              {botStatus === 'completed' && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#22c55e', fontSize: 12 }}>
-                  <CheckCircle2 size={14} />
-                  <span>{BOT_STATUS_DISPLAY[botStatus].label}</span>
-                </div>
-              )}
-
-              {botStatus === 'failed' && (
-                <div style={{ color: '#EF4444', fontSize: 12 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <AlertCircle size={14} />
-                    {BOT_STATUS_DISPLAY[botStatus].label}
+                {botError && (
+                  <div className="mt-1.5 break-words font-mono text-[11px] text-muted-foreground">
+                    {botError}
                   </div>
-                  {botError && (
-                    <div className="mt-1.5 break-words font-mono text-[11px] text-muted-foreground">
-                      {botError}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 

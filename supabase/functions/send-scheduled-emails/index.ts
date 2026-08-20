@@ -145,17 +145,17 @@ function getEmailTemplate(template: string, userEmail: string): string {
 <p style="margin:0 0 24px;font-size:15px;line-height:1.7;color:#4a4a68;">Let's get EchoBrief recording your meetings. Two quick steps:</p>
 
 <div style="background:#FFF7ED;border-left:4px solid #F97316;padding:16px 20px;margin:0 0 20px;border-radius:0 8px 8px 0;">
-<p style="margin:0 0 8px;font-size:14px;font-weight:600;color:#C2410C;">Step 1: Install the Chrome Extension</p>
-<p style="margin:0;font-size:14px;color:#4a4a68;">Click below to add EchoBrief to Chrome. It takes 10 seconds.</p>
+<p style="margin:0 0 8px;font-size:14px;font-weight:600;color:#C2410C;">Step 1: Send the bot to a meeting</p>
+<p style="margin:0;font-size:14px;color:#4a4a68;">Paste any Google Meet, Zoom, or Teams link in your dashboard and hit Record. Nothing to install.</p>
 </div>
 
 <div style="background:#FFF7ED;border-left:4px solid #F97316;padding:16px 20px;margin:0 0 24px;border-radius:0 8px 8px 0;">
 <p style="margin:0 0 8px;font-size:14px;font-weight:600;color:#C2410C;">Step 2: Connect Google Calendar (optional)</p>
-<p style="margin:0;font-size:14px;color:#4a4a68;">Go to Settings → Connect your calendar for automatic meeting detection.</p>
+<p style="margin:0;font-size:14px;color:#4a4a68;">Go to Settings → Connect your calendar so the bot can join scheduled meetings on its own.</p>
 </div>
 
 <table cellpadding="0" cellspacing="0" style="margin:0 0 24px;"><tr><td style="background:linear-gradient(135deg,#F97316,#F59E0B);border-radius:8px;padding:14px 32px;">
-<a href="https://echobrief.in/extension" style="color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;display:inline-block;">Install Chrome Extension →</a>
+<a href="https://echobrief.in/dashboard" style="color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;display:inline-block;">Open Your Dashboard →</a>
 </td></tr></table>
 
 <p style="margin:0;font-size:14px;color:#8888a0;">That's it. Your next meeting is about to get a lot smarter.</p>
@@ -184,9 +184,9 @@ function getEmailTemplate(template: string, userEmail: string): string {
 <p style="margin:0 0 20px;font-size:15px;line-height:1.7;color:#4a4a68;">Your next meeting is the perfect test run. Here's what happens:</p>
 
 <ol style="margin:0 0 24px;padding-left:20px;font-size:15px;line-height:2;color:#4a4a68;">
-<li>Join a Google Meet or Zoom call</li>
-<li>Click the EchoBrief extension → Start Recording</li>
-<li>Have your meeting normally</li>
+<li>Copy your Google Meet, Zoom, or Teams link</li>
+<li>Paste it in the EchoBrief dashboard → Record</li>
+<li>Admit the bot and have your meeting normally</li>
 <li>End the call → Summary arrives in your inbox</li>
 </ol>
 

@@ -8,7 +8,6 @@ import { RecordingProvider } from "@/contexts/RecordingContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { CalendarProvider } from "@/contexts/CalendarContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { ExtensionTokenSync } from "@/components/ExtensionTokenSync";
 import { GlobalRecordingPanel } from "@/components/dashboard/GlobalRecordingPanel";
 import { PreMeetingNotification } from "@/components/dashboard/PreMeetingNotification";
 import Landing from "./pages/Landing";
@@ -23,7 +22,6 @@ import ActionItems from "./pages/ActionItems";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import Terms from "./pages/Terms";
 import Docs from "./pages/Docs";
-import ChromeExtensionGuide from "./pages/ChromeExtensionGuide";
 import NotFound from "./pages/NotFound";
 
 // Cache server reads so revisiting a page renders instantly from cache and
@@ -54,18 +52,14 @@ function AppRoutes() {
   // If recovery flow, always show Auth page regardless of user state
   if (isPasswordRecovery) {
     return (
-      <>
-        <ExtensionTokenSync />
-        <Routes>
-          <Route path="*" element={<Auth />} />
-        </Routes>
-      </>
+      <Routes>
+        <Route path="*" element={<Auth />} />
+      </Routes>
     );
   }
 
   return (
     <>
-      <ExtensionTokenSync />
       <Routes>
         <Route path="/" element={user ? <Navigate to="/dashboard" /> : <Landing />} />
         <Route path="/auth" element={<Auth />} />
@@ -122,14 +116,6 @@ function AppRoutes() {
           element={
             <ProtectedRoute>
               <ActionItems />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/chrome-extension-guide"
-          element={
-            <ProtectedRoute>
-              <ChromeExtensionGuide />
             </ProtectedRoute>
           }
         />

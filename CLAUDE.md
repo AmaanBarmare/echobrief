@@ -2,10 +2,11 @@
 
 ## Project Overview
 
-EchoBrief is an AI meeting intelligence platform. It consists of three main parts:
+EchoBrief is an AI meeting intelligence platform. It consists of two main parts:
 1. **React web app** (Vite + TypeScript) -- dashboard for viewing meetings, transcripts, insights, calendar, action items, settings
-2. **Chrome Extension** (Manifest V3, vanilla JS) -- captures tab audio from Google Meet / Zoom Web meetings (backend only; extension UI has been removed from the dashboard — all dashboard recording is bot-only via Recall)
-3. **Supabase backend** -- PostgreSQL database, Auth, Storage (audio files), and Deno Edge Functions for processing
+2. **Supabase backend** -- PostgreSQL database, Auth, Storage (audio files), and Deno Edge Functions for processing
+
+Recording is **bot-only** via Recall.ai. There is no browser extension — it was removed from the codebase.
 
 ## Quick Commands
 
@@ -25,8 +26,6 @@ npm run functions:serve  # Serve Supabase Edge Functions locally (needs supabase
 
 **`check-recall-status` / `sarvam-webhook` decoupling:** `check-recall-status` claims its trigger on the `meetings.sarvam_webhook_triggered_at` column (atomic `IS NULL` lock) before invoking `sarvam-webhook`. It does not touch `status`, so the webhook's existing `transcribing` skip-guard (which protects the Whisper-fallback path) doesn't deadlock the recovery.
 
-**Chrome Extension (backend still active, UI removed from dashboard):** Extension detects Meet/Zoom → `chrome.tabCapture` → offscreen document runs `MediaRecorder` → uploads WebM to `upload-recording` Edge Function → same processing pipeline as above.
-
 ### Key Files
 
 **Web App:**
@@ -36,19 +35,12 @@ npm run functions:serve  # Serve Supabase Edge Functions locally (needs supabase
 - `src/pages/` -- Dashboard, Recordings, MeetingDetail, Calendar, ActionItems, Settings, Auth, Landing
 - **Data fetching / caching:** `App.tsx` sets global TanStack Query defaults (`staleTime` 60s, `refetchOnWindowFocus: false`) so revisiting a page renders instantly from cache instead of re-fetching cold. `Dashboard.tsx` and `MeetingDetail.tsx` use cached queries (the dashboard runs its profile + meetings reads in parallel; realtime `postgres_changes` patches/invalidates the query cache rather than re-fetching). `Settings.tsx` intentionally stays on local `useState` — it's a form page with write-on-load side effects and user-mutated lists, a poor fit for read-caching. See README challenge #21.
 
-**Chrome Extension:**
-- `chrome-extension/background.js` -- Service worker: tab capture, state persistence to chrome.storage, upload logic
-- `chrome-extension/offscreen.js` -- MediaRecorder (MV3 can't use this in service workers)
-- `chrome-extension/content.js` -- Injected into Meet/Zoom pages, shows recording banner
-- `chrome-extension/web-bridge.js` -- Syncs Supabase auth token between web app and extension
-
 **Edge Functions (Deno):**
 - `supabase/functions/process-meeting/` -- Orchestrates transcription (Sarvam primary, Whisper fallback) + GPT insight generation. Whisper currently OOMs in the edge function for audio > ~15 MB — see `errors.md` `whisper:oom` entry.
 - `supabase/functions/sarvam-webhook/` -- Async callback from Sarvam STT. Auto-falls-back to Whisper on any download error (covers Sarvam's `KeyError: 'timestamps'` server bug on long audio).
 - `supabase/functions/recall-webhook/` -- Receives Recall lifecycle events. `bot.done` queries Recall's `/audio_mixed/` endpoint to avoid race-marking good meetings as failed. Terminal classification via `classifySubCode()`: a bot kicked / not admitted *before* recording → **`cancelled`** (neutral, no audio was captured); bad/expired link → `failed`; genuine pipeline failures (`audio_mixed.failed`, etc.) → `failed`. A bot kicked *after* recording still emits `audio_mixed.done` and completes normally — that path is untouched. (README #23.)
 - `supabase/functions/check-recall-status/` -- Polled by frontend; uses `sarvam_webhook_triggered_at` atomic lock to re-fire the Sarvam webhook when the callback was missed.
 - `supabase/functions/monitor-stuck-meetings/` -- Cron-scheduled (every 15 min via pg_cron — see Scheduled Jobs below). Detects meetings stuck >15 min in non-terminal status, classifies via signature, attempts known recovery, logs to `monitor_events`, emails `amaan@oltaflock.ai` via Resend on failure or unknown signature. Carries a copy of known signatures in `known-patterns.ts` mirroring `errors.md`.
-- `supabase/functions/upload-recording/` -- Accepts audio upload, stores in Supabase Storage
 - `supabase/functions/_shared/insights.ts` -- Hallucination detection, GPT prompt, insight saving, delivery
 - `supabase/functions/_shared/sarvam.ts` -- Sarvam API client (create job, upload, start). Uses `mode: "translate"` to output English regardless of source language, with `with_diarization: true`.
 - `supabase/functions/_shared/recall-pipeline.ts` -- Shared Recall audio download + Sarvam submission logic (used by recall-webhook and check-recall-status). Fetches Recall's transcript via `media_shortcuts.transcript` download URL (the old `/bot/{id}/transcript/` endpoint is deprecated) to extract real participant names and build a speaker timeline (speaker name + time range) stored in `processing_config` for per-segment mapping in sarvam-webhook. Also exports `getAudioMixedStatus()` used by the bot.done race-safety check.
@@ -90,7 +82,6 @@ Migrations are in `supabase/migrations/`. Recent additions worth knowing about:
 - **Frontend:** React 18, TypeScript, Vite, Tailwind CSS, shadcn/ui, React Router v6, TanStack Query, Framer Motion
 - **Backend:** Supabase (PostgreSQL, Auth, Storage, Edge Functions on Deno)
 - **AI:** Sarvam AI (STT in translate mode — outputs English from any language), OpenAI Whisper (fallback STT), GPT-4o-mini (insights)
-- **Extension:** Chrome MV3, vanilla JS, tabCapture + offscreen API
 - **Integrations:** Google Calendar OAuth, Slack API, Notion OAuth, email delivery
 - **Hosting:** Vercel (frontend), Supabase (backend)
 
@@ -153,7 +144,6 @@ See `BRAND.md` for colors (orange/amber gradient primary, stone neutrals), typog
 - React Router v6 with `ProtectedRoute` wrapper for auth-gated pages
 - TanStack Query for server state, React Context for client state (auth, recording, theme)
 - Edge Functions use shared modules from `supabase/functions/_shared/`
-- Chrome extension uses vanilla JS (no build step)
 
 ## Operations
 

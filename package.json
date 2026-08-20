@@ -10,7 +10,6 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "functions:serve": "supabase functions serve --env-file ./supabase/.env.local",
-    "extension:zip": "cd chrome-extension && zip -r ../echobrief-extension.zip . -x '*.DS_Store' 'README.md'",
     "test:unit": "deno test -A supabase/functions/tests/"
   },
   "dependencies": {

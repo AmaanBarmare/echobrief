@@ -19,25 +19,25 @@ export default function PrivacyPolicy() {
             <p className="text-muted-foreground mb-8">Last updated: February 28, 2025</p>
 
             <p className="lead">
-              EchoBrief (&quot;we&quot;, &quot;our&quot;, or &quot;the extension&quot;) respects your privacy and is committed to protecting your information.
+              EchoBrief (&quot;we&quot;, &quot;our&quot;, or &quot;the service&quot;) respects your privacy and is committed to protecting your information.
             </p>
             <p>
-              This Privacy Policy explains how EchoBrief collects, uses, and protects data when you use the extension.
+              This Privacy Policy explains how EchoBrief collects, uses, and protects data when you use the service.
             </p>
 
             <h2>1. What EchoBrief Does</h2>
             <p>
-              EchoBrief is a browser extension designed to record supported web meetings when explicitly initiated by the user, generate transcripts, and provide AI-powered summaries.
+              EchoBrief is a web service that sends a recording bot to supported online meetings (Google Meet, Zoom, Microsoft Teams) at the user&apos;s request, generates transcripts, and provides AI-powered summaries.
             </p>
             <p>
-              EchoBrief does <strong>NOT</strong> automatically record meetings. Recording begins only when the user manually clicks the Start Recording button.
+              EchoBrief does <strong>NOT</strong> record meetings on its own. A recording bot joins only when the user sends it to a meeting, or when the user has explicitly enabled auto-join for their connected calendar.
             </p>
 
             <h2>2. Information We Collect</h2>
             <p>EchoBrief may collect the following types of information:</p>
             <h3>Meeting Audio Data</h3>
             <p>
-              When recording is started by the user, EchoBrief captures audio from the meeting tab for transcription and summarization purposes. This audio is processed only to generate transcripts and summaries.
+              When the recording bot joins a meeting, EchoBrief captures the meeting audio for transcription and summarization purposes. This audio is processed only to generate transcripts and summaries.
             </p>
             <h3>Generated Meeting Content</h3>
             <p>EchoBrief may store:</p>
@@ -49,7 +49,7 @@ export default function PrivacyPolicy() {
             <p>This information is stored securely and is accessible only to the user.</p>
             <h3>Account Information (if applicable)</h3>
             <p>
-              If you use the EchoBrief web dashboard, basic account information such as email address may be collected for authentication purposes.
+              Basic account information such as your email address and name is collected for authentication purposes.
             </p>
 
             <h2>3. How We Use Information</h2>
@@ -57,7 +57,7 @@ export default function PrivacyPolicy() {
             <ul>
               <li>Provide transcription and AI summary services</li>
               <li>Store and display meeting insights to users</li>
-              <li>Improve extension functionality</li>
+              <li>Improve the service</li>
             </ul>
             <p>We do <strong>NOT</strong> use data for advertising or profiling.</p>
 

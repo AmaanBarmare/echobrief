@@ -6,7 +6,6 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
 [![Vite](https://img.shields.io/badge/Vite-5-646CFF?logo=vite&logoColor=white)](https://vite.dev)
 [![Supabase](https://img.shields.io/badge/Supabase-Postgres%20%2B%20Edge%20Functions-3FCF8E?logo=supabase&logoColor=white)](https://supabase.com)
-[![Chrome Extension](https://img.shields.io/badge/Chrome-Manifest%20V3-4285F4?logo=googlechrome&logoColor=white)](https://developer.chrome.com/docs/extensions/mv3/)
 [![OpenAI](https://img.shields.io/badge/OpenAI-Whisper%20%2B%20GPT--4o--mini-412991?logo=openai&logoColor=white)](https://openai.com)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-CSS-06B6D4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
 
@@ -23,7 +22,6 @@
 - [Project Structure](#project-structure)
 - [Database Design](#database-design)
 - [Edge Functions](#edge-functions)
-- [Chrome Extension System Design](#chrome-extension-system-design)
 - [Engineering Challenges and Problems Faced](#engineering-challenges-and-problems-faced)
 - [Technical Highlights](#technical-highlights)
 - [Testing: Harness and Evals](#testing-harness-and-evals)
@@ -39,10 +37,9 @@
 
 EchoBrief is a full-stack meeting intelligence product built to solve a practical engineering problem: teams spend too much time in meetings, lose decisions in chat threads, forget action items, and rely on weak note-taking tools that either join as bots or produce low-signal summaries.
 
-This system captures meeting audio in two ways:
+Meeting audio is captured by a **Recall.ai bot**: the user enters a meeting URL (or connects a calendar and lets the bot auto-join), the bot joins Google Meet, Zoom, or Microsoft Teams, and records the call.
 
-- **Recall bot path** (primary, exposed in dashboard UI) for bot-based meeting recordings — user enters a meeting URL and a Recall bot joins to record
-- **Chrome Extension path** (backend still active, UI removed from dashboard) for browser meetings using Manifest V3 tab capture and an offscreen recording document
+> **History:** v1 shipped as a Chrome Manifest V3 extension that captured tab audio in the browser. That path was retired and removed from the codebase in favour of bot-only recording. The engineering write-ups below still cover it, because the constraints it imposed shaped the backend that exists today.
 
 Once a meeting is recorded, EchoBrief pushes the audio through an AI pipeline:
 
@@ -59,7 +56,7 @@ The result is not just a transcript. EchoBrief produces:
 - delivery to Slack or email
 - digest-style recap reports across a week or month
 
-From an engineering perspective, this project demonstrates end-to-end product ownership across frontend, backend, browser extension architecture, database design, OAuth integrations, asynchronous pipelines, and operational edge cases.
+From an engineering perspective, this project demonstrates end-to-end product ownership across frontend, backend, database design, OAuth integrations, asynchronous pipelines, and operational edge cases.
 
 ---
 
@@ -67,11 +64,10 @@ From an engineering perspective, this project demonstrates end-to-end product ow
 
 Most meeting tools stop at transcription. EchoBrief goes deeper in both product and engineering execution.
 
-- **No single-surface app**: this system spans a React SPA, a Chrome MV3 extension, Supabase Edge Functions, PostgreSQL, storage, and third-party AI/integration providers.
+- **No single-surface app**: this system spans a React SPA, Supabase Edge Functions, PostgreSQL, storage, a third-party recording bot, and multiple AI/integration providers.
 - **Real asynchronous workflow design**: transcription is not a synchronous request/response toy flow. Sarvam jobs are submitted asynchronously and completed later by webhook.
 - **Multi-provider fault tolerance**: the pipeline automatically falls back from Sarvam to Whisper when needed.
-- **Real-world integration complexity**: Google Calendar OAuth, Slack delivery, email delivery, Recall bot orchestration, multi-calendar support, and auth sync between web app and browser extension.
-- **Manifest V3 constraints**: Chrome extension recording is implemented with service worker lifecycle handling, offscreen documents, alarm-based keepalive, and persisted state restoration.
+- **Real-world integration complexity**: Google Calendar OAuth, Slack delivery, email delivery, Recall bot orchestration, and multi-calendar support.
 - **Portfolio value for recruiters**: the codebase shows the kind of practical full-stack debugging, systems thinking, and product-minded tradeoff handling that entry-level software engineers are expected to grow into quickly.
 
 ---
@@ -80,12 +76,12 @@ Most meeting tools stop at transcription. EchoBrief goes deeper in both product 
 
 | Area | Capabilities |
 |---|---|
-| **Recording** | Recall-based meeting bot recording (primary, dashboard UI), Chrome extension recording for Meet and Zoom (backend only, UI removed from dashboard), manual recording controls, active recording UI |
+| **Recording** | Recall-based meeting bot recording for Google Meet, Zoom, and Teams; manual dispatch from a meeting URL or calendar event; calendar-driven auto-join; live bot status in the UI |
 | **Transcription** | Sarvam batch STT in translate mode (any language → English), OpenAI Whisper fallback, speaker diarization with real name resolution (Recall transcript → per-segment time-overlap matching), timestamp handling, hallucination filtering |
 | **AI Insights** | Executive summary, short summary, action items, decisions, risks, questions, timeline, engagement-style meeting metrics |
 | **Calendar** | Google OAuth, multi-calendar support, calendar event syncing, meeting-link extraction, upcoming meeting views |
 | **Delivery** | Slack summary delivery, meeting email delivery, scheduled email workflows, digest report generation, WhatsApp report pipeline |
-| **Dashboard** | Authenticated dashboard, recordings view, meeting detail view, action item tracking, analytics chart, global search, per-meeting and bulk delete (clear all failed / all cancelled, completed untouched), settings (extension status banner removed — dashboard is bot-only) |
+| **Dashboard** | Authenticated dashboard, recordings view, meeting detail view, action item tracking, analytics chart, global search, per-meeting and bulk delete (clear all failed / all cancelled, completed untouched), settings |
 | **User Experience** | Protected routes, onboarding, live status updates, responsive interface, animated transitions |
 | **Security** | Supabase Auth, Row Level Security, OAuth state tracking, service-role-only server operations, CORS and rate-limiting helpers |
 
@@ -97,16 +93,14 @@ Most meeting tools stop at transcription. EchoBrief goes deeper in both product 
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │                               Client Layer                                  │
 │                                                                              │
-│  React Web App (Vite + TypeScript)            Chrome Extension (Manifest V3) │
-│  - Landing, Auth, Dashboard                   - content.js                   │
-│  - Recordings, Calendar, Settings             - background.js                │
-│  - Meeting detail, Action items               - offscreen.js                 │
-│  - Extension token sync                       - popup.js                     │
-│                                              - web-bridge.js                │
-└───────────────────────────────┬───────────────────────────────┬──────────────┘
-                                │                               │
-                                │ queries / auth               │ tab capture
-                                ▼                               ▼
+│  React Web App (Vite + TypeScript)                                           │
+│  - Landing, Auth, Dashboard                                                  │
+│  - Recordings, Calendar, Settings                                            │
+│  - Meeting detail, Action items                                              │
+└───────────────────────────────┬──────────────────────────────────────────────┘
+                                │
+                                │ queries / auth / bot dispatch
+                                ▼
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │                            Supabase Platform                                 │
 │                                                                              │
@@ -144,19 +138,7 @@ Most meeting tools stop at transcription. EchoBrief goes deeper in both product 
 
 ## End-to-End Flows
 
-### 1. Chrome Extension Recording Flow
-
-1. User opens Google Meet or Zoom in Chrome.
-2. `content.js` detects a supported meeting page and surfaces recording UI.
-3. `background.js` requests a tab capture stream via `chrome.tabCapture.getMediaStreamId`.
-4. Because Manifest V3 service workers cannot use DOM recording APIs directly, recording is delegated to `offscreen.js`.
-5. `offscreen.js` records audio using `MediaRecorder`, buffers chunks, and uploads on completion.
-6. `upload-recording` stores the audio in Supabase Storage and creates the meeting record.
-7. `process-meeting` submits the audio to Sarvam or falls back to Whisper.
-8. AI insights are generated and persisted.
-9. Results become visible in the dashboard and can be delivered to Slack or email.
-
-### 2. Recall Bot Recording Flow
+### 1. Recall Bot Recording Flow
 
 1. User syncs calendars and selects a meeting with a supported meeting link.
 2. `start-recall-recording` creates a Recall recording bot and stores the mapping in `meetings`.
@@ -168,7 +150,7 @@ Most meeting tools stop at transcription. EchoBrief goes deeper in both product 
 8. The webhook maps each Sarvam transcript segment to real participant names using per-segment time-overlap matching against the Recall speaker timeline (this approach works even when Sarvam's diarization assigns all segments to one speaker ID).
 9. Transcript with real speaker names is persisted, insights are generated, and downstream delivery (Slack/email) is triggered.
 
-### 3. Insight Generation Flow
+### 2. Insight Generation Flow
 
 1. Transcript text and speaker segments are normalized.
 2. Low-signal transcripts are filtered with hallucination heuristics.
@@ -216,16 +198,6 @@ Most meeting tools stop at transcription. EchoBrief goes deeper in both product 
 | **Resend** | Transactional email delivery |
 | **Recall AI** | Bot-driven meeting recording for calendar-based automation |
 
-### Browser Extension
-
-| Technology | Why It Was Used |
-|---|---|
-| **Chrome Manifest V3** | Modern extension platform required by Chrome |
-| **tabCapture API** | Native browser tab audio capture |
-| **Offscreen Documents** | Workaround for MV3 service worker API limitations |
-| **chrome.storage.local** | Extension-side state persistence and auth token sync |
-| **chrome.alarms** | Keepalive and timeout recovery for long-running recording flows |
-
 ---
 
 ## Project Structure
@@ -244,14 +216,6 @@ echobrief/
 │   ├── pages/                      # Landing, auth, dashboard, recordings, meeting detail, settings, calendar
 │   ├── services/                   # Recall service client
 │   └── types/                      # Shared meeting/data types
-├── chrome-extension/
-│   ├── background.js               # MV3 service worker, state restore, keepalive, upload coordination
-│   ├── content.js                  # Meet/Zoom detection and injected UI
-│   ├── offscreen.js                # MediaRecorder runtime in offscreen document
-│   ├── popup.js                    # Extension popup controls
-│   ├── web-bridge.js               # Web app <-> extension auth/status sync
-│   ├── mic-permission.*            # Permission flow for microphone mixing
-│   └── manifest.json               # MV3 permissions and content scripts
 ├── api/
 │   └── split-audio.ts              # Vercel function: ffmpeg chunking of long audio + multi-file Sarvam job submission
 ├── scripts/
@@ -268,7 +232,6 @@ echobrief/
 │   ├── functions/
 │   │   ├── process-meeting/        # Main AI pipeline orchestration
 │   │   ├── sarvam-webhook/         # Async STT callback handler
-│   │   ├── upload-recording/       # Audio ingest from extension
 │   │   ├── start-recall-recording/ # Recall bot creation
 │   │   ├── recall-webhook/         # Recall lifecycle + handoff to transcription
 │   │   ├── google-oauth-*          # OAuth start/callback/redirect flows
@@ -287,7 +250,7 @@ echobrief/
 
 ## Database Design
 
-The current schema supports both the original extension-first recording flow and the newer automation flows around calendars, Recall, and digest reporting.
+The schema still carries traces of the original extension-first recording flow, on top of the automation flows around calendars, Recall, and digest reporting that the product runs on today.
 
 ### Core Tables
 
@@ -324,7 +287,6 @@ meeting_notifications
 
 | Function | Purpose |
 |---|---|
-| `upload-recording` | Receives extension audio, stores it, creates meeting rows |
 | `process-meeting` | Main ingest pipeline, Sarvam submitter, Whisper fallback path |
 | `sarvam-webhook` | Handles async Sarvam callbacks. **For chunked jobs, downloads all chunk outputs in order, offsets timestamps by `chunk_index × chunk_seconds`, time-sorts, and stitches one transcript.** Auto-falls-back to Whisper on any Sarvam download failure (covers the known `KeyError: 'timestamps'` server bug on long audio). |
 | `start-recall-recording` | Creates a Recall bot and starts bot-based meeting capture |
@@ -347,29 +309,11 @@ This function layer is one of the strongest parts of the project because it show
 
 ---
 
-## Chrome Extension System Design
-
-The Chrome extension is not a basic popup toy. It is a multi-context browser system with:
-
-- `content.js` running inside meeting pages
-- `background.js` running as an MV3 service worker
-- `offscreen.js` handling recording APIs unavailable to the service worker
-- `popup.js` exposing user controls
-- `web-bridge.js` syncing auth state from the web app
-
-### Why This Is Technically Interesting
-
-- **Manifest V3 service workers are ephemeral**. Long-running recording cannot rely on in-memory state.
-- **Media recording cannot happen directly in the service worker**. An offscreen document is required.
-- **State has to survive worker restarts**. Recording metadata is persisted to `chrome.storage.local`.
-- **The UI must remain correct across multiple runtime contexts**. Popup, content script, and offscreen recording state all have to stay aligned.
-- **Meeting detection avoids broad `tabs` permission scanning**. Detection is delegated to content scripts loaded only on relevant hosts.
-
----
-
 ## Engineering Challenges and Problems Faced
 
 This section is intentionally detailed because the hardest part of this project was not generating a pretty UI. It was making a fragile, multi-runtime, multi-provider system reliable enough to feel like a real product.
+
+**A note on scope:** challenges 1-4, 6, and 8 come from the **retired v1 Chrome extension recording path**. That path no longer ships — recording is bot-only — but it was a genuine multi-context browser system (`content.js` in meeting pages, an MV3 service worker, an offscreen document for `MediaRecorder`, a popup, and an auth bridge to the web app), and the reliability work it forced is why the current backend looks the way it does. Challenges 5, 7, and 9-23 apply to the system as it runs today.
 
 ### 1. Manifest V3 service worker restarts broke long-running recordings
 
@@ -455,6 +399,8 @@ This section is intentionally detailed because the hardest part of this project 
 - preserved one downstream processing model even though ingest mechanisms differ
 
 **Why this matters:** this demonstrates architectural adaptability without rewriting the whole backend.
+
+**How it ended:** the browser path was eventually retired entirely. Because both ingests already fed one downstream pipeline, deleting the extension touched ingest and UI only — `meetings -> transcript -> insights -> delivery` needed no changes. That is the payoff of having unified the pipeline instead of forking it.
 
 ### 7. Multi-calendar support changed the original data model
 
@@ -625,7 +571,7 @@ This section is intentionally detailed because the hardest part of this project 
 - added `getRecallTranscript()` in `recall-pipeline.ts` that fetches the transcript via `media_shortcuts.transcript.data.download_url` (the legacy `/bot/{id}/transcript/` endpoint was deprecated by Recall)
 - built a speaker timeline (name + time range pairs) from the Recall transcript and stored it in `processing_config` alongside the Sarvam job
 - in `sarvam-webhook`, implemented **per-segment** time-overlap matching: each Sarvam segment is individually matched to the Recall utterance with the most temporal overlap, assigning the real speaker name directly. This approach works even when Sarvam's translate mode assigns all segments to a single speaker ID (a known limitation of translate mode diarization)
-- the mapping is deterministic (no GPT guessing) and falls back gracefully to acoustic labels if Recall transcript is unavailable (e.g., chrome extension recordings)
+- the mapping is deterministic (no GPT guessing) and falls back gracefully to acoustic labels if the Recall transcript is unavailable
 
 **Why this matters:** this is a cross-system data correlation problem. Two independent transcription sources (Recall for names, Sarvam for translated English text) had to be aligned using timestamp overlap as the join key. The per-segment approach was necessary because Sarvam's translate mode often collapses all segments to one speaker ID, making per-ID mapping useless. The solution requires no changes to the frontend since it already renders `seg.speaker` directly.
 
@@ -707,14 +653,11 @@ This section is intentionally detailed because the hardest part of this project 
 
 **Why this matters:** the webhook already had the information to tell "the host removed the bot" from "our pipeline broke" — it was just discarding it at the last step. Surfacing that one distinction turns a wall of scary red "Failed" badges into an honest signal, without changing anything about how recordings are actually processed.
 
-### Dual Ingest Architecture
+### Ingest-Agnostic Pipeline
 
-EchoBrief supports both:
+Recording ingest is decoupled from everything downstream. A meeting row plus an audio artifact is the only contract the intelligence layer knows about, so the ingest mechanism can change without touching transcription, insight generation, or delivery.
 
-- **browser-native capture** through the extension
-- **bot-driven capture** through Recall
-
-That is a meaningful architecture decision because it decouples the downstream intelligence layer from the recording source.
+This was proven twice: first when bot-driven Recall capture was added alongside browser-native capture, and again when the browser path was removed entirely and the pipeline below it needed no changes.
 
 ### Multi-Provider AI Pipeline
 
@@ -905,7 +848,6 @@ python3 scripts/evals/run_evals.py --snapshot <id>    # pull a prod meeting into
 
 - Node.js 18+
 - npm
-- Chrome
 - Supabase project
 - Supabase CLI for local function work
 
@@ -968,14 +910,6 @@ supabase db push
 npm run functions:serve
 ```
 
-### Load the Chrome Extension
-
-1. Open `chrome://extensions`
-2. Enable Developer Mode
-3. Click `Load unpacked`
-4. Select the `chrome-extension/` directory
-5. Sign in on the web app so auth token sync can initialize
-
 ---
 
 ## Environment Variables
@@ -1010,7 +944,6 @@ npm run functions:serve
 | `npm run preview` | Preview built frontend |
 | `npm run lint` | Run ESLint |
 | `npm run functions:serve` | Serve Supabase Edge Functions locally |
-| `npm run extension:zip` | Package Chrome extension into a zip file |
 | `python3 scripts/pipeline-test/harness.py` | Run the 9-scenario pipeline harness against deployed functions (pre-deploy gate) |
 | `python3 scripts/evals/run_evals.py` | Run the 8-eval output-quality suite on the static dataset (pre-deploy gate) |
 | `python3 scripts/evals/run_evals.py --meeting-id <id>` | Grade a live production meeting's transcript + insights |
@@ -1022,7 +955,7 @@ npm run functions:serve
 
 For a Software Engineer 1 candidate, this project shows much more than the ability to build pages or call an AI API.
 
-- It demonstrates **full-stack ownership** across frontend, backend, browser extension, and database layers.
+- It demonstrates **full-stack ownership** across frontend, backend, and database layers.
 - It shows **debugging maturity** through concrete handling of race conditions, state recovery, lifecycle issues, and provider failures — including root-causing a black-box third-party bug with controlled single-variable experiments (Challenge #19).
 - It includes **system integration work** with real OAuth, webhooks, third-party APIs, and async pipelines.
 - It practices **eval-driven AI development**: an integration harness for plumbing, an LLM-judged eval suite with calibration for output quality, and a production→eval feedback loop that turns every bad output into a permanent regression case.

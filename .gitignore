@@ -47,9 +47,6 @@ coverage
 __pycache__/
 *.pyc
 
-# Chrome extension build
-echobrief-extension.zip
-
 # Misc
 *.tgz
 .cache

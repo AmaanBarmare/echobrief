@@ -5,7 +5,7 @@ import { Plus, Minus } from 'lucide-react';
 const faqs = [
   {
     q: 'Do I need to install anything in the meeting?',
-    a: "No. EchoBrief uses a cloud bot that joins from your calendar, so there's nothing to install. A Chrome extension is still available if your workspace prefers local capture, but the dashboard flow is bot-only.",
+    a: 'No. EchoBrief uses a cloud bot that joins from your calendar or from a meeting link you paste. Nothing to install for you or your attendees.',
   },
   {
     q: 'Which languages are supported?',
