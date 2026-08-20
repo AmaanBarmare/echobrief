@@ -6,6 +6,7 @@ import {
   downloadSarvamResults,
 } from "../_shared/sarvam.ts";
 import { stitchChunkResults } from "../_shared/stitch.ts";
+import { fetchSpeakerContext } from "../_shared/recall-pipeline.ts";
 import {
   isLikelyHallucination,
   generateInsights,
@@ -269,10 +270,48 @@ serve(async (req) => {
       // We match PER-SEGMENT (not per speaker_id) because Sarvam's diarization
       // in translate mode often assigns all segments to one speaker_id, even when
       // multiple people spoke. Recall knows exactly who spoke when.
-      const recallTimeline: Array<{ speaker: string; start: number; end: number }> =
+      let recallTimeline: Array<{ speaker: string; start: number; end: number }> =
         config.recall_speaker_timeline || [];
-      const recallParticipants: Array<{ id: number; name: string }> =
+      let recallParticipants: Array<{ id: number; name: string }> =
         config.recall_participants || [];
+
+      // Second attempt at the Recall transcript. Bots use recallai_streaming in
+      // "prioritize_accuracy" mode, which Recall documents as delayed by 3-10
+      // minutes, but recall-pipeline asks for it the moment audio_mixed.done
+      // fires — usually far too early, so the timeline was stored as null and
+      // every speaker fell back to SPEAKER_XX. Measured 2026-08-20: only 1 of
+      // the last 25 recall meetings had a timeline. Sarvam has since spent
+      // minutes transcribing, so by now it is normally available.
+      const botId = config.recall_bot_id;
+      if (recallTimeline.length === 0 && botId) {
+        try {
+          const ctx = await fetchSpeakerContext(botId);
+          if (ctx.timeline.length > 0) {
+            recallTimeline = ctx.timeline;
+            if (ctx.participants.length > 0) recallParticipants = ctx.participants;
+            // Persist so reruns and the evals see the same attribution.
+            await supabase
+              .from("meetings")
+              .update({
+                processing_config: {
+                  ...config,
+                  recall_speaker_timeline: recallTimeline,
+                  recall_participants: recallParticipants,
+                },
+              })
+              .eq("id", meeting.id);
+            console.log(
+              `[sarvam-webhook] Recovered Recall speaker context on retry: ${recallTimeline.length} entries, ${recallParticipants.length} participants`,
+            );
+          } else {
+            console.warn(
+              `[sarvam-webhook] Recall transcript still unavailable for bot ${botId} — speakers will stay generic`,
+            );
+          }
+        } catch (err) {
+          console.warn("[sarvam-webhook] Recall speaker-context retry failed:", err);
+        }
+      }
       const perSegmentSpeaker: (string | null)[] = rawSegments.map(() => null);
 
       // Fast path: if only one participant joined the meeting, every word

@@ -216,6 +216,69 @@ export async function getAudioDownloadUrl(botData: Record<string, any>) {
  *
  * Returns the sarvam_job_id on success, or throws on failure.
  */
+
+export interface SpeakerTimelineEntry {
+  speaker: string;
+  start: number;
+  end: number;
+}
+
+/**
+ * Turns a Recall transcript into a speaker timeline: one entry per utterance
+ * capturing "this name spoke between these two times". sarvam-webhook maps
+ * Sarvam's acoustic SPEAKER_XX labels onto real names by overlapping against it.
+ */
+export function buildSpeakerTimeline(
+  transcript: RecallTranscriptEntry[] | null,
+): SpeakerTimelineEntry[] {
+  const timeline: SpeakerTimelineEntry[] = [];
+  if (!transcript) return timeline;
+  for (const entry of transcript) {
+    if (!entry.words || entry.words.length === 0) continue;
+    const start = entry.words[0]?.start_timestamp?.relative ?? 0;
+    const end =
+      entry.words[entry.words.length - 1]?.end_timestamp?.relative ?? start;
+    timeline.push({
+      speaker: entry.participant?.name || "Unknown",
+      start,
+      end,
+    });
+  }
+  return timeline;
+}
+
+/**
+ * Fetches the Recall transcript for a bot and derives both the speaker timeline
+ * and the participant list.
+ *
+ * Why this is called a second time from sarvam-webhook: bots are created with
+ * `recallai_streaming` in `prioritize_accuracy` mode, which Recall documents as
+ * "typically delayed by 3-10 minutes". processRecallAudio runs the moment
+ * audio_mixed.done fires — a minute or two after the meeting ends — so the
+ * transcript usually does not exist yet and the timeline comes back empty.
+ * Measured 2026-08-20: only 1 of the last 25 recall meetings had captured one,
+ * which is why essentially every multi-speaker meeting showed SPEAKER_00/01.
+ * By the time Sarvam calls back, minutes have passed and it is normally ready.
+ */
+export async function fetchSpeakerContext(botId: string): Promise<{
+  timeline: SpeakerTimelineEntry[];
+  participants: Array<{ id: number; name: string }>;
+}> {
+  const botData = await getRecallBot(botId);
+  const transcript = await getRecallTranscript(botId, botData);
+  const timeline = buildSpeakerTimeline(transcript);
+  const participants: Array<{ id: number; name: string }> = [];
+  const seen = new Set<number>();
+  for (const entry of transcript ?? []) {
+    const id = entry.participant?.id;
+    if (id != null && !seen.has(id)) {
+      seen.add(id);
+      participants.push({ id, name: entry.participant.name });
+    }
+  }
+  return { timeline, participants };
+}
+
 export async function processRecallAudio(
   supabase: any,
   meeting: Record<string, any>,
@@ -451,26 +514,7 @@ export async function processRecallAudio(
   }
 
   // 8. Build speaker timeline from Recall transcript for later mapping.
-  // Each entry captures a time range → speaker name so we can map Sarvam's
-  // acoustic SPEAKER_XX labels to real names after transcription.
-  const recallSpeakerTimeline: Array<{
-    speaker: string;
-    start: number;
-    end: number;
-  }> = [];
-  if (recallTranscript) {
-    for (const entry of recallTranscript) {
-      if (!entry.words || entry.words.length === 0) continue;
-      const start = entry.words[0]?.start_timestamp?.relative ?? 0;
-      const end =
-        entry.words[entry.words.length - 1]?.end_timestamp?.relative ?? start;
-      recallSpeakerTimeline.push({
-        speaker: entry.participant?.name || "Unknown",
-        start,
-        end,
-      });
-    }
-  }
+  const recallSpeakerTimeline = buildSpeakerTimeline(recallTranscript);
 
   // 9. Save sarvam_job_id + Recall speaker data (+ chunk metadata when split)
   await supabase
