@@ -18,7 +18,7 @@ import { KNOWN_PATTERNS, isKnown, RecoveryAction } from "./known-patterns.ts";
 const STUCK_AFTER_MIN = 15;
 const SARVAM_TAKING_TOO_LONG_MIN = 30;
 const ALERT_TO = "amaan@oltaflock.ai";
-const ALERT_FROM = "EchoBrief Monitor <notifications@oltaflock.ai>";
+const ALERT_FROM = "EchoBrief Monitor <hello@echobrief.in>";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
