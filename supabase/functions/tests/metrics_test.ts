@@ -20,7 +20,8 @@ Deno.test("single speaker: 100% share, balance 1, one turn", () => {
   assertEquals(m.total_speaking_seconds, 60);
   assertEquals(m.silence_percentage, 50);
   assertEquals(m.turn_count, 1);
-  assertEquals(m.participation_balance, 1);
+  // One speaker cannot be balanced or unbalanced against anyone.
+  assertEquals(m.participation_balance, null);
   assertEquals(m.longest_monologue_speaker, "Alice");
   assertEquals(m.longest_monologue_seconds, 60);
 });
@@ -54,8 +55,8 @@ Deno.test("consecutive same-speaker segments count as one turn and one monologue
 
 Deno.test("unequal split lowers balance below 1", () => {
   const m = computeConversationMetrics([seg("Alice", 0, 90), seg("Bob", 90, 100)], 100);
-  assertEquals(m.participation_balance < 1, true);
-  assertEquals(m.participation_balance >= 0, true);
+  assertEquals(m.participation_balance! < 1, true);
+  assertEquals(m.participation_balance! >= 0, true);
 });
 
 Deno.test("questions counted per speaker from segment text", () => {
@@ -89,7 +90,7 @@ Deno.test("empty segments produce a zeroed struct, not NaN", () => {
   assertEquals(m.total_speaking_seconds, 0);
   assertEquals(m.turn_count, 0);
   assertEquals(m.silence_percentage, 100);
-  assertEquals(m.participation_balance, 0);
+  assertEquals(m.participation_balance, null);
   assertEquals(m.longest_monologue_speaker, null);
 });
 
@@ -115,6 +116,53 @@ Deno.test("missing start/end are treated as zero-length, not NaN", () => {
   );
   assertEquals(m.total_speaking_seconds, 10);
   assertEquals(m.speaker_participation.find((s) => s.speaker === "Alice")!.seconds, 0);
+});
+
+Deno.test("a long gap splits a monologue but not a turn", () => {
+  // Real case: meeting 7261568f reported a 244.94 s "uninterrupted stretch"
+  // that actually contained 36 gaps, one of them 62 s long.
+  const m = computeConversationMetrics(
+    [seg("Alice", 0, 20), seg("Alice", 50, 60)],
+    60,
+  );
+  assertEquals(m.turn_count, 1);
+  assertEquals(m.total_speaking_seconds, 30);
+  assertEquals(m.longest_monologue_seconds, 20);
+  assertEquals(m.longest_monologue_speaker, "Alice");
+});
+
+Deno.test("a short gap does not split a monologue", () => {
+  const m = computeConversationMetrics(
+    [seg("Alice", 0, 20), seg("Alice", 25, 35)],
+    35,
+  );
+  assertEquals(m.longest_monologue_seconds, 30);
+});
+
+Deno.test("a monologue counts speech, never the silence inside it", () => {
+  const m = computeConversationMetrics(
+    [seg("Alice", 0, 10), seg("Alice", 14, 24)],
+    24,
+  );
+  // 24 s of wall-clock, but only 20 s of speech.
+  assertEquals(m.longest_monologue_seconds, 20);
+});
+
+Deno.test("the later of two equal-length monologues does not displace the first", () => {
+  const m = computeConversationMetrics(
+    [seg("Alice", 0, 10), seg("Bob", 10, 20)],
+    20,
+  );
+  assertEquals(m.longest_monologue_speaker, "Alice");
+  assertEquals(m.longest_monologue_seconds, 10);
+});
+
+Deno.test("participation_balance needs at least two speakers", () => {
+  assertEquals(computeConversationMetrics([seg("Alice", 0, 10)], 10).participation_balance, null);
+  assertEquals(
+    computeConversationMetrics([seg("Alice", 0, 10), seg("Bob", 10, 20)], 20).participation_balance,
+    1,
+  );
 });
 
 import { mergeMeetingMetrics } from "../_shared/metrics.ts";

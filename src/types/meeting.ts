@@ -95,7 +95,7 @@ export interface MeetingMetrics {
   turn_count?: number;
   longest_monologue_seconds?: number;
   longest_monologue_speaker?: string | null;
-  participation_balance?: number;
+  participation_balance?: number | null;
 }
 
 export interface MeetingInsights {

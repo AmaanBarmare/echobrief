@@ -29,9 +29,22 @@ export interface ConversationMetrics {
   turn_count: number;
   longest_monologue_seconds: number;
   longest_monologue_speaker: string | null;
-  /** 1 - Gini over per-speaker seconds. 1 = perfectly even. */
-  participation_balance: number;
+  /**
+   * 1 - Gini over per-speaker seconds. 1 = perfectly even. Null when fewer
+   * than two speakers, where "balance" describes nothing.
+   */
+  participation_balance: number | null;
 }
+
+/**
+ * A silence longer than this ends a monologue.
+ *
+ * Without it, "longest uninterrupted stretch" means "total time this speaker
+ * held the floor", which is a different and much larger number. Meeting
+ * 7261568f reported a 244.94 s stretch that contained 36 gaps, one of them
+ * 62 s — the longest genuinely continuous speech was 21 s.
+ */
+const MONOLOGUE_GAP_SECONDS = 15;
 
 function round(n: number, dp = 2): number {
   const f = 10 ** dp;
@@ -71,7 +84,7 @@ export function computeConversationMetrics(
     turn_count: 0,
     longest_monologue_seconds: 0,
     longest_monologue_speaker: null,
-    participation_balance: 0,
+    participation_balance: null,
   };
 
   if (!Array.isArray(segments) || segments.length === 0) {
@@ -93,6 +106,7 @@ export function computeConversationMetrics(
   let runSeconds = 0;
   let longestSeconds = 0;
   let longestSpeaker: string | null = null;
+  let prevEnd: number | null = null;
 
   for (const s of ordered) {
     const speaker = s.speaker || "Unknown";
@@ -103,9 +117,21 @@ export function computeConversationMetrics(
     stat.seconds += secs;
     stat.questions += (String(s.text ?? "").match(/\?/g) || []).length;
 
-    if (speaker !== prevSpeaker) {
+    // A turn is a change of speaker. A monologue additionally ends when the
+    // speaker goes quiet for a while, so silence is never counted as speech.
+    const speakerChanged = speaker !== prevSpeaker;
+    const start = Number(s.start ?? 0);
+    const gap = prevEnd === null || !Number.isFinite(start)
+      ? 0
+      : Math.max(0, start - prevEnd);
+    const monologueEnded = speakerChanged || gap > MONOLOGUE_GAP_SECONDS;
+
+    if (speakerChanged) {
       turnCount += 1;
       stat.turns += 1;
+    }
+
+    if (monologueEnded) {
       if (runSeconds > longestSeconds) {
         longestSeconds = runSeconds;
         longestSpeaker = runSpeaker;
@@ -118,6 +144,8 @@ export function computeConversationMetrics(
 
     bySpeaker.set(speaker, stat);
     prevSpeaker = speaker;
+    const end = Number(s.end ?? 0);
+    if (Number.isFinite(end)) prevEnd = prevEnd === null ? end : Math.max(prevEnd, end);
   }
 
   // The final run never hits the speaker-change branch above.
@@ -147,7 +175,9 @@ export function computeConversationMetrics(
     turn_count: turnCount,
     longest_monologue_seconds: round(longestSeconds),
     longest_monologue_speaker: longestSpeaker,
-    participation_balance: round(1 - gini(participation.map((p) => p.seconds))),
+    participation_balance: participation.length >= 2
+      ? round(1 - gini(participation.map((p) => p.seconds)))
+      : null,
   };
 }
 

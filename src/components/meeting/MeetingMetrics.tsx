@@ -35,10 +35,12 @@ export function MeetingMetrics({ metrics }: MeetingMetricsProps) {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // Null for solo meetings: one speaker is neither balanced nor unbalanced.
   const balancePercent =
-    metrics.participation_balance !== undefined
+    typeof metrics.participation_balance === 'number'
       ? Math.round(metrics.participation_balance * 100)
       : undefined;
+  const cardCount = balancePercent !== undefined ? 3 : 2;
 
   // Generate colors for speakers
   const speakerColors = ['bg-accent', 'bg-success', 'bg-warning', 'bg-primary', 'bg-destructive'];
@@ -46,7 +48,7 @@ export function MeetingMetrics({ metrics }: MeetingMetricsProps) {
   return (
     <div className="space-y-6">
       {/* Overview Cards */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className={cn('grid gap-4', cardCount === 3 ? 'grid-cols-3' : 'grid-cols-2')}>
         {/* Talk Time */}
         <div className="p-4 rounded-lg bg-card border border-border">
           <div className="flex items-center gap-2 mb-2">
@@ -81,24 +83,23 @@ export function MeetingMetrics({ metrics }: MeetingMetricsProps) {
           )}
         </div>
 
-        {/* Participation balance */}
-        <div className="p-4 rounded-lg bg-card border border-border">
-          <div className="flex items-center gap-2 mb-2">
-            <Scale className="w-4 h-4 text-muted-foreground" />
-            <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Balance</span>
-          </div>
-          <span className="text-2xl font-semibold text-foreground">
-            {balancePercent !== undefined ? `${balancePercent}%` : '--'}
-          </span>
-          {balancePercent !== undefined && (
+        {/* Participation balance — omitted entirely when there is only one
+            speaker, where the number would describe nothing. */}
+        {balancePercent !== undefined && (
+          <div className="p-4 rounded-lg bg-card border border-border">
+            <div className="flex items-center gap-2 mb-2">
+              <Scale className="w-4 h-4 text-muted-foreground" />
+              <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Balance</span>
+            </div>
+            <span className="text-2xl font-semibold text-foreground">{balancePercent}%</span>
             <Progress value={balancePercent} className="h-1.5 mt-2" />
-          )}
-          {metrics.turn_count !== undefined && (
-            <p className="text-xs text-muted-foreground mt-1">
-              {metrics.turn_count} speaker {metrics.turn_count === 1 ? 'turn' : 'turns'}
-            </p>
-          )}
-        </div>
+            {metrics.turn_count !== undefined && (
+              <p className="text-xs text-muted-foreground mt-1">
+                {metrics.turn_count} speaker {metrics.turn_count === 1 ? 'turn' : 'turns'}
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Speaker Participation */}
@@ -140,7 +141,7 @@ export function MeetingMetrics({ metrics }: MeetingMetricsProps) {
 
           {metrics.longest_monologue_speaker && metrics.longest_monologue_seconds !== undefined && (
             <p className="text-xs text-muted-foreground mt-4">
-              Longest uninterrupted stretch: {metrics.longest_monologue_speaker} for{' '}
+              Longest unbroken stretch of speech: {metrics.longest_monologue_speaker} for{' '}
               {formatDuration(metrics.longest_monologue_seconds)}
             </p>
           )}
