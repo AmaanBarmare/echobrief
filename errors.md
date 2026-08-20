@@ -199,6 +199,21 @@ Five separate failures chained, every one of them silent. The bucket being full 
 
 ---
 
+## Email delivery errors
+
+### `resend:cloudflare_1010_false_alarm`
+**What it looks like:** Any call to `api.resend.com` from a local script returns `HTTP 403` with the plain-text body `error code: 1010`. Every endpoint fails identically — even read-only `GET /domains`, and even from Resend's own `onboarding@resend.dev` test sender — which makes it look exactly like a revoked key or a suspended account.
+
+**Root cause:** It is not Resend. `api.resend.com` sits behind Cloudflare bot protection, which bans **Python's default `User-Agent`** (`Python-urllib/3.x`). `1010` is a Cloudflare code ("banned based on your browser's signature"), not a Resend error code.
+
+**The tell:** Resend's real errors are JSON — `{"name": "invalid_api_key", "message": ...}`. A plain-text body means the response never reached Resend's API layer. When a hosted API 403s but the error body is not that API's documented shape, suspect the CDN in front of it before the credential.
+
+**Fix:** send any ordinary `User-Agent` header. Verified 2026-08-20: `Deno/2.1.4`, `node` and a browser string all return 200; only the urllib default is blocked. **Supabase edge functions are unaffected** — Deno's `fetch` sets its own UA — so this only ever bites local debugging scripts.
+
+**Why it is written down:** on 2026-08-20 this produced a confident and completely wrong diagnosis — "the Resend key is revoked, all six email functions are dead, users are not receiving their meeting summaries." The key was valid throughout and `echobrief.in` was verified the whole time. Production's `email_sent: false` had a separate, real cause: the deployed `RESEND_API_KEY` was a different, stale key than the working one in `.env`.
+
+---
+
 ## How this file is maintained
 
 1. The `monitor-stuck-meetings` cron carries a `KNOWN_SIGNATURES` set in code. When it detects a stuck meeting whose signature is **not** in that set, it sends an email to `ALERT_EMAIL_TO` (default `admin@oltaflock.ai`) with subject `[ECHOBRIEF NEW ERROR] <signature>`.
