@@ -52,3 +52,8 @@ __pycache__/
 .cache
 .vercel
 .env*
+
+# Local debug artifacts (playwright screenshots, scratch session dumps)
+.playwright-mcp/
+/*.png
+public/__tmp_session.json

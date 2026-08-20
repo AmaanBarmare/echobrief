@@ -17,6 +17,7 @@ import MeetingDetail from "./pages/MeetingDetail";
 import Settings from "./pages/Settings";
 import Calendar from "./pages/Calendar";
 import ActionItems from "./pages/ActionItems";
+import Chat from "./pages/Chat";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import Terms from "./pages/Terms";
 import Docs from "./pages/Docs";
@@ -118,6 +119,14 @@ function AppRoutes() {
           element={
             <ProtectedRoute>
               <ActionItems />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/chat"
+          element={
+            <ProtectedRoute>
+              <Chat />
             </ProtectedRoute>
           }
         />
