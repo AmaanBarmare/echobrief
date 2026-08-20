@@ -71,17 +71,31 @@ export interface TimelineEntry {
   speaker?: string;
 }
 
+export interface SpeakerStat {
+  speaker: string;
+  /** Share of total speech (speakers sum to 100), NOT of wall-clock. */
+  percentage: number;
+  seconds?: number;
+  /** Legacy key from rows written when GPT estimated these numbers. */
+  duration_seconds?: number;
+  turns?: number;
+  questions?: number;
+}
+
+/**
+ * Mirrors ConversationMetrics from supabase/functions/_shared/metrics.ts, plus
+ * sentiment_score, which is still a model judgment. Every field is optional
+ * because rows written before the computed pipeline lack them.
+ */
 export interface MeetingMetrics {
-  engagement_score?: number;
   sentiment_score?: number;
-  speaker_participation?: {
-    speaker: string;
-    percentage: number;
-    duration_seconds: number;
-  }[];
-  total_duration_seconds?: number;
-  speaking_time_seconds?: number;
+  speaker_participation?: SpeakerStat[];
+  total_speaking_seconds?: number;
   silence_percentage?: number;
+  turn_count?: number;
+  longest_monologue_seconds?: number;
+  longest_monologue_speaker?: string | null;
+  participation_balance?: number;
 }
 
 export interface MeetingInsights {

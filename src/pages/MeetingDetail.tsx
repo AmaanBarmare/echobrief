@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { EmailReportSelector } from '@/components/dashboard/EmailReportSelector';
+import { MeetingMetrics } from '@/components/meeting/MeetingMetrics';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Meeting, Transcript, MeetingInsights, StrategicInsight, SpeakerHighlight, ActionItem, FollowUp } from '@/types/meeting';
@@ -611,6 +612,13 @@ export default function MeetingDetail() {
                     </p>
                   )}
                 </ProtoCard>
+
+                {/* Conversation metrics — computed from transcript segments.
+                    Hidden entirely for older rows that carry no metrics. */}
+                {insights.meeting_metrics &&
+                  Object.keys(insights.meeting_metrics).length > 0 && (
+                    <MeetingMetrics metrics={insights.meeting_metrics} />
+                )}
 
                 {/* Key Decisions */}
                 {insights.decisions && insights.decisions.length > 0 && (

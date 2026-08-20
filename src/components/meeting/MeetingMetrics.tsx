@@ -1,19 +1,17 @@
 import { Progress } from '@/components/ui/progress';
-import { Users, Smile, Frown, Meh, TrendingUp, Clock } from 'lucide-react';
+import { Users, Smile, Frown, Meh, Scale, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export interface MeetingMetricsData {
-  engagement_score?: number; // 0-100
-  sentiment_score?: number; // -1 to 1
-  speaker_participation?: { speaker: string; percentage: number; duration_seconds: number }[];
-  total_duration_seconds?: number;
-  speaking_time_seconds?: number;
-  silence_percentage?: number;
-}
+import type { MeetingMetrics as MeetingMetricsData, SpeakerStat } from '@/types/meeting';
+
+export type { MeetingMetricsData, SpeakerStat };
 
 interface MeetingMetricsProps {
   metrics: MeetingMetricsData;
 }
+
+/** Historical rows wrote duration_seconds; computed rows write seconds. */
+const speakerSeconds = (s: SpeakerStat) => s.seconds ?? s.duration_seconds ?? 0;
 
 export function MeetingMetrics({ metrics }: MeetingMetricsProps) {
   const getSentimentIcon = () => {
@@ -30,17 +28,17 @@ export function MeetingMetrics({ metrics }: MeetingMetricsProps) {
     return 'Neutral';
   };
 
-  const getEngagementColor = (score: number) => {
-    if (score >= 70) return 'bg-success';
-    if (score >= 40) return 'bg-warning';
-    return 'bg-destructive';
-  };
-
   const formatDuration = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
+    const total = Math.round(seconds);
+    const mins = Math.floor(total / 60);
+    const secs = total % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
+
+  const balancePercent =
+    metrics.participation_balance !== undefined
+      ? Math.round(metrics.participation_balance * 100)
+      : undefined;
 
   // Generate colors for speakers
   const speakerColors = ['bg-accent', 'bg-success', 'bg-warning', 'bg-primary', 'bg-destructive'];
@@ -49,22 +47,21 @@ export function MeetingMetrics({ metrics }: MeetingMetricsProps) {
     <div className="space-y-6">
       {/* Overview Cards */}
       <div className="grid grid-cols-3 gap-4">
-        {/* Engagement Score */}
+        {/* Talk Time */}
         <div className="p-4 rounded-lg bg-card border border-border">
           <div className="flex items-center gap-2 mb-2">
-            <TrendingUp className="w-4 h-4 text-muted-foreground" />
-            <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Engagement</span>
+            <Clock className="w-4 h-4 text-muted-foreground" />
+            <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Talk Time</span>
           </div>
-          <div className="flex items-end gap-2">
-            <span className="text-2xl font-semibold text-foreground">
-              {metrics.engagement_score ?? '--'}%
-            </span>
-          </div>
-          {metrics.engagement_score !== undefined && (
-            <Progress 
-              value={metrics.engagement_score} 
-              className="h-1.5 mt-2"
-            />
+          <span className="text-2xl font-semibold text-foreground">
+            {metrics.total_speaking_seconds !== undefined
+              ? formatDuration(metrics.total_speaking_seconds)
+              : '--:--'}
+          </span>
+          {metrics.silence_percentage !== undefined && (
+            <p className="text-xs text-muted-foreground mt-1">
+              {Math.round(metrics.silence_percentage)}% silence
+            </p>
           )}
         </div>
 
@@ -84,18 +81,21 @@ export function MeetingMetrics({ metrics }: MeetingMetricsProps) {
           )}
         </div>
 
-        {/* Duration */}
+        {/* Participation balance */}
         <div className="p-4 rounded-lg bg-card border border-border">
           <div className="flex items-center gap-2 mb-2">
-            <Clock className="w-4 h-4 text-muted-foreground" />
-            <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Duration</span>
+            <Scale className="w-4 h-4 text-muted-foreground" />
+            <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Balance</span>
           </div>
           <span className="text-2xl font-semibold text-foreground">
-            {metrics.total_duration_seconds ? formatDuration(metrics.total_duration_seconds) : '--:--'}
+            {balancePercent !== undefined ? `${balancePercent}%` : '--'}
           </span>
-          {metrics.silence_percentage !== undefined && (
+          {balancePercent !== undefined && (
+            <Progress value={balancePercent} className="h-1.5 mt-2" />
+          )}
+          {metrics.turn_count !== undefined && (
             <p className="text-xs text-muted-foreground mt-1">
-              {Math.round(metrics.silence_percentage)}% silence
+              {metrics.turn_count} speaker {metrics.turn_count === 1 ? 'turn' : 'turns'}
             </p>
           )}
         </div>
@@ -131,10 +131,19 @@ export function MeetingMetrics({ metrics }: MeetingMetricsProps) {
                   speakerColors[index % speakerColors.length]
                 )} />
                 <span className="text-sm text-foreground truncate flex-1">{speaker.speaker}</span>
-                <span className="text-sm text-muted-foreground">{Math.round(speaker.percentage)}%</span>
+                <span className="text-sm text-muted-foreground">
+                  {formatDuration(speakerSeconds(speaker))} · {Math.round(speaker.percentage)}%
+                </span>
               </div>
             ))}
           </div>
+
+          {metrics.longest_monologue_speaker && metrics.longest_monologue_seconds !== undefined && (
+            <p className="text-xs text-muted-foreground mt-4">
+              Longest uninterrupted stretch: {metrics.longest_monologue_speaker} for{' '}
+              {formatDuration(metrics.longest_monologue_seconds)}
+            </p>
+          )}
         </div>
       )}
     </div>
