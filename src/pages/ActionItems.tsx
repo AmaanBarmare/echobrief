@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Check, User, ChevronDown, ChevronRight, ExternalLink, Pencil, CheckSquare, Calendar, Video, Filter } from 'lucide-react';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { supabase } from '@/integrations/supabase/client';
+import type { Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -30,6 +31,7 @@ interface ActionItem {
 
 interface MeetingGroup {
   id: string;
+  insightsId: string;
   title: string;
   date: string;
   source: string;
@@ -70,9 +72,25 @@ export default function ActionItems() {
     try {
       const { data: meetings } = await supabase
         .from('meetings')
-        .select(`id, title, start_time, source, meeting_insights (action_items)`)
+        .select(`id, title, start_time, source, meeting_insights (id, action_items)`)
         .eq('user_id', user?.id)
         .order('start_time', { ascending: false });
+
+      // Completion state lives in action_item_completions, keyed by
+      // (user_id, meeting_id, action_item_index) — the same composite the
+      // local `${meeting.id}-${index}` item id encodes.
+      const { data: completions } = await supabase
+        .from('action_item_completions')
+        .select('meeting_id, action_item_index, completed')
+        .eq('user_id', user?.id);
+
+      setCompletedItems(
+        new Set(
+          (completions || [])
+            .filter((c) => c.completed)
+            .map((c) => `${c.meeting_id}-${c.action_item_index}`)
+        )
+      );
 
       const groups: MeetingGroup[] = [];
       
@@ -96,6 +114,7 @@ export default function ActionItems() {
           if (items.length > 0) {
             groups.push({
               id: meeting.id,
+              insightsId: insights.id,
               title: meeting.title,
               date: meeting.start_time,
               source: meeting.source || 'manual',
@@ -113,20 +132,45 @@ export default function ActionItems() {
     }
   };
 
-  const toggleComplete = (itemId: string) => {
+  const toggleComplete = async (itemId: string, meetingId: string, index: number) => {
+    if (!user) return;
+
+    const wasCompleted = completedItems.has(itemId);
+    const nextCompleted = !wasCompleted;
+
+    // Optimistic update, rolled back if the write fails.
     setCompletedItems((prev) => {
       const newSet = new Set(prev);
-      const wasCompleted = newSet.has(itemId);
-      
-      if (wasCompleted) {
-        newSet.delete(itemId);
-      } else {
-        newSet.add(itemId);
-        toast.success('Task marked complete');
-      }
-      
+      if (nextCompleted) newSet.add(itemId);
+      else newSet.delete(itemId);
       return newSet;
     });
+
+    const { error } = await supabase.from('action_item_completions').upsert(
+      {
+        user_id: user.id,
+        meeting_id: meetingId,
+        action_item_index: index,
+        completed: nextCompleted,
+        completed_at: nextCompleted ? new Date().toISOString() : null,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id,meeting_id,action_item_index' }
+    );
+
+    if (error) {
+      console.error('[ActionItems] completion save failed:', error);
+      setCompletedItems((prev) => {
+        const newSet = new Set(prev);
+        if (nextCompleted) newSet.delete(itemId);
+        else newSet.add(itemId);
+        return newSet;
+      });
+      toast.error('Could not save — please try again');
+      return;
+    }
+
+    if (nextCompleted) toast.success('Task marked complete');
   };
 
   const toggleMeetingExpanded = (meetingId: string) => {
@@ -143,19 +187,75 @@ export default function ActionItems() {
     setEditText(item.task);
   };
 
-  const saveEdit = () => {
-    if (editingId) {
-      // Update local state
-      setMeetingGroups(prev => prev.map(group => ({
-        ...group,
-        actionItems: group.actionItems.map(item => 
-          item.id === editingId ? { ...item, task: editText } : item
-        )
-      })));
-      toast.success('Task updated');
-      setEditingId(null);
-      setEditText('');
+  const saveEdit = async () => {
+    if (!editingId) return;
+
+    const group = meetingGroups.find((g) =>
+      g.actionItems.some((item) => item.id === editingId)
+    );
+    const item = group?.actionItems.find((i) => i.id === editingId);
+    if (!group || !item) return;
+
+    const newTask = editText.trim();
+    if (!newTask) {
+      toast.error('Task cannot be empty');
+      return;
     }
+
+    const previousTask = item.task;
+    setMeetingGroups(prev => prev.map(g => ({
+      ...g,
+      actionItems: g.actionItems.map(i =>
+        i.id === editingId ? { ...i, task: newTask } : i
+      )
+    })));
+    setEditingId(null);
+    setEditText('');
+
+    // Action items live as a JSONB array on meeting_insights. Read-modify-write
+    // the single element, preserving whether it was stored as a bare string or
+    // an object with owner/priority metadata.
+    const { data: insightsRow, error: readError } = await supabase
+      .from('meeting_insights')
+      .select('action_items')
+      .eq('id', group.insightsId)
+      .single();
+
+    if (readError || !insightsRow || !Array.isArray(insightsRow.action_items)) {
+      console.error('[ActionItems] could not read action items for edit:', readError);
+      revertEdit(editingId, previousTask);
+      return;
+    }
+
+    const updated = [...(insightsRow.action_items as (string | ActionItemData)[])];
+    const existing = updated[item.index];
+    updated[item.index] =
+      typeof existing === 'object' && existing !== null
+        ? { ...(existing as ActionItemData), task: newTask }
+        : newTask;
+
+    const { error: writeError } = await supabase
+      .from('meeting_insights')
+      .update({ action_items: updated as unknown as Json })
+      .eq('id', group.insightsId);
+
+    if (writeError) {
+      console.error('[ActionItems] task update failed:', writeError);
+      revertEdit(editingId, previousTask);
+      return;
+    }
+
+    toast.success('Task updated');
+  };
+
+  const revertEdit = (itemId: string, previousTask: string) => {
+    setMeetingGroups(prev => prev.map(g => ({
+      ...g,
+      actionItems: g.actionItems.map(i =>
+        i.id === itemId ? { ...i, task: previousTask } : i
+      )
+    })));
+    toast.error('Could not save the change — reverted');
   };
 
   const cancelEdit = () => {
@@ -380,7 +480,7 @@ export default function ActionItems() {
                           >
                             {/* Checkbox */}
                             <button
-                              onClick={() => toggleComplete(item.id)}
+                              onClick={() => toggleComplete(item.id, group.id, item.index)}
                               className="w-5 h-5 rounded-[4px] border-[1.5px] flex-shrink-0 mt-0.5 flex items-center justify-center transition-all"
                               style={{
                                 background: isCompleted ? 'var(--ember)' : 'transparent',

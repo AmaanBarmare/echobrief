@@ -10,7 +10,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Mic, Loader2 } from 'lucide-react';
-import { useRecording } from '@/contexts/RecordingContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -40,42 +39,22 @@ export function RecordingButton({
   const [meetingTitle, setMeetingTitle] = useState(prefillTitle || '');
   const [isStarting, setIsStarting] = useState(false);
   const [meetingUrl, setMeetingUrl] = useState(propMeetingLink || '');
-  const [notetakerName, setNotetakerName] = useState('EchoBrief Notetaker');
+  const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
 
-  // Fetch notetaker name from user preferences
   useEffect(() => {
-    if (!user) return;
-    const fetchPrefs = async () => {
-      const { data } = await supabase
-        .from('notification_preferences')
-        .select('notetaker_name')
-        .eq('user_id', user.id)
-        .maybeSingle();
-      if (data?.notetaker_name) {
-        setNotetakerName(data.notetaker_name);
-      }
-    };
-    fetchPrefs();
-  }, [user]);
-
-  const {
-    isRecording,
-    error,
-  } = useRecording();
-
-  useEffect(() => {
-    if (prefillTitle && !isRecording) {
+    if (prefillTitle) {
       setMeetingTitle(prefillTitle);
       setShowDialog(true);
     }
-  }, [prefillTitle, isRecording]);
+  }, [prefillTitle]);
 
   const handleStartRecording = async () => {
     if (!user) return;
-    
+
     setIsStarting(true);
+    setError(null);
     
     try {
       const title = meetingTitle || `Meeting ${new Date().toLocaleDateString()}`;
@@ -94,6 +73,7 @@ export function RecordingButton({
       toast({ title: 'Bot started', description: `Bot is joining the meeting` });
       setShowDialog(false);
     } catch (err: any) {
+      setError(err.message || 'Failed to start recording');
       toast({
         title: 'Error',
         description: err.message || 'Failed to start recording',
@@ -103,10 +83,6 @@ export function RecordingButton({
       setIsStarting(false);
     }
   };
-
-  if (isRecording) {
-    return null;
-  }
 
   return (
     <>

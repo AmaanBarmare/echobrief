@@ -281,6 +281,54 @@ export type Database = {
         }
         Relationships: []
       }
+      calendars: {
+        Row: {
+          calendar_id: string
+          calendar_name: string
+          created_at: string | null
+          credentials: Json | null
+          email: string | null
+          id: string
+          is_active: boolean | null
+          is_primary: boolean | null
+          last_synced_at: string | null
+          provider: string
+          sync_enabled: boolean | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          calendar_id: string
+          calendar_name: string
+          created_at?: string | null
+          credentials?: Json | null
+          email?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_primary?: boolean | null
+          last_synced_at?: string | null
+          provider: string
+          sync_enabled?: boolean | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          calendar_id?: string
+          calendar_name?: string
+          created_at?: string | null
+          credentials?: Json | null
+          email?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_primary?: boolean | null
+          last_synced_at?: string | null
+          provider?: string
+          sync_enabled?: boolean | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       calendar_events: {
         Row: {
           attendees: Json | null
@@ -357,6 +405,12 @@ export type Database = {
           id: string
           notetaker_name: string | null
           pre_meeting_notification_minutes: number | null
+          notification_frequency: string | null
+          onboarding_completed: boolean | null
+          onboarding_completed_at: string | null
+          preferred_languages: string[] | null
+          recording_preference: string | null
+          auto_join_meetings: boolean | null
           updated_at: string
           user_id: string
         }
@@ -372,6 +426,12 @@ export type Database = {
           id?: string
           notetaker_name?: string | null
           pre_meeting_notification_minutes?: number | null
+          notification_frequency?: string | null
+          onboarding_completed?: boolean | null
+          onboarding_completed_at?: string | null
+          preferred_languages?: string[] | null
+          recording_preference?: string | null
+          auto_join_meetings?: boolean | null
           updated_at?: string
           user_id: string
         }
@@ -387,6 +447,12 @@ export type Database = {
           id?: string
           notetaker_name?: string | null
           pre_meeting_notification_minutes?: number | null
+          notification_frequency?: string | null
+          onboarding_completed?: boolean | null
+          onboarding_completed_at?: string | null
+          preferred_languages?: string[] | null
+          recording_preference?: string | null
+          auto_join_meetings?: boolean | null
           updated_at?: string
           user_id?: string
         }

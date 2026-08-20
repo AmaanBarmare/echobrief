@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Mic, Calendar, Clock, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { format, differenceInMinutes, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -15,27 +16,59 @@ interface UpcomingMeeting {
   attendees?: { email: string; displayName?: string }[];
 }
 
-interface PreMeetingNotificationProps {
-  notetakerName?: string;
-  notificationMinutes?: number;
-}
+// A full Google Calendar sync is expensive — it upserts `calendars` and
+// `calendar_events` on every call. Running it once a minute per open tab was
+// the single biggest source of write churn in the app (see README challenge
+// #22 on the Disk IO Budget). Sync at a slow cadence; read from the DB often.
+const SYNC_INTERVAL_MS = 15 * 60 * 1000;
+const POLL_INTERVAL_MS = 60 * 1000;
 
-export function PreMeetingNotification({ 
-  notetakerName = 'Notetaker',
-  notificationMinutes = 5 
-}: PreMeetingNotificationProps) {
+export function PreMeetingNotification() {
   const { user, session } = useAuth();
   const navigate = useNavigate();
   const [upcomingMeeting, setUpcomingMeeting] = useState<UpcomingMeeting | null>(null);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const [notetakerName, setNotetakerName] = useState('Notetaker');
+  const [notificationMinutes, setNotificationMinutes] = useState(5);
+  const [autoJoinEnabled, setAutoJoinEnabled] = useState(false);
+
+  // The bot name, lead time and auto-join state are all per-user settings.
+  // They used to be hardcoded props, so every user was told a bot named
+  // "Khush's Notetaker" would auto-join — regardless of their own settings.
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+
+    const loadPrefs = async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('notetaker_name, pre_meeting_notification_minutes, auto_join_enabled')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (cancelled || !data) return;
+      if (data.notetaker_name) setNotetakerName(data.notetaker_name);
+      if (data.pre_meeting_notification_minutes) {
+        setNotificationMinutes(data.pre_meeting_notification_minutes);
+      }
+      setAutoJoinEnabled(data.auto_join_enabled === true);
+    };
+
+    loadPrefs();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
   const [minutesUntilMeeting, setMinutesUntilMeeting] = useState<number>(0);
 
   useEffect(() => {
     if (!user || !session?.access_token) return;
 
-    const checkUpcomingMeetings = async () => {
+    // Pull fresh events from Google. Expensive (writes calendars +
+    // calendar_events), so this runs on SYNC_INTERVAL_MS, not the poll.
+    const syncCalendar = async () => {
       try {
-        const response = await fetch(
+        await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-google-calendar`,
           {
             method: 'POST',
@@ -45,11 +78,35 @@ export function PreMeetingNotification({
             },
           }
         );
+      } catch (error) {
+        console.error('Error syncing calendar:', error);
+      }
+    };
 
-        const data = await response.json() as { upcomingEvents?: unknown[] };
-        const list = Array.isArray(data.upcomingEvents) ? data.upcomingEvents : [];
-
+    // Cheap read against already-synced rows — safe to run every minute.
+    const checkUpcomingMeetings = async () => {
+      try {
         const now = new Date();
+        const horizon = new Date(now.getTime() + 60 * 60 * 1000);
+
+        const { data: events, error } = await supabase
+          .from('calendar_events')
+          .select('event_id, title, start_time, end_time, meeting_link, attendees')
+          .eq('user_id', user.id)
+          .gte('start_time', now.toISOString())
+          .lte('start_time', horizon.toISOString())
+          .order('start_time', { ascending: true });
+
+        if (error) throw error;
+
+        const list = (events || []).map((e) => ({
+          id: e.event_id,
+          title: e.title,
+          start_time: e.start_time,
+          end_time: e.end_time,
+          meetingLink: e.meeting_link,
+          attendees: e.attendees,
+        }));
 
         const upcoming = list.find((raw: unknown) => {
           if (!raw || typeof raw !== 'object') return false;
@@ -97,13 +154,17 @@ export function PreMeetingNotification({
       }
     };
 
-    // Check immediately
-    checkUpcomingMeetings();
-    
-    // Check every minute
-    const interval = setInterval(checkUpcomingMeetings, 60000);
-    
-    return () => clearInterval(interval);
+    void syncCalendar().then(checkUpcomingMeetings);
+
+    const pollInterval = setInterval(checkUpcomingMeetings, POLL_INTERVAL_MS);
+    const syncInterval = setInterval(() => {
+      void syncCalendar().then(checkUpcomingMeetings);
+    }, SYNC_INTERVAL_MS);
+
+    return () => {
+      clearInterval(pollInterval);
+      clearInterval(syncInterval);
+    };
   }, [user, session, dismissed, notificationMinutes]);
 
   // Update countdown every minute
@@ -181,7 +242,16 @@ export function PreMeetingNotification({
 
         {/* Notetaker message */}
         <p className="text-sm text-muted-foreground mb-4 p-2 bg-accent/5 rounded-md">
-          <strong className="text-accent">{notetakerName}</strong> will automatically join and record this meeting.
+          {autoJoinEnabled ? (
+            <>
+              <strong className="text-accent">{notetakerName}</strong> will automatically join and record this meeting.
+            </>
+          ) : (
+            <>
+              Auto-join is off. Hit <strong className="text-accent">Record Now</strong> to send{' '}
+              <strong className="text-accent">{notetakerName}</strong> to this meeting.
+            </>
+          )}
         </p>
 
         {/* Actions */}

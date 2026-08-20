@@ -4,11 +4,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
-import { RecordingProvider } from "@/contexts/RecordingContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { CalendarProvider } from "@/contexts/CalendarContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { GlobalRecordingPanel } from "@/components/dashboard/GlobalRecordingPanel";
 import { PreMeetingNotification } from "@/components/dashboard/PreMeetingNotification";
 import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
@@ -85,7 +83,11 @@ function AppRoutes() {
         />
         <Route
           path="/recordings"
-          element={<Recordings />}
+          element={
+            <ProtectedRoute>
+              <Recordings />
+            </ProtectedRoute>
+          }
         />
         <Route
           path="/meeting/:id"
@@ -121,10 +123,8 @@ function AppRoutes() {
         />
         <Route path="*" element={<NotFound />} />
       </Routes>
-      {/* Global recording panel - always visible when recording */}
-      {user && <GlobalRecordingPanel />}
       {/* Pre-meeting notifications */}
-      {user && <PreMeetingNotification notetakerName="Khush's Notetaker" notificationMinutes={5} />}
+      {user && <PreMeetingNotification />}
     </>
   );
 }
@@ -137,11 +137,9 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <AuthProvider>
-            <RecordingProvider>
-              <CalendarProvider>
-                <AppRoutes />
-              </CalendarProvider>
-            </RecordingProvider>
+            <CalendarProvider>
+              <AppRoutes />
+            </CalendarProvider>
           </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>

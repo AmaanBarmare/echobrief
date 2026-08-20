@@ -136,6 +136,17 @@ serve(async (req) => {
             bot_name: pref.notetaker_name || 'EchoBrief Notetaker',
             recording_config: {
               audio_mixed_mp3: {},
+              // Required for speaker-name resolution: without a transcript
+              // provider Recall produces no transcript, so sarvam-webhook has
+              // no speaker timeline to map SPEAKER_XX onto real participants.
+              // Must stay in sync with start-recall-recording.
+              transcript: {
+                provider: {
+                  recallai_streaming: {
+                    mode: "prioritize_accuracy",
+                  },
+                },
+              },
             },
           })
         })

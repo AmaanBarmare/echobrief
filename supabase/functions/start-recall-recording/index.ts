@@ -24,6 +24,15 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Missing meeting_url or user_id' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
+    // Use the name the user set in Settings -> Bot. auto-join-meetings reads the
+    // same column, so a bot is named identically however it was dispatched.
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('notetaker_name')
+      .eq('user_id', user_id)
+      .maybeSingle();
+    const botName = profile?.notetaker_name?.trim() || 'EchoBrief Notetaker';
+
     // Create a bot and request an async mixed-audio artifact.
     // Recall status webhooks should be configured in the Recall dashboard and point to recall-webhook.
     const recallResponse = await fetch(`${RECALL_API_URL}/bot/`, {
@@ -35,7 +44,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         meeting_url: meeting_url,
-        bot_name: 'EchoBrief Bot',
+        bot_name: botName,
         recording_config: {
           audio_mixed_mp3: {},
           transcript: {
