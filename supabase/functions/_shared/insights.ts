@@ -51,7 +51,7 @@ function emptyInsights() {
     open_questions: [],
     follow_ups: [],
     timeline_entries: [],
-    meeting_metrics: { engagement_score: 0, sentiment_score: 0, speaker_participation: [] },
+    meeting_metrics: { sentiment_score: 0 },
   };
 }
 
@@ -184,9 +184,7 @@ Format your response as JSON with this exact structure:
     {"timestamp": 0, "type": "topic|question|decision|action|risk", "content": "What happened", "speaker": "Name or null"}
   ],
   "meeting_metrics": {
-    "engagement_score": 75,
-    "sentiment_score": 0.5,
-    "speaker_participation": [{"speaker": "Name", "percentage": 50, "duration_seconds": 300}]
+    "sentiment_score": 0.5
   }
 }`;
 
@@ -233,7 +231,7 @@ Format your response as JSON with this exact structure:
       open_questions: [],
       follow_ups: [],
       timeline_entries: [],
-      meeting_metrics: {},
+      meeting_metrics: { sentiment_score: 0 },
     };
   }
 }

@@ -191,10 +191,29 @@ function buildEmailHtml(data: EmailData): string {
 
   // Format metrics
   const metrics = insights?.meeting_metrics || {};
-  const engagementScore = metrics.engagement_score || "N/A";
   const sentimentScore = metrics.sentiment_score !== undefined 
     ? (metrics.sentiment_score > 0 ? "Positive" : metrics.sentiment_score < 0 ? "Negative" : "Neutral")
     : "N/A";
+
+  // engagement_score was a GPT guess and is no longer produced. These come from
+  // computeConversationMetrics over the transcript segments, so a row is only
+  // emitted when the value is actually present (older rows lack them).
+  const metricRow = (label: string, value: string) => `
+                <tr>
+                  <td style="padding: 4px 16px 4px 0; color: #64748b;">${label}:</td>
+                  <td style="padding: 4px 0; color: #334155; font-weight: 500;">${value}</td>
+                </tr>`;
+  const metricRows: string[] = [];
+  if (typeof metrics.total_speaking_seconds === "number") {
+    metricRows.push(metricRow("Talk Time", `${Math.round(metrics.total_speaking_seconds / 60)} min`));
+  }
+  if (typeof metrics.turn_count === "number") {
+    metricRows.push(metricRow("Speaker Turns", String(metrics.turn_count)));
+  }
+  if (typeof metrics.silence_percentage === "number") {
+    metricRows.push(metricRow("Silence", `${Math.round(metrics.silence_percentage)}%`));
+  }
+  metricRows.push(metricRow("Overall Sentiment", sentimentScore));
 
   const appUrl = "https://echobrief.in";
 
@@ -286,15 +305,7 @@ function buildEmailHtml(data: EmailData): string {
           <tr>
             <td style="padding: 0 24px 24px;">
               <h2 style="margin: 0 0 16px; color: #1e293b; font-size: 18px; font-weight: 600;">📊 Meeting Metrics</h2>
-              <table cellpadding="0" cellspacing="0" style="font-size: 14px;">
-                <tr>
-                  <td style="padding: 4px 16px 4px 0; color: #64748b;">Engagement Score:</td>
-                  <td style="padding: 4px 0; color: #334155; font-weight: 500;">${engagementScore}${typeof engagementScore === 'number' ? '/100' : ''}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 4px 16px 4px 0; color: #64748b;">Overall Sentiment:</td>
-                  <td style="padding: 4px 0; color: #334155; font-weight: 500;">${sentimentScore}</td>
-                </tr>
+              <table cellpadding="0" cellspacing="0" style="font-size: 14px;">${metricRows.join("")}
               </table>
             </td>
           </tr>

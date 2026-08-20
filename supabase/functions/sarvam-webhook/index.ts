@@ -6,6 +6,7 @@ import {
   downloadSarvamResults,
 } from "../_shared/sarvam.ts";
 import { stitchChunkResults } from "../_shared/stitch.ts";
+import { computeConversationMetrics } from "../_shared/metrics.ts";
 import { fetchSpeakerContext } from "../_shared/recall-pipeline.ts";
 import {
   isLikelyHallucination,
@@ -448,19 +449,13 @@ serve(async (req) => {
         });
       }
 
-      const insights = await generateInsights(
-        openai,
-        meeting,
-        finalTranscript,
-        speakerSegments,
-      );
-      await saveInsights(supabase, meeting.id, insights);
-
       const endTime = new Date();
       const startTime = new Date(meeting.start_time);
       // Prefer the real audio duration (persisted by the split path), then the
       // last transcript segment's end time, and only then wall-clock — which is
       // inflated by processing time and wildly wrong for recovered meetings.
+      // Computed before saveInsights because silence_percentage is measured
+      // against this duration.
       const audioDuration = Number(config.audio_duration_seconds) || 0;
       const lastSegmentEnd = speakerSegments.reduce(
         (max, seg) => Math.max(max, Number(seg.end) || 0),
@@ -471,6 +466,19 @@ serve(async (req) => {
           lastSegmentEnd ||
           (endTime.getTime() - startTime.getTime()) / 1000,
       );
+
+      const insights = await generateInsights(
+        openai,
+        meeting,
+        finalTranscript,
+        speakerSegments,
+      );
+      // Computed values overwrite anything the model returned for these keys.
+      insights.meeting_metrics = {
+        ...(insights.meeting_metrics || {}),
+        ...computeConversationMetrics(speakerSegments, durationSeconds),
+      };
+      await saveInsights(supabase, meeting.id, insights);
 
       await supabase
         .from("meetings")

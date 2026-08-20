@@ -14,6 +14,7 @@ import {
   deliverResults,
   SpeakerSegment,
 } from "../_shared/insights.ts";
+import { computeConversationMetrics } from "../_shared/metrics.ts";
 
 async function whisperTranscribe(
   openai: OpenAI,
@@ -226,19 +227,12 @@ Only include segments where you can make a reasonable attribution.`;
     };
   }
 
-  const insights = await generateInsights(
-    openai,
-    meeting,
-    transcript,
-    speakerSegments,
-  );
-  await saveInsights(supabase, meetingId, insights);
-
   const startTime = new Date(meeting.start_time);
   // Same precedence as sarvam-webhook: real audio duration (written by the
   // split path) first, then the last transcript segment's end time, and only
   // then wall-clock — which counts processing time and is wildly wrong for
-  // meetings recovered hours later.
+  // meetings recovered hours later. Computed before saveInsights because
+  // silence_percentage is measured against this duration.
   const audioDuration =
     Number(meeting.processing_config?.audio_duration_seconds) || 0;
   const lastSegmentEnd = speakerSegments.reduce(
@@ -250,6 +244,19 @@ Only include segments where you can make a reasonable attribution.`;
       lastSegmentEnd ||
       (endTime.getTime() - startTime.getTime()) / 1000,
   );
+
+  const insights = await generateInsights(
+    openai,
+    meeting,
+    transcript,
+    speakerSegments,
+  );
+  // Computed values overwrite anything the model returned for these keys.
+  insights.meeting_metrics = {
+    ...(insights.meeting_metrics || {}),
+    ...computeConversationMetrics(speakerSegments, durationSeconds),
+  };
+  await saveInsights(supabase, meetingId, insights);
 
   await supabase
     .from("meetings")
