@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsPrelight } from "../_shared/cors.ts";
+import { pickChangedEvents } from "../_shared/calendar-diff.ts";
 
 function extractMeetingUrl(event: Record<string, unknown>): string | null {
   const conferenceData = event.conferenceData as
@@ -291,15 +292,36 @@ serve(async (req) => {
               raw_data: event,
             }));
 
-            const { error: eventError } = await supabase
+            // Only write what actually changed. Upserting the whole calendar
+            // on every sync rewrote every row regardless, which was the second
+            // largest write source in the database — see _shared/calendar-diff.ts.
+            const { data: storedVersions } = await supabase
               .from("calendar_events")
-              .upsert(eventInserts, { onConflict: "user_id,event_id" });
+              .select("event_id, raw_data->>updated")
+              .eq("user_id", user.id)
+              .eq("calendar_id", cal.id);
 
-            if (!eventError) {
-              totalEvents += eventInserts.length;
-              console.log(`[sync-google-calendar] Synced ${eventInserts.length} events from ${cal.summary}`);
+            const changed = pickChangedEvents(storedVersions as any, events as any[]);
+            const changedIds = new Set(changed.map((e: any) => e.id));
+            const toWrite = eventInserts.filter((row: any) => changedIds.has(row.event_id));
+
+            if (toWrite.length === 0) {
+              console.log(
+                `[sync-google-calendar] ${cal.summary}: ${eventInserts.length} events, none changed — no write`,
+              );
             } else {
-              console.warn(`[sync-google-calendar] calendar_events upsert skipped: ${eventError.message}`);
+              const { error: eventError } = await supabase
+                .from("calendar_events")
+                .upsert(toWrite, { onConflict: "user_id,event_id" });
+
+              if (!eventError) {
+                totalEvents += toWrite.length;
+                console.log(
+                  `[sync-google-calendar] Synced ${toWrite.length} changed of ${eventInserts.length} events from ${cal.summary}`,
+                );
+              } else {
+                console.warn(`[sync-google-calendar] calendar_events upsert skipped: ${eventError.message}`);
+              }
             }
           }
         }

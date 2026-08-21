@@ -20,7 +20,10 @@ interface UpcomingMeeting {
 // `calendar_events` on every call. Running it once a minute per open tab was
 // the single biggest source of write churn in the app (see README challenge
 // #22 on the Disk IO Budget). Sync at a slow cadence; read from the DB often.
-const SYNC_INTERVAL_MS = 15 * 60 * 1000;
+// Google is polled on a timer from every open tab. Each poll used to rewrite
+// the user's whole calendar; it now writes only genuine changes, but the poll
+// itself still costs a request per tab, so keep it infrequent.
+const SYNC_INTERVAL_MS = 30 * 60 * 1000;
 const POLL_INTERVAL_MS = 60 * 1000;
 
 export function PreMeetingNotification() {

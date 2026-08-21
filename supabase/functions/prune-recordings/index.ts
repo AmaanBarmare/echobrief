@@ -23,11 +23,26 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-// Keep a month of audio so a user can still re-listen to anything recent.
-const RETAIN_DAYS = 30;
+// Audio is never played back — nothing in the app renders an <audio> element,
+// and the only other read of audio_url is to delete the file. It is needed
+// until transcription succeeds and then never again, so it is kept just long
+// enough to re-run a pipeline that failed late. The candidate query below
+// already refuses to delete audio for a meeting with no transcript, so a
+// failed meeting keeps its recording regardless of this number.
+//
+// The 1 GB free-tier cap is what took the product down on 2026-08-14. Holding
+// a month of write-once, read-never audio against it was the whole risk.
+const RETAIN_DAYS = 3;
 // Belt and braces: if the bucket is close to the cap, prune harder rather than
 // let uploads start failing again.
-const URGENT_RETAIN_DAYS = 7;
+const URGENT_RETAIN_DAYS = 1;
+// Audio for a meeting that never produced a transcript is kept much longer,
+// because it is the only copy of what was said and a late recovery can still
+// use it. But "much longer" is not "forever": before this cap, every failure
+// parked ~40 MB in the bucket permanently, so the 1 GB cap was being consumed
+// by exactly the meetings that went wrong. A failure nobody recovered in a
+// month is not going to be recovered.
+const FAILED_RETAIN_DAYS = 30;
 const CAP_BYTES = 1024 * 1024 * 1024;
 const URGENT_THRESHOLD = 0.85 * CAP_BYTES;
 
@@ -61,6 +76,11 @@ serve(async (req) => {
     // Only meetings that already have a real transcript — never delete the audio
     // for something we failed to transcribe, that is the one case where the raw
     // recording is still the only copy of the meeting.
+    // Widest window we might act on: transcribed audio past `cutoff`, plus
+    // untranscribed audio past the much longer failure cutoff.
+    const failedCutoff = new Date(
+      Date.now() - Math.max(retainDays, FAILED_RETAIN_DAYS) * 86_400_000,
+    ).toISOString();
     const { data: candidates, error } = await supabase
       .from("meetings")
       .select("id, audio_url, created_at, transcripts(id, content)")
@@ -73,7 +93,9 @@ serve(async (req) => {
     const ids: string[] = [];
     for (const m of candidates ?? []) {
       const t = Array.isArray(m.transcripts) ? m.transcripts[0] : m.transcripts;
-      if (!String(t?.content ?? "").trim()) continue; // no transcript → keep the audio
+      const transcribed = String(t?.content ?? "").trim().length > 0;
+      // Untranscribed audio survives until the failure cutoff, then goes too.
+      if (!transcribed && m.created_at >= failedCutoff) continue;
       paths.push(String(m.audio_url).replace(/^recordings\//, ""));
       ids.push(m.id);
     }
