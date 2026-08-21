@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { formatIST } from '@/lib/time';
 import { Button } from '@/components/ui/button';
 import { 
   Dialog, 
@@ -57,7 +58,7 @@ export function RecordingButton({
     setError(null);
     
     try {
-      const title = meetingTitle || `Meeting ${new Date().toLocaleDateString()}`;
+      const title = meetingTitle || `Meeting ${formatIST(new Date(), 'MMM d, yyyy')}`;
 
       if (!meetingUrl) {
         throw new Error('Please enter a meeting URL');

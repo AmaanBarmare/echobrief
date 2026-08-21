@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { formatIST } from '@/lib/time';
 import { useNavigate } from 'react-router-dom';
 import { Search, FileText, CheckSquare, Clock, ArrowRight } from 'lucide-react';
 import {
@@ -9,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
-import { format } from 'date-fns';
+
 
 interface SearchResult {
   id: string;
@@ -66,7 +67,7 @@ export function GlobalSearch({ open, onOpenChange }: GlobalSearchProps) {
               id: `meeting-${m.id}`,
               type: 'meeting',
               title: m.title,
-              subtitle: format(new Date(m.start_time), 'MMM d, yyyy'),
+              subtitle: formatIST(new Date(m.start_time), 'MMM d, yyyy'),
               meetingId: m.id,
             });
           });

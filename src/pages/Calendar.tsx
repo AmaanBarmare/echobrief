@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { formatIST } from '@/lib/time';
 import { Link } from 'react-router-dom';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Button } from '@/components/ui/button';
@@ -6,7 +7,7 @@ import { Calendar as CalendarIcon, RefreshCw, ChevronDown, ChevronRight, CheckCi
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCalendar } from '@/contexts/CalendarContext';
-import { format, isToday, isTomorrow, parseISO } from 'date-fns';
+import {isToday, isTomorrow, parseISO} from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { MeetingDetailModal } from '@/components/dashboard/MeetingDetailModal';
 import { cn } from '@/lib/utils';
@@ -118,7 +119,7 @@ export default function Calendar() {
   };
 
   const upcomingByDate = groupedEvents.upcoming.reduce((acc, event) => {
-    const dateKey = format(parseISO(event.start_time), 'yyyy-MM-dd');
+    const dateKey = formatIST(parseISO(event.start_time), 'yyyy-MM-dd');
     if (!acc[dateKey]) acc[dateKey] = [];
     acc[dateKey].push(event);
     return acc;
@@ -201,7 +202,7 @@ export default function Calendar() {
           <div className="flex flex-wrap items-center gap-3">
             <p className="m-0 text-[13px] text-muted-foreground" style={{ fontFamily: 'var(--font-body)' }}>
               {!event.is_all_day
-                ? `${format(parseISO(event.start_time), 'h:mm a')} – ${format(parseISO(event.end_time), 'h:mm a')}`
+                ? `${formatIST(parseISO(event.start_time), 'h:mm a')} – ${formatIST(parseISO(event.end_time), 'h:mm a')}`
                 : 'All day'}
             </p>
             {!event.hasMeetingLink && (
@@ -274,7 +275,7 @@ export default function Calendar() {
         ) : (
           <div>
             {/* TODAY */}
-            <SectionHeader label={`Today · ${format(new Date(), 'EEEE, MMMM d')}`} tone="accent" />
+            <SectionHeader label={`Today · ${formatIST(new Date(), 'EEEE, MMMM d')}`} tone="accent" />
             {groupedEvents.today.length > 0 ? (
               <div className="mb-6 flex flex-col gap-3">
                 {groupedEvents.today.map(event => (
@@ -286,7 +287,7 @@ export default function Calendar() {
             )}
 
             {/* TOMORROW */}
-            <SectionHeader label={`Tomorrow · ${format(new Date(Date.now() + 86400000), 'EEEE, MMMM d')}`} tone="muted" />
+            <SectionHeader label={`Tomorrow · ${formatIST(new Date(Date.now() + 86400000), 'EEEE, MMMM d')}`} tone="muted" />
             {groupedEvents.tomorrow.length > 0 ? (
               <div className="mb-6 flex flex-col gap-3">
                 {groupedEvents.tomorrow.map(event => (
@@ -319,7 +320,7 @@ export default function Calendar() {
                     {Object.entries(upcomingByDate).map(([dateKey, dateEvents]) => (
                       <div key={dateKey}>
                         <h4 className="mb-3 text-xs text-muted-foreground" style={{ fontFamily: 'var(--font-body)' }}>
-                          {format(parseISO(dateKey), 'EEEE, MMMM d')}
+                          {formatIST(parseISO(dateKey), 'EEEE, MMMM d')}
                         </h4>
                         <div className="flex flex-col gap-3">
                           {dateEvents.map(event => (

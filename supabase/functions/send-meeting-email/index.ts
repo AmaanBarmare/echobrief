@@ -1,7 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsPrelight } from "../_shared/cors.ts";
-import { buildEmailHtml } from "./template.ts";
+import { buildEmailHtml, buildSubject } from "./template.ts";
+import { formatISTDate, formatISTTime } from "../_shared/time.ts";
 
 interface EmailRequest {
   meetingId: string;
@@ -68,18 +69,11 @@ serve(async (req) => {
       );
     }
 
-    // Format meeting date
-    const meetingDate = new Date(meeting.start_time).toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-
-    const meetingTime = new Date(meeting.start_time).toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    // Always IST. This runtime is UTC, and Intl without an explicit timeZone
+    // uses the runtime's zone — which is why these mails went out showing
+    // 1:15 PM for a meeting the dashboard showed at 6:45 PM.
+    const meetingDate = formatISTDate(meeting.start_time);
+    const meetingTime = formatISTTime(meeting.start_time);
 
     const durationMinutes = Math.round((meeting.duration_seconds || 0) / 60);
 
@@ -114,7 +108,7 @@ serve(async (req) => {
       body: JSON.stringify({
         from: "EchoBrief <noreply@echobrief.in>",
         to: [toEmail],
-        subject: `[EchoBrief] Meeting Summary – ${meeting.title}`,
+        subject: buildSubject(meeting.title, insights),
         html: emailHtml
       })
     });

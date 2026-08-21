@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
+import { formatIST } from '@/lib/time';
 import { Link } from 'react-router-dom';
 import { Check, User, ChevronDown, ChevronRight, ExternalLink, Pencil, CheckSquare, Calendar, Video, Filter } from 'lucide-react';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
@@ -12,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
+
 
 interface ActionItemData {
   task: string;
@@ -449,7 +450,7 @@ export default function ActionItems() {
                         {group.title}
                       </span>
                       <span className="text-[13px]" style={{ color: 'var(--ink-soft)' }}>
-                        {format(new Date(group.date), 'MMM d, yyyy')}
+                        {formatIST(new Date(group.date), 'MMM d, yyyy')}
                       </span>
                       <span
                         className="ml-auto rounded-full px-2 py-0.5 text-[11.5px] font-medium"

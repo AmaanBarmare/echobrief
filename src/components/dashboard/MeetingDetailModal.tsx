@@ -1,7 +1,8 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
+import { formatIST } from '@/lib/time';
 import { X, Clock, Link2, Users, Copy, CheckCircle2, AlertCircle, Loader2, Mic, FileText, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { format, formatDistance } from 'date-fns';
+import {formatDistance} from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -302,7 +303,7 @@ export function MeetingDetailModal({ event, onClose, onRecordWithBot }: MeetingD
             <Clock size={15} className="mt-0.5 shrink-0 text-muted-foreground" />
             <div>
               <p className="text-[14px] text-muted-foreground" style={{ margin: 0, fontFamily: 'var(--font-body)' }}>
-                {format(startDate, 'EEEE, MMMM d · h:mm a')} – {format(endDate, 'h:mm a')} ({durationMin} min)
+                {formatIST(startDate, 'EEEE, MMMM d · h:mm a')} – {formatIST(endDate, 'h:mm a')} ({durationMin} min)
               </p>
               <p style={{ fontSize: 12, color: timingStatus.color, margin: '8px 0 0 0', fontFamily: 'var(--font-body)' }}>
                 {timingStatus.icon} {timingStatus.label}

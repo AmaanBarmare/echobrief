@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { formatIST } from '@/lib/time';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
@@ -26,7 +27,7 @@ import {
   Lightbulb, AlertTriangle, HelpCircle, RefreshCw, Zap, CheckCircle2, 
   FileText, Globe, Mail, Languages, Bot
 } from 'lucide-react';
-import { format } from 'date-fns';
+
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -447,9 +448,9 @@ export default function MeetingDetail() {
                 <span aria-hidden>·</span>
                 <SourceBadge source={meeting.source || 'manual'} />
                 <span aria-hidden>·</span>
-                <span>{format(new Date(meeting.start_time), 'MMM d, yyyy')}</span>
+                <span>{formatIST(new Date(meeting.start_time), 'MMM d, yyyy')}</span>
                 <span aria-hidden>·</span>
-                <span>{format(new Date(meeting.start_time), 'h:mm a')}</span>
+                <span>{formatIST(new Date(meeting.start_time), 'h:mm a')}</span>
                 {meeting.duration_seconds && (
                   <>
                     <span aria-hidden>·</span>
@@ -852,7 +853,7 @@ export default function MeetingDetail() {
                           <div className="flex-1">
                             <div className="text-sm font-medium text-foreground">{msg.recipient_email}</div>
                             <div className="mt-1 text-xs text-muted-foreground">
-                              {format(new Date(msg.sent_at || msg.created_at), 'MMM d, yyyy h:mm a')}
+                              {formatIST(new Date(msg.sent_at || msg.created_at), 'MMM d, yyyy h:mm a')}
                             </div>
                             {msg.error_message && (
                               <div className="mt-1 text-xs text-destructive">

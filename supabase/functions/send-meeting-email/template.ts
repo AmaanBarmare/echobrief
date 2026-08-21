@@ -245,3 +245,23 @@ function getPriorityColor(priority: string): string {
     default: return '#827873';       // --ink-soft
   }
 }
+
+/**
+ * Subject line. Leads with what the reader gets, not with our own name — the
+ * from-address already says EchoBrief, so "[EchoBrief] Meeting Summary" spent
+ * the most valuable characters in the inbox restating it.
+ */
+export function buildSubject(title: string, insights: any): string {
+  const name = String(title || "Meeting").trim();
+  const short = name.length > 48 ? `${name.slice(0, 47).trimEnd()}\u2026` : name;
+
+  const actions = (insights?.action_items || []).length;
+  const decisions = (insights?.decisions || []).length;
+  const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+  const parts: string[] = [];
+  if (actions) parts.push(plural(actions, "action item"));
+  if (decisions) parts.push(plural(decisions, "decision"));
+
+  return parts.length ? `${short} — ${parts.join(", ")}` : `${short} — meeting summary`;
+}

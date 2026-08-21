@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { formatIST } from '@/lib/time';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
@@ -8,7 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Meeting } from '@/types/meeting';
 import { ChevronRight, Mic, Clock, CheckCircle2, Sparkles, Trash2, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { format } from 'date-fns';
+
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -421,7 +422,7 @@ export default function Dashboard() {
                     <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12.5px]" style={{ color: 'var(--ink-soft)' }}>
                       <span>{sourceLabel(meeting.source)}</span>
                       <span aria-hidden>·</span>
-                      <span>{format(new Date(meeting.start_time), 'MMM d, h:mm a')}</span>
+                      <span>{formatIST(new Date(meeting.start_time), 'MMM d, h:mm a')}</span>
                       {meeting.duration_seconds && (
                         <>
                           <span aria-hidden>·</span>
