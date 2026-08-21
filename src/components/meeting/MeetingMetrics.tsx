@@ -63,6 +63,8 @@ export function MeetingMetrics({ metrics }: MeetingMetricsProps) {
           {metrics.silence_percentage !== undefined && (
             <p className="text-xs text-muted-foreground mt-1">
               {Math.round(metrics.silence_percentage)}% silence
+              {typeof metrics.words_per_minute === 'number' &&
+                ` · ${metrics.words_per_minute} wpm`}
             </p>
           )}
         </div>
@@ -134,10 +136,19 @@ export function MeetingMetrics({ metrics }: MeetingMetricsProps) {
                 <span className="text-sm text-foreground truncate flex-1">{speaker.speaker}</span>
                 <span className="text-sm text-muted-foreground">
                   {formatDuration(speakerSeconds(speaker))} · {Math.round(speaker.percentage)}%
+                  {typeof speaker.words_per_minute === 'number' &&
+                    ` · ${speaker.words_per_minute} wpm`}
                 </span>
               </div>
             ))}
           </div>
+
+          {typeof metrics.lead_in_silence_seconds === 'number' &&
+            metrics.lead_in_silence_seconds >= 5 && (
+              <p className="text-xs text-muted-foreground mt-4">
+                {formatDuration(metrics.lead_in_silence_seconds)} of dead air before the first word
+              </p>
+          )}
 
           {metrics.longest_monologue_speaker && metrics.longest_monologue_seconds !== undefined && (
             <p className="text-xs text-muted-foreground mt-4">

@@ -194,3 +194,55 @@ Deno.test("computed values always win over model values of the same name", () =>
   assertEquals(merged.total_speaking_seconds, 30);
   assertEquals(merged.turn_count, 1);
 });
+
+Deno.test("words and speaking rate are counted per speaker and overall", () => {
+  const m = computeConversationMetrics(
+    [
+      { speaker: "Alice", text: "one two three four five six", start: 0, end: 60 },
+      { speaker: "Bob", text: "seven eight", start: 60, end: 120 },
+    ],
+    120,
+  );
+  assertEquals(m.total_words, 8);
+  const alice = m.speaker_participation.find((s) => s.speaker === "Alice")!;
+  assertEquals(alice.words, 6);
+  assertEquals(alice.words_per_minute, 6); // 6 words in exactly 1 minute
+  assertEquals(m.speaker_participation.find((s) => s.speaker === "Bob")!.words_per_minute, 2);
+  assertEquals(m.words_per_minute, 4); // 8 words over 2 minutes of speech
+});
+
+Deno.test("speaking rate is null when there is no measurable speech time", () => {
+  const m = computeConversationMetrics([{ speaker: "Alice", text: "hello there" }], 60);
+  assertEquals(m.total_words, 2);
+  assertEquals(m.words_per_minute, null);
+  assertEquals(m.speaker_participation[0].words_per_minute, null);
+});
+
+Deno.test("extra whitespace does not inflate the word count", () => {
+  const m = computeConversationMetrics(
+    [{ speaker: "Alice", text: "  one   two \n three  ", start: 0, end: 60 }],
+    60,
+  );
+  assertEquals(m.total_words, 3);
+});
+
+Deno.test("dead air before the first word and after the last is reported", () => {
+  // The real 7261568f shape: first word at 41 s, last at 583 s, of 664 s.
+  const m = computeConversationMetrics([seg("Khush", 41.2, 582.7)], 664);
+  assertEquals(m.lead_in_silence_seconds, 41.2);
+  assertEquals(m.trailing_silence_seconds, 81.3);
+});
+
+Deno.test("dead air is never negative when segments overrun the duration", () => {
+  const m = computeConversationMetrics([seg("Alice", 0, 120)], 60);
+  assertEquals(m.lead_in_silence_seconds, 0);
+  assertEquals(m.trailing_silence_seconds, 0);
+});
+
+Deno.test("empty segments report no words and no rate", () => {
+  const m = computeConversationMetrics([], 100);
+  assertEquals(m.total_words, 0);
+  assertEquals(m.words_per_minute, null);
+  assertEquals(m.lead_in_silence_seconds, 0);
+  assertEquals(m.trailing_silence_seconds, 0);
+});

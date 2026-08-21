@@ -19,6 +19,9 @@ export interface SpeakerStat {
   percentage: number;
   turns: number;
   questions: number;
+  words: number;
+  /** Words per minute of this speaker's own speech. Null when unmeasurable. */
+  words_per_minute: number | null;
 }
 
 export interface ConversationMetrics {
@@ -27,6 +30,12 @@ export interface ConversationMetrics {
   /** Percent of meeting duration with no speech, clamped to [0, 100]. */
   silence_percentage: number;
   turn_count: number;
+  total_words: number;
+  /** Words per minute across all speech. Null when there is no speech time. */
+  words_per_minute: number | null;
+  /** Dead air before the first word and after the last, in seconds. */
+  lead_in_silence_seconds: number;
+  trailing_silence_seconds: number;
   longest_monologue_seconds: number;
   longest_monologue_speaker: string | null;
   /**
@@ -49,6 +58,16 @@ const MONOLOGUE_GAP_SECONDS = 15;
 function round(n: number, dp = 2): number {
   const f = 10 ** dp;
   return Math.round(n * f) / f;
+}
+
+function wordCount(text: unknown): number {
+  return String(text ?? "").trim().split(/\s+/).filter(Boolean).length;
+}
+
+/** Words per minute, or null when there is no speech time to divide by. */
+function rate(words: number, seconds: number): number | null {
+  if (!(seconds > 0)) return null;
+  return Math.round(words / (seconds / 60));
 }
 
 function segSeconds(s: SpeakerSegment): number {
@@ -82,6 +101,10 @@ export function computeConversationMetrics(
     total_speaking_seconds: 0,
     silence_percentage: 0,
     turn_count: 0,
+    total_words: 0,
+    words_per_minute: null,
+    lead_in_silence_seconds: 0,
+    trailing_silence_seconds: 0,
     longest_monologue_seconds: 0,
     longest_monologue_speaker: null,
     participation_balance: null,
@@ -97,7 +120,10 @@ export function computeConversationMetrics(
     (a, b) => Number(a.start ?? 0) - Number(b.start ?? 0),
   );
 
-  const bySpeaker = new Map<string, { seconds: number; turns: number; questions: number }>();
+  const bySpeaker = new Map<
+    string,
+    { seconds: number; turns: number; questions: number; words: number }
+  >();
   let totalSpeaking = 0;
   let turnCount = 0;
   let prevSpeaker: string | null = null;
@@ -113,9 +139,11 @@ export function computeConversationMetrics(
     const secs = segSeconds(s);
     totalSpeaking += secs;
 
-    const stat = bySpeaker.get(speaker) ?? { seconds: 0, turns: 0, questions: 0 };
+    const stat = bySpeaker.get(speaker) ??
+      { seconds: 0, turns: 0, questions: 0, words: 0 };
     stat.seconds += secs;
     stat.questions += (String(s.text ?? "").match(/\?/g) || []).length;
+    stat.words += wordCount(s.text);
 
     // A turn is a change of speaker. A monologue additionally ends when the
     // speaker goes quiet for a while, so silence is never counted as speech.
@@ -161,6 +189,8 @@ export function computeConversationMetrics(
       percentage: totalSpeaking > 0 ? round((v.seconds / totalSpeaking) * 100) : 0,
       turns: v.turns,
       questions: v.questions,
+      words: v.words,
+      words_per_minute: rate(v.words, v.seconds),
     }))
     .sort((a, b) => b.seconds - a.seconds);
 
@@ -168,9 +198,21 @@ export function computeConversationMetrics(
     ? Math.min(100, Math.max(0, ((durationSeconds - totalSpeaking) / durationSeconds) * 100))
     : 0;
 
+  // Dead air at the edges: the wait before anyone spoke, and the tail after
+  // the last word, both of which the bot still recorded.
+  const firstStart = Number(ordered[0]?.start ?? 0);
+  const lastEnd = ordered.reduce((max, s) => Math.max(max, Number(s.end ?? 0)), 0);
+  const leadIn = Number.isFinite(firstStart) ? Math.max(0, firstStart) : 0;
+  const trailing = durationSeconds > 0 ? Math.max(0, durationSeconds - lastEnd) : 0;
+  const totalWords = [...bySpeaker.values()].reduce((a, v) => a + v.words, 0);
+
   return {
     speaker_participation: participation,
     total_speaking_seconds: round(totalSpeaking),
+    total_words: totalWords,
+    words_per_minute: rate(totalWords, totalSpeaking),
+    lead_in_silence_seconds: round(Math.min(leadIn, durationSeconds > 0 ? durationSeconds : leadIn)),
+    trailing_silence_seconds: round(trailing),
     silence_percentage: round(silence),
     turn_count: turnCount,
     longest_monologue_seconds: round(longestSeconds),

@@ -80,6 +80,8 @@ export interface SpeakerStat {
   duration_seconds?: number;
   turns?: number;
   questions?: number;
+  words?: number;
+  words_per_minute?: number | null;
 }
 
 /**
@@ -93,6 +95,10 @@ export interface MeetingMetrics {
   total_speaking_seconds?: number;
   silence_percentage?: number;
   turn_count?: number;
+  total_words?: number;
+  words_per_minute?: number | null;
+  lead_in_silence_seconds?: number;
+  trailing_silence_seconds?: number;
   longest_monologue_seconds?: number;
   longest_monologue_speaker?: string | null;
   participation_balance?: number | null;

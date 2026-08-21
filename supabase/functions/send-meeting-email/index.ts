@@ -152,7 +152,8 @@ interface EmailData {
   meetingId: string;
 }
 
-function buildEmailHtml(data: EmailData): string {
+// Exported so the layout can be rendered and inspected without sending mail.
+export function buildEmailHtml(data: EmailData): string {
   const { title, date, time, duration, insights, meetingId } = data;
   
   // Format action items
@@ -195,9 +196,13 @@ function buildEmailHtml(data: EmailData): string {
     ? (metrics.sentiment_score > 0 ? "Positive" : metrics.sentiment_score < 0 ? "Negative" : "Neutral")
     : "N/A";
 
-  // engagement_score was a GPT guess and is no longer produced. These come from
-  // computeConversationMetrics over the transcript segments, so a row is only
-  // emitted when the value is actually present (older rows lack them).
+  // engagement_score was a GPT guess and is no longer produced. Everything here
+  // comes from computeConversationMetrics over the transcript segments, so a row
+  // is emitted only when the value is actually present (older rows lack them).
+  const clock = (seconds: number) => {
+    const total = Math.round(seconds);
+    return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+  };
   const metricRow = (label: string, value: string) => `
                 <tr>
                   <td style="padding: 4px 16px 4px 0; color: #64748b;">${label}:</td>
@@ -205,15 +210,54 @@ function buildEmailHtml(data: EmailData): string {
                 </tr>`;
   const metricRows: string[] = [];
   if (typeof metrics.total_speaking_seconds === "number") {
-    metricRows.push(metricRow("Talk Time", `${Math.round(metrics.total_speaking_seconds / 60)} min`));
+    metricRows.push(metricRow("Talk time", clock(metrics.total_speaking_seconds)));
+  }
+  if (typeof metrics.words_per_minute === "number") {
+    metricRows.push(metricRow("Talking speed", `${metrics.words_per_minute} words/min`));
   }
   if (typeof metrics.turn_count === "number") {
-    metricRows.push(metricRow("Speaker Turns", String(metrics.turn_count)));
+    metricRows.push(metricRow("Speaker turns", String(metrics.turn_count)));
   }
   if (typeof metrics.silence_percentage === "number") {
-    metricRows.push(metricRow("Silence", `${Math.round(metrics.silence_percentage)}%`));
+    metricRows.push(metricRow("Silence", `${Math.round(metrics.silence_percentage)}% of the meeting`));
   }
-  metricRows.push(metricRow("Overall Sentiment", sentimentScore));
+  if (typeof metrics.lead_in_silence_seconds === "number" && metrics.lead_in_silence_seconds >= 5) {
+    metricRows.push(metricRow("Dead air before first word", clock(metrics.lead_in_silence_seconds)));
+  }
+  if (typeof metrics.participation_balance === "number") {
+    metricRows.push(metricRow("Participation balance", `${Math.round(metrics.participation_balance * 100)}%`));
+  }
+  metricRows.push(metricRow("Overall sentiment", sentimentScore));
+
+  // Per-speaker breakdown — the "see their talk time" equivalent.
+  const speakers = Array.isArray(metrics.speaker_participation)
+    ? metrics.speaker_participation
+    : [];
+  const speakerRows = speakers
+    .map((sp: any) => {
+      const secs = typeof sp.seconds === "number" ? sp.seconds : sp.duration_seconds;
+      const parts = [
+        typeof secs === "number" ? clock(secs) : null,
+        typeof sp.percentage === "number" ? `${Math.round(sp.percentage)}%` : null,
+        typeof sp.words_per_minute === "number" ? `${sp.words_per_minute} wpm` : null,
+      ].filter(Boolean).join(" &middot; ");
+      return `
+                <tr>
+                  <td style="padding: 4px 16px 4px 0; color: #334155; font-weight: 500;">${sp.speaker}</td>
+                  <td style="padding: 4px 0; color: #64748b;">${parts}</td>
+                </tr>`;
+    })
+    .join("");
+  const speakerSection = speakers.length > 0
+    ? `
+          <tr>
+            <td style="padding: 0 24px 24px;">
+              <h2 style="margin: 0 0 16px; color: #1e293b; font-size: 18px; font-weight: 600;">\u{1F5E3}\u{FE0F} Who spoke</h2>
+              <table cellpadding="0" cellspacing="0" style="font-size: 14px;">${speakerRows}
+              </table>
+            </td>
+          </tr>`
+    : "";
 
   const appUrl = "https://echobrief.in";
 
@@ -309,11 +353,12 @@ function buildEmailHtml(data: EmailData): string {
               </table>
             </td>
           </tr>
+          ${speakerSection}
           
           <!-- CTA -->
           <tr>
             <td style="padding: 0 24px 32px; text-align: center;">
-              <a href="${appUrl}/meetings/${meetingId}" style="display: inline-block; background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%); color: white; text-decoration: none; padding: 12px 32px; border-radius: 8px; font-weight: 500; font-size: 14px;">
+              <a href="${appUrl}/meeting/${meetingId}" style="display: inline-block; background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%); color: white; text-decoration: none; padding: 12px 32px; border-radius: 8px; font-weight: 500; font-size: 14px;">
                 View Full Report →
               </a>
             </td>
