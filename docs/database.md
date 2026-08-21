@@ -84,6 +84,7 @@ transcript, insights, and delivery. Columns that carry pipeline semantics:
 | `error_message` | Human-readable failure reason surfaced in the UI. **Added late** — every failure-path UPDATE silently no-op'd for weeks before it existed. |
 | `sarvam_job_id` | The Sarvam batch job this meeting is waiting on. |
 | `sarvam_webhook_triggered_at` | Atomic recovery lock for `check-recall-status`. Deliberately **not** `status`. |
+| `sarvam_webhook_claimed_at` | Atomic in-flight claim taken by `sarvam-webhook` on a terminal callback, so Sarvam's ~8 s callback retries skip instead of re-running the pipeline. Claims older than 10 min are re-claimable, so a died-mid-way run never strands a meeting. |
 | `processing_config` | JSONB: `chunk_count`, `chunk_seconds`, `split_method`, `recall_speaker_timeline`, `recall_participants`. |
 | `source` | How the meeting was captured / created. |
 
@@ -141,6 +142,18 @@ meeting produces one row per signature per hour rather than one per cron tick.
 This is what the pipeline harness asserts against, because the alert email itself is
 suppressed for test meetings.
 
+### `email_deliveries`
+One row per summary email that has been sent, keyed
+`(meeting_id, lower(recipient_email), kind)` by a **unique index**. **Service-role
+only.** `send-meeting-email` INSERTs the row before it calls Resend, so a racing
+caller gets `23505` and skips instead of sending a second copy; the row is deleted
+again if the send then fails, so a retry can still deliver. `kind` keeps the
+automatic `meeting_summary` separate from other mail, so a manual re-send is never
+blocked by the automatic one.
+
+Added 2026-08-21 after Sarvam replayed one callback three times and the user
+received three identical summaries — see [`engineering-notes.md`](engineering-notes.md) #24.
+
 ---
 
 ## Row Level Security
@@ -178,6 +191,7 @@ in filename order. The ones that carry non-obvious history:
 | `20260613120100_prune_cron_pgnet_bookkeeping.sql` | Daily prune of `cron.job_run_details` + `net._http_response` |
 | `20260820150000_autojoin_dedup_unique_index.sql` | Unique index that makes duplicate-bot dispatch impossible rather than merely unlikely |
 | `20260820160000_prune_recordings_cron.sql` | Daily audio prune after the storage cap incident |
+| `20260821180000_email_delivery_dedup.sql` | `email_deliveries` claim table + `meetings.sarvam_webhook_claimed_at`. Makes three identical summary emails for one meeting impossible rather than merely unlikely |
 
 `cron.schedule()` with an existing job name **updates that job in place** — that is
 why the frequency migrations re-declare the jobs rather than unscheduling first.

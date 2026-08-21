@@ -24,7 +24,7 @@ This file is the working brief; the docs are the reference.
 | [`docs/operations.md`](docs/operations.md) | Deploying, cron, alerts, incident playbook, quota ceilings |
 | [`docs/security.md`](docs/security.md) | Auth, RLS, webhook verification, secrets |
 | [`docs/contributing.md`](docs/contributing.md) | Local setup and enforced rules |
-| [`docs/engineering-notes.md`](docs/engineering-notes.md) | Long-form write-ups of 23 problems this system hit |
+| [`docs/engineering-notes.md`](docs/engineering-notes.md) | Long-form write-ups of 24 problems this system hit |
 | [`errors.md`](errors.md) | Error signature runbook (mirrored by `known-patterns.ts`) |
 
 The public, user-facing docs page is [`src/pages/Docs.tsx`](src/pages/Docs.tsx) → `/docs`.
@@ -59,7 +59,8 @@ npm run functions:serve  # Serve Supabase Edge Functions locally (needs supabase
 
 **Edge Functions (Deno):**
 - `supabase/functions/process-meeting/` -- Orchestrates transcription (Sarvam primary, Whisper fallback) + GPT insight generation. Whisper currently OOMs in the edge function for audio > ~15 MB — see `errors.md` `whisper:oom` entry.
-- `supabase/functions/sarvam-webhook/` -- Async callback from Sarvam STT. Auto-falls-back to Whisper on any download error (covers Sarvam's `KeyError: 'timestamps'` server bug on long audio).
+- `supabase/functions/sarvam-webhook/` -- Async callback from Sarvam STT. Auto-falls-back to Whisper on any download error (covers Sarvam's `KeyError: 'timestamps'` server bug on long audio). **Takes an atomic in-flight claim (`meetings.sarvam_webhook_claimed_at`) on terminal callbacks** — Sarvam re-fires the same callback every ~8 s while this handler works, and the read-then-check status guard cannot stop those.
+- `supabase/functions/send-meeting-email/` -- The summary email. Claims a row in `email_deliveries` before calling Resend; a racing caller gets `23505` and returns `{ skipped: true, reason: "already_sent" }` instead of sending a second copy.
 - `supabase/functions/recall-webhook/` -- Receives Recall lifecycle events. `bot.done` queries Recall's `/audio_mixed/` endpoint to avoid race-marking good meetings as failed. Terminal classification via `classifySubCode()`: a bot kicked / not admitted *before* recording → **`cancelled`** (neutral, no audio was captured); bad/expired link → `failed`; genuine pipeline failures (`audio_mixed.failed`, etc.) → `failed`. A bot kicked *after* recording still emits `audio_mixed.done` and completes normally — that path is untouched. (See [`docs/engineering-notes.md`](docs/engineering-notes.md) #23.)
 - `supabase/functions/check-recall-status/` -- Polled by frontend; uses `sarvam_webhook_triggered_at` atomic lock to re-fire the Sarvam webhook when the callback was missed.
 - `supabase/functions/monitor-stuck-meetings/` -- Cron-scheduled (every 15 min via pg_cron — see Scheduled Jobs below). Detects meetings stuck >15 min in non-terminal status, classifies via signature, attempts known recovery, logs to `monitor_events`, emails `ALERT_EMAIL_TO` (default `admin@oltaflock.ai`) via Resend on failure or unknown signature. Carries a copy of known signatures in `known-patterns.ts` mirroring `errors.md`.
@@ -82,9 +83,10 @@ Four cron jobs invoke edge functions over HTTP via `pg_net`. **Frequencies are k
 ### Database
 
 PostgreSQL with Row-Level Security. Key tables:
-- `meetings` -- metadata (title, source, status, audio_url, **`error_message`**, **`sarvam_webhook_triggered_at`**, `sarvam_job_id`, `processing_config`)
+- `meetings` -- metadata (title, source, status, audio_url, **`error_message`**, **`sarvam_webhook_triggered_at`**, **`sarvam_webhook_claimed_at`**, `sarvam_job_id`, `processing_config`)
 - `transcripts` -- transcript text + speaker segments (JSONB)
 - `meeting_insights` -- AI output (summary, action_items, decisions, risks, timeline, metrics)
+- `email_deliveries` -- one claim row per summary email sent, unique on `(meeting_id, lower(recipient_email), kind)`. `send-meeting-email` inserts it **before** calling Resend, so a duplicate caller gets `23505` and skips. Service-role only. This is what makes "one email per recipient per meeting" a guarantee rather than a hope.
 - `monitor_events` -- audit trail of every stuck-meeting detection from the monitor cron. Deduped via a generated `hour_bucket` column (one row per meeting+signature+hour). See `errors.md` for signature reference.
 - `profiles` -- user settings, integration flags
 - `user_oauth_tokens` -- Google OAuth tokens
@@ -99,6 +101,7 @@ Migrations are in `supabase/migrations/`. Recent additions worth knowing about:
 - `20260425170100_monitor_stuck_meetings_cron.sql` — pg_cron schedule for the monitor
 - `20260613120000_reduce_cron_frequency.sql` — cuts auto-join (1→5 min) and monitor (5→15 min) cron frequency; the `net.http_post` calls these crons fired were 94.4% of all DB execution time and were depleting the Disk IO Budget (see [`docs/engineering-notes.md`](docs/engineering-notes.md) #22)
 - `20260613120100_prune_cron_pgnet_bookkeeping.sql` — daily prune of `cron.job_run_details` + `net._http_response`
+- `20260821180000_email_delivery_dedup.sql` — adds the `email_deliveries` claim table and `meetings.sarvam_webhook_claimed_at`, after Sarvam replayed one callback three times and the user got three identical summary emails (see [`docs/engineering-notes.md`](docs/engineering-notes.md) #24)
 
 ## Tech Stack
 
@@ -153,7 +156,7 @@ System name **Warm Dispatch**: ember `#D93F0B` (light) / `#E8430A` (dark) on war
 
 - **Run the unit harness on any shared-logic change:** `npm run test:unit` (deno test, mocked fetch, <1 s, no prod contact). Covers recall-pipeline parsing/fallbacks, audio_mixed status mapping, chunk-stitch math (`_shared/stitch.ts`), and Sarvam output discovery/ordering.
 
-- **Run the pipeline harness before deploying any edge function or migration:** `python3 scripts/pipeline-test/harness.py`. Takes ~90 seconds, hits real prod against the deployed code, creates and deletes `[harness]`-prefixed test meetings. 11/11 must pass. Add `--live` before risky pipeline deploys: runs `live_sarvam_e2e` (real fixture audio → deployed splitter → real chunked Sarvam job → stitched completion, ~3 min) which doubles as a Sarvam contract check. The harness has already caught two real prod bugs that would have hit users (the missing `error_message` column and the `transcribing` deadlock). See [`scripts/pipeline-test/`](scripts/pipeline-test/).
+- **Run the pipeline harness before deploying any edge function or migration:** `python3 scripts/pipeline-test/harness.py`. Takes ~90 seconds, hits real prod against the deployed code, creates and deletes `[harness]`-prefixed test meetings. 12/12 must pass. Add `--live` before risky pipeline deploys: runs `live_sarvam_e2e` (real fixture audio → deployed splitter → real chunked Sarvam job → stitched completion, ~3 min) which doubles as a Sarvam contract check. The harness has already caught two real prod bugs that would have hit users (the missing `error_message` column and the `transcribing` deadlock). See [`scripts/pipeline-test/`](scripts/pipeline-test/).
 
 - **Run the output-quality evals before deploying anything that touches transcription or insights:** `python3 scripts/evals/run_evals.py`. 8 evals (4 deterministic + 4 LLM-judge) over the static dataset, including a judge-calibration case that must FAIL. Exit code gates the deploy. See [`scripts/evals/EVALS.md`](scripts/evals/EVALS.md) for the harness-vs-evals distinction and how to grow the dataset from prod meetings.
 
@@ -173,9 +176,9 @@ System name **Warm Dispatch**: ember `#D93F0B` (light) / `#E8430A` (dark) on war
 
 ## Operations
 
-- **Unit harness:** [`supabase/functions/tests/`](supabase/functions/tests/) — `npm run test:unit`. 53 deno tests with mocked fetch: conversation metrics (25), recall-pipeline URL-discovery/fallback chains (15), `stitchChunkResults` offsets/sorting (7), `downloadAllSarvamResults` numeric ordering (4), harness email gate (2).
+- **Unit harness:** [`supabase/functions/tests/`](supabase/functions/tests/) — `npm run test:unit`. 78 deno tests with mocked fetch: conversation metrics (25), recall-pipeline URL-discovery/fallback chains (15), IST formatting + email subject (11), calendar diffing (8), `stitchChunkResults` offsets/sorting (7), email-delivery claim/release (6), `downloadAllSarvamResults` numeric ordering (4), harness email gate (2).
 
-- **Pipeline test harness:** [`scripts/pipeline-test/harness.py`](scripts/pipeline-test/harness.py). 11 default scenarios: happy path, chunked-stitch (timestamp offsets + ordering), speaker mapping (timeline overlap + nearest-neighbor → real names, no SPEAKER_XX), split-audio endpoint probes (401/400 contract), the bot.done/audio_mixed.done race, audio_mixed.failed, kicked-from-waiting-room, sarvam-webhook idempotency, concurrent sarvam-webhook calls, monitor recovers known / logs unknown signature. `--live` adds `live_sarvam_e2e` (real Sarvam over the fixture at `recordings/harness-fixtures/live-e2e.mp3`). Real DB, real edge functions. **Emails are suppressed for `[harness]` meetings** (both summary delivery and monitor alerts) unless the `HARNESS_EMAILS=true` secret is set — set it only for a deliberate delivery-verification run, then unset it. Takes ~90s (+~3 min with --live).
+- **Pipeline test harness:** [`scripts/pipeline-test/harness.py`](scripts/pipeline-test/harness.py). 12 default scenarios: happy path, chunked-stitch (timestamp offsets + ordering), speaker mapping (timeline overlap + nearest-neighbor → real names, no SPEAKER_XX), split-audio endpoint probes (401/400 contract), the bot.done/audio_mixed.done race, audio_mixed.failed, kicked-from-waiting-room, sarvam-webhook idempotency, concurrent sarvam-webhook calls (exactly one may process), one-summary-email-per-recipient dedup, monitor recovers known / logs unknown signature. `--live` adds `live_sarvam_e2e` (real Sarvam over the fixture at `recordings/harness-fixtures/live-e2e.mp3`). Real DB, real edge functions. **Emails are suppressed for `[harness]` meetings** (both summary delivery and monitor alerts) unless the `HARNESS_EMAILS=true` secret is set — set it only for a deliberate delivery-verification run, then unset it. Takes ~90s (+~3 min with --live).
 
 - **Full bot drill (manual, stages A–B):** after bot-flow changes or before re-enabling auto-join — open a Meet, start a bot from the dashboard, admit it, play a few minutes of speech, verify the meeting completes with named speakers. Procedure in README's Testing section.
 

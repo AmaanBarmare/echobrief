@@ -29,7 +29,7 @@ Start with [Architecture](architecture.md) if you are new to the codebase.
 | Doc | Contents |
 |---|---|
 | [Errors runbook](../errors.md) | Every error signature the pipeline can produce, with root cause and recovery |
-| [Engineering notes](engineering-notes.md) | Long-form write-ups of 23 problems this system hit and how each was solved |
+| [Engineering notes](engineering-notes.md) | Long-form write-ups of 24 problems this system hit and how each was solved |
 | [Evals](../scripts/evals/EVALS.md) | The 8 output-quality graders, judge calibration, and the production→eval feedback loop |
 | [Brand](../BRAND.md) | Colours, typography, design guidelines |
 

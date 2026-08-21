@@ -37,7 +37,7 @@ Run the gates first. All of them.
 npm run lint
 npm run build                                 # type errors surface here, not in CI
 npm run test:unit                             # 53 tests, <1 s
-python3 scripts/pipeline-test/harness.py      # 11/11, ~90 s against real prod
+python3 scripts/pipeline-test/harness.py      # 12/12, ~90 s against real prod
 python3 scripts/evals/run_evals.py            # 8 evals, exit code gates the deploy
 ```
 

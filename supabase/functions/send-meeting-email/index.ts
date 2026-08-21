@@ -3,6 +3,12 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsPrelight } from "../_shared/cors.ts";
 import { buildEmailHtml, buildSubject } from "./template.ts";
 import { formatISTDate, formatISTTime } from "../_shared/time.ts";
+import {
+  claimEmailDelivery,
+  recordEmailDelivery,
+  releaseEmailDelivery,
+  SUMMARY_EMAIL_KIND,
+} from "../_shared/email-delivery.ts";
 
 interface EmailRequest {
   meetingId: string;
@@ -15,6 +21,11 @@ serve(async (req) => {
 
   const origin = req.headers.get("origin");
   const corsHeaders = getCorsHeaders(origin);
+
+  // Set once the delivery slot is claimed and cleared once the mail is out (or
+  // deliberately handed back). Anything that throws in between must release it,
+  // otherwise the claim row would block this summary from ever being sent.
+  let pendingClaim: { supabase: any; claimId?: string } | null = null;
 
   try {
     const { meetingId, recipientEmail }: EmailRequest = await req.json();
@@ -69,6 +80,28 @@ serve(async (req) => {
       );
     }
 
+    // Claim the (meeting, recipient) slot BEFORE building or sending anything.
+    // Duplicate Sarvam callbacks re-run this whole pipeline concurrently; the
+    // unique index on email_deliveries is the only thing that can arbitrate
+    // between racers that all read the same pre-send state (2026-08-21: three
+    // identical summaries for one meeting). Losing the claim is a success, not
+    // an error — the mail this caller wanted sent has already gone out.
+    const claim = await claimEmailDelivery(
+      supabase,
+      meetingId,
+      toEmail,
+      SUMMARY_EMAIL_KIND,
+    );
+    pendingClaim = { supabase, claimId: claim.claimId };
+
+    if (!claim.claimed) {
+      pendingClaim = null;
+      return new Response(
+        JSON.stringify({ success: true, skipped: true, reason: "already_sent", recipient: toEmail }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Always IST. This runtime is UTC, and Intl without an explicit timeZone
     // uses the runtime's zone — which is why these mails went out showing
     // 1:15 PM for a meeting the dashboard showed at 6:45 PM.
@@ -93,6 +126,8 @@ serve(async (req) => {
     const resendApiKey = Deno.env.get("RESEND_API_KEY");
     if (!resendApiKey) {
       console.error("RESEND_API_KEY not configured");
+      await releaseEmailDelivery(supabase, claim.claimId);
+      pendingClaim = null;
       return new Response(
         JSON.stringify({ error: "Email service not configured" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -118,11 +153,17 @@ serve(async (req) => {
 
     if (!emailResponse.ok) {
       console.error("Resend API error:", emailResult);
+      // Nothing was delivered — hand the slot back so a retry can send.
+      await releaseEmailDelivery(supabase, claim.claimId);
+      pendingClaim = null;
       return new Response(
         JSON.stringify({ error: emailResult.message || "Failed to send email" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    await recordEmailDelivery(supabase, claim.claimId, emailResult.id);
+    pendingClaim = null;
 
     return new Response(
       JSON.stringify({ success: true, emailId: emailResult.id }),
@@ -131,6 +172,9 @@ serve(async (req) => {
 
   } catch (error: any) {
     console.error("Email error:", error);
+    if (pendingClaim) {
+      await releaseEmailDelivery(pendingClaim.supabase, pendingClaim.claimId);
+    }
     return new Response(
       JSON.stringify({ error: error.message || "Failed to send email" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }

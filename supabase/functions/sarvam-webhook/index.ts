@@ -21,6 +21,12 @@ serve(async (req) => {
     return new Response(null, { status: 204 });
   }
 
+  // Set once this invocation owns the in-flight claim below; released if the
+  // run then throws, so an immediate retry can pick the meeting back up instead
+  // of waiting out the staleness window.
+  let claimedMeetingId: string | null = null;
+  let claimReleaser: any = null;
+
   try {
     const webhookSecret = Deno.env.get("SARVAM_WEBHOOK_SECRET");
     if (!webhookSecret) {
@@ -58,6 +64,7 @@ serve(async (req) => {
     const sarvamApiKey = Deno.env.get("SARVAM_API_KEY")!;
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    claimReleaser = supabase;
     const openai = new OpenAI({ apiKey: openaiApiKey });
 
     const { data: meeting, error: meetingError } = await supabase
@@ -88,6 +95,41 @@ serve(async (req) => {
     }
 
     const config = meeting.processing_config || {};
+
+    // Atomic in-flight claim. Sarvam re-fires the SAME callback every ~8 s while
+    // this handler is still working (it answers only after download → stitch →
+    // GPT insights → email, ~20 s), and the status guard above cannot stop those
+    // retries: each one reads the row before any of them writes `completed`. On
+    // 2026-08-21 three callbacks for one job each ran the full pipeline and each
+    // sent a summary email. Claims older than CLAIM_STALE_MS are re-claimable so
+    // an invocation that dies mid-way never strands the meeting.
+    const CLAIM_STALE_MS = 10 * 60 * 1000;
+    const isTerminalCallback =
+      normalizedState === "COMPLETED" || normalizedState === "FAILED";
+
+    if (isTerminalCallback) {
+      const staleBefore = new Date(Date.now() - CLAIM_STALE_MS).toISOString();
+      const { data: claimed } = await supabase
+        .from("meetings")
+        .update({ sarvam_webhook_claimed_at: new Date().toISOString() })
+        .eq("id", meeting.id)
+        .or(
+          `sarvam_webhook_claimed_at.is.null,sarvam_webhook_claimed_at.lt.${staleBefore}`,
+        )
+        .select("id")
+        .maybeSingle();
+
+      if (!claimed) {
+        console.log(
+          `[sarvam-webhook] Meeting ${meeting.id} is already being processed by another invocation — skipping duplicate ${normalizedState} callback`,
+        );
+        return new Response(
+          JSON.stringify({ success: true, skipped: true, reason: "already_in_flight" }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      claimedMeetingId = meeting.id;
+    }
 
     if (normalizedState === "COMPLETED") {
       // Chunked path: audio was split into N chunks by the Vercel split-audio
@@ -541,6 +583,13 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error("Sarvam webhook error:", error);
+    if (claimedMeetingId && claimReleaser) {
+      await claimReleaser
+        .from("meetings")
+        .update({ sarvam_webhook_claimed_at: null })
+        .eq("id", claimedMeetingId);
+      console.log(`[sarvam-webhook] Released in-flight claim on ${claimedMeetingId} after error`);
+    }
     return new Response(
       JSON.stringify({
         error: error instanceof Error ? error.message : "Unknown error",

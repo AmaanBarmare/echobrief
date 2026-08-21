@@ -32,7 +32,7 @@ flowchart TB
 | Tier | Command | Cost | When |
 |---|---|---|---|
 | **0. Unit** | `npm run test:unit` | free, <1 s | every change |
-| **1. Integration** | `python3 scripts/pipeline-test/harness.py` | ~90 s, real prod | before every deploy — 11/11 must pass |
+| **1. Integration** | `python3 scripts/pipeline-test/harness.py` | ~90 s, real prod | before every deploy — 12/12 must pass |
 | **2. Live E2E** | `harness.py --live` | ~3 min, pennies | before risky pipeline deploys |
 | **3. Bot drill** | manual runbook | ~5 min human | after bot-flow changes |
 | **Evals** | `python3 scripts/evals/run_evals.py` | seconds | before anything touching transcription or prompts |
@@ -74,13 +74,13 @@ could be tested this way: pure, synchronous, no clock, no randomness.
 Nothing is mocked. Each scenario inserts a synthetic `[harness]`-prefixed meeting into the production database, fires real signed webhook payloads (captured from prod logs, templated in [`fixtures.py`](../scripts/pipeline-test/fixtures.py)) at the real deployed edge functions, polls for the expected end state, and always cleans up its rows — pass or fail.
 
 ```bash
-python3 scripts/pipeline-test/harness.py                       # 11 default scenarios (~90 s)
+python3 scripts/pipeline-test/harness.py                       # 12 default scenarios (~90 s)
 python3 scripts/pipeline-test/harness.py --live                # + live_sarvam_e2e (real Sarvam, ~3 min)
 python3 scripts/pipeline-test/harness.py --only chunked_happy_path   # one scenario
 python3 scripts/pipeline-test/harness.py --cleanup-only        # delete stray [harness] rows
 ```
 
-All 11 default scenarios, in plain words:
+All 12 default scenarios, in plain words:
 
 | Scenario | What it checks |
 |---|---|
@@ -92,11 +92,12 @@ All 11 default scenarios, in plain words:
 | `audio_mixed_failed_marks_meeting_failed` | A real audio failure actually saves `failed` to the database (the bug where a missing column silently swallowed the update). |
 | `bot_kicked_waiting_room` | A bot kicked from the waiting room ends as `cancelled` (neutral, not `failed`), not stuck forever. |
 | `duplicate_sarvam_webhook_idempotency` | A replayed Sarvam callback is skipped, not re-processed into a duplicate transcript. |
-| `concurrent_sarvam_webhooks` | Two callbacks arriving at once don't both process and double-insert. |
+| `concurrent_sarvam_webhooks` | Two callbacks arriving at once: exactly one processes, the other loses the in-flight claim and skips. |
+| `summary_email_deduped_per_recipient` | A summary already sent to a recipient is never sent again — `send-meeting-email` skips before it reaches Resend. Sends no mail. |
 | `monitor_recovers_known_pattern` | The monitor recognizes a known stuck-signature and runs its canonical recovery. |
 | `monitor_logs_unknown_pattern` | The monitor flags a never-seen signature and writes the `monitor_events` audit row. The alert email is suppressed for `[harness]` meetings unless `HARNESS_EMAILS=true` is set. |
 
-(Behind `--live`, a 12th scenario `live_sarvam_e2e` runs — described in Tier 2 above.)
+(Behind `--live`, a 13th scenario `live_sarvam_e2e` runs — described in Tier 2 above.)
 
 ## Tier 2: live-provider E2E
 
@@ -157,8 +158,8 @@ python3 scripts/evals/run_evals.py --snapshot <id>    # pull a prod meeting into
 ```bash
 npm run lint             # ESLint
 npm run build            # type-check + production build
-npm run test:unit        # 53 deno tests, <1 s
-python3 scripts/pipeline-test/harness.py     # 11/11 against real prod
+npm run test:unit        # 78 deno tests, <1 s
+python3 scripts/pipeline-test/harness.py     # 12/12 against real prod
 python3 scripts/evals/run_evals.py           # 8 evals, exit code gates the deploy
 ```
 

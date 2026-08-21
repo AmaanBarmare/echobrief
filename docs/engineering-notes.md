@@ -1,6 +1,6 @@
 # Engineering Notes
 
-> Twenty-three problems this system actually hit, and what was done about each. This
+> Twenty-four problems this system actually hit, and what was done about each. This
 > is the long-form record — the short version lives in [`errors.md`](../errors.md),
 > which is the operational runbook.
 
@@ -9,7 +9,7 @@ recording path**. That path no longer ships - recording is bot-only - but it was
 genuine multi-context browser system (`content.js` in meeting pages, an MV3 service
 worker, an offscreen document for `MediaRecorder`, a popup, and an auth bridge to the
 web app), and the reliability work it forced is why the current backend looks the way
-it does. Challenges 5, 7, and 9-23 apply to the system as it runs today.
+it does. Challenges 5, 7, and 9-24 apply to the system as it runs today.
 
 ## Index
 
@@ -36,6 +36,7 @@ it does. Challenges 5, 7, and 9-23 apply to the system as it runs today.
 21. [The dashboard re-fetched everything on every visit — a missing client cache, not a slow database](#21-the-dashboard-re-fetched-everything-on-every-visit--a-missing-client-cache-not-a-slow-database)
 22. [Recurring "Disk IO Budget" alerts were caused by cron write-churn — not the slow reads everyone assumes](#22-recurring-disk-io-budget-alerts-were-caused-by-cron-write-churn--not-the-slow-reads-everyone-assumes)
 23. [Kicked-out bots looked identical to real failures — split into `cancelled` vs `failed`](#23-kicked-out-bots-looked-identical-to-real-failures--split-into-cancelled-vs-failed)
+24. [One meeting, three identical summary emails — a slow webhook and a read-then-check guard](#24-one-meeting-three-identical-summary-emails--a-slow-webhook-and-a-read-then-check-guard)
 
 ---
 
@@ -375,3 +376,27 @@ it does. Challenges 5, 7, and 9-23 apply to the system as it runs today.
 - Made `cancelled` terminal in the monitor's `TERMINAL_STATUSES` (so it isn't treated as "stuck") and added it to the frontend status renderers. Per product choice the `Cancelled` badge is the **same red** as `Failed` — only the label differs. No migration needed (`meetings.status` is free-text); the `bot_kicked_waiting_room` harness scenario now asserts `cancelled`.
 
 **Why this matters:** the webhook already had the information to tell "the host removed the bot" from "our pipeline broke" — it was just discarding it at the last step. Surfacing that one distinction turns a wall of scary red "Failed" badges into an honest signal, without changing anything about how recordings are actually processed.
+
+### 24. One meeting, three identical summary emails — a slow webhook and a read-then-check guard
+
+**Problem:** a user finished a 15-minute meeting and received **three identical summary emails** within 11 seconds of each other. The same thing had happened earlier that day to another meeting, and to the harness's own concurrent-webhook scenario — it just hadn't been read as a bug because the summaries themselves were correct.
+
+**Why it happened (from the logs, not from guessing):** Sarvam fired the *same* `Completed` callback three times for one job — 17:14:27, 17:14:35, 17:14:43, about **8 seconds apart**. The reason is on our side: `sarvam-webhook` does all of its work before it answers — download 4 chunk outputs, stitch, map speakers, call GPT-4o-mini, save, email — and that first invocation took **21 seconds** to return 200. Sarvam gave up waiting and retried, twice.
+
+Each retry then walked straight past the idempotency guard, because the guard was a **read-then-check**:
+
+```ts
+if (meeting.status === "completed" || …) return skip;   // read at T+0
+…21 s of work…
+await supabase.from("meetings").update({ status: "completed" });  // written at T+21
+```
+
+All three invocations read `status: 'processing'` *before* any of them wrote `completed`. A check against state that a racer hasn't written yet cannot exclude that racer. Each one generated its own insights (3× GPT spend) and each one called `deliverResults` → three emails. The `meeting_insights` insert survived only because it happened to interleave favourably; nothing about it was safe either.
+
+**What I changed** (migration [`20260821180000`](../supabase/migrations/20260821180000_email_delivery_dedup.sql)):
+
+- **The guarantee — `email_deliveries`.** A claim row per `(meeting_id, lower(recipient_email), kind)` behind a UNIQUE index. `send-meeting-email` INSERTs it *before* calling Resend; a losing racer gets `23505` and returns `{ skipped: true, reason: "already_sent" }`. The database arbitrates, so it does not matter how many callers race, how they were triggered, or whether they run in different function instances. The claim is released if the send then fails, so a genuine retry can still deliver, and unexpected DB errors **fail open** — a missing claim table must never silently swallow the product's main output.
+- **The waste — an atomic in-flight claim.** `sarvam-webhook` now claims `meetings.sarvam_webhook_claimed_at` with a conditional UPDATE (`IS NULL OR older than 10 min`) on terminal callbacks, so duplicate callbacks bail out in milliseconds instead of re-running the whole pipeline. The staleness window means an invocation that dies mid-way never strands the meeting, and the claim is released explicitly on error.
+- **Tests that would have caught it.** `concurrent_sarvam_webhooks` now asserts that exactly one of two simultaneous callbacks processes and the other is skipped; a new `summary_email_deduped_per_recipient` scenario proves the email guard without sending any mail. Six unit tests cover the claim helper, including the fail-open path.
+
+**Why this matters:** the same mistake shows up all over this codebase's history — the duplicate-bot dispatch (#11, fixed with a unique index), and now duplicate emails. Any "check, then act" guard is only as good as the gap between the two steps, and under a retrying webhook that gap is where every duplicate lives. The fix isn't a better check; it's making the database refuse the second write. Note also that the *retries themselves* are a symptom worth remembering: a webhook handler that does 21 seconds of work before answering is telling its caller to try again.

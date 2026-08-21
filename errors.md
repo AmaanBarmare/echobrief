@@ -204,7 +204,24 @@ Five separate failures chained, every one of them silent. The bucket being full 
 
 **Fix:** send any ordinary `User-Agent` header. Verified 2026-08-20: `Deno/2.1.4`, `node` and a browser string all return 200; only the urllib default is blocked. **Supabase edge functions are unaffected** — Deno's `fetch` sets its own UA — so this only ever bites local debugging scripts.
 
-**Why it is written down:** on 2026-08-20 this produced a confident and completely wrong diagnosis — "the Resend key is revoked, all six email functions are dead, users are not receiving their meeting summaries." The key was valid throughout and `echobrief.in` was verified the whole time. Production's `email_sent: false` had a separate, real cause: the deployed `RESEND_API_KEY` was a different, stale key than the working one in `.env`.
+### `email:duplicate_summary_per_meeting`
+**What it looks like:** the user receives the **same summary email 2-3 times** for one meeting, seconds apart. Resend shows several sends with identical subjects; the edge logs show `sarvam-webhook` starting more than once for the same `job_id`, each run ending in `Sending email to: …`.
+
+**Root cause:** two compounding problems, found 2026-08-21 from prod logs.
+1. `sarvam-webhook` answers Sarvam only *after* it has downloaded, stitched, generated GPT insights and sent the email — ~21 s for a 15-minute meeting. Sarvam treats that as a lost callback and **replays it every ~8 s** (three deliveries observed for job `20260821_931079dc…`).
+2. The idempotency guard was a **read-then-check** on `meetings.status`. All replays read `processing` before the first one wrote `completed`, so every replay processed and every replay emailed.
+
+**Fix shipped 2026-08-21** (migration `20260821180000_email_delivery_dedup.sql`):
+- `email_deliveries` claim table, UNIQUE on `(meeting_id, lower(recipient_email), kind)`. `send-meeting-email` inserts the claim **before** calling Resend; a loser gets `23505` and returns `{ success: true, skipped: true, reason: "already_sent" }`. The claim is released if the send fails so a real retry can still deliver.
+- `meetings.sarvam_webhook_claimed_at`: an atomic in-flight claim so duplicate callbacks skip instead of re-running the pipeline (3× GPT spend). Claims older than 10 min are re-claimable, so a died-mid-way run is never stranded; the claim is released on error.
+
+**No monitor signature.** This never leaves a meeting stuck — the meeting completes correctly, it is only delivered too many times — so there is nothing for `known-patterns.ts` to mirror. Regression cover lives in the harness instead: `summary_email_deduped_per_recipient` and the strengthened `concurrent_sarvam_webhooks`.
+
+**If it recurs:** check `select recipient_email, count(*) from email_deliveries where meeting_id = '…' group by 1` — more than one row per recipient means the unique index is gone; zero rows next to a delivered email means `claimEmailDelivery` fell through its fail-open path (look for `[email-delivery] Claim failed` in the logs).
+
+---
+
+**Why it is written down:** — "the Resend key is revoked, all six email functions are dead, users are not receiving their meeting summaries." The key was valid throughout and `echobrief.in` was verified the whole time. Production's `email_sent: false` had a separate, real cause: the deployed `RESEND_API_KEY` was a different, stale key than the working one in `.env`.
 
 ---
 

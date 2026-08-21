@@ -75,7 +75,7 @@ Full picture: **[docs/architecture.md](docs/architecture.md)**
 | **[Security](docs/security.md)** | Auth, RLS, webhook verification, secrets, data handling |
 | **[Contributing](docs/contributing.md)** | Local setup and the rules that are actually enforced |
 | **[Errors runbook](errors.md)** | Every error signature, with root cause and recovery |
-| **[Engineering notes](docs/engineering-notes.md)** | Long-form write-ups of 23 problems this system hit |
+| **[Engineering notes](docs/engineering-notes.md)** | Long-form write-ups of 24 problems this system hit |
 
 ---
 

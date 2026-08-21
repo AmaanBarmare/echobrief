@@ -53,7 +53,7 @@ npm run build            # also the type-check
 | `npm run preview` | Preview the built frontend |
 | `npm run lint` | ESLint |
 | `npm run functions:serve` | Serve Edge Functions locally |
-| `npm run test:unit` | 53 deno tests, mocked fetch, <1 s |
+| `npm run test:unit` | 78 deno tests, mocked fetch, <1 s |
 | `python3 scripts/pipeline-test/harness.py` | 11-scenario integration harness against deployed functions |
 | `python3 scripts/evals/run_evals.py` | 8-eval output-quality suite |
 | `python3 scripts/evals/run_evals.py --meeting-id <id>` | Grade a live production meeting |
@@ -80,7 +80,7 @@ server. Edge Function → `npm run functions:serve` and exercise the endpoint. M
 pure logic that is easiest to break silently.
 
 ### Run the pipeline harness before deploying a function or migration
-`python3 scripts/pipeline-test/harness.py`. 11/11 must pass. It has already caught two
+`python3 scripts/pipeline-test/harness.py`. 12/12 must pass. It has already caught two
 real production bugs. Add `--live` before risky pipeline deploys.
 
 ### Run the evals before touching transcription or prompts

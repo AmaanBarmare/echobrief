@@ -258,6 +258,49 @@ def fire_sarvam_webhook(payload: dict[str, Any]) -> tuple[int, str]:
     return status, body.decode()
 
 
+def call_send_meeting_email(meeting_id: str, recipient_email: str | None = None) -> tuple[int, str]:
+    """Invoke send-meeting-email directly. Pass a recipient to keep real mail
+    out of it — `delivered@resend.dev` is Resend's sink address."""
+    payload: dict[str, Any] = {"meetingId": meeting_id}
+    if recipient_email:
+        payload["recipientEmail"] = recipient_email
+    status, body = _request(
+        "POST",
+        f"{SUPABASE_URL}/functions/v1/send-meeting-email",
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {SERVICE_KEY}",
+        },
+        body=json.dumps(payload).encode(),
+        timeout=60,
+    )
+    return status, body.decode()
+
+
+def insert_email_delivery(meeting_id: str, recipient_email: str, kind: str = "meeting_summary") -> None:
+    status, body = _request(
+        "POST",
+        f"{SUPABASE_URL}/rest/v1/email_deliveries",
+        headers={**_rest_headers(), "Prefer": "return=minimal"},
+        body=json.dumps({
+            "meeting_id": meeting_id,
+            "recipient_email": recipient_email,
+            "kind": kind,
+        }).encode(),
+    )
+    if status >= 300:
+        raise HTTPError(status, body.decode(), "insert_email_delivery")
+
+
+def get_email_deliveries(meeting_id: str) -> list[dict[str, Any]]:
+    status, body = _request(
+        "GET",
+        f"{SUPABASE_URL}/rest/v1/email_deliveries?meeting_id=eq.{meeting_id}&select=*",
+        headers=_rest_headers(),
+    )
+    return json.loads(body) if status < 300 else []
+
+
 def call_monitor_stuck_meetings() -> tuple[int, str]:
     url = f"{SUPABASE_URL}/functions/v1/monitor-stuck-meetings"
     status, body = _request(

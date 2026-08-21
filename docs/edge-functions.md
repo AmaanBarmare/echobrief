@@ -40,7 +40,12 @@ failed — `done`, `processing`, and `unknown` defer to the audio_mixed handler.
 
 The longest function in the codebase (554 lines) and the pipeline's real centre of gravity.
 
-1. Skips meetings already `completed` (idempotency).
+1. Skips meetings already `completed` (idempotency), then takes an **atomic
+   in-flight claim** on `meetings.sarvam_webhook_claimed_at` for terminal
+   callbacks. Sarvam re-fires the same callback every ~8 s while this handler is
+   working (it answers only after download → stitch → GPT → email), and the
+   status check alone cannot stop those: every retry reads the row before any of
+   them writes `completed`. Claims older than 10 min are re-claimable.
 2. For chunked jobs, downloads outputs `0.json … N.json` in numeric order and stitches
    them with `i × chunk_seconds` offsets, then time-sorts.
 3. On empty output or any download error, falls back to chunk-wise Whisper via the
@@ -147,7 +152,7 @@ Builds weekly/monthly aggregate digests across a user's meetings.
 
 | Function | Purpose |
 |---|---|
-| `send-meeting-email` | The real summary email (HTML). Called by `deliverResults`. |
+| `send-meeting-email` | The real summary email (HTML). Called by `deliverResults`. Claims `email_deliveries` **before** calling Resend, so one recipient gets one summary per meeting no matter how many callers race; returns `{ success: true, skipped: true, reason: "already_sent" }` to a loser. |
 | `send-meeting-summary-email` | Thin summary-only variant |
 | `send-email-report` | Digest/report email rendering and send |
 | `send-scheduled-emails` | Drains scheduled sends |

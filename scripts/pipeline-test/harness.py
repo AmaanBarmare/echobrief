@@ -279,9 +279,65 @@ def concurrent_sarvam_webhooks() -> ScenarioResult:
         if not transcript:
             return ScenarioResult("concurrent_sarvam_webhooks", False, "no transcript")
 
+        # Exactly one invocation may do the work — the other must lose the
+        # in-flight claim and say so. Before 2026-08-21 both processed, both
+        # generated insights, and both emailed the user.
+        skipped = [b for _, b in responses if "already_in_flight" in b]
+        if len(responses) == 2 and len(skipped) != 1:
+            return ScenarioResult(
+                "concurrent_sarvam_webhooks", False,
+                f"expected exactly 1 duplicate callback to be skipped, got {len(skipped)}; responses={responses}",
+            )
+
         return ScenarioResult(
             "concurrent_sarvam_webhooks", True,
-            f"completed; responses={[r[0] for r in responses]}",
+            f"completed; one invocation processed, {len(skipped)} duplicate skipped",
+        )
+    finally:
+        client.delete_meeting(meeting_id)
+
+
+@scenario
+def summary_email_deduped_per_recipient() -> ScenarioResult:
+    """A summary already sent to a recipient must never be sent to them twice.
+
+    The 2026-08-21 bug: Sarvam replayed one Completed callback three times, all
+    three invocations read the same pre-completion row, and the user got three
+    identical summary emails. The `email_deliveries` unique index is the
+    arbiter. This asserts the guard without sending any mail — the claim row is
+    pre-inserted, so send-meeting-email must skip before it reaches Resend.
+    """
+    sink = "delivered@resend.dev"  # Resend's sink; nothing reaches a person
+    meeting_id = client.insert_meeting(
+        title="summary_email_deduped_per_recipient",
+        recall_bot_id=None,
+        status="completed",
+    )
+    try:
+        client.insert_email_delivery(meeting_id, sink)
+
+        status, body = client.call_send_meeting_email(meeting_id, sink)
+        if status >= 300:
+            return ScenarioResult(
+                "summary_email_deduped_per_recipient", False,
+                f"send-meeting-email returned {status}: {body[:300]}",
+            )
+        if "already_sent" not in body:
+            return ScenarioResult(
+                "summary_email_deduped_per_recipient", False,
+                f"expected the duplicate to be skipped, got body={body[:300]}",
+            )
+
+        rows = client.get_email_deliveries(meeting_id)
+        if len(rows) != 1:
+            return ScenarioResult(
+                "summary_email_deduped_per_recipient", False,
+                f"expected exactly 1 delivery row for the recipient, found {len(rows)}",
+            )
+
+        return ScenarioResult(
+            "summary_email_deduped_per_recipient", True,
+            "second send skipped, one delivery row, no mail sent",
         )
     finally:
         client.delete_meeting(meeting_id)
@@ -643,6 +699,7 @@ ALL_SCENARIOS = [
     bot_kicked_waiting_room,
     duplicate_sarvam_webhook_idempotency,
     concurrent_sarvam_webhooks,
+    summary_email_deduped_per_recipient,
     monitor_recovers_known_pattern,
     monitor_logs_unknown_pattern,
     live_sarvam_e2e,
