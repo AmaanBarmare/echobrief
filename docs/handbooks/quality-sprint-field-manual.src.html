@@ -1,0 +1,1469 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>EchoBrief — Quality Sprint Field Manual</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#FAF4EF; --paper-raised:#F2E9E4; --paper-deep:#E9DFD9; --card:#FEFBF8;
+  --ink:#190F0B; --ink-mid:#514540; --ink-soft:#827873; --ink-faint:#AAA39F;
+  --rule:#E0D5CF; --rule-soft:#EFE6E0;
+  --ember:#D93F0B; --ember-deep:#B83508; --ember-ink:#8C2F05;
+  --gold:#F5C842; --gold-ink:#8A6400; --gold-light:#FFE08A;
+  --ok:#479C4D; --warn:#D6A20A; --stop:#D7352D; --info:#2B88C0; --violet:#8A5FC9;
+  --char:#120C09; --bone:#F1E9E3; --bone-mid:#BDB6B1; --bone-soft:#8B8581;
+  --serif:'DM Serif Display',Georgia,serif;
+  --sans:'Manrope',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;
+  --mono:'JetBrains Mono',Consolas,'Courier New',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+@page{size:A4;margin:0}
+html{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{font-family:var(--sans);color:var(--ink);background:var(--paper);font-size:9.6pt;line-height:1.5;font-weight:450}
+
+.page{width:210mm;height:297mm;padding:16mm 15mm 14mm;position:relative;background:var(--paper);overflow:hidden;page-break-after:always;display:flex;flex-direction:column}
+.page:last-child{page-break-after:auto}
+.page.dark{background:var(--char);color:var(--bone)}
+.page.dark .kicker{color:var(--gold)}
+.page.dark h1,.page.dark h2{color:var(--bone)}
+
+/* running header + footer */
+.rh{position:absolute;top:7mm;left:15mm;right:15mm;display:flex;justify-content:space-between;
+    font-size:6.6pt;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);
+    font-weight:700;border-bottom:1px solid var(--rule-soft);padding-bottom:2.5mm}
+.rf{position:absolute;bottom:7mm;left:15mm;right:15mm;display:flex;justify-content:space-between;
+    font-size:6.6pt;color:var(--ink-faint);letter-spacing:.06em;font-weight:600}
+.rf .pg{font-family:var(--mono);font-weight:700;color:var(--ember)}
+
+h1{font-family:var(--serif);font-size:25pt;line-height:1.08;font-weight:400;letter-spacing:-.01em}
+h2{font-family:var(--serif);font-size:16pt;line-height:1.15;font-weight:400;margin-bottom:2.5mm}
+h3{font-size:9.4pt;font-weight:800;letter-spacing:.02em;margin-bottom:1.6mm}
+.kicker{font-size:6.8pt;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:var(--ember);margin-bottom:2.5mm}
+.lede{font-size:10.4pt;line-height:1.5;color:var(--ink-mid);font-weight:450}
+p{margin-bottom:2.4mm}
+p:last-child{margin-bottom:0}
+strong{font-weight:750;color:var(--ink)}
+em{font-style:italic}
+a{color:var(--ember);text-decoration:none}
+code,.mono{font-family:var(--mono);font-size:8.1pt;background:var(--paper-deep);padding:.4mm 1.1mm;border-radius:2px;color:var(--ember-ink);font-weight:500}
+.page.dark code{background:#2B1710;color:var(--gold)}
+
+ul,ol{margin:0 0 2.4mm 4.4mm}
+li{margin-bottom:1.1mm}
+ul.tight li,ol.tight li{margin-bottom:.5mm}
+
+/* layout helpers */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:5mm}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4mm}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:3mm}
+.row{display:flex;gap:4mm}
+.spacer{flex:1}
+.mt2{margin-top:2mm}.mt3{margin-top:3mm}.mt4{margin-top:4mm}.mt5{margin-top:5mm}.mt6{margin-top:6mm}
+.rule{height:1px;background:var(--rule);margin:4mm 0}
+.rule-thick{height:2.5px;background:var(--ember);width:16mm;margin:0 0 3.5mm}
+
+/* cards */
+.card{background:var(--card);border:1px solid var(--rule);border-radius:2.4mm;padding:4mm}
+.card.tint{background:#F8E7DF;border-color:#F3CCBD}
+.card.gold{background:#F9EFDA;border-color:#F9EAC9}
+.card.flat{background:var(--paper-raised);border-color:var(--rule-soft)}
+
+/* callouts */
+.callout{border-left:2.6mm solid var(--ember);background:#F8E7DF;padding:3mm 4mm;border-radius:0 2mm 2mm 0;margin:3mm 0}
+.callout.stop{border-color:var(--stop);background:#FBE6E4}
+.callout.ok{border-color:var(--ok);background:#E6F1E6}
+.callout.warn{border-color:var(--warn);background:#FAF0D6}
+.callout.info{border-color:var(--info);background:#E3F0F8}
+.callout .ct{font-size:6.8pt;font-weight:800;letter-spacing:.16em;text-transform:uppercase;margin-bottom:1.4mm;color:var(--ember-ink)}
+.callout.stop .ct{color:#96231D}.callout.ok .ct{color:#2F6B33}.callout.warn .ct{color:#8A6400}.callout.info .ct{color:#1B5C84}
+
+/* tables */
+table{width:100%;border-collapse:collapse;font-size:8.2pt}
+th{text-align:left;font-size:6.6pt;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-soft);
+   font-weight:800;padding:0 2mm 1.6mm 0;border-bottom:1.4px solid var(--ink)}
+td{padding:1.7mm 2mm 1.7mm 0;border-bottom:1px solid var(--rule-soft);vertical-align:top;line-height:1.38}
+tr:last-child td{border-bottom:none}
+td.num,th.num{font-family:var(--mono);font-weight:600;white-space:nowrap}
+.tbl-title{font-size:6.8pt;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--ember);margin-bottom:2mm}
+
+/* checkbox list */
+.check li{list-style:none;margin-left:0;padding-left:6mm;position:relative;margin-bottom:1.6mm}
+.check li:before{content:'';position:absolute;left:0;top:.7mm;width:3.4mm;height:3.4mm;
+  border:1.2px solid var(--ink-faint);border-radius:.8mm;background:var(--card)}
+.check{margin-left:0}
+
+/* pills */
+.pill{display:inline-block;font-size:6.4pt;font-weight:800;letter-spacing:.1em;text-transform:uppercase;
+  padding:.9mm 2mm;border-radius:999px;background:var(--paper-deep);color:var(--ink-mid);white-space:nowrap}
+.pill.ember{background:#F3CCBD;color:var(--ember-ink)}
+.pill.gold{background:#F9EAC9;color:var(--gold-ink)}
+.pill.ok{background:#DCEBDD;color:#2F6B33}
+.pill.stop{background:#F7DAD8;color:#96231D}
+.pill.info{background:#D7E9F5;color:#1B5C84}
+.pill.violet{background:#E7DDF5;color:#5B3B92}
+
+/* code block */
+pre{font-family:var(--mono);font-size:7.6pt;line-height:1.55;background:var(--char);color:var(--bone);
+  padding:3mm 3.5mm;border-radius:2mm;overflow:hidden;margin:2.5mm 0;white-space:pre-wrap;word-break:break-word}
+pre .c{color:var(--bone-soft)}
+pre .k{color:var(--gold)}
+pre b{color:#FF8A5C;font-weight:600}
+
+/* numbered step */
+.step{display:flex;gap:3mm;margin-bottom:3mm}
+.step .n{flex:0 0 6mm;height:6mm;border-radius:999px;background:var(--ember);color:#fff;
+  font-size:8pt;font-weight:800;display:flex;align-items:center;justify-content:center;font-family:var(--mono)}
+.step .b{flex:1;padding-top:.6mm}
+.step .b .t{font-weight:800;font-size:9pt;margin-bottom:.7mm}
+.step .b .d{color:var(--ink-mid);font-size:8.4pt;line-height:1.42}
+
+/* metric tile */
+.tile{background:var(--card);border:1px solid var(--rule);border-radius:2mm;padding:3mm}
+.tile .l{font-size:6.4pt;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);font-weight:800}
+.tile .v{font-family:var(--serif);font-size:19pt;line-height:1.1;color:var(--ember);margin-top:1mm}
+.tile .c{font-size:7.2pt;color:var(--ink-soft);margin-top:.5mm}
+
+/* pipeline diagram */
+.flow{display:flex;align-items:stretch;gap:0;margin:3mm 0}
+.node{flex:1;background:var(--card);border:1px solid var(--rule);border-radius:2mm;padding:2.4mm 2mm;text-align:center;position:relative}
+.node .nt{font-size:7.4pt;font-weight:800;line-height:1.2}
+.node .ns{font-size:6.2pt;color:var(--ink-soft);margin-top:.8mm;line-height:1.25}
+.arrow{flex:0 0 4mm;display:flex;align-items:center;justify-content:center;color:var(--ember);font-size:9pt;font-weight:800}
+
+/* gantt */
+.gantt{width:100%;font-size:7.4pt}
+.gantt .hd{display:flex;border-bottom:1.4px solid var(--ink);padding-bottom:1.4mm;margin-bottom:2mm}
+.gantt .hd .lbl{flex:0 0 34mm}
+.gantt .hd .d{flex:1;text-align:center;font-size:6.6pt;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft)}
+.gantt .rw{display:flex;align-items:center;margin-bottom:2mm;min-height:6.5mm}
+.gantt .rw .lbl{flex:0 0 34mm;font-size:7.6pt;font-weight:750;padding-right:2mm;line-height:1.2}
+.gantt .track{flex:1;display:flex;gap:1mm;position:relative}
+.gantt .cell{flex:1;height:6mm;border-radius:1.2mm;background:var(--paper-deep)}
+.gantt .cell.on{background:var(--ember)}
+.gantt .cell.on.m2{background:var(--info)}
+.gantt .cell.on.m3{background:var(--violet)}
+.gantt .cell.on.m4{background:var(--gold);}
+.gantt .cell.on.setup{background:var(--ink-soft)}
+.gantt .cell.half{background:linear-gradient(90deg,var(--ember) 50%,var(--paper-deep) 50%)}
+
+/* mission header band */
+.mband{display:flex;align-items:center;gap:3.5mm;padding:3.5mm 4mm;border-radius:2.4mm;margin-bottom:4mm;color:#fff}
+.mband.m1{background:var(--ember)}
+.mband.m2{background:var(--info)}
+.mband.m3{background:var(--violet)}
+.mband.m4{background:var(--gold-ink)}
+.mband .no{font-family:var(--serif);font-size:22pt;line-height:1;opacity:.85}
+.mband .tt{font-family:var(--serif);font-size:15pt;line-height:1.1}
+.mband .ss{font-size:7.4pt;opacity:.9;margin-top:.8mm;font-weight:600;letter-spacing:.02em}
+.mband .days{margin-left:auto;text-align:right;font-size:6.8pt;font-weight:800;letter-spacing:.12em;text-transform:uppercase;opacity:.95}
+
+.qbox{border:1px dashed var(--ink-faint);border-radius:2mm;padding:3mm;background:transparent}
+.qbox .qh{font-size:6.6pt;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:1.6mm}
+.dense td{padding:.85mm 2mm}
+.wl{border-bottom:1px solid var(--rule);height:5mm}
+</style>
+</head>
+<body>
+
+<!-- ══════════════ COVER ══════════════ -->
+<div class="page dark" style="padding:0;justify-content:space-between">
+  <div style="padding:20mm 18mm 0">
+    <div style="display:flex;align-items:center;gap:3mm">
+      <svg width="34" height="34" viewBox="0 0 32 32"><defs><linearGradient id="m1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#E8430A"/><stop offset="100%" stop-color="#F5C842"/></linearGradient></defs><circle cx="16" cy="16" r="14" fill="none" stroke="url(#m1)" stroke-width="2.6"/><circle cx="16" cy="16" r="7.4" fill="none" stroke="url(#m1)" stroke-width="2.2" opacity=".62"/><circle cx="16" cy="16" r="2.6" fill="url(#m1)"/></svg>
+      <div style="font-size:12pt;font-weight:800;letter-spacing:-.01em;color:var(--bone)">EchoBrief</div>
+      <div style="margin-left:auto;font-size:6.8pt;letter-spacing:.2em;text-transform:uppercase;color:var(--bone-soft);font-weight:800">Internal · Not for distribution</div>
+    </div>
+  </div>
+
+  <div style="padding:0 18mm">
+    <div style="font-size:7pt;font-weight:800;letter-spacing:.24em;text-transform:uppercase;color:var(--gold);margin-bottom:6mm">Quality Sprint · Week One</div>
+    <h1 style="font-size:44pt;line-height:1.02;color:var(--bone);letter-spacing:-.015em">The Field<br>Manual</h1>
+    <div style="width:22mm;height:3px;background:linear-gradient(90deg,#E8430A,#F5C842);margin:7mm 0"></div>
+    <div style="font-size:12.5pt;line-height:1.45;color:var(--bone-mid);max-width:118mm;font-weight:450">
+      Four missions to find out whether EchoBrief actually does what its
+      landing page promises — and to leave it measurably better than you
+      found it.
+    </div>
+  </div>
+
+  <div style="padding:0 18mm 18mm">
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4mm;border-top:1px solid #362B27;padding-top:5mm">
+      <div><div style="font-size:6.2pt;letter-spacing:.16em;text-transform:uppercase;color:var(--bone-soft);font-weight:800">Owner</div><div style="font-size:10pt;font-weight:750;margin-top:1.2mm;color:var(--bone)">Adnan</div></div>
+      <div><div style="font-size:6.2pt;letter-spacing:.16em;text-transform:uppercase;color:var(--bone-soft);font-weight:800">Reviewer</div><div style="font-size:10pt;font-weight:750;margin-top:1.2mm;color:var(--bone)">Khush</div></div>
+      <div><div style="font-size:6.2pt;letter-spacing:.16em;text-transform:uppercase;color:var(--bone-soft);font-weight:800">Window</div><div style="font-size:10pt;font-weight:750;margin-top:1.2mm;color:var(--bone)">21–28 Aug 2026</div></div>
+      <div><div style="font-size:6.2pt;letter-spacing:.16em;text-transform:uppercase;color:var(--bone-soft);font-weight:800">Version</div><div style="font-size:10pt;font-weight:750;margin-top:1.2mm;color:var(--bone)">v1.0</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ P2 · HOW TO USE ══════════════ -->
+<div class="page">
+  <div class="rh"><span>EchoBrief Field Manual</span><span>Orientation</span></div>
+  <div class="kicker">Read this first</div>
+  <h1 style="font-size:22pt">How to use this manual</h1>
+  <div class="rule-thick mt3"></div>
+
+  <div class="lede">This is not a reading document. It is a worksheet. Every mission ends
+  in a file you commit to the repo — a scorecard, a report, or a pull request. If a day ends
+  with no artefact, that day did not happen.</div>
+
+  <div class="grid2 mt5">
+    <div class="card">
+      <h3>What this week is</h3>
+      <p style="color:var(--ink-mid)">EchoBrief works end-to-end. A bot joins a call, the audio is
+      transcribed, and a summary lands by email. That is <em>proven</em>. What is <strong>not</strong> proven
+      is whether it is any good — across languages, across long meetings, and against the
+      note-takers we are competing with.</p>
+      <p style="color:var(--ink-mid)">Your job is to convert opinions into measurements.</p>
+    </div>
+    <div class="card tint">
+      <h3>The one rule that matters</h3>
+      <p style="color:var(--ink-mid)"><strong>Don't change code you're less than 95% sure about.</strong>
+      This is a live product with real users. A wrong fix is worse than an unfixed bug you
+      documented clearly.</p>
+      <p style="color:var(--ink-mid)">When under 95%: write down what you observed, what you think
+      is happening, and what you'd change. Then ask. That's a win, not a failure.</p>
+    </div>
+  </div>
+
+  <div class="mt5">
+    <div class="tbl-title">Anatomy of a mission page</div>
+    <table>
+      <tr><td style="width:30mm"><span class="pill ember">Question</span></td><td>The single question the mission answers. If your work doesn't answer it, you're off-track.</td></tr>
+      <tr><td><span class="pill">Hypothesis</span></td><td>What we already suspect is true. <strong>Try to prove it wrong.</strong> A hypothesis you confirm without trying to break it is worth nothing.</td></tr>
+      <tr><td><span class="pill info">Method</span></td><td>Exact steps and commands. Follow them; deviate only with a written reason.</td></tr>
+      <tr><td><span class="pill gold">Scorecard</span></td><td>The table you fill in. This is the deliverable.</td></tr>
+      <tr><td><span class="pill ok">Done when</span></td><td>The bar. Not "I looked at it" — a specific, checkable state.</td></tr>
+    </table>
+  </div>
+
+  <div class="callout warn mt5">
+    <div class="ct">Bias warning — read twice</div>
+    <p>You will be tempted to make EchoBrief look good. Resist it hard. The most valuable thing you
+    can hand over on Friday is a list of things that are broken and a number attached to each one.
+    <strong>Finding nothing is the only failing outcome.</strong> Every real product has failures at this
+    stage; if your report has none, you tested too gently.</p>
+  </div>
+
+  <div class="mt4 grid3">
+    <div class="card flat"><h3>Time budget</h3><p style="font-size:8.2pt;color:var(--ink-mid)">Friday afternoon for setup, then Mon–Fri for the work. Missions 1 &amp; 2 are testing, 3 is judgement, 4 is product thinking. Roughly 1.5 / 1 / 1.5 / 0.5 days.</p></div>
+    <div class="card flat"><h3>Where work lives</h3><p style="font-size:8.2pt;color:var(--ink-mid)">Branch <code>intern/quality-sprint</code>. All artefacts go in <code>reports/2026-08-quality-sprint/</code>. Never commit to <code>main</code>.</p></div>
+    <div class="card flat"><h3>When stuck</h3><p style="font-size:8.2pt;color:var(--ink-mid)">Timebox to 45 minutes. Then post: what you tried, what you expected, what happened, the exact error. Don't sit silent for hours.</p></div>
+  </div>
+
+  <div class="rf"><span>Quality Sprint · Fri 21 → Fri 28 Aug 2026</span><span class="pg">02</span></div>
+</div>
+
+<!-- ══════════════ P3 · WHAT ECHOBRIEF IS ══════════════ -->
+<div class="page">
+  <div class="rh"><span>EchoBrief Field Manual</span><span>Orientation</span></div>
+  <div class="kicker">Product map</div>
+  <h1 style="font-size:22pt">What you are testing</h1>
+  <div class="rule-thick mt3"></div>
+
+  <p class="lede">EchoBrief is an AI meeting note-taker built for Indian teams. A bot joins the
+  call, records it, transcribes it, and emails a summary. The differentiator we sell is
+  <strong>Indian languages</strong> — that claim is Mission 1.</p>
+
+  <div class="grid2 mt5">
+    <div class="card">
+      <h3 style="color:var(--ember)">What we promise publicly</h3>
+      <table style="font-size:7.8pt">
+        <tr><td style="width:26mm"><strong>Languages</strong></td><td>"22 Indian languages", with code-mixing (Hinglish, Tanglish)</td></tr>
+        <tr><td><strong>Delivery</strong></td><td>Summary on email or WhatsApp, "per-language routing"</td></tr>
+        <tr><td><strong>Auto-join</strong></td><td>Bot joins calendar meetings automatically</td></tr>
+        <tr><td><strong>Output</strong></td><td>Summary, action items, decisions, risks, timeline, metrics</td></tr>
+      </table>
+      <p style="font-size:7.6pt;color:var(--ink-soft);margin-top:2mm">Sources: <code>src/components/landing/*</code>, <code>src/pages/Terms.tsx</code></p>
+    </div>
+    <div class="card">
+      <h3 style="color:var(--ember)">What the code actually does</h3>
+      <table style="font-size:7.8pt">
+        <tr><td style="width:26mm"><strong>STT</strong></td><td>Sarvam <code>saaras:v3</code>, <code>mode: "translate"</code>, <code>language_code: "unknown"</code></td></tr>
+        <tr><td><strong>Meaning</strong></td><td>Auto-detects the language and outputs <strong>English</strong>, always</td></tr>
+        <tr><td><strong>Fallback</strong></td><td>OpenAI Whisper if Sarvam fails or returns empty</td></tr>
+        <tr><td><strong>Insights</strong></td><td>GPT-4o-mini over the (English) transcript</td></tr>
+      </table>
+      <p style="font-size:7.6pt;color:var(--ink-soft);margin-top:2mm">Source: <code>supabase/functions/_shared/sarvam.ts</code></p>
+    </div>
+  </div>
+
+  <div class="callout mt5">
+    <div class="ct">The gap you should already be able to smell</div>
+    <p>We advertise transcription <em>in</em> 22 languages and delivery <em>in the reader's language</em>.
+    The pipeline translates everything to English and has no output-language switch anywhere.
+    Whether that is a <strong>bug, a missing feature, or a marketing-copy problem</strong> is one of the
+    things you're going to settle this week. Don't assume which.</p>
+  </div>
+
+  <div class="mt4">
+    <div class="tbl-title">The surfaces you will touch</div>
+    <div class="grid4">
+      <div class="tile"><div class="l">Web app</div><div class="v" style="font-size:11pt;font-family:var(--sans);font-weight:800">React + Vite</div><div class="c">Dashboard, meeting detail, metrics. <code>npm run dev</code> → :8080</div></div>
+      <div class="tile"><div class="l">Backend</div><div class="v" style="font-size:11pt;font-family:var(--sans);font-weight:800">Supabase</div><div class="c">Postgres + 27 Deno edge functions</div></div>
+      <div class="tile"><div class="l">Splitter</div><div class="v" style="font-size:11pt;font-family:var(--sans);font-weight:800">Vercel fn</div><div class="c"><code>api/split-audio.ts</code>, ffmpeg chunking</div></div>
+      <div class="tile"><div class="l">Vendors</div><div class="v" style="font-size:11pt;font-family:var(--sans);font-weight:800">3 APIs</div><div class="c">Recall.ai · Sarvam · OpenAI</div></div>
+    </div>
+  </div>
+
+  <div class="mt4 card flat">
+    <h3>Read these on Day 0, Friday evening — in this order</h3>
+    <table style="font-size:8pt">
+      <tr><td class="num" style="width:9mm;color:var(--ember)">01</td><td style="width:52mm"><code>docs/architecture.md</code></td><td>How the pieces fit and why. 15 min.</td></tr>
+      <tr><td class="num" style="color:var(--ember)">02</td><td><code>docs/pipeline.md</code></td><td>Every stage of processing, and the races it survives. 20 min.</td></tr>
+      <tr><td class="num" style="color:var(--ember)">03</td><td><code>errors.md</code></td><td>Every failure we've already seen. You will hit some of these. 10 min.</td></tr>
+      <tr><td class="num" style="color:var(--ember)">04</td><td><code>docs/engineering-notes.md</code></td><td>23 write-ups of real problems. Skim; return when stuck.</td></tr>
+      <tr><td class="num" style="color:var(--ember)">05</td><td><code>docs/testing.md</code> + <code>scripts/evals/EVALS.md</code></td><td>The harnesses you'll live in for Mission 3.</td></tr>
+    </table>
+  </div>
+
+  <div class="rf"><span>Quality Sprint · Fri 21 → Fri 28 Aug 2026</span><span class="pg">03</span></div>
+</div>
+
+<!-- ══════════════ P4 · THE PIPELINE ══════════════ -->
+<div class="page">
+  <div class="rh"><span>EchoBrief Field Manual</span><span>Orientation</span></div>
+  <div class="kicker">The machine</div>
+  <h1 style="font-size:22pt">How a meeting becomes a summary</h1>
+  <div class="rule-thick mt3"></div>
+  <p class="lede">Nine stages. Every mission this week is really a question about one or two of
+  them. Learn where each mission bites and you'll debug ten times faster.</p>
+
+  <div class="mt4">
+    <div class="flow">
+      <div class="node"><div class="nt">1 · Bot joins</div><div class="ns">Recall.ai bot enters the call and records</div></div>
+      <div class="arrow">›</div>
+      <div class="node"><div class="nt">2 · Audio ready</div><div class="ns"><code>audio_mixed.done</code> webhook fires</div></div>
+      <div class="arrow">›</div>
+      <div class="node"><div class="nt">3 · Download</div><div class="ns">16 kHz mono mp3 + Recall's own transcript for speaker names</div></div>
+      <div class="arrow">›</div>
+      <div class="node"><div class="nt">4 · Split</div><div class="ns">Vercel ffmpeg cuts 300 s chunks (stream-copy)</div></div>
+    </div>
+    <div class="flow">
+      <div class="node"><div class="nt">5 · Sarvam</div><div class="ns">One multi-file job, <code>translate</code> mode, diarization on</div></div>
+      <div class="arrow">›</div>
+      <div class="node"><div class="nt">6 · Stitch</div><div class="ns">Chunks rejoined, timestamps offset by index × 300 s</div></div>
+      <div class="arrow">›</div>
+      <div class="node"><div class="nt">7 · Speakers</div><div class="ns">Sarvam segments matched to Recall's speaker timeline</div></div>
+      <div class="arrow">›</div>
+      <div class="node"><div class="nt">8 · GPT-4o-mini</div><div class="ns">Summary, actions, decisions, risks, timeline</div></div>
+      <div class="arrow">›</div>
+      <div class="node" style="border-color:var(--ember);background:#F8E7DF"><div class="nt">9 · Deliver</div><div class="ns">Saved to DB, emailed as a digest</div></div>
+    </div>
+  </div>
+
+  <div class="grid2 mt5">
+    <div>
+      <div class="tbl-title">Where each mission bites</div>
+      <table>
+        <tr><td style="width:8mm"><span class="pill ember">M1</span></td><td><strong>Stage 5.</strong> Does Sarvam handle each language? Does <code>translate</code> mode make the language promise true or false?</td></tr>
+        <tr><td><span class="pill info">M2</span></td><td><strong>Stages 4–6.</strong> Chunking and stitching. Long audio is where this pipeline has historically broken.</td></tr>
+        <tr><td><span class="pill violet">M3</span></td><td><strong>Stages 5, 7, 8.</strong> Word accuracy, speaker attribution, and whether GPT's claims are actually in the transcript.</td></tr>
+        <tr><td><span class="pill gold">M4</span></td><td><strong>Stage 8–9.</strong> What we compute and show after the meeting.</td></tr>
+      </table>
+    </div>
+    <div class="card flat">
+      <h3>Two things that will confuse you on day one</h3>
+      <p style="font-size:8.3pt;color:var(--ink-mid)"><strong>Why chunking exists.</strong> Sarvam's <code>saaras:v3</code>
+      silently returns an <em>empty</em> transcript for long audio — no error, just nothing. A 47-minute file
+      fails; the same file cut into 5-minute pieces succeeds. So we cut everything over ~6 minutes into
+      300-second chunks. This is a vendor bug we work around, not a design choice.</p>
+      <p style="font-size:8.3pt;color:var(--ink-mid)"><strong>Why there are two transcripts.</strong> Recall
+      produces its own rough transcript. We don't show it — we use it purely to learn <em>who spoke when</em>,
+      because Sarvam gives good words but anonymous speakers. Stage 7 is the marriage of the two, and it is
+      the least reliable stage in the system.</p>
+    </div>
+  </div>
+
+  <div class="callout info mt4">
+    <div class="ct">Failure is designed-in, and that matters for your testing</div>
+    <p>If Sarvam returns nothing, an error, or the known <code>KeyError: 'timestamps'</code> bug, the system
+    <strong>silently falls back to Whisper</strong> and carries on. So "we got a transcript" does not mean
+    "Sarvam worked". For every test you run, record <em>which engine produced the result</em> — otherwise
+    Mission 1's language findings are meaningless.</p>
+  </div>
+
+  <div class="rf"><span>Quality Sprint · Fri 21 → Fri 28 Aug 2026</span><span class="pg">04</span></div>
+</div>
+
+<!-- ══════════════ P5 · REPO MAP + GLOSSARY ══════════════ -->
+<div class="page">
+  <div class="rh"><span>EchoBrief Field Manual</span><span>Orientation</span></div>
+  <div class="kicker">Navigation</div>
+  <h1 style="font-size:22pt">Where things live</h1>
+  <div class="rule-thick mt3"></div>
+
+  <div class="grid2">
+    <div>
+      <div class="tbl-title">Files you'll open this week</div>
+      <table style="font-size:7.8pt">
+        <tr><td style="width:44mm"><code>_shared/sarvam.ts</code></td><td>STT job config — <strong>M1</strong></td></tr>
+        <tr><td><code>api/split-audio.ts</code></td><td>ffmpeg chunking — <strong>M2</strong></td></tr>
+        <tr><td><code>_shared/stitch.ts</code></td><td>Chunk rejoin + offsets — <strong>M2</strong></td></tr>
+        <tr><td><code>sarvam-webhook/index.ts</code></td><td>Speaker mapping, fallbacks — <strong>M2, M3</strong></td></tr>
+        <tr><td><code>_shared/insights.ts</code></td><td>The GPT prompt — <strong>M3</strong></td></tr>
+        <tr><td><code>_shared/metrics.ts</code></td><td>Computed conversation metrics — <strong>M4</strong></td></tr>
+        <tr><td><code>meeting/MeetingMetrics.tsx</code></td><td>The metric tiles users see — <strong>M4</strong></td></tr>
+        <tr><td><code>scripts/sarvam_config_test.py</code></td><td>Fire a custom Sarvam job — <strong>M1</strong></td></tr>
+        <tr><td><code>scripts/evals/run_evals.py</code></td><td>Output-quality evals — <strong>M3</strong></td></tr>
+        <tr><td><code>scripts/pipeline-test/harness.py</code></td><td>11-scenario prod harness — <strong>all</strong></td></tr>
+      </table>
+    </div>
+    <div>
+      <div class="tbl-title">Vocabulary</div>
+      <table style="font-size:7.8pt">
+        <tr><td style="width:30mm"><strong>Diarization</strong></td><td>Splitting audio by <em>who is speaking</em>, producing SPEAKER_00, SPEAKER_01…</td></tr>
+        <tr><td><strong>Attribution</strong></td><td>Turning those anonymous labels into real names</td></tr>
+        <tr><td><strong>Translate mode</strong></td><td>Sarvam setting: speech in any Indic language → <strong>English text</strong></td></tr>
+        <tr><td><strong>Transcribe mode</strong></td><td>The alternative: output stays in the spoken language</td></tr>
+        <tr><td><strong>WER</strong></td><td>Word Error Rate. Errors ÷ reference words. Lower is better; under 15% is usable, under 10% is good</td></tr>
+        <tr><td><strong>Code-mixing</strong></td><td>Two languages in one sentence — Hinglish. Very common in real Indian meetings</td></tr>
+        <tr><td><strong>Hallucination</strong></td><td>The model asserting something the transcript never said</td></tr>
+        <tr><td><strong>Edge function</strong></td><td>A Deno serverless function on Supabase</td></tr>
+        <tr><td><strong>Harness</strong></td><td>Does the plumbing work? (pass/fail)</td></tr>
+        <tr><td><strong>Eval</strong></td><td>Is the output any <em>good</em>? (scored)</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="callout mt5">
+    <div class="ct">Harness vs Eval — you will need this distinction all week</div>
+    <p>The <strong>harness</strong> asks "did the machine run?". The <strong>evals</strong> ask "was what came out
+    correct?". A meeting can complete with status <code>completed</code>, a green harness, and a summary that is
+    total nonsense. Missions 1–3 live almost entirely on the eval side of that line.</p>
+  </div>
+
+  <div class="mt4">
+    <div class="tbl-title">The four commands you'll run constantly</div>
+    <pre><span class="c"># 1. Unit tests — mocked, under a second, zero cost. Run after every code change.</span>
+npm run test:unit
+
+<span class="c"># 2. Does the plumbing work end-to-end against real prod? ~90 s.</span>
+python3 scripts/pipeline-test/harness.py
+
+<span class="c"># 3. Is the output any good? 8 scored evals, LLM judge. Run before touching insights.</span>
+python3 scripts/evals/run_evals.py
+
+<span class="c"># 4. Fire one Sarvam job with whatever settings you want. Your M1 workhorse.</span>
+python3 scripts/sarvam_config_test.py &lt;meeting_id&gt; mode=transcribe language_code=hi-IN</pre>
+  </div>
+
+  <div class="rf"><span>Quality Sprint · Fri 21 → Fri 28 Aug 2026</span><span class="pg">05</span></div>
+</div>
+
+<!-- ══════════════ P6 · DAY 0 SETUP ══════════════ -->
+<div class="page">
+  <div class="rh"><span>EchoBrief Field Manual</span><span>Orientation</span></div>
+  <div class="kicker">Day 0 · Friday 21 Aug, from 16:00</div>
+  <h1 style="font-size:22pt">Get running before you test anything</h1>
+  <div class="rule-thick mt3"></div>
+  <p class="lede">You start <strong>Friday 21 August at 16:00</strong>. That afternoon is Day 0, and it is
+  deliberately not testing — it is getting green, reading, and setting the slow things running. Target:
+  everything below green by <strong>19:00 Friday</strong>. If you're not there, say so that evening rather than
+  losing Monday to it. <strong>The weekend is yours</strong> — buffer, not schedule.</p>
+
+  <div class="grid2 mt4">
+    <div class="card">
+      <h3>Environment</h3>
+      <ul class="check tight" style="font-size:8.2pt">
+        <li>Repo cloned, on branch <code>intern/quality-sprint</code></li>
+        <li><code>npm install</code> clean, no peer-dep errors</li>
+        <li>Node 20+, Python 3.11+, Deno, Supabase CLI, <code>ffmpeg</code> on PATH</li>
+        <li><code>.env</code> received from Khush <strong>over a secure channel</strong> — never Slack/WhatsApp plaintext</li>
+        <li><code>supabase/.env.local</code> populated</li>
+        <li>Supabase dashboard access confirmed (read)</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Smoke tests — all must pass</h3>
+      <ul class="check tight" style="font-size:8.2pt">
+        <li><code>npm run dev</code> → app renders at :8080, you can log in</li>
+        <li><code>npm run build</code> → succeeds (brand check included)</li>
+        <li><code>npx tsc --noEmit</code> → note the baseline error count, it is not zero</li>
+        <li><code>npm run test:unit</code> → 53 tests pass</li>
+        <li><code>python3 scripts/pipeline-test/harness.py</code> → <strong>11/11</strong></li>
+        <li><code>python3 scripts/evals/run_evals.py</code> → passes, including the case designed to fail</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout warn mt4">
+    <div class="ct">Trap: <code>npm run build</code> does not typecheck</div>
+    <p>Vite uses esbuild, which strips TypeScript types without checking them. A green build tells you
+    nothing about type errors. Use <code>npx tsc --noEmit</code> separately, and compare against the
+    baseline you recorded on Day 0 — some errors pre-date you.</p>
+  </div>
+
+  <div class="mt4">
+    <div class="tbl-title">Then start these — Day 0 evening, finish Monday first thing</div>
+    <div class="step"><div class="n">1</div><div class="b"><div class="t">Create the fixtures folder</div>
+      <div class="d"><code>recordings/lang-fixtures/</code>, one file per language, named
+      <code>&lt;code&gt;-&lt;source&gt;-&lt;seconds&gt;s.mp3</code> — e.g. <code>hi-IN-news-90s.mp3</code>.
+      This naming is not decoration; your scorecard joins on it.</div></div></div>
+    <div class="step"><div class="n">2</div><div class="b"><div class="t">Normalise every fixture to the pipeline's native format</div>
+      <div class="d">Recall hands us 16 kHz mono 128 kbps mp3. Match it exactly, or you are testing your own
+      encoder rather than our pipeline:<br>
+      <code>ffmpeg -i in.wav -ar 16000 -ac 1 -b:a 128k out.mp3</code></div></div></div>
+    <div class="step"><div class="n">3</div><div class="b"><div class="t">Write a reference transcript for each fixture</div>
+      <div class="d">A plain <code>.txt</code> of what is actually said, plus an English gloss. Without a reference
+      you cannot compute WER and Mission 3 collapses into vibes. Get a native speaker to verify anything you
+      don't speak yourself — <strong>do not trust an LLM to produce ground truth.</strong></div></div></div>
+    <div class="step"><div class="n">4</div><div class="b"><div class="t">Extend the config-test script to accept a local file</div>
+      <div class="d">Today <code>sarvam_config_test.py</code> pulls audio from a stored meeting. Add a
+      <code>--file</code> flag so it can upload a local fixture instead. Small change, unblocks the whole week.
+      <strong>This is your first PR.</strong></div></div></div>
+  </div>
+
+  <div class="callout info mt3">
+    <div class="ct">Where to get audio, in order of preference</div>
+    <p><strong>1.</strong> Record yourself and a friend having a real 2-minute conversation — most realistic, and
+    you get perfect ground truth for free. <strong>2.</strong> Public-domain news bulletins and government
+    broadcasts (All India Radio has all the scheduled languages). <strong>3.</strong> Creative-Commons YouTube,
+    downloaded audio-only. Log the source URL for every fixture. <strong>Never use a customer's real meeting
+    audio as a fixture.</strong></p>
+  </div>
+
+  <div class="rf"><span>Quality Sprint · Fri 21 → Fri 28 Aug 2026</span><span class="pg">06</span></div>
+</div>
+
+<!-- ══════════════ P7 · RED LINES ══════════════ -->
+<div class="page">
+  <div class="rh"><span>EchoBrief Field Manual</span><span>Orientation</span></div>
+  <div class="kicker">Safety</div>
+  <h1 style="font-size:22pt">Red lines &amp; the deploy gate</h1>
+  <div class="rule-thick mt3"></div>
+  <p class="lede">You have production access. That is trust, and it is reversible. These rules exist because
+  every single one of them has already cost us a real outage.</p>
+
+  <div class="callout stop mt4">
+    <div class="ct">Never — no exceptions, no "just this once"</div>
+    <ul class="tight" style="font-size:8.6pt;margin-bottom:0">
+      <li>Commit or push to <code>main</code>. Everything goes through a PR on <code>intern/quality-sprint</code>.</li>
+      <li>Deploy an edge function on a <strong>Friday</strong>, or after 18:00 on any day.</li>
+      <li>Run <code>DELETE</code> or <code>UPDATE</code> against a production table by hand.</li>
+      <li>Raise any <code>pg_cron</code> frequency. The database is also our scheduler; frequent ticks drained the Disk IO Budget once already and took the whole pipeline down.</li>
+      <li>Commit <code>.env</code>, an API key, a JWT, or a real customer transcript. Check <code>git diff --staged</code> every single time.</li>
+      <li>Open, screenshot, or paste a real customer's meeting content anywhere. Use <code>[harness]</code> test meetings and your own fixtures.</li>
+      <li>Change <code>src/components/ui/*</code> — those are generated shadcn files.</li>
+      <li>Add a hex colour that isn't in <code>brand/tokens/colors.json</code>. The brand checker blocks the commit and it is right to.</li>
+    </ul>
+  </div>
+
+  <div class="grid2 mt4">
+    <div class="card">
+      <h3 style="color:var(--ok)">Free to do, no permission needed</h3>
+      <ul class="tight" style="font-size:8.3pt">
+        <li>Read anything — code, docs, dashboards, logs</li>
+        <li>Run any read-only SQL <code>SELECT</code></li>
+        <li>Run the harness, evals and unit tests as often as you like</li>
+        <li>Create <code>[harness]</code>-prefixed test meetings (emails are suppressed for them)</li>
+        <li>Fire Sarvam jobs on your own fixtures</li>
+        <li>Open draft PRs with anything, however rough</li>
+      </ul>
+    </div>
+    <div class="card gold">
+      <h3 style="color:var(--gold-ink)">Ask first</h3>
+      <ul class="tight" style="font-size:8.3pt">
+        <li>Any prod edge-function deploy</li>
+        <li>Any database migration</li>
+        <li>Starting a Recall bot on a real meeting (costs bot minutes)</li>
+        <li>A test run you expect to cost more than ~₹500 in API credits</li>
+        <li>Changing landing-page copy — that's a claim about the product, not a text edit</li>
+        <li>Setting <code>HARNESS_EMAILS=true</code> (and unset it immediately after)</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="mt4">
+    <div class="tbl-title">Deploy gate — every box ticked, in order, before any edge function ships</div>
+    <div class="card flat">
+      <ul class="check tight" style="font-size:8.4pt;margin-bottom:0">
+        <li><code>npm run test:unit</code> passes</li>
+        <li><code>npx tsc --noEmit</code> shows no <em>new</em> errors vs your Day 0 baseline</li>
+        <li><code>python3 scripts/pipeline-test/harness.py</code> → 11/11</li>
+        <li>If you touched transcription or insights: <code>python3 scripts/evals/run_evals.py</code> passes</li>
+        <li>If you touched the chunking or Sarvam path: harness re-run with <code>--live</code></li>
+        <li>PR opened, reviewed by Khush, approved in writing</li>
+        <li>Deployed before 18:00, Monday–Thursday</li>
+        <li>Harness re-run <strong>after</strong> deploy — a green pre-deploy run proves nothing about the deployed code</li>
+        <li>You watched <code>monitor_events</code> and the function logs for 30 minutes afterwards</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout ok mt3">
+    <div class="ct">If you break production</div>
+    <p>Say so immediately — in the channel, not in a DM, not after you've tried to fix it quietly. State what
+    you changed, when, and what you're seeing. Then revert first and diagnose second.
+    <strong>Nobody has ever been in trouble here for breaking something and saying so within two minutes.</strong>
+    People get in trouble for the silent hour.</p>
+  </div>
+
+  <div class="rf"><span>Quality Sprint · Fri 21 → Fri 28 Aug 2026</span><span class="pg">07</span></div>
+</div>
+
+<!-- ══════════════ P8 · MISSION BOARD ══════════════ -->
+<div class="page">
+  <div class="rh"><span>EchoBrief Field Manual</span><span>The Week</span></div>
+  <div class="kicker">The plan</div>
+  <h1 style="font-size:22pt">Four missions, Friday to Friday</h1>
+  <div class="rule-thick mt3"></div>
+
+  <div class="grid2 mt3">
+    <div class="card" style="border-left:3mm solid var(--ember)">
+      <div style="display:flex;align-items:baseline;gap:2mm"><span class="pill ember">Mission 1</span><span style="font-size:6.8pt;color:var(--ink-soft);font-weight:700">MON – TUE AM</span></div>
+      <h3 class="mt2" style="font-size:11pt">Does it really do 22 languages?</h3>
+      <p style="font-size:8.2pt;color:var(--ink-mid)">We sell "22 Indian languages". Prove or disprove it, language by language, with a number per language — not a yes/no.</p>
+    </div>
+    <div class="card" style="border-left:3mm solid var(--info)">
+      <div style="display:flex;align-items:baseline;gap:2mm"><span class="pill info">Mission 2</span><span style="font-size:6.8pt;color:var(--ink-soft);font-weight:700">TUE PM – WED AM</span></div>
+      <h3 class="mt2" style="font-size:11pt">Does it survive long meetings?</h3>
+      <p style="font-size:8.2pt;color:var(--ink-mid)">Real meetings are 30–60 minutes. Find where duration starts degrading quality, and where it breaks outright.</p>
+    </div>
+    <div class="card" style="border-left:3mm solid var(--violet)">
+      <div style="display:flex;align-items:baseline;gap:2mm"><span class="pill violet">Mission 3</span><span style="font-size:6.8pt;color:var(--ink-soft);font-weight:700">WED PM – THU</span></div>
+      <h3 class="mt2" style="font-size:11pt">Is the summary actually right?</h3>
+      <p style="font-size:8.2pt;color:var(--ink-mid)">Words, speakers, action items, decisions. Measure each separately — they fail for different reasons.</p>
+    </div>
+    <div class="card" style="border-left:3mm solid var(--gold)">
+      <div style="display:flex;align-items:baseline;gap:2mm"><span class="pill gold">Mission 4</span><span style="font-size:6.8pt;color:var(--ink-soft);font-weight:700">DAY 0 PREP + FRI AM</span></div>
+      <h3 class="mt2" style="font-size:11pt">Are our metrics worth showing?</h3>
+      <p style="font-size:8.2pt;color:var(--ink-mid)">Run one meeting through Fireflies, Otter and Granola. Compare. Kill what's noise, add what's missing, ship one change.</p>
+    </div>
+  </div>
+
+  <div class="mt5">
+    <div class="tbl-title">Timeline</div>
+    <div class="gantt">
+      <div class="hd"><div class="lbl"></div><div class="d" style="color:var(--ember)">Fri 21<br><span style="font-size:5.4pt;letter-spacing:.04em">16:00→</span></div><div class="d">Mon 24</div><div class="d">Tue 25</div><div class="d">Wed 26</div><div class="d">Thu 27</div><div class="d">Fri 28<br><span style="font-size:5.4pt;letter-spacing:.04em">→16:00</span></div></div>
+      <div class="rw"><div class="lbl">Day 0 · setup &amp; reading</div><div class="track"><div class="cell on setup"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div></div></div>
+      <div class="rw"><div class="lbl">M1 · Languages</div><div class="track"><div class="cell"></div><div class="cell on"></div><div class="cell on" style="opacity:.5"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div></div></div>
+      <div class="rw"><div class="lbl">M2 · Long meetings</div><div class="track"><div class="cell"></div><div class="cell"></div><div class="cell on m2" style="opacity:.5"></div><div class="cell on m2" style="opacity:.5"></div><div class="cell"></div><div class="cell"></div></div></div>
+      <div class="rw"><div class="lbl">M3 · Accuracy</div><div class="track"><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell on m3" style="opacity:.5"></div><div class="cell on m3"></div><div class="cell"></div></div></div>
+      <div class="rw"><div class="lbl">M4 · Metrics</div><div class="track"><div class="cell on m4" style="opacity:.4"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell on m4"></div></div></div>
+      <div class="rw"><div class="lbl" style="color:var(--ember)">Report &amp; readout</div><div class="track"><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell on"></div></div></div>
+    </div>
+  </div>
+
+  <div class="mt4">
+    <div class="tbl-title">Daily rhythm — non-negotiable</div>
+    <table>
+      <tr style="background:#F8E7DF"><td class="num" style="width:18mm;color:var(--ember-ink)">FRI 21</td><td style="width:38mm"><strong>Day 0, 16:00–19:00</strong></td><td>Setup green, docs read, and the three competitor accounts created with one meeting already uploaded to each — those results sit waiting for Friday 28.</td></tr>
+      <tr><td class="num" style="width:18mm;color:var(--ember)">09:30</td><td style="width:38mm"><strong>Written standup</strong></td><td>Three lines in the channel: what you finished, what's next, what's blocking. Written, not verbal — it becomes the log.</td></tr>
+      <tr><td class="num" style="color:var(--ember)">09:45</td><td><strong>Execute</strong></td><td>Head down. Follow the mission page. Timebox any blocker to 45 minutes before escalating.</td></tr>
+      <tr><td class="num" style="color:var(--ember)">17:00</td><td><strong>Commit the day's artefacts</strong></td><td>Scorecard rows, notes, screenshots — pushed. An uncommitted finding is a lost finding.</td></tr>
+      <tr><td class="num" style="color:var(--ember)">17:30</td><td><strong>15-min sync with Khush</strong></td><td>Show the numbers you got today, not a description of what you did.</td></tr>
+      <tr style="background:#F9EFDA"><td class="num" style="color:var(--gold-ink)">FRI 28</td><td><strong>Different shape</strong></td><td>Mission 4 in the morning, everything committed by <strong>15:00</strong>, readout at <strong>16:00</strong>. No new testing after lunch — Friday afternoon is for writing, not discovering.</td></tr>
+    </table>
+  </div>
+
+  <div class="callout mt4">
+    <div class="ct">If you fall behind — cut in this order</div>
+    <p>The shipped change in M4 first (leave it as a written proposal), then the long tail of M1's rarer
+    languages (do the top 8 properly rather than 22 badly), then M2's extra duration steps.
+    <strong>Never cut Mission 3.</strong> Accuracy is the whole product; everything else is packaging.</p>
+  </div>
+
+  <div class="rf"><span>Quality Sprint · Fri 21 → Fri 28 Aug 2026</span><span class="pg">08</span></div>
+</div>
+
+<!-- ══════════════ P9 · M1 ══════════════ -->
+<div class="page">
+  <div class="rh"><span>Mission 1 · Languages</span><span>Mon – Tue AM</span></div>
+  <div class="mband m1">
+    <div class="no">01</div>
+    <div><div class="tt">Does it really work in 22 languages?</div>
+    <div class="ss">Stage 5 of the pipeline · Sarvam saaras:v3</div></div>
+    <div class="days">Mon – Tue AM</div>
+  </div>
+
+  <div class="card tint">
+    <div style="font-size:6.6pt;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--ember-ink);margin-bottom:1.6mm">The question</div>
+    <p style="font-size:10.5pt;font-family:var(--serif);line-height:1.35">If a customer holds a meeting in Marathi, or Kannada, or Hinglish — do they get a summary they'd actually accept? And is our public claim of "22 Indian languages" honest as written?</p>
+  </div>
+
+  <div class="mt4">
+    <div class="tbl-title">Hypotheses — your job is to attack these, not confirm them</div>
+    <table>
+      <tr><td class="num" style="width:10mm;color:var(--ember)">H1</td><td>Sarvam <em>documents</em> all 22 scheduled languages + English on <code>saaras:v3</code>. Documented support and usable quality are different things. Expect the top 8 by speaker count to be good and the long tail (Santali, Bodo, Dogri, Manipuri, Kashmiri, Sanskrit) to be poor or empty.</td></tr>
+      <tr><td class="num" style="color:var(--ember)">H2</td><td>Because we run <code>mode: "translate"</code>, the user <strong>always</strong> gets English — never a transcript in their own language. Our copy implies otherwise.</td></tr>
+      <tr><td class="num" style="color:var(--ember)">H3</td><td>"Per-language routing" is advertised in the FAQ and pricing. <code>preferred_languages</code> is collected at onboarding and then <strong>read by nothing</strong>. Verify this yourself: <code>grep -rn "preferred_languages" src/ supabase/</code></td></tr>
+      <tr><td class="num" style="color:var(--ember)">H4</td><td>Auto-detect (<code>language_code: "unknown"</code>) is weakest on code-mixed audio, where Hinglish may be detected as English and the Hindi half quietly dropped.</td></tr>
+      <tr><td class="num" style="color:var(--ember)">H5</td><td>The landing-page list shows 21 Indian languages plus English, omitting Nepali — so "22 Indian languages" is arguably miscounted. Confirm by reading <code>src/components/landing/Languages.tsx</code>.</td></tr>
+    </table>
+  </div>
+
+  <div class="mt4">
+    <div class="tbl-title">Method</div>
+    <div class="step"><div class="n">1</div><div class="b"><div class="t">Build the fixture set — 24 clips</div>
+      <div class="d">One 60–120 s clip per language on the landing page, <strong>plus two code-mixed clips</strong>
+      (Hinglish, Tanglish) since that's what real Indian meetings sound like. Each needs a human-verified
+      reference transcript.</div></div></div>
+    <div class="step"><div class="n">2</div><div class="b"><div class="t">Run every fixture three ways</div>
+      <div class="d">(a) production settings — <code>translate</code> + <code>unknown</code>;
+      (b) <code>translate</code> with the language pinned;
+      (c) <code>transcribe</code> with the language pinned, i.e. output in the native script.
+      Run (c) even though it isn't what prod does — it separates "Sarvam can't hear this language" from
+      "our config is wrong", and those have completely different fixes.</div></div></div>
+    <div class="step"><div class="n">3</div><div class="b"><div class="t">Record the detected language and confidence</div>
+      <div class="d">Sarvam returns a <code>language_probability</code> when detecting. Log it. A confident wrong
+      detection is a much more serious finding than a low-confidence one.</div></div></div>
+    <div class="step"><div class="n">4</div><div class="b"><div class="t">Score each result</div>
+      <div class="d">Use the 0–4 rubric overleaf. Where you have a reference translation, also compute WER.
+      Get a native speaker to sanity-check any language you don't speak — one 10-minute call per language
+      is cheap and it is the only thing that makes the score credible.</div></div></div>
+    <div class="step"><div class="n">5</div><div class="b"><div class="t">Push the best and the worst language through the whole pipeline</div>
+      <div class="d">Transcript quality isn't the product — the <em>summary</em> is. Take your highest and lowest
+      scoring languages, run them through to insights, and check whether a mediocre transcript still yields a
+      usable summary. Sometimes it does. That finding changes what we fix first.</div></div></div>
+  </div>
+
+  <div class="rf"><span>Quality Sprint · Fri 21 → Fri 28 Aug 2026</span><span class="pg">09</span></div>
+</div>
+
+<!-- ══════════════ P10 · M1 scorecard ══════════════ -->
+<div class="page">
+  <div class="rh"><span>Mission 1 · Languages</span><span>Scorecard &amp; rubric</span></div>
+  <div class="kicker">Mission 1 · Deliverable</div>
+  <h2 style="font-size:17pt">The language scorecard</h2>
+  <div class="rule-thick mt2"></div>
+  <p style="color:var(--ink-mid);font-size:8.6pt">Commit as <code>reports/2026-08-quality-sprint/m1-languages.csv</code> — one row per language.</p>
+
+  <div class="mt2">
+    <table class="dense" style="font-size:7.1pt">
+      <tr><th style="width:26mm">Language</th><th style="width:15mm">Code</th><th class="num" style="width:13mm">Detected</th><th class="num" style="width:13mm">Conf.</th><th class="num" style="width:14mm">Score 0–4</th><th class="num" style="width:13mm">WER</th><th>Failure note</th></tr>
+      <tr><td>Hindi</td><td><code>hi-IN</code></td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>English (Indian)</td><td><code>en-IN</code></td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>Bengali</td><td><code>bn-IN</code></td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>Marathi</td><td><code>mr-IN</code></td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>Telugu</td><td><code>te-IN</code></td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>Tamil</td><td><code>ta-IN</code></td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>Gujarati</td><td><code>gu-IN</code></td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>Urdu</td><td><code>ur-IN</code></td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>Kannada</td><td><code>kn-IN</code></td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>Odia</td><td><code>od-IN</code></td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>Malayalam</td><td><code>ml-IN</code></td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>Punjabi</td><td><code>pa-IN</code></td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>Assamese</td><td><code>as-IN</code></td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>Maithili</td><td><code>mai-IN</code></td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>Sanskrit</td><td><code>sa-IN</code></td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>Konkani</td><td><code>kok-IN</code></td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>Dogri</td><td><code>doi-IN</code></td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>Sindhi</td><td><code>sd-IN</code></td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>Manipuri</td><td><code>mni-IN</code></td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>Bodo</td><td><code>brx-IN</code></td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>Santali</td><td><code>sat-IN</code></td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>Kashmiri</td><td><code>ks-IN</code></td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr style="background:#F9EFDA"><td><strong>Hinglish</strong> (mixed)</td><td><code>unknown</code></td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr style="background:#F9EFDA"><td><strong>Tanglish</strong> (mixed)</td><td><code>unknown</code></td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr style="background:#F2E9E4"><td><strong>Nepali</strong> — on our list?</td><td><code>ne-IN</code></td><td></td><td></td><td></td><td></td><td></td></tr>
+    </table>
+  </div>
+
+  <div class="grid2 mt4">
+    <div class="card flat">
+      <h3>Scoring rubric — be strict</h3>
+      <table class="dense" style="font-size:7.5pt">
+        <tr><td class="num" style="width:7mm;color:var(--stop)">0</td><td>Empty, error, or unusable garbage</td></tr>
+        <tr><td class="num" style="color:var(--stop)">1</td><td>Recognisable topic, most content wrong. Not shippable.</td></tr>
+        <tr><td class="num" style="color:var(--warn)">2</td><td>Broadly right, frequent errors. A user would complain.</td></tr>
+        <tr><td class="num" style="color:var(--ok)">3</td><td>Good. Occasional name or number wrong. A user would accept it.</td></tr>
+        <tr><td class="num" style="color:var(--ok)">4</td><td>Near-perfect, including proper nouns and figures.</td></tr>
+      </table>
+      <p style="font-size:7.4pt;color:var(--ink-soft);margin-top:1.5mm"><strong>3 is the shipping bar.</strong> A language scoring 2 or below cannot honestly appear on our website.</p>
+    </div>
+    <div class="qbox">
+      <div class="qh">Answer these in the write-up</div>
+      <ul class="tight" style="font-size:7.7pt">
+        <li>How many languages score ≥3? Is that number 22?</li>
+        <li>Does auto-detect ever pick the wrong language <em>with high confidence</em>?</li>
+        <li>What happens to Hinglish specifically — is the Hindi dropped?</li>
+        <li>Does <code>transcribe</code> mode work where <code>translate</code> fails, or vice versa?</li>
+        <li>Which failed silently vs. loudly? Silent is worse.</li>
+        <li><strong>Exact wording</strong> you'd put on the site instead, if the claim doesn't hold.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout stop mt2" style="margin-bottom:0">
+    <div class="ct">Done when</div>
+    <p style="font-size:8.4pt">All 25 rows filled with a score and evidence · a one-page verdict stating how many languages we can
+    honestly claim · a written recommendation on the marketing copy · and <strong>H2 and H3 answered with a
+    file-and-line citation</strong>, not an opinion.</p>
+  </div>
+
+  <div class="rf"><span>Quality Sprint · Fri 21 → Fri 28 Aug 2026</span><span class="pg">10</span></div>
+</div>
+
+<!-- ══════════════ P11 · M2 ══════════════ -->
+<div class="page">
+  <div class="rh"><span>Mission 2 · Long meetings</span><span>Tue PM – Wed AM</span></div>
+  <div class="mband m2">
+    <div class="no">02</div>
+    <div><div class="tt">Does it survive a 45-minute meeting?</div>
+    <div class="ss">Stages 4–6 · split-audio → Sarvam → stitch</div></div>
+    <div class="days">Tue PM – Wed AM</div>
+  </div>
+
+  <div class="card" style="background:#E3F0F8;border-color:#C3DFF0">
+    <div style="font-size:6.6pt;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#1B5C84;margin-bottom:1.6mm">The question</div>
+    <p style="font-size:10.5pt;font-family:var(--serif);line-height:1.35">Real meetings are 30–60 minutes. At what duration does quality start to degrade, and at what duration does it break outright?</p>
+  </div>
+
+  <div class="grid2 mt4">
+    <div>
+      <div class="tbl-title">Background you need</div>
+      <p style="font-size:8.3pt;color:var(--ink-mid)">Sarvam's <code>saaras:v3</code> silently returns an
+      <strong>empty</strong> transcript on long audio — a confirmed vendor bug. A 47-minute file returned nothing;
+      the same file in 5–6 minute chunks worked. So anything over ~6 minutes is cut into
+      <strong>300-second chunks</strong> by a Vercel ffmpeg function, submitted as one multi-file job, then
+      stitched back together with each chunk's timestamps offset by <code>index × 300</code>.</p>
+      <p style="font-size:8.3pt;color:var(--ink-mid)">That machinery is where long meetings break. A 45-minute
+      meeting is <strong>9 chunks</strong>; one bad chunk is 11% of the meeting silently missing, and nothing in
+      the UI will tell the user.</p>
+    </div>
+    <div class="card flat">
+      <h3>Four failure modes to hunt for</h3>
+      <table style="font-size:7.9pt">
+        <tr><td style="width:24mm"><strong>Empty chunk</strong></td><td>One chunk returns nothing; the stitch succeeds anyway and 5 minutes vanish</td></tr>
+        <tr><td><strong>Offset drift</strong></td><td>Timestamps after chunk 1 are wrong, so the timeline and speaker mapping slide out of sync</td></tr>
+        <tr><td><strong>Boundary loss</strong></td><td>A sentence spanning a cut is mangled or duplicated at both edges</td></tr>
+        <tr><td><strong>Summary flattening</strong></td><td>Transcript is fine, but GPT compresses 45 minutes into the same 5 bullets it gives a 10-minute call — early topics disappear</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="mt4">
+    <div class="tbl-title">Method — the duration ladder</div>
+    <div class="step"><div class="n">1</div><div class="b"><div class="t">Build one long fixture, then cut it down</div>
+      <div class="d">Take a single ~90-minute clear multi-speaker recording (a panel discussion, a podcast, a
+      recorded internal call) and produce truncations at <strong>5, 15, 30, 45, 60, 90 minutes</strong>. Same
+      content, same voices — so duration is the <em>only</em> variable. Comparing six different recordings
+      would tell you nothing.</div></div></div>
+    <div class="step"><div class="n">2</div><div class="b"><div class="t">Push each through the real production path</div>
+      <div class="d">Splitter → Sarvam → webhook → stitch → insights. Not the local mock. If the splitter is
+      bypassed you're not testing the thing that breaks.</div></div></div>
+    <div class="step"><div class="n">3</div><div class="b"><div class="t">Measure five things per run</div>
+      <div class="d">Chunk count · <strong>non-empty chunks / total chunks</strong> · total transcript characters ·
+      whether timestamps increase monotonically across every boundary · wall-clock from submission to
+      <code>completed</code>.</div></div></div>
+    <div class="step"><div class="n">4</div><div class="b"><div class="t">Check for silent content loss</div>
+      <div class="d">Characters should scale roughly linearly with duration. If 30 min gives ~28,000 characters
+      and 45 min gives ~30,000, you have found missing content — <strong>even though the meeting shows as
+      completed</strong>. This is the single most valuable bug you can find this week.</div></div></div>
+    <div class="step"><div class="n">5</div><div class="b"><div class="t">Read the summaries side by side</div>
+      <div class="d">For 15, 45 and 90 minutes: does the summary of the 90-minute run actually mention what
+      happened in the first 15 minutes? Count action items found at each duration. Watch for the count going
+      <em>flat</em> as the meeting gets longer — that's the flattening failure.</div></div></div>
+  </div>
+
+  <div class="callout warn mt3">
+    <div class="ct">Also check the edges, not just the middle</div>
+    <p>Two known sharp corners. <strong>Under 6 minutes</strong>, chunking is skipped entirely — a different code
+    path, so test 5 minutes deliberately. <strong>Whisper OOMs</strong> in the edge function above roughly 15 MB
+    of audio, so if a long meeting falls back from Sarvam to Whisper it may die a second time. Force that path
+    once and record what the user would see.</p>
+  </div>
+
+  <div class="rf"><span>Quality Sprint · Fri 21 → Fri 28 Aug 2026</span><span class="pg">11</span></div>
+</div>
+
+<!-- ══════════════ P12 · M2 scorecard ══════════════ -->
+<div class="page">
+  <div class="rh"><span>Mission 2 · Long meetings</span><span>Scorecard</span></div>
+  <div class="kicker">Mission 2 · Deliverable</div>
+  <h2 style="font-size:17pt">The duration ladder</h2>
+  <div class="rule-thick mt2"></div>
+  <p style="color:var(--ink-mid)">Commit as <code>reports/2026-08-quality-sprint/m2-duration.csv</code>.</p>
+
+  <div class="mt3">
+    <table style="font-size:7.6pt">
+      <tr><th style="width:16mm">Duration</th><th class="num" style="width:14mm">Chunks</th><th class="num" style="width:20mm">Non-empty</th><th class="num" style="width:17mm">Chars</th><th class="num" style="width:20mm">Chars/min</th><th class="num" style="width:16mm">Time to done</th><th class="num" style="width:16mm">Timestamps OK</th><th>Outcome</th></tr>
+      <tr><td><strong>5 min</strong> <span class="pill" style="font-size:5.6pt">no chunking</span></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td><strong>15 min</strong></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td><strong>30 min</strong></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td><strong>45 min</strong></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td><strong>60 min</strong></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td><strong>90 min</strong></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+    </table>
+    <p style="font-size:7.4pt;color:var(--ink-soft);margin-top:2mm"><strong>Chars/min is the column that matters.</strong>
+    It should stay roughly flat down the table. Any drop is content being lost silently. Reference point from a
+    known-good run: a 29-minute Recall recording produced ~28,400 characters across 6 non-empty chunks.</p>
+  </div>
+
+  <div class="grid2 mt4">
+    <div>
+      <div class="tbl-title">Summary quality by duration</div>
+      <table style="font-size:7.8pt">
+        <tr><th>Duration</th><th class="num">Action items</th><th class="num">Covers first 15 min?</th><th class="num">Score 0–4</th></tr>
+        <tr><td>15 min</td><td></td><td></td><td></td></tr>
+        <tr><td>45 min</td><td></td><td></td><td></td></tr>
+        <tr><td>90 min</td><td></td><td></td><td></td></tr>
+      </table>
+      <p style="font-size:7.6pt;color:var(--ink-soft);margin-top:2mm">If action-item count doesn't grow with
+      duration, the summary is being flattened. That's a prompt problem, not a transcription problem — and it's
+      fixable in a day.</p>
+    </div>
+    <div class="qbox">
+      <div class="qh">Answer in the write-up</div>
+      <ul class="tight" style="font-size:8pt">
+        <li>What is the longest duration that works <strong>reliably</strong>?</li>
+        <li>Where exactly does it start degrading — and does the user get any warning?</li>
+        <li>Did any chunk come back empty? Which index, and could you reproduce it?</li>
+        <li>Do timestamps stay monotonic across every boundary?</li>
+        <li>How long does a 45-minute meeting take end to end? Would you wait that long?</li>
+        <li>Should we <strong>surface</strong> partial-transcript failures to the user instead of hiding them?</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="mt4">
+    <div class="tbl-title">Useful probes</div>
+    <pre><span class="c"># Is a chunked job actually returning content for every chunk?</span>
+python3 scripts/check_sarvam_job.py &lt;job_id&gt;
+
+<span class="c"># Full pipeline against real prod, including the live Sarvam contract check (~3 min extra)</span>
+python3 scripts/pipeline-test/harness.py --live
+
+<span class="c"># Chunk-stitch offset maths, mocked and instant</span>
+npm run test:unit</pre>
+  </div>
+
+  <div class="callout stop mt3">
+    <div class="ct">Done when</div>
+    <p>Six duration rows complete · a stated maximum reliable duration with evidence · every failure reproduced
+    at least twice (once is an anecdote, twice is a bug) · and each finding filed either as a new entry in
+    <code>errors.md</code> or as a GitHub issue with reproduction steps.</p>
+  </div>
+
+  <div class="rf"><span>Quality Sprint · Fri 21 → Fri 28 Aug 2026</span><span class="pg">12</span></div>
+</div>
+
+<!-- ══════════════ P13 · M3 ══════════════ -->
+<div class="page">
+  <div class="rh"><span>Mission 3 · Accuracy</span><span>Wed PM – Thu</span></div>
+  <div class="mband m3">
+    <div class="no">03</div>
+    <div><div class="tt">Is the summary actually correct?</div>
+    <div class="ss">Stages 5, 7 &amp; 8 · words, speakers, insights</div></div>
+    <div class="days">Wed PM – Thu</div>
+  </div>
+
+  <div class="card" style="background:#EFE9F8;border-color:#DCD0EF">
+    <div style="font-size:6.6pt;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#5B3B92;margin-bottom:1.6mm">The question</div>
+    <p style="font-size:10.5pt;font-family:var(--serif);line-height:1.35">If a user reads only our summary and never the transcript, will they be correctly informed — or confidently misled?</p>
+  </div>
+
+  <div class="callout info mt4">
+    <div class="ct">Measure four things separately — they fail for different reasons and have different fixes</div>
+    <table style="font-size:8.2pt;margin-top:1.5mm">
+      <tr><td style="width:34mm"><strong>1 · Word accuracy</strong></td><td>Did it hear the words? → fix = Sarvam config or audio quality</td></tr>
+      <tr><td><strong>2 · Speaker attribution</strong></td><td>Did it get who said what? → fix = the Recall-timeline mapping in <code>sarvam-webhook</code></td></tr>
+      <tr><td><strong>3 · Extraction</strong></td><td>Did it find the real action items and decisions? → fix = the GPT prompt</td></tr>
+      <tr><td><strong>4 · Faithfulness</strong></td><td>Did it invent anything? → fix = prompt constraints + hallucination checks</td></tr>
+    </table>
+    <p style="margin-top:1.5mm;font-size:8.2pt">A single "accuracy: 78%" number is useless to whoever has to fix it. Four numbers are actionable.</p>
+  </div>
+
+  <div class="mt4">
+    <div class="tbl-title">Method</div>
+    <div class="step"><div class="n">1</div><div class="b"><div class="t">Build a golden set of 5 meetings</div>
+      <div class="d">Aim for: one clean English 2-person call · one Hinglish 3-person call · one noisy call
+      (background sound, a phone speaker) · one long call from Mission 2 · one meeting where people
+      <strong>talk over each other</strong>. That last one is where every note-taker on the market falls apart, so
+      it's where you find something worth reporting.</div></div></div>
+    <div class="step"><div class="n">2</div><div class="b"><div class="t">Write ground truth by hand</div>
+      <div class="d">For each: the true transcript, the true speaker labels, and a human list of every action item
+      and decision. This is slow — budget three hours — and it is the entire foundation of the mission.
+      Don't let an LLM write it; you'd be grading the model against itself.</div></div></div>
+    <div class="step"><div class="n">3</div><div class="b"><div class="t">Compute WER per meeting</div>
+      <div class="d">Normalise both sides first — lowercase, strip punctuation — then use <code>jiwer</code>.
+      Report overall WER <strong>and</strong> a separate error count for names, numbers and dates, because those
+      are the words that actually matter in a meeting summary.</div></div></div>
+    <div class="step"><div class="n">4</div><div class="b"><div class="t">Score speaker attribution</div>
+      <div class="d">Percentage of segments assigned to the right person. Note separately whether any
+      <code>SPEAKER_00</code>-style label leaked through to the UI — that's a visible product bug, not just
+      an accuracy number.</div></div></div>
+    <div class="step"><div class="n">5</div><div class="b"><div class="t">Score action items with precision and recall</div>
+      <div class="d"><strong>Recall</strong> = of the real action items, how many did we find? <strong>Precision</strong>
+      = of the ones we listed, how many were real? Low recall means users miss things. Low precision means
+      users stop trusting the tool. State clearly which one we have.</div></div></div>
+    <div class="step"><div class="n">6</div><div class="b"><div class="t">Hunt hallucinations deliberately</div>
+      <div class="d">For every claim in a summary, find the supporting line in the transcript. Pay special
+      attention to <strong>owners</strong> ("Rahul will send the deck" — did Rahul actually say that, or did the
+      model assign it?) and to <code>sentiment_score</code>, which is a pure model guess with no measurement
+      behind it.</div></div></div>
+    <div class="step"><div class="n">7</div><div class="b"><div class="t">Fold your golden set into the eval harness</div>
+      <div class="d"><code>python3 scripts/evals/run_evals.py --snapshot &lt;meeting-id&gt;</code> pulls a real
+      meeting into the eval dataset. Do this for every golden meeting. <strong>This is the highest-leverage hour
+      of your week</strong> — it turns your one-off testing into a permanent regression gate.</div></div></div>
+
+  <div class="rf"><span>Quality Sprint · Fri 21 → Fri 28 Aug 2026</span><span class="pg">13</span></div>
+</div>
+</div>
+
+<!-- ══════════════ P14 · M3 scorecard ══════════════ -->
+<div class="page">
+  <div class="rh"><span>Mission 3 · Accuracy</span><span>Scorecard</span></div>
+  <div class="kicker">Mission 3 · Deliverable</div>
+  <h2 style="font-size:17pt">The accuracy scorecard</h2>
+  <div class="rule-thick mt2"></div>
+  <p style="color:var(--ink-mid)">Commit as <code>reports/2026-08-quality-sprint/m3-accuracy.csv</code>, plus the
+  golden set under <code>reports/2026-08-quality-sprint/golden/</code>.</p>
+
+  <div class="mt3">
+    <table style="font-size:7.5pt">
+      <tr><th style="width:34mm">Golden meeting</th><th class="num" style="width:13mm">WER</th><th class="num" style="width:20mm">Name/number errors</th><th class="num" style="width:17mm">Speaker acc.</th><th class="num" style="width:17mm">AI recall</th><th class="num" style="width:19mm">AI precision</th><th class="num" style="width:19mm">Hallucin&shy;ations</th><th>Verdict</th></tr>
+      <tr><td>1 · Clean English, 2 people</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>2 · Hinglish, 3 people</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>3 · Noisy / phone speaker</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>4 · Long (45 min+)</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>5 · Overlapping speech</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr style="background:#F2E9E4"><td><strong>Average</strong></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+    </table>
+  </div>
+
+  <div class="grid2 mt4">
+    <div class="card flat">
+      <h3>Interpreting the numbers</h3>
+      <table style="font-size:7.8pt">
+        <tr><td style="width:22mm"><strong>WER &lt; 10%</strong></td><td><span class="pill ok">Good</span> competitive with Otter on English</td></tr>
+        <tr><td><strong>10–20%</strong></td><td><span class="pill" style="background:#FAF0D6;color:#8A6400">Usable</span> summary survives; verbatim quotes don't</td></tr>
+        <tr><td><strong>&gt; 20%</strong></td><td><span class="pill stop">Broken</span> summaries will be wrong, not just rough</td></tr>
+        <tr><td><strong>Speaker &gt; 90%</strong></td><td>Acceptable</td></tr>
+        <tr><td><strong>Speaker &lt; 75%</strong></td><td>Worse than useless — confidently wrong attribution</td></tr>
+        <tr><td><strong>Any hallucination</strong></td><td>Report it individually. One invented decision destroys trust in the whole product.</td></tr>
+      </table>
+    </div>
+    <div class="qbox">
+      <div class="qh">Answer in the write-up</div>
+      <ul class="tight" style="font-size:8pt">
+        <li>Which of the four dimensions is weakest? <strong>Fix order follows this answer.</strong></li>
+        <li>Are we losing more on <em>hearing</em> or on <em>reasoning</em>?</li>
+        <li>Do names and numbers fail worse than ordinary words?</li>
+        <li>Does overlapping speech break attribution, the words, or both?</li>
+        <li>Did any <code>SPEAKER_XX</code> label reach the UI or the email?</li>
+        <li>Is <code>sentiment_score</code> ever meaningfully right — or should it be removed?</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout mt4">
+    <div class="ct">One prompt experiment, if time allows</div>
+    <p>The GPT prompt lives in <code>_shared/insights.ts</code>. If Mission 3 shows an extraction problem
+    rather than a transcription problem, try <strong>one</strong> tightly-scoped prompt change — for example,
+    requiring each action item to quote the transcript line it came from. Then re-run
+    <code>run_evals.py</code> and report the before/after scores.
+    <strong>Change one thing at a time and measure it.</strong> A prompt change with no eval number attached
+    cannot be reviewed and won't be merged.</p>
+  </div>
+
+  <div class="callout stop mt3">
+    <div class="ct">Done when</div>
+    <p>Five golden meetings built with human ground truth · all six columns filled · every hallucination logged
+    verbatim with the transcript line that disproves it · golden meetings snapshotted into
+    <code>scripts/evals/dataset/</code> · and a ranked list of the top three accuracy fixes, most valuable first.</p>
+  </div>
+
+  <div class="rf"><span>Quality Sprint · Fri 21 → Fri 28 Aug 2026</span><span class="pg">14</span></div>
+</div>
+
+<!-- ══════════════ P15 · M4 ══════════════ -->
+<div class="page">
+  <div class="rh"><span>Mission 4 · Metrics</span><span>Day 0 prep · Fri AM</span></div>
+  <div class="mband m4">
+    <div class="no">04</div>
+    <div><div class="tt">Are our post-meeting metrics worth showing?</div>
+    <div class="ss">Stages 8–9 · what the user sees afterwards</div></div>
+    <div class="days">Day 0 prep · Fri AM</div>
+  </div>
+
+  <div class="card gold">
+    <div style="font-size:6.6pt;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--gold-ink);margin-bottom:1.6mm">The question</div>
+    <p style="font-size:10.5pt;font-family:var(--serif);line-height:1.35">A user finishes a meeting and opens EchoBrief. Which numbers change what they do next — and which are just decoration we should delete?</p>
+  </div>
+
+  <div class="mt4">
+    <div class="tbl-title">What we show today — audit every row</div>
+    <table style="font-size:7.7pt">
+      <tr><th style="width:26mm">Tile</th><th style="width:44mm">What it is</th><th style="width:20mm">Source</th><th>Your verdict: keep / kill / change</th></tr>
+      <tr><td><strong>Talk time</strong></td><td>Seconds and % per speaker</td><td><span class="pill ok" style="font-size:5.6pt">computed</span></td><td></td></tr>
+      <tr><td><strong>Speaking rate</strong></td><td>Words per minute</td><td><span class="pill ok" style="font-size:5.6pt">computed</span></td><td></td></tr>
+      <tr><td><strong>Silence</strong></td><td>% of meeting with no speech</td><td><span class="pill ok" style="font-size:5.6pt">computed</span></td><td></td></tr>
+      <tr><td><strong>Speaker turns</strong></td><td>Number of hand-offs</td><td><span class="pill ok" style="font-size:5.6pt">computed</span></td><td></td></tr>
+      <tr><td><strong>Longest stretch</strong></td><td>Longest monologue (15 s gap ends one)</td><td><span class="pill ok" style="font-size:5.6pt">computed</span></td><td></td></tr>
+      <tr><td><strong>Dead air</strong></td><td>Silence before the first word</td><td><span class="pill ok" style="font-size:5.6pt">computed</span></td><td></td></tr>
+      <tr><td><strong>Balance</strong></td><td>1 − Gini over speaking seconds</td><td><span class="pill ok" style="font-size:5.6pt">computed</span></td><td></td></tr>
+      <tr style="background:#FBE6E4"><td><strong>Sentiment</strong></td><td>Positive / Neutral / Negative</td><td><span class="pill stop" style="font-size:5.6pt">GPT guess</span></td><td></td></tr>
+    </table>
+    <p style="font-size:7.6pt;color:var(--ink-soft);margin-top:2mm">Seven of the eight are computed
+    deterministically from segment timings in <code>_shared/metrics.ts</code> — they are real measurements and
+    unit-tested. <strong>Sentiment is the odd one out</strong>: a single number a language model volunteers, with
+    nothing measuring it. Treat that asymmetry as a finding, not a footnote.</p>
+  </div>
+
+  <div class="callout warn mt3">
+    <div class="ct">The uncomfortable question to actually answer</div>
+    <p>"Balance: 0.72" — what does a user <em>do</em> differently having seen that? If you can't answer for a
+    metric, that metric is decoration. Great analytics change a behaviour; the rest is a dashboard nobody
+    reopens. Judge all eight tiles against that single test.</p>
+  </div>
+
+  <div class="mt4">
+    <div class="tbl-title">Method — the same-meeting test</div>
+    <div class="step"><div class="n">1</div><div class="b"><div class="t">Sign up for the free tiers — <span style="color:var(--ember)">do this on Day 0, Friday 21</span></div>
+      <div class="d">Fireflies.ai, Otter.ai, Granola. Use a work email, not a customer's. Accounts need verifying and
+      their processing takes time, so start them a week early and this mission becomes analysis rather than
+      waiting. Note what each free tier limits — that's competitive intel in itself.</div></div></div>
+    <div class="step"><div class="n">2</div><div class="b"><div class="t">Run <em>one identical meeting</em> through all four — <span style="color:var(--ember)">also Day 0</span></div>
+      <div class="d">Same audio, ours included. This is the only way to compare fairly. Anything else is
+      comparing their best demo against our average case.</div></div></div>
+    <div class="step"><div class="n">3</div><div class="b"><div class="t">Screenshot every post-meeting screen</div>
+      <div class="d">Store under <code>reports/2026-08-quality-sprint/competitors/</code>. Redact anything
+      identifying. Screenshots make the argument; prose alone won't.</div></div></div>
+    <div class="step"><div class="n">4</div><div class="b"><div class="t">Fill the comparison grid overleaf, then decide</div>
+      <div class="d">Three to kill, three to add, ranked by value ÷ effort. Then <strong>implement exactly
+      one</strong> and open a PR. One shipped change beats a ten-item wishlist.</div></div></div>
+  </div>
+
+  <div class="rf"><span>Quality Sprint · Fri 21 → Fri 28 Aug 2026</span><span class="pg">15</span></div>
+</div>
+
+<!-- ══════════════ P16 · M4 grid ══════════════ -->
+<div class="page">
+  <div class="rh"><span>Mission 4 · Metrics</span><span>Comparison grid</span></div>
+  <div class="kicker">Mission 4 · Deliverable</div>
+  <h2 style="font-size:17pt">Us versus them</h2>
+  <div class="rule-thick mt2"></div>
+  <p style="color:var(--ink-mid)">Mark each: <span class="pill ok">yes</span>
+  <span class="pill" style="background:#FAF0D6;color:#8A6400">partial</span>
+  <span class="pill stop">no</span>. Add any row you find that isn't listed.</p>
+
+  <div class="mt3">
+    <table style="font-size:7.6pt">
+      <tr><th style="width:52mm">Capability</th><th class="num" style="width:20mm">EchoBrief</th><th class="num" style="width:20mm">Fireflies</th><th class="num" style="width:20mm">Otter</th><th class="num" style="width:20mm">Granola</th><th>Notes</th></tr>
+      <tr><td>Talk-time split per speaker</td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>Talk-to-listen ratio</td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>Question count / rate</td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>Monologue &amp; longest-stretch alert</td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>Filler-word count</td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>Sentiment</td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>Topic / chapter breakdown</td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>Action items with owners</td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>Action items carried across meetings</td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>Trends over time / per person</td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>Ask-questions-of-the-transcript chat</td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>Clip / share a moment</td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>Jump from summary line to that timestamp</td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>Meeting-cost estimate (people × time)</td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>Indian-language support</td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr><td>Time to summary after the call ends</td><td></td><td></td><td></td><td></td><td></td></tr>
+    </table>
+  </div>
+
+  <div class="grid3 mt4">
+    <div class="card">
+      <h3 style="color:var(--stop)">Kill — 3 metrics</h3>
+      <p style="font-size:7.6pt;color:var(--ink-soft);margin-bottom:2mm">Not measured, not actionable, or nobody looks at it.</p>
+      <div class="wl mt2"></div><div class="wl"></div><div class="wl"></div>
+    </div>
+    <div class="card">
+      <h3 style="color:var(--ok)">Add — 3 metrics</h3>
+      <p style="font-size:7.6pt;color:var(--ink-soft);margin-bottom:2mm">Competitors have them, or our data already supports them for free.</p>
+      <div class="wl mt2"></div><div class="wl"></div><div class="wl"></div>
+    </div>
+    <div class="card tint">
+      <h3 style="color:var(--ember-ink)">Ship — 1 change</h3>
+      <p style="font-size:7.6pt;color:var(--ink-soft);margin-bottom:2mm">Highest value ÷ effort. PR by Friday noon.</p>
+      <div class="wl mt2"></div><div class="wl"></div><div class="wl"></div>
+    </div>
+  </div>
+
+  <div class="callout info mt4">
+    <div class="ct">Cheap wins already sitting in our data</div>
+    <p>Every segment carries exact start/end times, and <code>metrics.ts</code> already counts
+    <strong>questions</strong> and <strong>words per speaker</strong> — both computed, both currently
+    <strong>never displayed</strong>. Read that file before proposing anything new: the highest-value change this
+    week may be surfacing a number we already calculate, which is a frontend-only PR with zero pipeline risk.</p>
+  </div>
+
+  <div class="callout stop mt3">
+    <div class="ct">Done when</div>
+    <p>Grid complete with screenshots for all four products · kill/add lists written with a one-line reason each ·
+    one change implemented, tested and opened as a PR · and a short written argument for
+    <strong>what makes EchoBrief different</strong>, given we will never out-feature Otter on English.</p>
+  </div>
+
+  <div class="rf"><span>Quality Sprint · Fri 21 → Fri 28 Aug 2026</span><span class="pg">16</span></div>
+</div>
+
+<!-- ══════════════ P17 · DELIVERABLES ══════════════ -->
+<div class="page">
+  <div class="rh"><span>EchoBrief Field Manual</span><span>Handover</span></div>
+  <div class="kicker">Friday</div>
+  <h1 style="font-size:22pt">What you hand over</h1>
+  <div class="rule-thick mt3"></div>
+  <p class="lede">One branch, one PR, one folder. If it isn't in the repo by <strong>Friday 15:00</strong> — an hour before the readout — it doesn't exist.</p>
+
+  <div class="mt4">
+    <pre>reports/2026-08-quality-sprint/
+├── <b>REPORT.md</b>              <span class="c">← the main deliverable, structure below</span>
+├── m1-languages.csv         <span class="c">25 rows, scored</span>
+├── m2-duration.csv          <span class="c">6 rows + summary-quality table</span>
+├── m3-accuracy.csv          <span class="c">5 golden meetings, 6 metrics each</span>
+├── m4-competitors.md        <span class="c">grid + kill/add lists</span>
+├── golden/                  <span class="c">ground-truth transcripts &amp; action-item lists</span>
+├── competitors/             <span class="c">screenshots, redacted</span>
+└── raw/                     <span class="c">job ids, logs, anything you'd need to re-check a number</span></pre>
+  </div>
+
+  <div class="grid2 mt4">
+    <div>
+      <div class="tbl-title">REPORT.md — use exactly this structure</div>
+      <table style="font-size:7.9pt">
+        <tr><td class="num" style="width:8mm;color:var(--ember)">1</td><td><strong>Verdict</strong> — 5 bullets. If Khush reads only this, what must they know?</td></tr>
+        <tr><td class="num" style="color:var(--ember)">2</td><td><strong>Findings</strong> — one block each: what you did, the number, the evidence, what it means</td></tr>
+        <tr><td class="num" style="color:var(--ember)">3</td><td><strong>Bugs found</strong> — severity, reproduction steps, suspected cause, linked issue</td></tr>
+        <tr><td class="num" style="color:var(--ember)">4</td><td><strong>Fix backlog</strong> — ranked by value ÷ effort, with your estimate for each</td></tr>
+        <tr><td class="num" style="color:var(--ember)">5</td><td><strong>Claims to correct</strong> — anything the website says that the code doesn't do</td></tr>
+        <tr><td class="num" style="color:var(--ember)">6</td><td><strong>What I couldn't test and why</strong> — this section is <em>mandatory</em> and must not be empty</td></tr>
+      </table>
+      <p style="font-size:7.6pt;color:var(--ink-soft);margin-top:2mm">Aim for four pages. Nobody reads twelve.
+      Every claim gets a number or a file-and-line citation.</p>
+    </div>
+    <div class="card flat">
+      <h3>How to write a finding</h3>
+      <div style="font-size:7.9pt;color:var(--ink-mid);border-left:2mm solid var(--stop);padding-left:2.5mm;margin-bottom:2.5mm">
+        <strong style="color:var(--stop)">Weak</strong><br>
+        "Kannada didn't work very well, the transcript looked bad."
+      </div>
+      <div style="font-size:7.9pt;color:var(--ink-mid);border-left:2mm solid var(--ok);padding-left:2.5mm">
+        <strong style="color:var(--ok)">Strong</strong><br>
+        "Kannada scored 1/4 (WER 41%, fixture <code>kn-IN-news-90s.mp3</code>, Sarvam job
+        <code>abc-123</code>). Auto-detect returned <code>te-IN</code> at 0.81 confidence — confidently wrong,
+        not uncertain. Pinning <code>language_code=kn-IN</code> raised the score to 3/4 and dropped WER to 12%.
+        <strong>Implication:</strong> auto-detect is the failure, not the model. If we let users declare their
+        meeting language, Kannada becomes shippable."
+      </div>
+      <p style="font-size:7.9pt;color:var(--ink-mid);margin-top:2.5mm">The second one is worth a hundred times
+      the first, because someone can <strong>act</strong> on it this afternoon.</p>
+    </div>
+  </div>
+
+  <div class="mt4">
+    <div class="tbl-title">Definition of done — the grading rubric, shown to you up front on purpose</div>
+    <table style="font-size:8pt">
+      <tr><th style="width:34mm">Dimension</th><th style="width:44mm">Meets the bar</th><th>Exceeds it</th></tr>
+      <tr><td><strong>Coverage</strong></td><td>All four missions attempted; scorecards filled</td><td>Edge cases tested that this manual didn't ask for</td></tr>
+      <tr><td><strong>Rigour</strong></td><td>Every claim has a number and a reproducible source</td><td>Failures reproduced twice and root-caused to a file and line</td></tr>
+      <tr><td><strong>Honesty</strong></td><td>Failures reported plainly, including your own mistakes</td><td>You actively tried to disprove your own conclusions</td></tr>
+      <tr><td><strong>Leverage</strong></td><td>Findings written up so someone else can act on them</td><td>Golden set added to the evals, so this never regresses silently again</td></tr>
+      <tr><td><strong>Shipping</strong></td><td>At least one merged PR</td><td>A merged PR with an eval number proving it improved something</td></tr>
+    </table>
+  </div>
+
+  <div class="callout ok mt3">
+    <div class="ct">Friday 16:00 · 30-minute readout</div>
+    <p>Walk through the verdict and the top three findings. Bring the numbers, not the narrative. Expect to be
+    asked <em>"how do you know?"</em> about every single claim — and be ready to say "I don't, here's what I'd
+    need to find out". That answer is respected here.</p>
+  </div>
+
+  <div class="rf"><span>Quality Sprint · Fri 21 → Fri 28 Aug 2026</span><span class="pg">17</span></div>
+</div>
+
+<!-- ══════════════ P18 · TROUBLESHOOTING ══════════════ -->
+<div class="page">
+  <div class="rh"><span>EchoBrief Field Manual</span><span>Support</span></div>
+  <div class="kicker">When it goes wrong</div>
+  <h1 style="font-size:22pt">Things that will happen to you</h1>
+  <div class="rule-thick mt3"></div>
+  <p class="lede">Every row below has bitten this codebase before. Recognising one saves you an afternoon.</p>
+
+  <div class="mt4">
+    <table style="font-size:7.8pt">
+      <tr><th style="width:46mm">Symptom</th><th style="width:52mm">Most likely cause</th><th>What to do</th></tr>
+      <tr><td>Meeting stuck in <code>transcribing</code> forever</td><td>Sarvam's callback never arrived</td><td>Check <code>sarvam_webhook_triggered_at</code>; <code>check-recall-status</code> should re-fire it. Look in <code>monitor_events</code>.</td></tr>
+      <tr><td>Transcript is empty but status says <code>completed</code></td><td>The long-audio Sarvam bug, or a chunk came back empty</td><td>This is a <strong>Mission 2 finding</strong>. Capture the job id before it ages out.</td></tr>
+      <tr><td>Speakers show as <code>SPEAKER_00</code></td><td>Recall's speaker timeline was empty, so mapping had nothing to match against</td><td><strong>Mission 3 finding.</strong> Check <code>processing_config</code> on the meeting row.</td></tr>
+      <tr><td>Whisper crashes on a long file</td><td>Known OOM above ~15 MB in the edge function</td><td>Documented in <code>errors.md</code> as <code>whisper:oom</code>. Don't re-debug it; cite it.</td></tr>
+      <tr><td>Sarvam returns <code>KeyError: 'timestamps'</code></td><td>Vendor server bug on long audio</td><td>Expected. The system auto-falls back to Whisper. Record that it happened.</td></tr>
+      <tr><td><code>git commit</code> rejected</td><td>The brand pre-commit hook found an off-palette colour or a banned word</td><td>Read the message — it names the file and line. Fix the colour; don't bypass the hook.</td></tr>
+      <tr><td>Build passes, app breaks at runtime</td><td>Vite doesn't typecheck</td><td><code>npx tsc --noEmit</code></td></tr>
+      <tr><td>Audio missing from an older meeting</td><td><code>prune-recordings</code> clears audio after 30 days</td><td>By design. Use your own fixtures for anything repeatable.</td></tr>
+      <tr><td>No email arrived from a test</td><td>Emails are deliberately suppressed for <code>[harness]</code> meetings</td><td>Correct behaviour. Needs <code>HARNESS_EMAILS=true</code>, and only with permission.</td></tr>
+      <tr><td>Everything broke at once, pipeline-wide</td><td>Historically: storage bucket full, or an expired API key</td><td>Check the Supabase storage cap and the secrets first — before debugging any code.</td></tr>
+    </table>
+  </div>
+
+  <div class="grid2 mt4">
+    <div class="card tint">
+      <h3>Escalate immediately — don't wait for standup</h3>
+      <ul class="tight" style="font-size:8.2pt">
+        <li>Anything touching real customer data</li>
+        <li>A production failure you may have caused</li>
+        <li>A secret leaked anywhere, even briefly</li>
+        <li>Spend heading past the agreed API budget</li>
+        <li>A finding that means we're making a false public claim</li>
+      </ul>
+    </div>
+    <div class="card flat">
+      <h3>How to ask a good question</h3>
+      <p style="font-size:8.2pt;color:var(--ink-mid)">Four lines, always:</p>
+      <ol class="tight" style="font-size:8.2pt;color:var(--ink-mid)">
+        <li><strong>Goal</strong> — what I was trying to do</li>
+        <li><strong>Attempt</strong> — the exact command or change</li>
+        <li><strong>Expected vs actual</strong> — with the error pasted verbatim, not paraphrased</li>
+        <li><strong>My theory</strong> — what I think is happening</li>
+      </ol>
+      <p style="font-size:8.2pt;color:var(--ink-mid);margin-top:1.5mm">Point four is the one that turns a
+      question into a conversation between engineers.</p>
+    </div>
+  </div>
+
+  <div class="callout warn mt3">
+    <div class="ct">Cost discipline</div>
+    <p>Sarvam, OpenAI and Recall all bill per use. Recall <strong>bot minutes are the expensive one</strong> —
+    prefer fixture files over live bots wherever the test allows it. Keep a running tally of what you've spent
+    in <code>raw/spend.md</code> and flag it the moment you're near the agreed ceiling.</p>
+  </div>
+
+  <div class="rf"><span>Quality Sprint · Fri 21 → Fri 28 Aug 2026</span><span class="pg">18</span></div>
+</div>
+
+<!-- ══════════════ P19 · CHEAT SHEET ══════════════ -->
+<div class="page">
+  <div class="rh"><span>EchoBrief Field Manual</span><span>Appendix</span></div>
+  <div class="kicker">Appendix A</div>
+  <h1 style="font-size:22pt">Command cheat sheet</h1>
+  <div class="rule-thick mt3"></div>
+
+  <div class="grid2 mt3">
+    <div>
+      <div class="tbl-title">Daily</div>
+      <pre><span class="c"># dev server → localhost:8080</span>
+npm run dev
+
+<span class="c"># real typecheck (build does NOT do this)</span>
+npx tsc --noEmit
+
+<span class="c"># 53 mocked unit tests, &lt;1 s</span>
+npm run test:unit
+
+<span class="c"># lint + brand palette check</span>
+npm run lint
+npm run brand:check</pre>
+
+      <div class="tbl-title mt4">Testing the pipeline</div>
+      <pre><span class="c"># 11 scenarios against real prod, ~90 s</span>
+python3 scripts/pipeline-test/harness.py
+
+<span class="c"># + live Sarvam contract check, ~3 min more</span>
+python3 scripts/pipeline-test/harness.py --live
+
+<span class="c"># one scenario only</span>
+python3 scripts/pipeline-test/harness.py \
+  --only sarvam_webhook_idempotency</pre>
+    </div>
+    <div>
+      <div class="tbl-title">Output quality</div>
+      <pre><span class="c"># 8 evals, 4 deterministic + 4 LLM-judge</span>
+python3 scripts/evals/run_evals.py
+
+<span class="c"># pull a real meeting into the eval dataset</span>
+python3 scripts/evals/run_evals.py \
+  --snapshot &lt;meeting-id&gt;</pre>
+
+      <div class="tbl-title mt4">Sarvam probes — your M1 workhorse</div>
+      <pre><span class="c"># production settings</span>
+python3 scripts/sarvam_config_test.py &lt;id&gt;
+
+<span class="c"># pin the language, keep translate mode</span>
+python3 scripts/sarvam_config_test.py &lt;id&gt; \
+  language_code=hi-IN
+
+<span class="c"># native-script output instead of English</span>
+python3 scripts/sarvam_config_test.py &lt;id&gt; \
+  mode=transcribe language_code=mr-IN
+
+<span class="c"># inspect a job's outputs chunk by chunk</span>
+python3 scripts/check_sarvam_job.py &lt;job_id&gt;</pre>
+
+      <div class="tbl-title mt4">Audio prep</div>
+      <pre><span class="c"># match the pipeline's native format exactly</span>
+ffmpeg -i in.wav -ar 16000 -ac 1 -b:a 128k out.mp3
+
+<span class="c"># truncate to N seconds (no re-encode)</span>
+ffmpeg -i in.mp3 -t 1800 -c copy out-30min.mp3
+
+<span class="c"># exact duration</span>
+ffprobe -v error -show_entries format=duration in.mp3</pre>
+    </div>
+  </div>
+
+  <div class="mt4 card flat">
+    <h3>Useful read-only SQL — run in the Supabase SQL editor</h3>
+    <pre><span class="c">-- your test meetings and where they got to</span>
+<span class="k">select</span> id, title, status, error_message, sarvam_job_id, created_at
+<span class="k">from</span> meetings <span class="k">where</span> title <span class="k">like</span> <span class="k">'[harness]%'</span> <span class="k">order by</span> created_at <span class="k">desc</span> <span class="k">limit</span> 20;
+
+<span class="c">-- transcript size, the fastest signal for silent content loss</span>
+<span class="k">select</span> m.id, m.title, length(t.content) <span class="k">as</span> chars,
+       jsonb_array_length(t.speaker_segments) <span class="k">as</span> segments
+<span class="k">from</span> meetings m <span class="k">join</span> transcripts t <span class="k">on</span> t.meeting_id = m.id
+<span class="k">where</span> m.id = <span class="k">'&lt;meeting-id&gt;'</span>;
+
+<span class="c">-- what the stuck-meeting monitor has been seeing</span>
+<span class="k">select</span> * <span class="k">from</span> monitor_events <span class="k">order by</span> created_at <span class="k">desc</span> <span class="k">limit</span> 30;</pre>
+  </div>
+
+  <div class="rf"><span>Quality Sprint · Fri 21 → Fri 28 Aug 2026</span><span class="pg">19</span></div>
+</div>
+
+<!-- ══════════════ P20 · CLOSING ══════════════ -->
+<div class="page dark" style="justify-content:space-between">
+  <div class="rh" style="color:var(--bone-soft);border-color:#362B27"><span>EchoBrief Field Manual</span><span>Close</span></div>
+
+  <div style="margin-top:26mm">
+    <div style="font-size:7pt;font-weight:800;letter-spacing:.24em;text-transform:uppercase;color:var(--gold);margin-bottom:6mm">One last thing</div>
+    <h1 style="font-size:30pt;line-height:1.1;color:var(--bone)">The most useful person<br>in the room is the one<br>holding the numbers.</h1>
+    <div style="width:22mm;height:3px;background:linear-gradient(90deg,#E8430A,#F5C842);margin:8mm 0"></div>
+    <div style="font-size:10.5pt;line-height:1.55;color:var(--bone-mid);max-width:126mm">
+      <p style="margin-bottom:3.5mm">Everything on the EchoBrief landing page is currently a <em>belief</em>. By
+      Friday, some of those beliefs will be facts and the rest will be things we have to fix or stop saying.
+      That's the whole value of this week.</p>
+      <p style="margin-bottom:3.5mm">You are not here to make the product look good. You're here to find out
+      what's true about it. A report full of failures with numbers attached is a great week's work. A report
+      that says "everything seems fine" means the tests were too gentle.</p>
+      <p>Be sceptical, be specific, write it down, and ask early.</p>
+    </div>
+  </div>
+
+  <div>
+    <div style="border-top:1px solid #362B27;padding-top:5mm;display:grid;grid-template-columns:1fr 1fr 1fr;gap:5mm">
+      <div>
+        <div style="font-size:6.2pt;letter-spacing:.16em;text-transform:uppercase;color:var(--bone-soft);font-weight:800;margin-bottom:2mm">Escalation</div>
+        <div style="font-size:8.4pt;color:var(--bone-mid);line-height:1.5">Khush — anything blocking, anything risky, anything customer-facing. Immediately, in the channel.</div>
+      </div>
+      <div>
+        <div style="font-size:6.2pt;letter-spacing:.16em;text-transform:uppercase;color:var(--bone-soft);font-weight:800;margin-bottom:2mm">Branch</div>
+        <div style="font-size:8.4pt;color:var(--bone-mid);line-height:1.5"><code style="background:#2B1710;color:var(--gold)">intern/quality-sprint</code><br>Artefacts in <code style="background:#2B1710;color:var(--gold)">reports/2026-08-quality-sprint/</code></div>
+      </div>
+      <div>
+        <div style="font-size:6.2pt;letter-spacing:.16em;text-transform:uppercase;color:var(--bone-soft);font-weight:800;margin-bottom:2mm">Readout</div>
+        <div style="font-size:8.4pt;color:var(--bone-mid);line-height:1.5">Friday 28 Aug, 16:00.<br>Bring the numbers.</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:3mm;margin-top:8mm;padding-bottom:2mm">
+      <svg width="22" height="22" viewBox="0 0 32 32"><defs><linearGradient id="m2g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#E8430A"/><stop offset="100%" stop-color="#F5C842"/></linearGradient></defs><circle cx="16" cy="16" r="14" fill="none" stroke="url(#m2g)" stroke-width="2.6"/><circle cx="16" cy="16" r="7.4" fill="none" stroke="url(#m2g)" stroke-width="2.2" opacity=".62"/><circle cx="16" cy="16" r="2.6" fill="url(#m2g)"/></svg>
+      <div style="font-size:9pt;font-weight:800;color:var(--bone)">EchoBrief</div>
+      <div style="margin-left:auto;font-size:6.6pt;color:var(--bone-soft);letter-spacing:.1em;font-weight:700">Quality Sprint Field Manual · v1.0 · August 2026</div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
