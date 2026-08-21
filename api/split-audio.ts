@@ -3,13 +3,21 @@
  *
  * Why this exists: Sarvam's saaras:v3 batch STT silently returns an empty
  * transcript for long audio (empirically: 47 min fails, 5-6 min chunks of the
- * same file succeed — config-invariant, server-side). Chunks must be properly
- * re-encoded (stream-copied segments are rejected with "Audio contains no
- * samples"), which requires real ffmpeg — hence this runs on Vercel
- * (2 GB / 300 s) instead of a Supabase edge function (~256 MB, no ffmpeg).
+ * same file succeed — config-invariant, server-side). Segmenting requires real
+ * ffmpeg — hence this runs on Vercel (2 GB / 300 s) instead of a Supabase edge
+ * function (~256 MB, no ffmpeg).
+ *
+ * Chunks are STREAM-COPIED, not re-encoded. Recall's audio_mixed is already
+ * 16 kHz mono 128 kbps mp3 — Sarvam's preferred input — so re-encoding is pure
+ * generation loss. Validated 2026-08-20 on a real 29-min recording: 0.21 s vs
+ * 2.44 s to segment, 28,426 vs 28,557 chars from Sarvam, 6/6 chunks non-empty.
+ * A re-encode fallback remains for the case where getAudioDownloadUrl returns
+ * an mp4 video_url, which will not stream-copy into mp3. (The older note that
+ * stream-copy is rejected with "Audio contains no samples" was wrong — that
+ * attempt almost certainly omitted -segment_format mp3.)
  *
  * Flow: download audio from signed URL → probe duration → split into 300 s
- * re-encoded mp3 chunks (zero-padded names so Sarvam's 0.json..N.json outputs
+ * stream-copied mp3 chunks (zero-padded names so Sarvam's 0.json..N.json outputs
  * map back by sort order) → create ONE Sarvam job with the meeting's webhook
  * callback → upload all chunks → start job.
  *
