@@ -4,9 +4,10 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { EmailReportSelector } from '@/components/dashboard/EmailReportSelector';
 import { MeetingMetrics } from '@/components/meeting/MeetingMetrics';
+import { InsightSection, InsightItem } from '@/components/meeting/InsightSection';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Meeting, Transcript, MeetingInsights, StrategicInsight, SpeakerHighlight, ActionItem, FollowUp } from '@/types/meeting';
+import { Meeting, Transcript, MeetingInsights, StrategicInsight, SpeakerHighlight, ActionItem, FollowUp, TimelineEntry } from '@/types/meeting';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -115,6 +116,11 @@ function ShareButton({ icon: Icon, label, onClick }: { icon: React.ComponentType
       {label}
     </button>
   );
+}
+
+function formatTimelineTime(seconds: number): string {
+  const total = Math.max(0, Math.round(Number(seconds) || 0));
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
 }
 
 function ProtoCard({ children, style, className }: { children: React.ReactNode; style?: React.CSSProperties; className?: string }) {
@@ -596,12 +602,12 @@ export default function MeetingDetail() {
 
             {/* ═══ SUMMARY TAB ═══ */}
             {activeTab === 'summary' && (
-              <div className="space-y-4">
+              <div className="space-y-6">
                 {/* Executive Summary */}
                 <ProtoCard>
                   <GradientBar />
                   <h3 className="text-[15px] font-semibold text-foreground mb-2" style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.01em' }}>
-                    Executive Summary
+                    Executive summary
                   </h3>
                   <p className="text-sm leading-relaxed text-muted-foreground">
                     {insights.summary_short}
@@ -620,151 +626,123 @@ export default function MeetingDetail() {
                     <MeetingMetrics metrics={insights.meeting_metrics} />
                 )}
 
-                {/* Key Decisions */}
-                {insights.decisions && insights.decisions.length > 0 && (
-                  <ProtoCard>
-                    <h3 className="text-[15px] font-semibold text-foreground mb-3 flex items-center gap-2" style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.01em' }}>
-                      <Zap size={16} style={{ color: 'var(--ember)' }} /> Key Decisions
-                    </h3>
-                    {insights.decisions.map((d: string, i: number) => (
-                      <div
-                        key={i}
-                        className={cn('flex gap-2 py-2 text-sm text-muted-foreground', i > 0 && 'border-t border-border')}
-                      >
-                        <span className="min-w-[20px] text-xs font-semibold text-orange-500">{i + 1}.</span> {d}
-                      </div>
+                {/* Sections below mirror the summary email exactly — same set,
+                    same order, same one-box-per-item treatment. */}
+                {insights.action_items && insights.action_items.length > 0 && (
+                  <InsightSection title="Action items">
+                    {(insights.action_items as ActionItem[]).map((item, i) => (
+                      <InsightItem key={i} accent="var(--ember)">
+                        <span className="font-medium text-foreground">
+                          {typeof item === 'string' ? item : item.task}
+                        </span>
+                        {item.priority && (
+                          <span className={cn('ml-2 text-[11px] font-semibold uppercase', getPriorityColor(item.priority))}>
+                            {item.priority}
+                          </span>
+                        )}
+                        {item.owner && (
+                          <span className="mt-1 block text-xs text-muted-foreground">
+                            Owner: <span className="font-medium" style={{ color: 'var(--ember)' }}>{item.owner}</span>
+                          </span>
+                        )}
+                      </InsightItem>
                     ))}
-                  </ProtoCard>
+                  </InsightSection>
                 )}
 
-                {/* Strategic Insights */}
+                {insights.decisions && insights.decisions.length > 0 && (
+                  <InsightSection title="Decisions">
+                    {insights.decisions.map((d: string, i: number) => (
+                      <InsightItem key={i} accent="var(--amber-warm, #D4900A)">
+                        {typeof d === 'string' ? d : (d as { decision?: string }).decision}
+                      </InsightItem>
+                    ))}
+                  </InsightSection>
+                )}
+
                 {insights.strategic_insights && insights.strategic_insights.length > 0 && (
-                  <ProtoCard>
-                    <h3 className="text-[15px] font-semibold text-foreground mb-3 flex items-center gap-2" style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.01em' }}>
-                      <Lightbulb size={16} style={{ color: 'var(--amber-warm)' }} /> Strategic Insights
-                    </h3>
-                    <div className="space-y-3">
-                      {(insights.strategic_insights as StrategicInsight[]).map((item, i) => (
-                        <div key={i} className="flex items-start gap-3 rounded-xl border border-border bg-orange-500/[0.04] p-3">
-                          <p className="flex-1 text-sm text-muted-foreground">{item.insight}</p>
-                          <span className="rounded-full bg-muted px-2 py-0.5 text-xs capitalize text-muted-foreground">
+                  <InsightSection title="Strategic insights">
+                    {(insights.strategic_insights as StrategicInsight[]).map((item, i) => (
+                      <InsightItem key={i} accent="var(--amber-warm, #D4900A)">
+                        <span className="flex items-start gap-3">
+                          <span className="flex-1">{item.insight}</span>
+                          <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs capitalize text-muted-foreground">
                             {item.category || 'insight'}
+                          </span>
+                        </span>
+                      </InsightItem>
+                    ))}
+                  </InsightSection>
+                )}
+
+                {insights.key_points && insights.key_points.length > 0 && (
+                  <InsightSection title="Key points">
+                    {insights.key_points.map((point: string, i: number) => (
+                      <InsightItem key={i}>{point}</InsightItem>
+                    ))}
+                  </InsightSection>
+                )}
+
+                {insights.speaker_highlights && insights.speaker_highlights.length > 0 && (
+                  <InsightSection title="Speaker highlights">
+                    {(insights.speaker_highlights as SpeakerHighlight[]).map((item, i) => (
+                      <InsightItem key={i}>
+                        <span className="block text-sm font-medium text-foreground">{item.speaker}</span>
+                        <span className="mt-1 block">{item.highlight}</span>
+                        {item.context && (
+                          <span className="mt-1 block text-xs text-muted-foreground">→ {item.context}</span>
+                        )}
+                      </InsightItem>
+                    ))}
+                  </InsightSection>
+                )}
+
+                {insights.open_questions && insights.open_questions.length > 0 && (
+                  <InsightSection title="Open questions">
+                    {insights.open_questions.map((q: string, i: number) => (
+                      <InsightItem key={i} accent="var(--ink-40, #A8A29E)">{q}</InsightItem>
+                    ))}
+                  </InsightSection>
+                )}
+
+                {insights.risks && insights.risks.length > 0 && (
+                  <InsightSection title="Risks">
+                    {insights.risks.map((r: string, i: number) => (
+                      <InsightItem key={i} accent="#EF4444">{r}</InsightItem>
+                    ))}
+                  </InsightSection>
+                )}
+
+                {insights.follow_ups && insights.follow_ups.length > 0 && (
+                  <InsightSection title="Follow-ups">
+                    {(insights.follow_ups as FollowUp[]).map((item, i) => (
+                      <InsightItem key={i} accent="var(--ember)">
+                        <span className="block">{item.description}</span>
+                        <span className="mt-1 block text-xs text-muted-foreground">
+                          {item.assignee ? `${item.assignee} · ` : ''}{item.type || 'follow-up'}
+                        </span>
+                      </InsightItem>
+                    ))}
+                  </InsightSection>
+                )}
+
+                {insights.timeline_entries && insights.timeline_entries.length > 0 && (
+                  <InsightSection title="How it unfolded">
+                    <div className="rounded-lg border border-border px-4 py-3" style={{ background: 'var(--paper-card)' }}>
+                      {(insights.timeline_entries as TimelineEntry[]).slice(0, 8).map((e, i) => (
+                        <div key={i} className="flex gap-3 py-1.5">
+                          <span className="w-11 shrink-0 text-xs font-semibold" style={{ color: 'var(--ember)' }}>
+                            {formatTimelineTime(e.timestamp)}
+                          </span>
+                          <span className="flex-1 text-sm leading-relaxed text-muted-foreground">
+                            {e.speaker && <span className="font-medium text-foreground">{e.speaker}</span>}
+                            {e.speaker && ' — '}
+                            {e.content}
                           </span>
                         </div>
                       ))}
                     </div>
-                  </ProtoCard>
-                )}
-
-                {/* Key Points */}
-                {insights.key_points && insights.key_points.length > 0 && (
-                  <ProtoCard>
-                    <h3 className="text-[15px] font-semibold text-foreground mb-3" style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.01em' }}>
-                      🎯 Key Points
-                    </h3>
-                    <ul className="space-y-2">
-                      {insights.key_points.map((point: string, i: number) => (
-                        <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
-                          <span className="mt-2 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-orange-500" />
-                          {point}
-                        </li>
-                      ))}
-                    </ul>
-                  </ProtoCard>
-                )}
-
-                {/* Risks */}
-                {insights.risks && insights.risks.length > 0 && (
-                  <ProtoCard style={{ borderColor: 'rgba(239,68,68,0.2)' }}>
-                    <h3 className="text-[15px] font-semibold mb-3 flex items-center gap-2" style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.01em', color: '#EF4444' }}>
-                      <AlertTriangle size={16} /> Risk Flags
-                    </h3>
-                    {insights.risks.map((r: string, i: number) => (
-                      <div key={i} className="text-sm leading-relaxed text-muted-foreground">{r}</div>
-                    ))}
-                  </ProtoCard>
-                )}
-
-                {/* Open Questions */}
-                {insights.open_questions && insights.open_questions.length > 0 && (
-                  <ProtoCard>
-                    <h3 className="text-[15px] font-semibold text-foreground mb-3 flex items-center gap-2" style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.01em' }}>
-                      <HelpCircle size={16} style={{ color: 'var(--amber-warm)' }} /> Open Questions
-                    </h3>
-                    {insights.open_questions.map((q: string, i: number) => (
-                      <div key={i} className="flex items-start gap-3 p-3 rounded-xl" style={{ background: 'rgba(245,158,11,0.04)', border: '1px solid rgba(245,158,11,0.15)' }}>
-                        <HelpCircle size={14} className="mt-0.5 flex-shrink-0" style={{ color: 'var(--amber-warm)' }} />
-                        <p className="text-sm text-muted-foreground">{q}</p>
-                      </div>
-                    ))}
-                  </ProtoCard>
-                )}
-
-                {/* Follow-Ups */}
-                {insights.follow_ups && insights.follow_ups.length > 0 && (
-                  <ProtoCard>
-                    <h3 className="text-[15px] font-semibold text-foreground mb-3 flex items-center gap-2" style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.01em' }}>
-                      <RefreshCw size={16} style={{ color: '#3B82F6' }} /> Follow-Ups
-                    </h3>
-                    <div className="space-y-2">
-                      {(insights.follow_ups as FollowUp[]).map((item, i) => (
-                        <div key={i} className="flex items-start gap-3 rounded-xl border border-border bg-muted/40 p-3">
-                          <RefreshCw size={14} className="mt-0.5 flex-shrink-0 text-blue-500" />
-                          <div className="flex-1">
-                            <p className="text-sm text-muted-foreground">{item.description}</p>
-                            <div className="mt-1.5 flex items-center gap-2">
-                              {item.assignee && (
-                                <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                                  → {item.assignee}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </ProtoCard>
-                )}
-
-                {/* Speakers */}
-                {attendees.length > 0 && (
-                  <ProtoCard>
-                    <h3 className="text-[15px] font-semibold text-foreground mb-3 flex items-center gap-2" style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.01em' }}>
-                      <Users size={16} style={{ color: '#3B82F6' }} /> Speakers
-                    </h3>
-                    <div className="flex gap-2 flex-wrap">
-                      {attendees.map((a, i) => (
-                        <div key={i} className="flex items-center gap-2 rounded-full bg-blue-500/10 px-3.5 py-1.5 text-[13px] text-foreground">
-                          <div 
-                            className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-semibold text-white"
-                            style={{ background: 'var(--ember)' }}
-                          >
-                            {getInitials(a.displayName, a.email)}
-                          </div>
-                          {a.displayName || a.email}
-                          {a.organizer && <span className="text-[11px] text-muted-foreground">(organizer)</span>}
-                        </div>
-                      ))}
-                    </div>
-                  </ProtoCard>
-                )}
-
-                {/* Speaker Highlights */}
-                {insights.speaker_highlights && insights.speaker_highlights.length > 0 && (
-                  <ProtoCard>
-                    <h3 className="text-[15px] font-semibold text-foreground mb-3 flex items-center gap-2" style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.01em' }}>
-                      💬 Speaker Highlights
-                    </h3>
-                    <div className="space-y-3">
-                      {(insights.speaker_highlights as SpeakerHighlight[]).map((item, i) => (
-                        <div key={i} className="rounded-xl border border-border p-3">
-                          <span className="text-sm font-medium text-foreground">{item.speaker}</span>
-                          <p className="mt-1 text-sm text-foreground">{item.highlight}</p>
-                          <p className="mt-1 text-xs text-muted-foreground">→ {item.context}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </ProtoCard>
+                  </InsightSection>
                 )}
               </div>
             )}
