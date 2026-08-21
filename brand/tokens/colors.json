@@ -1,0 +1,222 @@
+{
+  "$schema": "https://echobrief.in/brand/colors.schema.json",
+  "name": "EchoBrief — Warm Dispatch",
+  "version": "1.0.0",
+  "updated": "2026-08-21",
+  "note": "Source of truth is src/index.css. Hex values for warm neutrals are sRGB conversions of the OKLCH originals — use OKLCH on the web, hex in design tools and email.",
+  "brand": {
+    "ember": {
+      "hex": "#D93F0B",
+      "role": "Primary brand orange (light mode). Buttons, links, active state, the logomark."
+    },
+    "ember-deep": {
+      "hex": "#B83508",
+      "role": "Ember pressed / hover (light mode)."
+    },
+    "ember-hi": {
+      "hex": "#E84D1A",
+      "role": "Ember hover (light), and the tint the mark leans to at small sizes."
+    },
+    "ember-ink": {
+      "hex": "#8C2F05",
+      "role": "Ember text on tinted ember backgrounds."
+    },
+    "ember-dark": {
+      "hex": "#E8430A",
+      "role": "Primary brand orange in DARK mode and in the app icon."
+    },
+    "ember-dark-deep": {
+      "hex": "#C23508",
+      "role": "Ember pressed (dark mode)."
+    },
+    "ember-dark-hi": {
+      "hex": "#FF6B35",
+      "role": "Ember hover (dark mode)."
+    },
+    "gold": {
+      "hex": "#F5C842",
+      "role": "Secondary accent. Gradient end, action items, highlights. Never a primary CTA on its own."
+    },
+    "gold-light": {
+      "hex": "#FFE08A",
+      "role": "Gold tint for fills and highlight backgrounds."
+    },
+    "gold-ink": {
+      "hex": "#8A6400",
+      "role": "Gold as TEXT on light (gold itself is 1.5:1 on paper). In dark mode this token resolves to gold."
+    }
+  },
+  "gradient": {
+    "ember-gold-light": "linear-gradient(135deg, #D93F0B 0%, #F5C842 100%)",
+    "ember-gold-dark": "linear-gradient(135deg, #E8430A 0%, #F5C842 100%)"
+  },
+  "neutrals": {
+    "light": {
+      "paper": {
+        "hex": "#FAF4EF",
+        "oklch": "oklch(97% 0.01 60)",
+        "role": "App background"
+      },
+      "paper-raised": {
+        "hex": "#F2E9E4",
+        "oklch": "oklch(94% 0.012 55)",
+        "role": "Raised surface, hover fill"
+      },
+      "paper-deep": {
+        "hex": "#E9DFD9",
+        "oklch": "oklch(91% 0.014 52)",
+        "role": "Inset, inputs"
+      },
+      "paper-card": {
+        "hex": "#FEFBF8",
+        "oklch": "oklch(99% 0.005 65)",
+        "role": "Card fill"
+      },
+      "ink": {
+        "hex": "#190F0B",
+        "oklch": "oklch(18% 0.02 40)",
+        "role": "Primary text"
+      },
+      "ink-mid": {
+        "hex": "#514540",
+        "oklch": "oklch(40% 0.018 42)",
+        "role": "Secondary text"
+      },
+      "ink-soft": {
+        "hex": "#827873",
+        "oklch": "oklch(58% 0.015 45)",
+        "role": "Muted text"
+      },
+      "ink-faint": {
+        "hex": "#AAA39F",
+        "oklch": "oklch(72% 0.01 50)",
+        "role": "Metadata, timestamps"
+      },
+      "rule": {
+        "hex": "#E0D5CF",
+        "oklch": "oklch(88% 0.015 50)",
+        "role": "Borders, dividers"
+      },
+      "rule-soft": {
+        "hex": "#EFE6E0",
+        "oklch": "oklch(93% 0.012 55)",
+        "role": "Faint dividers"
+      }
+    },
+    "dark": {
+      "char": {
+        "hex": "#120C09",
+        "oklch": "oklch(16% 0.012 40)",
+        "role": "App background"
+      },
+      "char-raised": {
+        "hex": "#1E1613",
+        "oklch": "oklch(21% 0.014 40)",
+        "role": "Raised surface"
+      },
+      "char-deep": {
+        "hex": "#191210",
+        "oklch": "oklch(19% 0.012 40)",
+        "role": "Inset, inputs"
+      },
+      "char-card": {
+        "hex": "#261D1A",
+        "oklch": "oklch(24% 0.015 40)",
+        "role": "Card fill"
+      },
+      "bone": {
+        "hex": "#F1E9E3",
+        "oklch": "oklch(94% 0.012 60)",
+        "role": "Primary text"
+      },
+      "bone-mid": {
+        "hex": "#BDB6B1",
+        "oklch": "oklch(78% 0.01 55)",
+        "role": "Secondary text"
+      },
+      "bone-soft": {
+        "hex": "#8B8581",
+        "oklch": "oklch(62% 0.01 50)",
+        "role": "Muted text"
+      },
+      "bone-faint": {
+        "hex": "#635C59",
+        "oklch": "oklch(48% 0.01 48)",
+        "role": "Metadata"
+      },
+      "rule-dark": {
+        "hex": "#362B27",
+        "oklch": "oklch(30% 0.018 42)",
+        "role": "Borders"
+      },
+      "rule-dark-soft": {
+        "hex": "#2B221E",
+        "oklch": "oklch(26% 0.015 42)",
+        "role": "Faint dividers"
+      }
+    }
+  },
+  "semantic": {
+    "ok": {
+      "hex": "#479C4D",
+      "oklch": "oklch(62% 0.14 145)",
+      "role": "Success, completed"
+    },
+    "warn": {
+      "hex": "#D6A20A",
+      "oklch": "oklch(74% 0.15 85)",
+      "role": "Warning, processing"
+    },
+    "stop": {
+      "hex": "#D7352D",
+      "oklch": "oklch(58% 0.2 28)",
+      "role": "Error, failed, stop recording"
+    },
+    "info": {
+      "hex": "#2B88C0",
+      "oklch": "oklch(60% 0.12 240)",
+      "role": "Informational"
+    },
+    "violet": {
+      "hex": "#8A5FC9",
+      "oklch": "oklch(58% 0.16 300)",
+      "role": "AI / insights tag"
+    }
+  },
+  "tints": {
+    "ember-7": "color-mix(in oklch, var(--ember) 7%, transparent)",
+    "ember-12": "color-mix(in oklch, var(--ember) 12%, transparent)",
+    "ember-20": "color-mix(in oklch, var(--ember) 22%, transparent)",
+    "ember-40": "color-mix(in oklch, var(--ember) 40%, transparent)",
+    "gold-12": "color-mix(in oklch, var(--gold) 12%, transparent)"
+  },
+  "shadows": {
+    "paper-sm": "0 1px 2px oklch(30% 0.04 40 / 0.06), 0 0 0 1px oklch(30% 0.04 40 / 0.04)",
+    "paper-md": "0 2px 14px oklch(30% 0.04 40 / 0.08), 0 0 0 1px oklch(30% 0.04 40 / 0.04)",
+    "paper-lg": "0 14px 40px oklch(30% 0.04 40 / 0.12), 0 0 0 1px oklch(30% 0.04 40 / 0.05)",
+    "ember": "0 6px 22px oklch(62% 0.18 40 / 0.22)",
+    "ember-lg": "0 14px 46px oklch(62% 0.18 40 / 0.32)"
+  },
+  "radius": {
+    "sm": "0.375rem",
+    "md": "0.5rem",
+    "base": "0.625rem",
+    "pill": "999px",
+    "icon": "22%"
+  },
+  "email": {
+    "note": "HTML email supports neither CSS variables nor color-mix(), so tints must be flat. These are the standard tints pre-composited over their background. Use these instead of inventing a new hex in a template.",
+    "ember-7-on-paper": "#F8E7DF",
+    "ember-12-on-paper": "#F6DED4",
+    "ember-22-on-paper": "#F3CCBD",
+    "ember-30-on-paper": "#F0BEAB",
+    "gold-12-on-paper": "#F9EFDA",
+    "gold-22-on-paper": "#F9EAC9",
+    "ember-10-on-char": "#271209",
+    "ember-25-on-char": "#481A09",
+    "font-head": "'Switzer',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif",
+    "font-body": "'Switzer',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif",
+    "font-serif": "'DM Serif Display',Georgia,'Times New Roman',serif",
+    "font-mono": "'JetBrains Mono',Consolas,'Courier New',monospace"
+  }
+}

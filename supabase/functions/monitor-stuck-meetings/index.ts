@@ -1,7 +1,8 @@
 /**
  * monitor-stuck-meetings — periodic stuck-meeting detector + auto-recovery.
  *
- * Runs every 5 minutes via pg_cron. For each meeting in a non-terminal state
+ * Runs every 15 minutes via pg_cron (see 20260613120000_reduce_cron_frequency.sql;
+ * the cadence is deliberately low to protect the Disk IO Budget). For each meeting in a non-terminal state
  * older than the threshold (15 min), classifies the failure into a signature,
  * attempts a known recovery, logs to `monitor_events`, and emails
  * ALERT_EMAIL_TO (default admin@oltaflock.ai) when (a) recovery fails or
@@ -337,7 +338,7 @@ async function sendAlertEmail(
 
   const html = `
 <div style="font-family: -apple-system, sans-serif; max-width: 600px; line-height: 1.5;">
-  <h2 style="color: ${isHarnessMeeting ? '#16a34a' : isNewPattern ? '#dc2626' : '#ea580c'};">${isHarnessMeeting ? '🧪 Harness test alert (expected — safe to ignore)' : isNewPattern ? '🆕 New error pattern detected' : '⚠️ Stuck meeting detected'}</h2>
+  <h2 style="color: ${isHarnessMeeting ? '#479C4D' : isNewPattern ? '#D7352D' : '#D93F0B'};">${isHarnessMeeting ? '🧪 Harness test alert (expected — safe to ignore)' : isNewPattern ? '🆕 New error pattern detected' : '⚠️ Stuck meeting detected'}</h2>
 
   <p><strong>Signature:</strong> <code>${detection.signature}</code></p>
   <p><strong>Recovery attempted:</strong> ${recoveryOk ? '✅' : '❌'} ${recoveryNote}</p>
@@ -357,7 +358,7 @@ async function sendAlertEmail(
   <p><a href="${dashboardLink}">Open in dashboard →</a></p>
 
   <h3>Details</h3>
-  <pre style="background: #f4f4f4; padding: 12px; border-radius: 4px; overflow-x: auto; font-size: 12px;">${detailsBlock}</pre>
+  <pre style="background: #FAF4EF; padding: 12px; border-radius: 4px; overflow-x: auto; font-size: 12px;">${detailsBlock}</pre>
 
   ${isNewPattern ? `
   <hr/>

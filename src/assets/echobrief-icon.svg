@@ -1,12 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400">
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 400 400" role="img" aria-label="EchoBrief">
+  <title>EchoBrief app icon</title>
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+    <linearGradient id="eb-icon" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0%" stop-color="#E8430A"/>
       <stop offset="100%" stop-color="#F5C842"/>
     </linearGradient>
   </defs>
-  <rect width="400" height="400" rx="80" fill="url(#bg)"/>
+  <rect width="400" height="400" rx="88" fill="url(#eb-icon)"/>
   <circle cx="200" cy="200" r="120" fill="none" stroke="#FFFFFF" stroke-width="10" opacity="0.18"/>
-  <circle cx="200" cy="200" r="80" fill="none" stroke="#FFFFFF" stroke-width="10" opacity="0.35"/>
+  <circle cx="200" cy="200" r="80"  fill="none" stroke="#FFFFFF" stroke-width="10" opacity="0.35"/>
   <circle cx="200" cy="200" r="40" fill="#FFFFFF"/>
 </svg>

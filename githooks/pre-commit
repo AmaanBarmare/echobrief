@@ -1,0 +1,9 @@
+#!/bin/sh
+# Blocks any commit that takes the codebase off-brand.
+# Escape hatch for a genuine one-off: git commit --no-verify
+node scripts/brand-check.mjs || {
+  echo ""
+  echo "Commit blocked by brand-check. Fix the violations above, or"
+  echo "add a // brand-check-ignore comment if the exception is deliberate."
+  exit 1
+}

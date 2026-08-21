@@ -181,7 +181,7 @@ export default function Calendar() {
 
   const EventCard = ({ event }: { event: CalendarEvent }) => {
     const isEventToday = isToday(parseISO(event.start_time));
-    const borderColor = isEventToday ? '#f97316' : 'hsl(var(--muted-foreground) / 0.35)';
+    const borderColor = isEventToday ? 'var(--ember)' : 'hsl(var(--muted-foreground) / 0.35)';
 
     return (
       <div
@@ -199,13 +199,13 @@ export default function Calendar() {
             {event.title}
           </h3>
           <div className="flex flex-wrap items-center gap-3">
-            <p className="m-0 text-[13px] text-muted-foreground" style={{ fontFamily: 'DM Sans, sans-serif' }}>
+            <p className="m-0 text-[13px] text-muted-foreground" style={{ fontFamily: 'var(--font-body)' }}>
               {!event.is_all_day
                 ? `${format(parseISO(event.start_time), 'h:mm a')} – ${format(parseISO(event.end_time), 'h:mm a')}`
                 : 'All day'}
             </p>
             {!event.hasMeetingLink && (
-              <p className="m-0 text-[11px] text-muted-foreground" style={{ fontFamily: 'DM Sans, sans-serif' }}>
+              <p className="m-0 text-[11px] text-muted-foreground" style={{ fontFamily: 'var(--font-body)' }}>
                 No meeting link
               </p>
             )}
@@ -318,7 +318,7 @@ export default function Calendar() {
                   <div className="flex flex-col gap-6">
                     {Object.entries(upcomingByDate).map(([dateKey, dateEvents]) => (
                       <div key={dateKey}>
-                        <h4 className="mb-3 text-xs text-muted-foreground" style={{ fontFamily: 'DM Sans, sans-serif' }}>
+                        <h4 className="mb-3 text-xs text-muted-foreground" style={{ fontFamily: 'var(--font-body)' }}>
                           {format(parseISO(dateKey), 'EEEE, MMMM d')}
                         </h4>
                         <div className="flex flex-col gap-3">

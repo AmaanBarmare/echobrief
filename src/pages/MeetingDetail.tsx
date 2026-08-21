@@ -653,7 +653,7 @@ export default function MeetingDetail() {
                 {insights.decisions && insights.decisions.length > 0 && (
                   <InsightSection title="Decisions">
                     {insights.decisions.map((d: string, i: number) => (
-                      <InsightItem key={i} accent="var(--amber-warm, #D4900A)">
+                      <InsightItem key={i} accent="var(--gold)">
                         {typeof d === 'string' ? d : (d as { decision?: string }).decision}
                       </InsightItem>
                     ))}
@@ -663,7 +663,7 @@ export default function MeetingDetail() {
                 {insights.strategic_insights && insights.strategic_insights.length > 0 && (
                   <InsightSection title="Strategic insights">
                     {(insights.strategic_insights as StrategicInsight[]).map((item, i) => (
-                      <InsightItem key={i} accent="var(--amber-warm, #D4900A)">
+                      <InsightItem key={i} accent="var(--gold)">
                         <span className="flex items-start gap-3">
                           <span className="flex-1">{item.insight}</span>
                           <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs capitalize text-muted-foreground">
@@ -700,7 +700,7 @@ export default function MeetingDetail() {
                 {insights.open_questions && insights.open_questions.length > 0 && (
                   <InsightSection title="Open questions">
                     {insights.open_questions.map((q: string, i: number) => (
-                      <InsightItem key={i} accent="var(--ink-40, #A8A29E)">{q}</InsightItem>
+                      <InsightItem key={i} accent="var(--ink-faint)">{q}</InsightItem>
                     ))}
                   </InsightSection>
                 )}
@@ -708,7 +708,7 @@ export default function MeetingDetail() {
                 {insights.risks && insights.risks.length > 0 && (
                   <InsightSection title="Risks">
                     {insights.risks.map((r: string, i: number) => (
-                      <InsightItem key={i} accent="#EF4444">{r}</InsightItem>
+                      <InsightItem key={i} accent="var(--stop)">{r}</InsightItem>
                     ))}
                   </InsightSection>
                 )}
@@ -844,7 +844,7 @@ export default function MeetingDetail() {
                 {emailMessages.length > 0 && (
                   <>
                     <h3 className="text-[15px] font-semibold text-foreground mb-3 flex items-center gap-2" style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.01em' }}>
-                      <Mail size={16} style={{ color: '#3B82F6' }} /> Email Deliveries
+                      <Mail size={16} style={{ color: 'var(--info)' }} /> Email Deliveries
                     </h3>
                     {emailMessages.map((msg, i) => (
                       <ProtoCard key={i} style={{ padding: 16 }}>

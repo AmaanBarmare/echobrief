@@ -5,12 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "npm run brand:check && vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
+    "brand:check": "node scripts/brand-check.mjs",
+    "brand:build": "python3 brand/src/build-lockups.py && bash brand/src/build-pngs.sh && node brand/src/build-pdf.mjs",
     "preview": "vite preview",
     "functions:serve": "supabase functions serve --env-file ./supabase/.env.local",
-    "test:unit": "deno test -A supabase/functions/tests/"
+    "test:unit": "deno test -A supabase/functions/tests/",
+    "prepare": "git config core.hooksPath githooks || true"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

@@ -8,6 +8,28 @@ EchoBrief is an AI meeting intelligence platform. It consists of two main parts:
 
 Recording is **bot-only** via Recall.ai. There is no browser extension — it was removed from the codebase.
 
+## Documentation
+
+Full engineering docs live in [`docs/`](docs/) — start at [`docs/README.md`](docs/README.md).
+This file is the working brief; the docs are the reference.
+
+| | |
+|---|---|
+| [`docs/architecture.md`](docs/architecture.md) | Runtimes, state machine, design principles, trust boundaries |
+| [`docs/pipeline.md`](docs/pipeline.md) | Every pipeline stage, the fallback chain, the races it survives |
+| [`docs/chat-and-analytics.md`](docs/chat-and-analytics.md) | Chat retrieval strategy and computed conversation metrics |
+| [`docs/database.md`](docs/database.md) | Schema, RLS, migration history |
+| [`docs/edge-functions.md`](docs/edge-functions.md) | All 27 functions — triggers, auth, request/response shapes |
+| [`docs/testing.md`](docs/testing.md) | The four test tiers and the eval suite |
+| [`docs/operations.md`](docs/operations.md) | Deploying, cron, alerts, incident playbook, quota ceilings |
+| [`docs/security.md`](docs/security.md) | Auth, RLS, webhook verification, secrets |
+| [`docs/contributing.md`](docs/contributing.md) | Local setup and enforced rules |
+| [`docs/engineering-notes.md`](docs/engineering-notes.md) | Long-form write-ups of 23 problems this system hit |
+| [`errors.md`](errors.md) | Error signature runbook (mirrored by `known-patterns.ts`) |
+
+The public, user-facing docs page is [`src/pages/Docs.tsx`](src/pages/Docs.tsx) → `/docs`.
+Keep it in sync when a user-visible feature changes.
+
 ## Quick Commands
 
 ```bash
@@ -33,12 +55,12 @@ npm run functions:serve  # Serve Supabase Edge Functions locally (needs supabase
 - `src/contexts/AuthContext.tsx` -- Supabase auth state, signIn/signUp/signOut, password recovery flow detection
 - `src/contexts/RecordingContext.tsx` -- Recording state management
 - `src/pages/` -- Dashboard, Recordings, MeetingDetail, Calendar, ActionItems, Settings, Auth, Landing
-- **Data fetching / caching:** `App.tsx` sets global TanStack Query defaults (`staleTime` 60s, `refetchOnWindowFocus: false`) so revisiting a page renders instantly from cache instead of re-fetching cold. `Dashboard.tsx` and `MeetingDetail.tsx` use cached queries (the dashboard runs its profile + meetings reads in parallel; realtime `postgres_changes` patches/invalidates the query cache rather than re-fetching). `Settings.tsx` intentionally stays on local `useState` — it's a form page with write-on-load side effects and user-mutated lists, a poor fit for read-caching. See README challenge #21.
+- **Data fetching / caching:** `App.tsx` sets global TanStack Query defaults (`staleTime` 60s, `refetchOnWindowFocus: false`) so revisiting a page renders instantly from cache instead of re-fetching cold. `Dashboard.tsx` and `MeetingDetail.tsx` use cached queries (the dashboard runs its profile + meetings reads in parallel; realtime `postgres_changes` patches/invalidates the query cache rather than re-fetching). `Settings.tsx` intentionally stays on local `useState` — it's a form page with write-on-load side effects and user-mutated lists, a poor fit for read-caching. See [`docs/engineering-notes.md`](docs/engineering-notes.md) #21.
 
 **Edge Functions (Deno):**
 - `supabase/functions/process-meeting/` -- Orchestrates transcription (Sarvam primary, Whisper fallback) + GPT insight generation. Whisper currently OOMs in the edge function for audio > ~15 MB — see `errors.md` `whisper:oom` entry.
 - `supabase/functions/sarvam-webhook/` -- Async callback from Sarvam STT. Auto-falls-back to Whisper on any download error (covers Sarvam's `KeyError: 'timestamps'` server bug on long audio).
-- `supabase/functions/recall-webhook/` -- Receives Recall lifecycle events. `bot.done` queries Recall's `/audio_mixed/` endpoint to avoid race-marking good meetings as failed. Terminal classification via `classifySubCode()`: a bot kicked / not admitted *before* recording → **`cancelled`** (neutral, no audio was captured); bad/expired link → `failed`; genuine pipeline failures (`audio_mixed.failed`, etc.) → `failed`. A bot kicked *after* recording still emits `audio_mixed.done` and completes normally — that path is untouched. (README #23.)
+- `supabase/functions/recall-webhook/` -- Receives Recall lifecycle events. `bot.done` queries Recall's `/audio_mixed/` endpoint to avoid race-marking good meetings as failed. Terminal classification via `classifySubCode()`: a bot kicked / not admitted *before* recording → **`cancelled`** (neutral, no audio was captured); bad/expired link → `failed`; genuine pipeline failures (`audio_mixed.failed`, etc.) → `failed`. A bot kicked *after* recording still emits `audio_mixed.done` and completes normally — that path is untouched. (See [`docs/engineering-notes.md`](docs/engineering-notes.md) #23.)
 - `supabase/functions/check-recall-status/` -- Polled by frontend; uses `sarvam_webhook_triggered_at` atomic lock to re-fire the Sarvam webhook when the callback was missed.
 - `supabase/functions/monitor-stuck-meetings/` -- Cron-scheduled (every 15 min via pg_cron — see Scheduled Jobs below). Detects meetings stuck >15 min in non-terminal status, classifies via signature, attempts known recovery, logs to `monitor_events`, emails `ALERT_EMAIL_TO` (default `admin@oltaflock.ai`) via Resend on failure or unknown signature. Carries a copy of known signatures in `known-patterns.ts` mirroring `errors.md`.
 - `supabase/functions/_shared/insights.ts` -- Hallucination detection, GPT prompt, insight saving, delivery
@@ -48,11 +70,12 @@ npm run functions:serve  # Serve Supabase Edge Functions locally (needs supabase
 
 ### Scheduled Jobs (pg_cron + pg_net)
 
-Three cron jobs invoke edge functions over HTTP via `pg_net`. **Frequencies are kept deliberately low to protect the Supabase Disk IO Budget:** each tick writes a `pg_net` request + response row and a `cron.job_run_details` row, and on a small compute instance that *write* churn — not reads (the dataset is tiny and fully cached, hit rate 1.00) — is what depletes the IO budget. Root-caused 2026-06-13; see README challenge #22.
+Four cron jobs invoke edge functions over HTTP via `pg_net`. **Frequencies are kept deliberately low to protect the Supabase Disk IO Budget:** each tick writes a `pg_net` request + response row and a `cron.job_run_details` row, and on a small compute instance that *write* churn — not reads (the dataset is tiny and fully cached, hit rate 1.00) — is what depletes the IO budget. Root-caused 2026-06-13; see [`docs/engineering-notes.md`](docs/engineering-notes.md) #22.
 
 - `auto-join-meetings` — **every 5 min**. Sends a Recall bot to calendar meetings starting within the next 7 min. The look-ahead window must stay ≥ the cron interval so no meeting is missed between polls; the function's per-calendar-event dedup guard prevents duplicate bots.
 - `monitor-stuck-meetings` — **every 15 min**. Stuck-meeting detection (threshold >15 min).
 - `prune-job-logs` — **daily 03:15 UTC**. Trims `cron.job_run_details` (>7 d) and `net._http_response` (>1 d) so the bookkeeping tables don't accumulate.
+- `prune-recordings` — **daily 03:30 UTC**. Clears `audio_url` and deletes archived mp3s older than 30 d (7 d when the `recordings` bucket is near its cap) for meetings that already have a transcript. Added after the bucket hit the 1 GB free-tier cap and silently killed the whole pipeline — see `errors.md` `storage:bucket_full_blocks_pipeline`.
 
 **Do not raise these frequencies without checking the Disk IO Budget.** If finer scheduling is ever required, move it off the database to a free external scheduler (cron-job.org / GitHub Actions) calling the edge functions directly — NOT Vercel Cron (its free tier caps cron jobs at once-per-day) and NOT a paid compute upgrade.
 
@@ -74,7 +97,7 @@ Migrations are in `supabase/migrations/`. Recent additions worth knowing about:
 - `20260424170000_meetings_error_message.sql` — adds the `error_message` column that all failure-path UPDATEs were silently failing on for weeks
 - `20260425170000_monitor_events.sql` — monitor audit trail
 - `20260425170100_monitor_stuck_meetings_cron.sql` — pg_cron schedule for the monitor
-- `20260613120000_reduce_cron_frequency.sql` — cuts auto-join (1→5 min) and monitor (5→15 min) cron frequency; the `net.http_post` calls these crons fired were 94.4% of all DB execution time and were depleting the Disk IO Budget (README #22)
+- `20260613120000_reduce_cron_frequency.sql` — cuts auto-join (1→5 min) and monitor (5→15 min) cron frequency; the `net.http_post` calls these crons fired were 94.4% of all DB execution time and were depleting the Disk IO Budget (see [`docs/engineering-notes.md`](docs/engineering-notes.md) #22)
 - `20260613120100_prune_cron_pgnet_bookkeeping.sql` — daily prune of `cron.job_run_details` + `net._http_response`
 
 ## Tech Stack
@@ -93,7 +116,9 @@ Custom components are in `src/components/dashboard/`, `src/components/meeting/`,
 
 ## Brand
 
-See `BRAND.md` for colors (orange/amber gradient primary, stone neutrals), typography (Outfit headings, DM Sans body), and design guidelines.
+The full brand kit is [`brand/`](brand/README.md) — guidelines PDF, logo files, colour and type tokens. [`BRAND.md`](BRAND.md) is the quick reference.
+
+System name **Warm Dispatch**: ember `#D93F0B` (light) / `#E8430A` (dark) on warm paper/char neutrals, gold `#F5C842` accent. Type is Switzer in-app, DM Serif Display + Manrope on brand surfaces. Enforced by `npm run brand:check` — see the rule in Rules below.
 
 ## Environment Variables
 
@@ -132,9 +157,11 @@ See `BRAND.md` for colors (orange/amber gradient primary, stone neutrals), typog
 
 - **Run the output-quality evals before deploying anything that touches transcription or insights:** `python3 scripts/evals/run_evals.py`. 8 evals (4 deterministic + 4 LLM-judge) over the static dataset, including a judge-calibration case that must FAIL. Exit code gates the deploy. See [`scripts/evals/EVALS.md`](scripts/evals/EVALS.md) for the harness-vs-evals distinction and how to grow the dataset from prod meetings.
 
+- **Stay on brand, and let the checker prove it:** `npm run brand:check` (node, <1 s) is the mechanical enforcement of [`brand/`](brand/README.md). It fails the build and blocks commits (via `githooks/pre-commit`, wired by `npm run prepare`) on: hex colours outside the palette, retired palette values, non-approved fonts, banned marketing words, logo assets that have drifted from `brand/logo/svg/`, and references to removed assets. The allowed palette is read from [`brand/tokens/colors.json`](brand/tokens/colors.json) — **to legitimise a new colour, add it there AND to `src/index.css`**, never by hardcoding. A genuine one-off exception takes a `// brand-check-ignore` comment on that line. HTML email can't use CSS variables, so email templates take their flat values from the `email` block of `colors.json`. Regenerate logo files and the guidelines PDF with `npm run brand:build`.
+
 - **Update `errors.md` and `known-patterns.ts` together:** When the monitor emails a `[ECHOBRIEF NEW ERROR]`, investigate, then add the new signature to **both** `errors.md` (human runbook) and `supabase/functions/monitor-stuck-meetings/known-patterns.ts` (programmatic mirror). They drift if you only update one.
 
-- **Don't raise pg_cron frequency without checking the Disk IO Budget:** the database doubles as the job scheduler (`pg_cron` + `pg_net`), and on a small instance the *write* churn from frequent ticks — not reads — is what depletes the Disk IO Budget (root-caused 2026-06-13: `net.http_post` was 94.4% of all DB execution time). Current cadences (auto-join 5 min, monitor 15 min) are tuned for this. Before making any cron more frequent, confirm headroom with `supabase inspect db` (`db-stats` for cache hit rate, `outliers` for top queries by total time); if finer scheduling is genuinely needed, move it to a free external scheduler instead of the DB. See README challenge #22.
+- **Don't raise pg_cron frequency without checking the Disk IO Budget:** the database doubles as the job scheduler (`pg_cron` + `pg_net`), and on a small instance the *write* churn from frequent ticks — not reads — is what depletes the Disk IO Budget (root-caused 2026-06-13: `net.http_post` was 94.4% of all DB execution time). Current cadences (auto-join 5 min, monitor 15 min) are tuned for this. Before making any cron more frequent, confirm headroom with `supabase inspect db` (`db-stats` for cache hit rate, `outliers` for top queries by total time); if finer scheduling is genuinely needed, move it to a free external scheduler instead of the DB. See [`docs/engineering-notes.md`](docs/engineering-notes.md) #22.
 
 ## Conventions
 
@@ -146,7 +173,7 @@ See `BRAND.md` for colors (orange/amber gradient primary, stone neutrals), typog
 
 ## Operations
 
-- **Unit harness:** [`supabase/functions/tests/`](supabase/functions/tests/) — `npm run test:unit`. 26 deno tests with mocked fetch: recall-pipeline URL-discovery/fallback chains, `getAudioMixedStatus` defer semantics, `stitchChunkResults` offsets/sorting, `downloadAllSarvamResults` numeric ordering.
+- **Unit harness:** [`supabase/functions/tests/`](supabase/functions/tests/) — `npm run test:unit`. 53 deno tests with mocked fetch: conversation metrics (25), recall-pipeline URL-discovery/fallback chains (15), `stitchChunkResults` offsets/sorting (7), `downloadAllSarvamResults` numeric ordering (4), harness email gate (2).
 
 - **Pipeline test harness:** [`scripts/pipeline-test/harness.py`](scripts/pipeline-test/harness.py). 11 default scenarios: happy path, chunked-stitch (timestamp offsets + ordering), speaker mapping (timeline overlap + nearest-neighbor → real names, no SPEAKER_XX), split-audio endpoint probes (401/400 contract), the bot.done/audio_mixed.done race, audio_mixed.failed, kicked-from-waiting-room, sarvam-webhook idempotency, concurrent sarvam-webhook calls, monitor recovers known / logs unknown signature. `--live` adds `live_sarvam_e2e` (real Sarvam over the fixture at `recordings/harness-fixtures/live-e2e.mp3`). Real DB, real edge functions. **Emails are suppressed for `[harness]` meetings** (both summary delivery and monitor alerts) unless the `HARNESS_EMAILS=true` secret is set — set it only for a deliberate delivery-verification run, then unset it. Takes ~90s (+~3 min with --live).
 

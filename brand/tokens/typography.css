@@ -1,0 +1,66 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   EchoBrief — Warm Dispatch type tokens
+   Two stacks, deliberately separate:
+     • App stack   — Switzer everywhere. Neutral, dense, workmanlike.
+     • Brand stack — DM Serif Display (accents) + Manrope (body) + IBM Plex
+                     Mono (labels). Landing, decks, email, print.
+   Timestamps and transcripts are always JetBrains Mono.
+   ────────────────────────────────────────────────────────────────────────── */
+
+@import url('https://api.fontshare.com/v2/css?f[]=switzer@300,400,500,600,700,800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Manrope:wght@300;400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500&family=Noto+Sans+Tamil:wght@400;500&display=swap');
+
+:root {
+  /* App stack */
+  --font-display: 'Switzer', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-body:    'Switzer', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-mono:    'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+
+  /* Brand stack */
+  --font-brand-serif: 'DM Serif Display', Georgia, serif;
+  --font-brand-body:  'Manrope', 'Switzer', -apple-system, system-ui, sans-serif;
+  --font-brand-mono:  'IBM Plex Mono', ui-monospace, monospace;
+
+  /* Indic — never let a fallback pick these up */
+  --font-indic-dev: 'Noto Sans Devanagari', 'Switzer', sans-serif;
+  --font-indic-tam: 'Noto Sans Tamil', 'Switzer', sans-serif;
+}
+
+/* ─── App scale — hierarchy by weight and size, never by swapping family ─── */
+.eb-h1 { font-family: var(--font-body); font-weight: 600; font-size: 1.875rem; line-height: 1.15; letter-spacing: -0.02em; }
+.eb-h2 { font-family: var(--font-body); font-weight: 600; font-size: 1.375rem; line-height: 1.2;  letter-spacing: -0.015em; }
+.eb-h3 { font-family: var(--font-body); font-weight: 600; font-size: 1.125rem; line-height: 1.25; letter-spacing: -0.01em; }
+.eb-body      { font-family: var(--font-body); font-weight: 400; font-size: 0.9375rem; line-height: 1.6; }
+.eb-body-bold { font-family: var(--font-body); font-weight: 500; font-size: 0.9375rem; line-height: 1.6; }
+.eb-caption   { font-family: var(--font-body); font-weight: 400; font-size: 0.75rem; line-height: 1.45; color: var(--ink-soft); }
+.eb-meta      { font-family: var(--font-mono); font-weight: 400; font-size: 0.75rem; letter-spacing: 0.01em; color: var(--ink-faint); }
+.eb-code      { font-family: var(--font-mono); font-weight: 400; font-size: 0.8125rem; font-feature-settings: "ss02"; }
+
+/* ─── Brand scale — landing, decks, email, print ─── */
+.eb-display { font-family: var(--font-brand-serif); font-weight: 400; font-size: clamp(2.5rem, 5vw, 4rem); line-height: 1.05; letter-spacing: -0.03em; }
+.eb-lede    { font-family: var(--font-brand-body); font-weight: 400; font-size: 1.125rem; line-height: 1.6; color: var(--ink-mid); }
+
+/* The house accent: one italic serif phrase per headline. Not two. */
+.serif-italic { font-family: var(--font-brand-serif); font-style: italic; font-weight: 400; letter-spacing: -0.01em; }
+
+/* Eyebrow — one per section, ember, mono, wide-tracked, with a leading rule */
+.eyebrow {
+  display: inline-flex; align-items: center; gap: 0.625rem;
+  font-family: var(--font-brand-mono); font-size: 10.5px; font-weight: 500;
+  letter-spacing: 0.22em; text-transform: uppercase; color: var(--ember); opacity: 0.9;
+}
+.eyebrow::before { content: ''; width: 22px; height: 1px; background: currentColor; opacity: 0.45; }
+
+/* ─── Native-script readability — 16px floor, no exceptions ─── */
+:lang(hi), :lang(mr), :lang(sa) { font-family: var(--font-indic-dev); font-size: max(1rem, 1em); }
+:lang(ta) { font-family: var(--font-indic-tam); font-size: max(1rem, 1em); }
+
+/* ─── Global rendering settings the app relies on ─── */
+body {
+  font-family: var(--font-body);
+  font-weight: 400;
+  font-feature-settings: "ss01", "ss02", "cv01";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}

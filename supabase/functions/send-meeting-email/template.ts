@@ -19,23 +19,34 @@ export function buildEmailHtml(data: EmailData): string {
   const { title, date, time, duration, insights, meetingId } = data;
   const appUrl = "https://echobrief.in";
 
-  // Brand palette — BRAND.md "Warm Ember". Orange/amber gradient on stone
-  // neutrals. The gradient is a signature accent, never a large background.
+  // Brand palette — brand/COLORS.md "Warm Dispatch". Email supports neither CSS
+  // variables nor color-mix(), so every value here is the flat equivalent of a
+  // token. The tints come from the `email` block of brand/tokens/colors.json —
+  // take them from there rather than eyeballing a new hex.
   const C = {
-    orange: "#D93F0B", // --ember, the token the app and logo actually use
-    amber: "#D4900A",
+    orange: "#D93F0B", // --ember
+    amber: "#F5C842", // --gold
     orangeDeep: "#B83508", // --ember-deep
-    ink: "#1C1917", // Stone 900
-    body: "#57534E", // Stone 600
-    muted: "#A8A29E", // Stone 400
-    border: "#E7E5E4", // Stone 200
-    surface: "#FFFFFF",
-    page: "#FAFAF9", // Stone 50
-    tint: "#FDF4EF", // ember tint, matches the app surface
+    goldInk: "#8A6400", // --gold-ink (gold is 1.5:1 on paper; this is the text-safe gold)
+    ink: "#190F0B", // --ink
+    body: "#514540", // --ink-mid
+    muted: "#827873", // --ink-soft
+    faint: "#AAA39F", // --ink-faint
+    border: "#E0D5CF", // --rule
+    surface: "#FEFBF8", // --paper-card
+    page: "#FAF4EF", // --paper
+    tint: "#F8E7DF", // ember 7% over paper
+    tintBorder: "#F6DED4", // ember 12% over paper
+    ring: "#F3CCBD", // ember 22% over paper
+    ok: "#479C4D", // --ok
+    warn: "#D6A20A", // --warn
+    stop: "#D7352D", // --stop
   };
   const GRADIENT = `linear-gradient(135deg, ${C.orange} 0%, ${C.amber} 100%)`;
-  const HEAD = "'Outfit','Segoe UI',Helvetica,Arial,sans-serif";
-  const BODY = "'DM Sans','Segoe UI',Helvetica,Arial,sans-serif";
+  // Neither Switzer nor DM Serif Display render in Gmail/Outlook — declare them
+  // first so clients that can use them do, and fall back to a system sans.
+  const HEAD = "'Switzer',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif";
+  const BODY = "'Switzer',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif";
 
   // Model-written text lands in HTML; escape it so a stray angle bracket
   // cannot break the layout of an email we cannot edit once sent.
@@ -107,7 +118,7 @@ export function buildEmailHtml(data: EmailData): string {
 
   const riskList = (insights?.risks || []) as string[];
   const risksHtml = riskList.length
-    ? riskList.map((r) => itemBox(esc(r), "#EF4444")).join("")
+    ? riskList.map((r) => itemBox(esc(r), C.stop)).join("")
     : "";
 
   const strategicList = (insights?.strategic_insights || []) as any[];
@@ -255,7 +266,7 @@ export function buildEmailHtml(data: EmailData): string {
               <table cellpadding="0" cellspacing="0" role="presentation">
                 <tr>
                   <td width="40" valign="middle">
-                    <table width="40" cellpadding="0" cellspacing="0" role="presentation" style="width:40px;height:40px;border:1.5px solid #F0C3AC;border-radius:50%;">
+                    <table width="40" cellpadding="0" cellspacing="0" role="presentation" style="width:40px;height:40px;border:1.5px solid ${C.ring};border-radius:50%;">
                       <tr><td align="center" valign="middle" style="height:37px;line-height:37px;font-size:0;">
                         <table cellpadding="0" cellspacing="0" role="presentation" style="width:26px;height:26px;background:${GRADIENT};background-color:${C.orange};border-radius:50%;">
                           <tr><td align="center" valign="middle" style="height:26px;line-height:26px;font-size:0;">
@@ -287,7 +298,7 @@ export function buildEmailHtml(data: EmailData): string {
               ${sectionHeading("Executive summary")}
               <div style="height:12px;line-height:12px;">&nbsp;</div>
               <table width="100%" cellpadding="0" cellspacing="0" role="presentation">
-                <tr><td style="background-color:${C.tint};border:1px solid #F6D8C6;border-radius:12px;padding:16px 18px;">
+                <tr><td style="background-color:${C.tint};border:1px solid ${C.tintBorder};border-radius:12px;padding:16px 18px;">
                   <p style="margin:0;font-family:${BODY};font-size:15px;line-height:1.6;color:${C.ink};">${summaryShort}</p>
                 </td></tr>
                 ${summaryDetailed ? `<tr><td style="padding:14px 2px 0;"><p style="margin:0;font-family:${BODY};font-size:14px;line-height:1.65;color:${C.body};">${summaryDetailed}</p></td></tr>` : ""}
@@ -334,10 +345,10 @@ export function buildEmailHtml(data: EmailData): string {
 
 function getPriorityColor(priority: string): string {
   switch (priority?.toLowerCase()) {
-    case 'high': return '#ef4444';
-    case 'medium': return '#f59e0b';
-    case 'low': return '#22c55e';
-    default: return '#64748b';
+    case 'high': return '#D7352D';   // --stop
+    case 'medium': return '#D6A20A'; // --warn
+    case 'low': return '#479C4D';    // --ok
+    default: return '#827873';       // --ink-soft
   }
 }
 

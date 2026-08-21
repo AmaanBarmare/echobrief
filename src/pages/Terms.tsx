@@ -25,12 +25,12 @@ export default function Terms() {
 
             <h2>2. Description of Service</h2>
             <p>
-              EchoBrief is an AI-powered meeting intelligence platform that:
+              EchoBrief is a meeting recording and summarisation service that:
             </p>
             <ul>
               <li>Records meetings (with user consent)</li>
               <li>Transcribes audio to text in 22 Indian languages</li>
-              <li>Generates AI-powered summaries, action items, and insights</li>
+              <li>Generates summaries, action items, and insights from the transcript</li>
               <li>Delivers reports via email or WhatsApp</li>
             </ul>
 

@@ -65,13 +65,13 @@ type BotDisplayStatus = 'idle' | 'sending' | 'joining' | 'in_call' | 'recording'
 
 const BOT_STATUS_DISPLAY: Record<BotDisplayStatus, { label: string; color: string; icon: 'loader' | 'check' | 'mic' | 'file' | 'done' | 'error' | null }> = {
   idle: { label: '', color: '', icon: null },
-  sending: { label: 'Sending bot...', color: '#FB923C', icon: 'loader' },
-  joining: { label: 'Bot is joining the meeting...', color: '#FB923C', icon: 'loader' },
-  in_call: { label: 'Bot is in the meeting', color: '#22c55e', icon: 'check' },
-  recording: { label: 'Recording in progress', color: '#22c55e', icon: 'mic' },
-  processing: { label: 'Processing recording...', color: '#FB923C', icon: 'file' },
-  completed: { label: 'Recording complete', color: '#22c55e', icon: 'done' },
-  failed: { label: 'Recording failed', color: '#EF4444', icon: 'error' },
+  sending: { label: 'Sending bot...', color: 'var(--warn)', icon: 'loader' },
+  joining: { label: 'Bot is joining the meeting...', color: 'var(--warn)', icon: 'loader' },
+  in_call: { label: 'Bot is in the meeting', color: 'var(--ok)', icon: 'check' },
+  recording: { label: 'Recording in progress', color: 'var(--ok)', icon: 'mic' },
+  processing: { label: 'Processing recording...', color: 'var(--warn)', icon: 'file' },
+  completed: { label: 'Recording complete', color: 'var(--ok)', icon: 'done' },
+  failed: { label: 'Recording failed', color: 'var(--stop)', icon: 'error' },
 };
 
 function mapDbStatusToDisplay(dbStatus: string): BotDisplayStatus {
@@ -207,10 +207,10 @@ export function MeetingDetailModal({ event, onClose, onRecordWithBot }: MeetingD
 
   // Timing indicator
   const timingStatus = (() => {
-    if (startDate <= now && endDate >= now) return { label: 'Happening now', color: '#22c55e', icon: '●' };
-    if (startDate > now && startDate.getTime() - now.getTime() < 30 * 60 * 1000) return { label: 'Starting soon', color: '#F59E0B', icon: '⚡' };
-    if (startDate > now) return { label: `In ${formatDistance(now, startDate)}`, color: '#78716C', icon: '⏱' };
-    return { label: 'Ended', color: '#78716C', icon: '✓' };
+    if (startDate <= now && endDate >= now) return { label: 'Happening now', color: 'var(--ok)', icon: '●' };
+    if (startDate > now && startDate.getTime() - now.getTime() < 30 * 60 * 1000) return { label: 'Starting soon', color: 'var(--warn)', icon: '⚡' };
+    if (startDate > now) return { label: `In ${formatDistance(now, startDate)}`, color: 'var(--ink-soft)', icon: '⏱' };
+    return { label: 'Ended', color: 'var(--ink-soft)', icon: '✓' };
   })();
 
   // Platform detection
@@ -273,7 +273,7 @@ export function MeetingDetailModal({ event, onClose, onRecordWithBot }: MeetingD
             left: 0,
             right: 0,
             height: 3,
-            background: 'linear-gradient(135deg, #F97316, #F59E0B)',
+            background: 'linear-gradient(135deg, var(--ember), var(--gold))',
             borderRadius: '20px 20px 0 0',
           }}
         />
@@ -301,10 +301,10 @@ export function MeetingDetailModal({ event, onClose, onRecordWithBot }: MeetingD
           <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
             <Clock size={15} className="mt-0.5 shrink-0 text-muted-foreground" />
             <div>
-              <p className="text-[14px] text-muted-foreground" style={{ margin: 0, fontFamily: 'DM Sans, sans-serif' }}>
+              <p className="text-[14px] text-muted-foreground" style={{ margin: 0, fontFamily: 'var(--font-body)' }}>
                 {format(startDate, 'EEEE, MMMM d · h:mm a')} – {format(endDate, 'h:mm a')} ({durationMin} min)
               </p>
-              <p style={{ fontSize: 12, color: timingStatus.color, margin: '8px 0 0 0', fontFamily: 'DM Sans, sans-serif' }}>
+              <p style={{ fontSize: 12, color: timingStatus.color, margin: '8px 0 0 0', fontFamily: 'var(--font-body)' }}>
                 {timingStatus.icon} {timingStatus.label}
               </p>
             </div>
@@ -330,7 +330,7 @@ export function MeetingDetailModal({ event, onClose, onRecordWithBot }: MeetingD
                   onClick={handleCopyUrl}
                   className="cursor-pointer border-0 bg-transparent p-0 text-muted-foreground"
                 >
-                  {copied ? <CheckCircle2 size={14} style={{ color: '#22c55e' }} /> : <Copy size={14} />}
+                  {copied ? <CheckCircle2 size={14} style={{ color: 'var(--ok)' }} /> : <Copy size={14} />}
                 </button>
               </div>
             ) : (
@@ -371,7 +371,7 @@ export function MeetingDetailModal({ event, onClose, onRecordWithBot }: MeetingD
                           width: 24,
                           height: 24,
                           borderRadius: '50%',
-                          background: 'linear-gradient(135deg, #F97316, #F59E0B)',
+                          background: 'linear-gradient(135deg, var(--ember), var(--gold))',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
@@ -384,16 +384,16 @@ export function MeetingDetailModal({ event, onClose, onRecordWithBot }: MeetingD
                         {initials}
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <p className="text-[12px] font-medium text-foreground" style={{ margin: 0, fontFamily: 'DM Sans, sans-serif' }}>
+                        <p className="text-[12px] font-medium text-foreground" style={{ margin: 0, fontFamily: 'var(--font-body)' }}>
                           {attendee.name}
                         </p>
                         {attendee.isOrganizer && (
-                          <p style={{ fontSize: 10, color: '#FB923C', margin: 0, fontFamily: 'DM Sans, sans-serif' }}>
+                          <p style={{ fontSize: 10, color: 'var(--warn)', margin: 0, fontFamily: 'var(--font-body)' }}>
                             Organizer
                           </p>
                         )}
                         {!attendee.isOrganizer && attendee.responseStatus && (
-                          <p style={{ fontSize: 10, color: '#78716C', margin: 0, fontFamily: 'DM Sans, sans-serif' }}>
+                          <p style={{ fontSize: 10, color: 'var(--ink-soft)', margin: 0, fontFamily: 'var(--font-body)' }}>
                             {attendee.responseStatus === 'accepted' ? '✓ Accepted' : attendee.responseStatus === 'declined' ? '✗ Declined' : 'Awaiting response'}
                           </p>
                         )}
@@ -408,7 +408,7 @@ export function MeetingDetailModal({ event, onClose, onRecordWithBot }: MeetingD
                 )}
               </div>
             ) : (
-              <p style={{ fontSize: 13, color: '#78716C', margin: 0, fontStyle: 'italic' }}>
+              <p style={{ fontSize: 13, color: 'var(--ink-soft)', margin: 0, fontStyle: 'italic' }}>
                 No attendee info available
               </p>
             );
@@ -442,7 +442,7 @@ export function MeetingDetailModal({ event, onClose, onRecordWithBot }: MeetingD
                 onClick={handleSendBot}
                 disabled={!event.hasMeetingLink}
                 style={{
-                  background: event.hasMeetingLink ? 'linear-gradient(135deg, #F97316, #F59E0B)' : '#44403C',
+                  background: event.hasMeetingLink ? 'linear-gradient(135deg, var(--ember), var(--gold))' : 'var(--paper-deep)',
                   color: 'white',
                   fontSize: 12,
                   padding: '8px 12px',
@@ -455,44 +455,44 @@ export function MeetingDetailModal({ event, onClose, onRecordWithBot }: MeetingD
             )}
 
             {(botStatus === 'sending' || botStatus === 'joining') && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#FB923C', fontSize: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--warn)', fontSize: 12 }}>
                 <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />
                 {BOT_STATUS_DISPLAY[botStatus].label}
               </div>
             )}
 
             {botStatus === 'in_call' && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#22c55e', fontSize: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--ok)', fontSize: 12 }}>
                 <CheckCircle2 size={14} />
                 <span>{BOT_STATUS_DISPLAY[botStatus].label}</span>
-                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#22c55e', animation: 'pulse 2s infinite' }} />
+                <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--ok)', animation: 'pulse 2s infinite' }} />
               </div>
             )}
 
             {botStatus === 'recording' && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#22c55e', fontSize: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--ok)', fontSize: 12 }}>
                 <Mic size={14} />
                 <span>{BOT_STATUS_DISPLAY[botStatus].label}</span>
-                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#EF4444', animation: 'pulse 1s infinite' }} />
+                <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--stop)', animation: 'pulse 1s infinite' }} />
               </div>
             )}
 
             {botStatus === 'processing' && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#FB923C', fontSize: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--warn)', fontSize: 12 }}>
                 <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />
                 <span>{BOT_STATUS_DISPLAY[botStatus].label}</span>
               </div>
             )}
 
             {botStatus === 'completed' && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#22c55e', fontSize: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--ok)', fontSize: 12 }}>
                 <CheckCircle2 size={14} />
                 <span>{BOT_STATUS_DISPLAY[botStatus].label}</span>
               </div>
             )}
 
             {botStatus === 'failed' && (
-              <div style={{ color: '#EF4444', fontSize: 12 }}>
+              <div style={{ color: 'var(--stop)', fontSize: 12 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <AlertCircle size={14} />
                   {BOT_STATUS_DISPLAY[botStatus].label}

@@ -1,0 +1,104 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   EchoBrief — Warm Dispatch colour tokens
+   Portable copy of the palette defined in src/index.css. Drop into any
+   surface (marketing site, email builder, docs) that isn't the app itself.
+   The app reads src/index.css — keep the two in sync.
+   ────────────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* Brand — ember + gold */
+  --ember:      #D93F0B;
+  --ember-deep: #B83508;
+  --ember-hi:   #E84D1A;
+  --ember-ink:  #8C2F05;
+  --gold:       #F5C842;
+  --gold-light: #FFE08A;
+  --gold-ink:   #8A6400;
+  --grad-ember: linear-gradient(135deg, #D93F0B 0%, #F5C842 100%);
+
+  /* Neutrals — warm paper / ink */
+  --paper:        oklch(97% 0.01 60);
+  --paper-raised: oklch(94% 0.012 55);
+  --paper-deep:   oklch(91% 0.014 52);
+  --paper-card:   oklch(99% 0.005 65);
+  --ink:          oklch(18% 0.02 40);
+  --ink-mid:      oklch(40% 0.018 42);
+  --ink-soft:     oklch(58% 0.015 45);
+  --ink-faint:    oklch(72% 0.01 50);
+  --rule:         oklch(88% 0.015 50);
+  --rule-soft:    oklch(93% 0.012 55);
+
+  /* Semantic — warm-tuned, never substitute ember for these */
+  --ok:     oklch(62% 0.14 145);
+  --warn:   oklch(74% 0.15 85);
+  --stop:   oklch(58% 0.2 28);
+  --info:   oklch(60% 0.12 240);
+  --violet: oklch(58% 0.16 300);
+
+  /* Ember tints */
+  --ember-tint-7:  color-mix(in oklch, var(--ember) 7%, transparent);
+  --ember-tint-12: color-mix(in oklch, var(--ember) 12%, transparent);
+  --ember-tint-20: color-mix(in oklch, var(--ember) 22%, transparent);
+  --ember-tint-40: color-mix(in oklch, var(--ember) 40%, transparent);
+
+  /* Elevation */
+  --shadow-paper-sm: 0 1px 2px oklch(30% 0.04 40 / 0.06), 0 0 0 1px oklch(30% 0.04 40 / 0.04);
+  --shadow-paper-md: 0 2px 14px oklch(30% 0.04 40 / 0.08), 0 0 0 1px oklch(30% 0.04 40 / 0.04);
+  --shadow-paper-lg: 0 14px 40px oklch(30% 0.04 40 / 0.12), 0 0 0 1px oklch(30% 0.04 40 / 0.05);
+  --shadow-ember:    0 6px 22px oklch(62% 0.18 40 / 0.22);
+  --shadow-ember-lg: 0 14px 46px oklch(62% 0.18 40 / 0.32);
+
+  /* Radius */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius:    0.625rem;
+  --radius-pill: 999px;
+}
+
+.dark, [data-theme="dark"] {
+  /* Ember shifts brighter on char so it survives the dark ground */
+  --ember:      #E8430A;
+  --ember-deep: #C23508;
+  --ember-hi:   #FF6B35;
+  --ember-ink:  #FF8956;
+  --gold-ink:   #F5C842;
+  --grad-ember: linear-gradient(135deg, #E8430A 0%, #F5C842 100%);
+
+  --paper:        oklch(16% 0.012 40);
+  --paper-raised: oklch(21% 0.014 40);
+  --paper-deep:   oklch(19% 0.012 40);
+  --paper-card:   oklch(24% 0.015 40);
+  --ink:          oklch(94% 0.012 60);
+  --ink-mid:      oklch(78% 0.01 55);
+  --ink-soft:     oklch(62% 0.01 50);
+  --ink-faint:    oklch(48% 0.01 48);
+  --rule:         oklch(30% 0.018 42);
+  --rule-soft:    oklch(26% 0.015 42);
+
+  --ember-tint-7:  color-mix(in oklch, var(--ember) 10%, transparent);
+  --ember-tint-12: color-mix(in oklch, var(--ember) 16%, transparent);
+  --ember-tint-20: color-mix(in oklch, var(--ember) 25%, transparent);
+  --ember-tint-40: color-mix(in oklch, var(--ember) 45%, transparent);
+
+  --shadow-paper-sm: 0 1px 2px oklch(0% 0 0 / 0.4), 0 0 0 1px oklch(100% 0 0 / 0.04);
+  --shadow-paper-md: 0 4px 20px oklch(0% 0 0 / 0.5), 0 0 0 1px oklch(100% 0 0 / 0.04);
+  --shadow-paper-lg: 0 20px 60px oklch(0% 0 0 / 0.6), 0 0 0 1px oklch(100% 0 0 / 0.05);
+  --shadow-ember:    0 8px 32px oklch(62% 0.18 40 / 0.28);
+  --shadow-ember-lg: 0 18px 60px oklch(62% 0.18 40 / 0.4);
+}
+
+/* Hex-only fallback set for environments with no oklch()/color-mix()
+   support — HTML email, older PDF renderers, design tools. */
+@supports not (color: oklch(50% 0.1 40)) {
+  :root {
+    --paper: #FAF4EF; --paper-raised: #F2E9E4; --paper-deep: #E9DFD9; --paper-card: #FEFBF8;
+    --ink: #190F0B; --ink-mid: #514540; --ink-soft: #827873; --ink-faint: #AAA39F;
+    --rule: #E0D5CF; --rule-soft: #EFE6E0;
+    --ok: #479C4D; --warn: #D6A20A; --stop: #D7352D; --info: #2B88C0; --violet: #8A5FC9;
+  }
+  .dark, [data-theme="dark"] {
+    --paper: #120C09; --paper-raised: #1E1613; --paper-deep: #191210; --paper-card: #261D1A;
+    --ink: #F1E9E3; --ink-mid: #BDB6B1; --ink-soft: #8B8581; --ink-faint: #635C59;
+    --rule: #362B27; --rule-soft: #2B221E;
+  }
+}

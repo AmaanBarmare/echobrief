@@ -24,15 +24,15 @@ serve(async (req) => {
 <html>
   <head>
     <style>
-      body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif; color: #333; }
+      body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif; color: #333; }
       .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-      .header { background: linear-gradient(135deg, #F97316, #F59E0B); color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+      .header { background: linear-gradient(135deg, #D93F0B, #F5C842); color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
       .section { margin-bottom: 20px; }
-      .section h2 { color: #F97316; font-size: 16px; margin-bottom: 10px; }
+      .section h2 { color: #D93F0B; font-size: 16px; margin-bottom: 10px; }
       ul { margin: 10px 0; padding-left: 20px; }
       li { margin: 8px 0; }
       .footer { color: #999; font-size: 12px; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px; }
-      .button { display: inline-block; background: #F97316; color: white; padding: 10px 20px; border-radius: 4px; text-decoration: none; margin-top: 10px; }
+      .button { display: inline-block; background: #D93F0B; color: white; padding: 10px 20px; border-radius: 4px; text-decoration: none; margin-top: 10px; }
     </style>
   </head>
   <body>

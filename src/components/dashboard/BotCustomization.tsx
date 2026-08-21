@@ -11,13 +11,15 @@ interface BotCustomizationProps {
   onSave?: () => void;
 }
 
+// The bot avatar renders inside Google Meet / Zoom, outside our own CSS, so these
+// have to be literal hex. Values are the brand palette — see brand/COLORS.md.
 const COLOR_OPTIONS = [
-  { name: 'Orange', hex: '#F97316', bg: 'rgba(249,115,22,0.1)' },
-  { name: 'Blue', hex: '#3B82F6', bg: 'rgba(59,130,246,0.1)' },
-  { name: 'Green', hex: '#22C55E', bg: 'rgba(34,197,94,0.1)' },
-  { name: 'Purple', hex: '#A855F7', bg: 'rgba(168,85,247,0.1)' },
-  { name: 'Pink', hex: '#EC4899', bg: 'rgba(236,72,153,0.1)' },
-  { name: 'Cyan', hex: '#06B6D4', bg: 'rgba(6,182,212,0.1)' },
+  { name: 'Ember', hex: '#D93F0B', bg: 'rgba(217,63,11,0.1)' },
+  { name: 'Gold', hex: '#F5C842', bg: 'rgba(245,200,66,0.1)' },
+  { name: 'Green', hex: '#479C4D', bg: 'rgba(71,156,77,0.1)' },
+  { name: 'Blue', hex: '#2B88C0', bg: 'rgba(43,136,192,0.1)' },
+  { name: 'Violet', hex: '#8A5FC9', bg: 'rgba(138,95,201,0.1)' },
+  { name: 'Red', hex: '#D7352D', bg: 'rgba(215,53,45,0.1)' },
 ];
 
 export function BotCustomization({ user_id, onSave }: BotCustomizationProps) {
@@ -26,7 +28,7 @@ export function BotCustomization({ user_id, onSave }: BotCustomizationProps) {
   const [saving, setSaving] = useState(false);
   
   const [botName, setBotName] = useState('EchoBrief Notetaker');
-  const [botColor, setBotColor] = useState('#F97316');
+  const [botColor, setBotColor] = useState(COLOR_OPTIONS[0].hex);
   const [autoJoin, setAutoJoin] = useState(true);
 
   useEffect(() => {

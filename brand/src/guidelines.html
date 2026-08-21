@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>EchoBrief — Brand Guidelines</title>
+<link rel="preconnect" href="https://api.fontshare.com" crossorigin>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://api.fontshare.com/v2/css?f[]=switzer@300,400,500,600,700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Manrope:wght@300;400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ember:#D93F0B; --ember-deep:#B83508; --ember-hi:#E84D1A; --ember-dark:#E8430A;
+  --gold:#F5C842; --gold-light:#FFE08A;
+  --paper:#FAF4EF; --paper-raised:#F2E9E4; --paper-deep:#E9DFD9; --paper-card:#FEFBF8;
+  --ink:#190F0B; --ink-mid:#514540; --ink-soft:#827873; --ink-faint:#AAA39F;
+  --rule:#E0D5CF; --rule-soft:#EFE6E0;
+  --char:#120C09; --char-raised:#1E1613; --char-card:#261D1A;
+  --bone:#F1E9E3; --bone-mid:#BDB6B1; --bone-soft:#8B8581; --bone-faint:#635C59;
+  --rule-dark:#362B27;
+  --ok:#479C4D; --warn:#D6A20A; --stop:#D7352D; --info:#2B88C0; --violet:#8A5FC9;
+  --serif:'DM Serif Display',Georgia,serif;
+  --body:'Manrope','Switzer',system-ui,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+  --code:'JetBrains Mono',ui-monospace,monospace;
+  --ui:'Switzer',system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{font-family:var(--body);color:var(--ink);background:var(--paper);font-size:9.5pt;line-height:1.6}
+@page{size:A4;margin:0}
+
+.page{
+  width:210mm;height:297mm;padding:19mm 18mm 15mm;
+  position:relative;overflow:hidden;background:var(--paper);
+  page-break-after:always;display:flex;flex-direction:column;
+}
+.page:last-child{page-break-after:auto}
+.page.dark{background:var(--char);color:var(--bone)}
+.page.dark .eyebrow{color:var(--ember-dark)}
+.page.dark h2,.page.dark h3,.page.dark h4{color:var(--bone)}
+.page.dark p,.page.dark li,.page.dark td{color:var(--bone-mid)}
+.page.dark .rule,.page.dark table,.page.dark th,.page.dark td{border-color:var(--rule-dark)}
+.page.dark .foot{color:var(--bone-faint);border-color:var(--rule-dark)}
+.page.dark th{color:var(--bone-soft)}
+
+/* ── type ── */
+.eyebrow{display:inline-flex;align-items:center;gap:9px;font-family:var(--mono);
+  font-size:7.2pt;font-weight:500;letter-spacing:.22em;text-transform:uppercase;color:var(--ember)}
+.eyebrow::before{content:'';width:20px;height:1px;background:currentColor;opacity:.45}
+h1{font-family:var(--serif);font-size:40pt;line-height:1.02;letter-spacing:-.03em;font-weight:400}
+h2{font-family:var(--body);font-size:20pt;line-height:1.1;letter-spacing:-.025em;font-weight:700;margin:9px 0 5px}
+h3{font-family:var(--body);font-size:11pt;letter-spacing:-.01em;font-weight:700;margin:15px 0 5px}
+h4{font-family:var(--mono);font-size:7pt;font-weight:600;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--ink-soft);margin:13px 0 5px}
+em,.it{font-family:var(--serif);font-style:italic;font-weight:400;letter-spacing:-.01em}
+p{color:var(--ink-mid);max-width:62em}
+p+p{margin-top:6px}
+.lede{font-size:11pt;line-height:1.55;color:var(--ink-mid);max-width:44em}
+strong{font-weight:700;color:var(--ink)}
+.page.dark strong{color:var(--bone)}
+code,.mono{font-family:var(--code);font-size:8pt;background:var(--paper-raised);
+  padding:1px 5px;border-radius:3px;color:var(--ember-deep)}
+.page.dark code{background:var(--char-card);color:var(--gold)}
+ul{list-style:none;margin:6px 0}
+li{position:relative;padding-left:15px;margin-bottom:4px;color:var(--ink-mid)}
+li::before{content:'';position:absolute;left:0;top:.62em;width:5px;height:5px;
+  border-radius:50%;background:var(--ember);opacity:.55}
+ol{margin:6px 0 0 15px}ol li{padding-left:4px}ol li::before{display:none}
+.rule{border-top:1px solid var(--rule);margin:14px 0}
+.gradbar{height:4px;width:56px;border-radius:2px;
+  background:linear-gradient(135deg,var(--ember),var(--gold))}
+
+/* ── layout ── */
+.spacer{flex:1}
+.foot{border-top:1px solid var(--rule);padding-top:6px;display:flex;justify-content:space-between;
+  font-family:var(--mono);font-size:6.8pt;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint)}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.cols3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.card{background:var(--paper-card);border:1px solid var(--rule);border-radius:9px;padding:13px 15px}
+.page.dark .card{background:var(--char-card);border-color:var(--rule-dark)}
+
+/* ── tables ── */
+table{width:100%;border-collapse:collapse;font-size:8.2pt;margin-top:6px}
+th{text-align:left;font-family:var(--mono);font-size:6.6pt;font-weight:500;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--ink-soft);padding:0 8px 5px 0;border-bottom:1px solid var(--rule)}
+td{padding:5px 8px 5px 0;border-bottom:1px solid var(--rule-soft);vertical-align:top;color:var(--ink-mid)}
+.page.dark td{border-bottom-color:var(--rule-dark)}
+td.k{font-family:var(--code);font-size:7.6pt;color:var(--ink);white-space:nowrap}
+.page.dark td.k{color:var(--bone)}
+.chip{display:inline-block;width:11px;height:11px;border-radius:3px;vertical-align:-1px;margin-right:6px;
+  border:1px solid rgba(0,0,0,.10)}
+
+/* ── swatches ── */
+.sw-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-top:8px}
+.sw{border-radius:8px;overflow:hidden;border:1px solid var(--rule)}
+.page.dark .sw{border-color:var(--rule-dark)}
+.sw .fill{height:52px}
+.sw .meta{padding:6px 8px;background:var(--paper-card)}
+.page.dark .sw .meta{background:var(--char-card)}
+.sw .nm{font-family:var(--code);font-size:7.2pt;font-weight:500;color:var(--ink)}
+.page.dark .sw .nm{color:var(--bone)}
+.sw .hx{font-family:var(--code);font-size:6.8pt;color:var(--ink-soft);letter-spacing:.02em}
+.sw .use{font-size:6.8pt;color:var(--ink-faint);line-height:1.35;margin-top:2px}
+.grad-panel{height:64px;border-radius:9px;background:linear-gradient(135deg,#D93F0B,#F5C842);
+  display:flex;align-items:flex-end;padding:9px 12px}
+.grad-panel span{font-family:var(--code);font-size:7.4pt;color:#fff;opacity:.92}
+
+/* ── logo blocks ── */
+.logo-plate{border:1px solid var(--rule);border-radius:9px;padding:20px;display:flex;
+  align-items:center;justify-content:center;background:var(--paper-card)}
+.logo-plate.on-dark{background:var(--char);border-color:var(--rule-dark)}
+.logo-plate.on-ember{background:linear-gradient(135deg,#D93F0B,#F5C842);border:none}
+.logo-plate img{height:34px}
+.logo-plate.tall img{height:52px}
+.plate-cap{font-family:var(--mono);font-size:6.6pt;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--ink-faint);margin-top:5px}
+.page.dark .plate-cap{color:var(--bone-faint)}
+
+/* ── specimens ── */
+.spec{border-left:2px solid var(--rule);padding-left:13px;margin:9px 0}
+.spec .lbl{font-family:var(--mono);font-size:6.5pt;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--ink-faint);margin-bottom:3px}
+.s-display{font-family:var(--serif);font-size:26pt;line-height:1.04;letter-spacing:-.03em;color:var(--ink)}
+.s-h1{font-family:var(--ui);font-size:17pt;font-weight:600;letter-spacing:-.02em;color:var(--ink)}
+.s-h2{font-family:var(--ui);font-size:13pt;font-weight:600;letter-spacing:-.015em;color:var(--ink)}
+.s-body{font-family:var(--ui);font-size:9.5pt;color:var(--ink-mid)}
+.s-mono{font-family:var(--code);font-size:8.4pt;color:var(--ink-mid)}
+.s-indic{font-size:11pt;color:var(--ink-mid)}
+.glyphs{font-family:var(--ui);font-size:13pt;letter-spacing:.06em;color:var(--ink);word-spacing:.1em}
+.glyphs.serif{font-family:var(--serif);font-size:16pt}
+
+/* ── UI signature demos ── */
+.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 11px;font-family:var(--mono);
+  font-size:6.8pt;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:var(--ember);
+  background:rgba(217,63,11,.10);border:1px solid rgba(217,63,11,.25);border-radius:999px}
+.pill .dot{width:6px;height:6px;border-radius:50%;background:var(--ember)}
+.btn{display:inline-block;padding:7px 16px;border-radius:8px;font-family:var(--ui);
+  font-size:8.4pt;font-weight:500;margin-right:7px}
+.btn.pri{background:var(--ember);color:#fff}
+.btn.grad{background:linear-gradient(135deg,#D93F0B,#F5C842);color:#fff}
+.btn.sec{background:var(--paper-raised);color:var(--ink)}
+.btn.ghost{color:var(--ember);border:1px solid rgba(217,63,11,.3)}
+.wave{display:inline-flex;align-items:flex-end;gap:2.5px;height:22px}
+.wave i{display:block;width:2.5px;border-radius:2px;background:var(--ember);opacity:.85}
+.dots span{display:inline-flex;align-items:center;gap:6px;margin-right:14px;font-size:7.6pt;color:var(--ink-soft)}
+.dots b{width:7px;height:7px;border-radius:50%;display:inline-block}
+.do-dont{display:grid;grid-template-columns:1fr 1fr;gap:13px;margin-top:8px}
+.dd{border-radius:9px;padding:11px 13px;font-size:8.2pt}
+.dd.do{background:rgba(71,156,77,.08);border:1px solid rgba(71,156,77,.28)}
+.dd.dont{background:rgba(215,53,45,.07);border:1px solid rgba(215,53,45,.26)}
+.dd .tag{font-family:var(--mono);font-size:6.6pt;letter-spacing:.18em;text-transform:uppercase;
+  font-weight:600;margin-bottom:5px;display:block}
+.dd.do .tag{color:var(--ok)} .dd.dont .tag{color:var(--stop)}
+.dd p{color:var(--ink-mid);font-size:8.2pt}
+
+/* clear-space diagram */
+.cs{display:inline-block;padding:22px 26px 16px;background:var(--paper-raised);border-radius:9px}
+.cs .csbox{border:1px dashed rgba(217,63,11,.55);padding:8px}
+.cs img{height:38px;display:block}
+.cs .m{display:block;font-family:var(--code);font-size:6.2pt;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--ember);text-align:center;margin-bottom:5px}
+.cs .cap{display:block;font-family:var(--code);font-size:6.2pt;color:var(--ink-faint);
+  text-align:center;margin-top:6px}
+</style>
+</head>
+<body>
+
+<!-- ══════════ 1 · COVER ══════════ -->
+<section class="page dark" style="justify-content:space-between;padding:24mm 18mm 15mm">
+  <div>
+    <img src="../logo/svg/echobrief-lockup-dark.svg" style="height:44px">
+  </div>
+  <div>
+    <div class="gradbar" style="margin-bottom:18px"></div>
+    <h1 style="color:var(--bone);font-size:46pt">Brand<br>Identity</h1>
+    <p style="font-size:12pt;color:var(--bone-mid);margin-top:14px;max-width:30em">
+      Warm Dispatch — the colour, type, logo and voice that make every EchoBrief
+      surface look like it came from the same place.
+    </p>
+  </div>
+  <div style="display:flex;justify-content:space-between;align-items:flex-end">
+    <div style="font-family:var(--mono);font-size:7.2pt;letter-spacing:.2em;text-transform:uppercase;color:var(--bone-faint)">
+      Version 1.0 · 21 August 2026
+    </div>
+    <div style="font-family:var(--mono);font-size:7.2pt;letter-spacing:.2em;text-transform:uppercase;color:var(--ember-dark)">
+      echobrief.in
+    </div>
+  </div>
+</section>
+
+<!-- ══════════ 2 · THE IDEA ══════════ -->
+<section class="page">
+  <span class="eyebrow">The idea</span>
+  <h2>Warm dispatch</h2>
+  <p class="lede" style="margin-top:4px">
+    A dispatch is a report filed from where the work happened — brief, factual,
+    sent onward. EchoBrief is a working instrument, not a showpiece, and the
+    identity follows: warm, plain, and quiet enough that the meeting content is
+    the loudest thing on screen.
+  </p>
+
+  <div class="rule"></div>
+
+  <div class="cols3">
+    <div>
+      <h4>Warm, never grey</h4>
+      <p style="font-size:8.4pt">Paper and charcoal are both warm-tinted. Meetings are
+      human; a cool-grey product reads like a database console.</p>
+    </div>
+    <div>
+      <h4>One signal colour</h4>
+      <p style="font-size:8.4pt">Ember marks what is interactive or live. Used
+      everywhere, it means nothing — so it appears once per view.</p>
+    </div>
+    <div>
+      <h4>Sound is the only metaphor</h4>
+      <p style="font-size:8.4pt">Rings, ripples, waveform bars. No brains, no
+      sparkles, no robots, no circuit-board texture.</p>
+    </div>
+  </div>
+
+  <div class="rule"></div>
+
+  <h3>What this kit contains</h3>
+  <table>
+    <tr><td class="k">Logo</td><td>Construction, the eight approved files, clear space, minimum sizes, and the don'ts.</td></tr>
+    <tr><td class="k">Colour</td><td>Ember and gold, warm paper and char neutrals, semantic status, and every measured contrast ratio.</td></tr>
+    <tr><td class="k">Typography</td><td>Two stacks — Switzer in-app, DM Serif Display + Manrope on brand surfaces — plus the Indic set.</td></tr>
+    <tr><td class="k">Interface</td><td>The five signature details, buttons, icons, surfaces and motion.</td></tr>
+    <tr><td class="k">Voice</td><td>How EchoBrief writes, and the words it never uses.</td></tr>
+  </table>
+
+  <div class="rule"></div>
+
+  <div class="card">
+    <h4 style="margin-top:0">Where the truth lives</h4>
+    <p style="font-size:8.4pt">The app implements this system in
+    <code>src/index.css</code> and <code>src/components/ui/Logo.tsx</code>. This
+    document describes that implementation and makes it portable to decks,
+    email, print and partner surfaces. Machine-readable tokens ship alongside it
+    as <code>brand/tokens/colors.json</code> and <code>colors.css</code>. If a
+    value ever disagrees, the app wins — then fix the token file.</p>
+  </div>
+
+  <div class="spacer"></div>
+  <div class="foot"><span>EchoBrief Brand Identity</span><span>The idea · 02</span></div>
+</section>
+
+<!-- ══════════ 3 · LOGO ══════════ -->
+<section class="page">
+  <span class="eyebrow">Logo</span>
+  <h2>Three ripples and a core</h2>
+  <p class="lede" style="margin-top:4px;font-size:10pt">
+    Sound leaving a source — and attention narrowing to a point. The ripples fade
+    outward at 28% and 52% opacity so the core always wins the eye.
+  </p>
+
+  <div style="display:grid;grid-template-columns:1.15fr .85fr;gap:18px;margin-top:14px">
+    <div>
+      <div class="logo-plate tall"><img src="../logo/svg/echobrief-lockup-light.svg"></div>
+      <div class="plate-cap">Primary lockup · light backgrounds</div>
+    </div>
+    <div>
+      <div class="logo-plate tall on-dark"><img src="../logo/svg/echobrief-lockup-dark.svg"></div>
+      <div class="plate-cap">Lockup · dark backgrounds</div>
+    </div>
+  </div>
+
+  <div class="cols3" style="margin-top:12px">
+    <div>
+      <div class="logo-plate"><img src="../logo/svg/echobrief-mark.svg" style="height:44px"></div>
+      <div class="plate-cap">Mark alone</div>
+    </div>
+    <div>
+      <div class="logo-plate on-ember"><img src="../logo/svg/echobrief-lockup-mono-white.svg" style="height:26px"></div>
+      <div class="plate-cap">Mono white on ember</div>
+    </div>
+    <div>
+      <div class="logo-plate"><img src="../logo/svg/echobrief-icon.svg" style="height:44px"></div>
+      <div class="plate-cap">App icon</div>
+    </div>
+  </div>
+
+  <div class="rule"></div>
+
+  <div class="cols">
+    <div>
+      <h3 style="margin-top:0">Construction</h3>
+      <p style="font-size:8.4pt">Drawn on a 32-unit grid, filled with the ember→gold
+      gradient. In the lockup the mark scales 1.5× against 32px type.</p>
+      <table>
+        <tr><td class="k">Outer ring</td><td>r 14 · stroke 1.2 · opacity 0.28</td></tr>
+        <tr><td class="k">Inner ring</td><td>r 9 · stroke 1.2 · opacity 0.52</td></tr>
+        <tr><td class="k">Core</td><td>r 4.5 · solid</td></tr>
+      </table>
+      <h3>Wordmark</h3>
+      <p style="font-size:8.4pt">DM Serif Display, 32px, tracking −0.04em.
+      <strong>echo</strong> roman in ink, <em>brief</em> italic in ember. The italic
+      is the whole idea: the echo is plain, the brief is the emphasis.</p>
+    </div>
+    <div>
+      <h3 style="margin-top:0">Clear space &amp; minimum size</h3>
+      <p style="font-size:8.4pt">Clear space on all four sides equals the diameter of
+      the core — 28% of the mark's height. Nothing enters that zone.</p>
+      <div class="cs" style="margin-top:8px">
+        <span class="m">↕ clear space = core Ø</span>
+        <div class="csbox"><img src="../logo/svg/echobrief-lockup-light.svg"></div>
+        <span class="cap">nothing enters the dashed zone</span>
+      </div>
+      <table style="margin-top:10px">
+        <tr><th>Asset</th><th>Screen</th><th>Print</th></tr>
+        <tr><td>Full lockup</td><td class="k">120px</td><td class="k">32mm</td></tr>
+        <tr><td>Mark alone</td><td class="k">24px</td><td class="k">8mm</td></tr>
+        <tr><td>App icon</td><td class="k">16px</td><td class="k">—</td></tr>
+      </table>
+      <p style="font-size:8pt;margin-top:7px">Below 24px the outer ring disappears —
+      use the app icon instead, which holds to 16px.</p>
+    </div>
+  </div>
+
+  <div class="do-dont">
+    <div class="dd do"><span class="tag">Do</span>
+      <p>Use the supplied files. Mono white over photography and over ember. Give it
+      the full clear space, even when the layout is tight.</p></div>
+    <div class="dd dont"><span class="tag">Don't</span>
+      <p>Rebuild the wordmark in another font · set <em>brief</em> in roman · recolour
+      or re-opacity individual rings · stretch, rotate or arc · add shadows, glows
+      or outlines · crop the rings.</p></div>
+  </div>
+
+  <div class="spacer"></div>
+  <div class="foot"><span>EchoBrief Brand Identity</span><span>Logo · 03</span></div>
+</section>
+
+<!-- ══════════ 4 · COLOUR ══════════ -->
+<section class="page">
+  <span class="eyebrow">Colour</span>
+  <h2>Ember on warm paper</h2>
+  <p class="lede" style="margin-top:4px;font-size:10pt">
+    One signal colour, one accent, and a warm neutral field. Status colour is
+    never brand colour — the moment ember also means “recording”, both meanings die.
+  </p>
+
+  <h4>Brand</h4>
+  <div class="sw-grid">
+    <div class="sw"><div class="fill" style="background:#D93F0B"></div>
+      <div class="meta"><div class="nm">ember</div><div class="hx">#D93F0B</div>
+      <div class="use">Primary — light mode</div></div></div>
+    <div class="sw"><div class="fill" style="background:#E8430A"></div>
+      <div class="meta"><div class="nm">ember · dark</div><div class="hx">#E8430A</div>
+      <div class="use">Primary — dark mode, app icon</div></div></div>
+    <div class="sw"><div class="fill" style="background:#B83508"></div>
+      <div class="meta"><div class="nm">ember-deep</div><div class="hx">#B83508</div>
+      <div class="use">Pressed · ember body text</div></div></div>
+    <div class="sw"><div class="fill" style="background:#F5C842"></div>
+      <div class="meta"><div class="nm">gold</div><div class="hx">#F5C842</div>
+      <div class="use">Accent · gradient end</div></div></div>
+  </div>
+
+  <div style="margin-top:11px">
+    <div class="grad-panel"><span>linear-gradient(135deg, #D93F0B 0%, #F5C842 100%)</span></div>
+    <p style="font-size:8pt;margin-top:5px">Reserved for the logomark, app icon, hero
+    CTA, and the 4px signature bar on section headers. That is the entire list.</p>
+  </div>
+
+  <h4>Neutrals — light</h4>
+  <div class="sw-grid">
+    <div class="sw"><div class="fill" style="background:#FAF4EF"></div>
+      <div class="meta"><div class="nm">paper</div><div class="hx">#FAF4EF</div><div class="use">Background</div></div></div>
+    <div class="sw"><div class="fill" style="background:#FEFBF8"></div>
+      <div class="meta"><div class="nm">paper-card</div><div class="hx">#FEFBF8</div><div class="use">Card fill</div></div></div>
+    <div class="sw"><div class="fill" style="background:#E0D5CF"></div>
+      <div class="meta"><div class="nm">rule</div><div class="hx">#E0D5CF</div><div class="use">Borders</div></div></div>
+    <div class="sw"><div class="fill" style="background:#190F0B"></div>
+      <div class="meta"><div class="nm">ink</div><div class="hx">#190F0B</div><div class="use">Primary text</div></div></div>
+  </div>
+
+  <h4>Neutrals — dark</h4>
+  <div class="sw-grid">
+    <div class="sw"><div class="fill" style="background:#120C09"></div>
+      <div class="meta"><div class="nm">char</div><div class="hx">#120C09</div><div class="use">Background</div></div></div>
+    <div class="sw"><div class="fill" style="background:#261D1A"></div>
+      <div class="meta"><div class="nm">char-card</div><div class="hx">#261D1A</div><div class="use">Card fill</div></div></div>
+    <div class="sw"><div class="fill" style="background:#362B27"></div>
+      <div class="meta"><div class="nm">rule-dark</div><div class="hx">#362B27</div><div class="use">Borders</div></div></div>
+    <div class="sw"><div class="fill" style="background:#F1E9E3"></div>
+      <div class="meta"><div class="nm">bone</div><div class="hx">#F1E9E3</div><div class="use">Primary text</div></div></div>
+  </div>
+
+  <h4>Semantic — status only</h4>
+  <div class="sw-grid" style="grid-template-columns:repeat(5,1fr)">
+    <div class="sw"><div class="fill" style="background:#479C4D;height:38px"></div>
+      <div class="meta"><div class="nm">ok</div><div class="hx">#479C4D</div></div></div>
+    <div class="sw"><div class="fill" style="background:#D6A20A;height:38px"></div>
+      <div class="meta"><div class="nm">warn</div><div class="hx">#D6A20A</div></div></div>
+    <div class="sw"><div class="fill" style="background:#D7352D;height:38px"></div>
+      <div class="meta"><div class="nm">stop</div><div class="hx">#D7352D</div></div></div>
+    <div class="sw"><div class="fill" style="background:#2B88C0;height:38px"></div>
+      <div class="meta"><div class="nm">info</div><div class="hx">#2B88C0</div></div></div>
+    <div class="sw"><div class="fill" style="background:#8A5FC9;height:38px"></div>
+      <div class="meta"><div class="nm">violet</div><div class="hx">#8A5FC9</div></div></div>
+  </div>
+
+  <div class="spacer"></div>
+  <div class="foot"><span>EchoBrief Brand Identity</span><span>Colour · 04</span></div>
+</section>
+
+<!-- ══════════ 5 · COLOUR RULES + CONTRAST ══════════ -->
+<section class="page">
+  <span class="eyebrow">Colour</span>
+  <h2>Contrast, measured</h2>
+  <p style="font-size:9pt;margin-top:3px">WCAG 2.1 ratios against the surfaces these
+  colours actually sit on. Two facts are worth memorising: ember on paper is 4.1:1,
+  so it is a large-text and UI colour, not a body-copy colour — and gold on light is
+  1.5:1, so gold is a fill, never text.</p>
+
+  <div class="cols" style="margin-top:10px">
+    <table>
+      <tr><th>Pair</th><th>Ratio</th><th>Verdict</th></tr>
+      <tr><td><span class="chip" style="background:#190F0B"></span>ink on paper</td><td class="k">17.3</td><td>AAA</td></tr>
+      <tr><td><span class="chip" style="background:#514540"></span>ink-mid on paper</td><td class="k">8.5</td><td>AAA</td></tr>
+      <tr><td><span class="chip" style="background:#827873"></span>ink-soft on paper</td><td class="k">3.9</td><td>Large text · UI</td></tr>
+      <tr><td><span class="chip" style="background:#AAA39F"></span>ink-faint on paper</td><td class="k">2.3</td><td>Decorative only</td></tr>
+      <tr><td><span class="chip" style="background:#D93F0B"></span>ember on paper</td><td class="k">4.1</td><td><strong>Not body text</strong></td></tr>
+      <tr><td><span class="chip" style="background:#B83508"></span>ember-deep on paper</td><td class="k">5.4</td><td>AA — use for ember copy</td></tr>
+      <tr><td><span class="chip" style="background:#fff"></span>white on ember</td><td class="k">4.5</td><td>AA, exactly</td></tr>
+      <tr><td><span class="chip" style="background:#F5C842"></span>gold on paper</td><td class="k">1.5</td><td><strong>Never</strong></td></tr>
+    </table>
+    <table>
+      <tr><th>Pair</th><th>Ratio</th><th>Verdict</th></tr>
+      <tr><td><span class="chip" style="background:#F1E9E3"></span>bone on char</td><td class="k">16.2</td><td>AAA</td></tr>
+      <tr><td><span class="chip" style="background:#BDB6B1"></span>bone-mid on char</td><td class="k">9.7</td><td>AAA</td></tr>
+      <tr><td><span class="chip" style="background:#8B8581"></span>bone-soft on char</td><td class="k">5.3</td><td>AA</td></tr>
+      <tr><td><span class="chip" style="background:#635C59"></span>bone-faint on char</td><td class="k">3.0</td><td>Large text · UI</td></tr>
+      <tr><td><span class="chip" style="background:#E8430A"></span>ember on char</td><td class="k">4.8</td><td>AA</td></tr>
+      <tr><td><span class="chip" style="background:#F5C842"></span>gold on char</td><td class="k">12.2</td><td>AAA — dark only</td></tr>
+      <tr><td><span class="chip" style="background:#190F0B"></span>ink on gold</td><td class="k">11.9</td><td>AAA — gold as fill</td></tr>
+    </table>
+  </div>
+
+  <div class="rule"></div>
+
+  <h3 style="margin-top:0">Tints, elevation, radii</h3>
+  <div class="cols3">
+    <div class="card">
+      <h4 style="margin-top:0">Ember tints</h4>
+      <table>
+        <tr><td class="k">7%</td><td>Row hover, active row</td></tr>
+        <tr><td class="k">12%</td><td>Pill and badge fills</td></tr>
+        <tr><td class="k">22%</td><td>Active card borders</td></tr>
+        <tr><td class="k">40%</td><td>Focus rings</td></tr>
+      </table>
+    </div>
+    <div class="card">
+      <h4 style="margin-top:0">Shadows</h4>
+      <p style="font-size:8pt">Warm, never neutral grey. <code>paper-sm/md/lg</code>
+      for surfaces; <code>ember</code> and <code>ember-lg</code> for the primary CTA
+      only. Elevation rises one step on hover, never two.</p>
+    </div>
+    <div class="card">
+      <h4 style="margin-top:0">Radii</h4>
+      <table>
+        <tr><td class="k">0.375rem</td><td>Small controls</td></tr>
+        <tr><td class="k">0.625rem</td><td>Default card, button</td></tr>
+        <tr><td class="k">999px</td><td>Pills</td></tr>
+        <tr><td class="k">22%</td><td>App icon squircle</td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="do-dont">
+    <div class="dd do"><span class="tag">Do</span>
+      <p>One ember per view. Ink on gold when gold must carry text. Ember-deep for
+      any ember-coloured body copy on light.</p></div>
+    <div class="dd dont"><span class="tag">Don't</span>
+      <p>Fill a large surface with ember or the gradient · place ember beside stop-red
+      · use ember for a status · introduce a cool grey · invent a shade that isn't in
+      <code>colors.json</code>.</p></div>
+  </div>
+
+  <div class="spacer"></div>
+  <div class="foot"><span>EchoBrief Brand Identity</span><span>Colour · 05</span></div>
+</section>
+
+<!-- ══════════ 6 · TYPOGRAPHY ══════════ -->
+<section class="page">
+  <span class="eyebrow">Typography</span>
+  <h2>Two stacks, kept apart</h2>
+  <p style="font-size:9pt;margin-top:3px">The app is a working tool and reads in one
+  neutral sans. Brand surfaces carry a serif italic accent. Mixing the two is the
+  single most common way to take this system off-brand.</p>
+
+  <div class="cols" style="margin-top:12px">
+    <div class="card">
+      <h4 style="margin-top:0">App stack</h4>
+      <div class="glyphs">Switzer</div>
+      <p style="font-size:8pt;margin-top:4px">Headings <em style="font-family:var(--body);font-style:normal">and</em> body.
+      300–800, Fontshare. Feature settings <code>ss01 ss02 cv01</code> are part of the look.</p>
+      <div class="s-mono" style="margin-top:7px">JetBrains Mono — 09:41:22</div>
+      <p style="font-size:8pt">Timestamps, transcripts, code.</p>
+    </div>
+    <div class="card">
+      <h4 style="margin-top:0">Brand stack</h4>
+      <div class="glyphs serif">DM Serif Display <em>italic</em></div>
+      <p style="font-size:8pt;margin-top:4px">Display and accents only — never body copy.</p>
+      <div style="font-family:var(--body);font-size:11pt;font-weight:600;margin-top:6px">Manrope</div>
+      <p style="font-size:8pt">Body and UI on landing, decks, email, print.</p>
+      <div style="font-family:var(--mono);font-size:7.6pt;letter-spacing:.2em;margin-top:6px">IBM PLEX MONO</div>
+      <p style="font-size:8pt">Eyebrows and small uppercase labels.</p>
+    </div>
+  </div>
+
+  <div class="rule"></div>
+
+  <h4>Specimens</h4>
+  <div class="spec">
+    <div class="lbl">Brand display · DM Serif Display 400</div>
+    <div class="s-display">Every meeting, <em>briefed.</em></div>
+  </div>
+  <div class="spec">
+    <div class="lbl">App H1 · Switzer 600 · −0.02em</div>
+    <div class="s-h1">Weekly product sync</div>
+  </div>
+  <div class="spec">
+    <div class="lbl">App H2 · Switzer 600</div>
+    <div class="s-h2">Decisions and action items</div>
+  </div>
+  <div class="spec">
+    <div class="lbl">Body · Switzer 400 · 15px / 1.6</div>
+    <div class="s-body">The bot joined at 09:41 and recorded 47 minutes. Three decisions
+    were made and six action items assigned, four of them to people who were not in the room.</div>
+  </div>
+  <div class="spec">
+    <div class="lbl">Native scripts · Noto Sans · 16px floor</div>
+    <div class="s-indic">हर मीटिंग, संक्षेप में। · ஒவ்வொரு கூட்டமும், சுருக்கமாக.</div>
+  </div>
+
+  <div class="rule"></div>
+
+  <div class="cols">
+    <div>
+      <h3 style="margin-top:0">The italic accent</h3>
+      <p style="font-size:8.4pt">One italic DM Serif Display phrase inside an otherwise
+      sans headline. It carries the <em>brief</em> half of the logotype into the copy.
+      One per headline — two cancels the emphasis and reads like a template.</p>
+    </div>
+    <div>
+      <h3 style="margin-top:0">Never</h3>
+      <ul style="font-size:8.2pt">
+        <li>DM Serif Display below 24px, or as body copy</li>
+        <li>Switzer on brand surfaces, or Manrope inside the app</li>
+        <li>Faked weights or skewed italics</li>
+        <li>Positive tracking on lowercase — that's for uppercase mono only</li>
+        <li>A heading set in the gradient</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="spacer"></div>
+  <div class="foot"><span>EchoBrief Brand Identity</span><span>Typography · 06</span></div>
+</section>
+
+<!-- ══════════ 7 · INTERFACE ══════════ -->
+<section class="page">
+  <span class="eyebrow">Interface</span>
+  <h2>Five signature details</h2>
+  <p style="font-size:9pt;margin-top:3px">These are what make a screen recognisably
+  EchoBrief. Everything else is ordinary, on purpose.</p>
+
+  <div class="cols" style="margin-top:12px">
+    <div class="card">
+      <h4 style="margin-top:0">1 · The eyebrow</h4>
+      <span class="eyebrow">How it works</span>
+      <p style="font-size:8pt;margin-top:6px">IBM Plex Mono 10.5px, +0.22em, uppercase,
+      ember, preceded by a 22px hairline. One per section — a marker, not a decoration.</p>
+    </div>
+    <div class="card">
+      <h4 style="margin-top:0">2 · The recording pill</h4>
+      <span class="pill"><span class="dot"></span>Recording</span>
+      <p style="font-size:8pt;margin-top:6px">Ember tint fill, 25% ember border, pill
+      radius, 7px dot blinking at 1.2s. Off under <code>prefers-reduced-motion</code>.</p>
+    </div>
+    <div class="card">
+      <h4 style="margin-top:0">3 · The waveform</h4>
+      <div class="wave">
+        <i style="height:35%"></i><i style="height:70%"></i><i style="height:50%"></i>
+        <i style="height:90%"></i><i style="height:60%"></i><i style="height:100%"></i>
+        <i style="height:45%"></i><i style="height:75%"></i><i style="height:38%"></i>
+        <i style="height:82%"></i><i style="height:55%"></i><i style="height:65%"></i>
+      </div>
+      <p style="font-size:8pt;margin-top:6px">Twelve 3px ember bars, staggered heights
+      and durations. Live audio state only — never background art.</p>
+    </div>
+    <div class="card">
+      <h4 style="margin-top:0">4 · Status dots</h4>
+      <div class="dots" style="line-height:2">
+        <span><b style="background:#AAA39F"></b>scheduled</span>
+        <span><b style="background:#D93F0B"></b>upcoming</span>
+        <span><b style="background:#D7352D"></b>recording</span>
+        <span><b style="background:#D6A20A"></b>processing</span>
+        <span><b style="background:#479C4D"></b>completed</span>
+        <span><b style="background:#D7352D"></b>failed</span>
+      </div>
+      <p style="font-size:8pt;margin-top:4px">8px. Ember is never the recording colour.</p>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:13px">
+    <h4 style="margin-top:0">5 · The gradient bar</h4>
+    <div class="gradbar"></div>
+    <p style="font-size:8pt;margin-top:6px">A 4px ember→gold rule above a section header
+    or card. The only place the gradient touches a layout.</p>
+  </div>
+
+  <div class="rule"></div>
+
+  <div class="cols">
+    <div>
+      <h3 style="margin-top:0">Buttons</h3>
+      <div style="margin:8px 0">
+        <span class="btn grad">Start recording</span>
+        <span class="btn pri">Save</span>
+        <span class="btn sec">Cancel</span>
+        <span class="btn ghost">Learn more</span>
+      </div>
+      <p style="font-size:8.2pt">Radius <code>0.625rem</code>, weight 500. Hover moves to
+      <code>ember-hi</code>, pressed to <code>ember-deep</code>. Gradient fill is the hero
+      CTA only; it carries <code>--shadow-ember</code>, nothing else does.</p>
+    </div>
+    <div>
+      <h3 style="margin-top:0">Icons, surfaces, motion</h3>
+      <p style="font-size:8.2pt"><strong>Icons</strong> — Lucide React, stroke 1.75, sized
+      to the text beside them: 14px dense UI, 18px feature cards, 24px standalone. Never
+      mix stroke weights in one view.</p>
+      <p style="font-size:8.2pt"><strong>Surfaces</strong> — card fill, 1px rule border,
+      <code>0.625rem</code> radius, warm small shadow. A neutral grey shadow reads as a
+      foreign component.</p>
+      <p style="font-size:8.2pt"><strong>Motion</strong> — interface transitions 150–200ms
+      ease; brand motion loops slowly at 1.2–2.8s because it signals <em>live</em>, not
+      <em>look at me</em>. Everything has a reduced-motion off-switch.</p>
+    </div>
+  </div>
+
+  <div class="spacer"></div>
+  <div class="foot"><span>EchoBrief Brand Identity</span><span>Interface · 07</span></div>
+</section>
+
+<!-- ══════════ 8 · VOICE + RULES ══════════ -->
+<section class="page dark">
+  <span class="eyebrow">Voice</span>
+  <h2>Say what happened</h2>
+  <p style="font-size:9.5pt;margin-top:3px;color:var(--bone-mid);max-width:46em">
+    Conversational, not corporate. Outcome first — lead with what the user gets, not
+    what the system does. Confident without superlatives. Specific about India: name
+    the languages, say WhatsApp, price in ₹.
+  </p>
+
+  <div class="do-dont" style="margin-top:14px">
+    <div class="dd do" style="background:rgba(71,156,77,.12);border-color:rgba(71,156,77,.32)">
+      <span class="tag">Write</span>
+      <p style="color:var(--bone-mid)">Every meeting, <em>briefed.</em> Bot joins, records,
+      and files the notes before you're out of the room.</p></div>
+    <div class="dd dont" style="background:rgba(215,53,45,.12);border-color:rgba(215,53,45,.3)">
+      <span class="tag">Don't write</span>
+      <p style="color:var(--bone-mid)">EchoBrief is a cutting-edge, AI-powered meeting
+      intelligence platform that revolutionises how teams capture insights!</p></div>
+  </div>
+
+  <p style="font-size:8.6pt;margin-top:10px;color:var(--bone-soft)">
+    Banned: “AI-powered”, “cutting-edge”, “next-gen”, “revolutionary”, “seamless”,
+    “unlock”. No exclamation marks. Error messages say what happened and what to do —
+    and never apologise twice.
+  </p>
+
+  <div class="rule"></div>
+
+  <span class="eyebrow">Rules</span>
+  <h2 style="font-size:17pt">Ten that break the brand if ignored</h2>
+  <ol style="font-size:9pt;color:var(--bone-mid);margin-top:8px;line-height:1.85">
+    <li>One ember per view.</li>
+    <li>Ember never means a status. Recording is stop-red, not ember.</li>
+    <li>No cool greys, ever. Every neutral here is warm-tinted.</li>
+    <li>Gradient only on: logomark, app icon, hero CTA, 4px section bar.</li>
+    <li>Gold is a fill, not a text colour on light.</li>
+    <li>No serif inside the app; no Manrope outside brand surfaces.</li>
+    <li>One italic phrase per headline, one eyebrow per section.</li>
+    <li>Never rebuild the wordmark — use the supplied files.</li>
+    <li>Every motion has a reduced-motion fallback.</li>
+    <li>If a token doesn't exist, add it to <code>src/index.css</code> and
+        <code>brand/tokens/colors.json</code> together — never hardcode a one-off hex.</li>
+  </ol>
+
+  <div class="spacer"></div>
+  <div style="display:flex;align-items:flex-end;justify-content:space-between">
+    <img src="../logo/svg/echobrief-lockup-dark.svg" style="height:26px">
+    <div style="font-family:var(--mono);font-size:7pt;letter-spacing:.2em;text-transform:uppercase;color:var(--bone-faint)">
+      brand@echobrief.in
+    </div>
+  </div>
+  <div class="foot" style="margin-top:10px"><span>EchoBrief Brand Identity · v1.0</span><span>Voice &amp; rules · 08</span></div>
+</section>
+
+</body>
+</html>

@@ -31,8 +31,8 @@ const accentStyles = {
     name: 'var(--ember)',
   },
   gold: {
-    av: { background: 'color-mix(in oklch, var(--gold) 22%, transparent)', color: '#A77A00' },
-    name: '#A77A00',
+    av: { background: 'color-mix(in oklch, var(--gold) 22%, transparent)', color: 'var(--gold-ink)' },
+    name: 'var(--gold-ink)',
   },
   neutral: {
     av: { background: 'var(--paper-raised)', color: 'var(--ink-mid)' },

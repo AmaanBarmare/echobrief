@@ -57,3 +57,4 @@ __pycache__/
 .playwright-mcp/
 /*.png
 public/__tmp_session.json
+brand/src/.fonts/

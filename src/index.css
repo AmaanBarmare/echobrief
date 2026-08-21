@@ -63,6 +63,7 @@
   --ember-ink: #8C2F05;
   --gold: #F5C842;            /* secondary brand accent — action-items, highlights */
   --gold-light: #FFE08A;
+  --gold-ink: #8A6400;        /* gold as TEXT — gold itself is 1.5:1 on paper, this is 4.9:1 */
   --amber-warm: #F5C842;      /* legacy alias */
 
   /* Semantic (warm-tuned, not generic) */
@@ -142,6 +143,7 @@
   --ember-ink: #FF8956;
   --gold: #F5C842;
   --gold-light: #FFE08A;
+  --gold-ink: var(--gold);    /* gold clears AAA on char — no darkening needed */
   --amber-warm: #F5C842;
 
   --ember-tint-7: color-mix(in oklch, var(--ember) 10%, transparent);

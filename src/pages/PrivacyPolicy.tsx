@@ -27,7 +27,7 @@ export default function PrivacyPolicy() {
 
             <h2>1. What EchoBrief Does</h2>
             <p>
-              EchoBrief is a web service that sends a recording bot to supported online meetings (Google Meet, Zoom, Microsoft Teams) at the user&apos;s request, generates transcripts, and provides AI-powered summaries.
+              EchoBrief is a web service that sends a recording bot to supported online meetings (Google Meet, Zoom, Microsoft Teams) at the user&apos;s request, generates transcripts, and summarises them.
             </p>
             <p>
               EchoBrief does <strong>NOT</strong> record meetings on its own. A recording bot joins only when the user sends it to a meeting, or when the user has explicitly enabled auto-join for their connected calendar.

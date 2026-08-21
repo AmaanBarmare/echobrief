@@ -72,7 +72,7 @@ export default function Docs() {
                 className="p-6 rounded-lg border border-border bg-card hover:border-foreground/30 transition-colors"
               >
                 <div className="flex items-center gap-3 mb-4">
-                  <div style={{ color: '#F97316' }}>{section.icon}</div>
+                  <div style={{ color: 'var(--ember)' }}>{section.icon}</div>
                   <h2 className="text-xl font-semibold">{section.title}</h2>
                 </div>
                 <ul className="space-y-2">
@@ -98,7 +98,7 @@ export default function Docs() {
             <section id="what-is">
               <h2>What is EchoBrief?</h2>
               <p>
-                EchoBrief is an AI-powered meeting intelligence platform built for India. It automatically records, transcribes, and analyzes your meetings in 22 Indian languages, then delivers actionable summaries via email or WhatsApp.
+                EchoBrief is a meeting recording and summarisation service built for India. It automatically records, transcribes, and analyzes your meetings in 22 Indian languages, then delivers actionable summaries via email or WhatsApp.
               </p>
               <p>
                 Whether you're in a sales call, team standup, or client meeting, EchoBrief captures the important details so you don't have to.
