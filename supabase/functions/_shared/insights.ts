@@ -1,4 +1,5 @@
 import OpenAI from "https://esm.sh/openai@4.20.1";
+import { resolveAllowlistedRecipients } from "./summary-recipients.ts";
 
 export interface SpeakerSegment {
   speaker: string;
@@ -289,6 +290,7 @@ export async function deliverResults(
   },
 ) {
   let emailSent = false;
+  const reviewersEmailed: string[] = [];
 
   // Harness-created meetings ([harness] title prefix) run against prod on every
   // harness invocation — ~6 summary emails a run. Suppress delivery for them
@@ -300,7 +302,7 @@ export async function deliverResults(
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("email_summaries_enabled")
+    .select("email_summaries_enabled, email")
     .eq("user_id", meeting.user_id)
     .single();
 
@@ -311,19 +313,27 @@ export async function deliverResults(
   const emailEnabled =
     config.sendEmail === true || profile?.email_summaries_enabled !== false;
 
+  const emailUrl = `${config.supabaseUrl}/functions/v1/send-meeting-email`;
+
+  const send = async (recipientEmail?: string) => {
+    const emailResponse = await fetch(emailUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${config.supabaseServiceKey}`,
+      },
+      body: JSON.stringify(
+        recipientEmail
+          ? { meetingId: meeting.id, recipientEmail }
+          : { meetingId: meeting.id },
+      ),
+    });
+    return await emailResponse.json();
+  };
+
   if (emailEnabled) {
     try {
-      const emailUrl = `${config.supabaseUrl}/functions/v1/send-meeting-email`;
-      const emailResponse = await fetch(emailUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${config.supabaseServiceKey}`,
-        },
-        body: JSON.stringify({ meetingId: meeting.id }),
-      });
-
-      const emailResult = await emailResponse.json();
+      const emailResult = await send();
       emailSent = emailResult.success === true;
       console.log("Email result:", emailResult);
     } catch (emailError) {
@@ -331,5 +341,26 @@ export async function deliverResults(
     }
   }
 
-  return { emailSent };
+  // Reviewers on the allowlist who were also on this meeting's invite get the
+  // same summary. Independent of `emailEnabled`: that flag is the owner's own
+  // "mail me my summaries" preference, and a reviewer copy is not that. Each
+  // send takes its own (meeting, recipient) claim, so replayed callbacks cannot
+  // double-mail them either.
+  const reviewers = await resolveAllowlistedRecipients(
+    supabase,
+    meeting,
+    profile?.email,
+  );
+
+  for (const reviewer of reviewers) {
+    try {
+      const result = await send(reviewer);
+      if (result?.success) reviewersEmailed.push(reviewer);
+      console.log(`[deliverResults] Reviewer copy → ${reviewer}:`, result);
+    } catch (reviewerError) {
+      console.error(`[deliverResults] Reviewer copy to ${reviewer} failed:`, reviewerError);
+    }
+  }
+
+  return { emailSent, reviewersEmailed };
 }

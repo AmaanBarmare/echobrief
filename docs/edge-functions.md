@@ -152,7 +152,7 @@ Builds weekly/monthly aggregate digests across a user's meetings.
 
 | Function | Purpose |
 |---|---|
-| `send-meeting-email` | The real summary email (HTML). Called by `deliverResults`. Claims `email_deliveries` **before** calling Resend, so one recipient gets one summary per meeting no matter how many callers race; returns `{ success: true, skipped: true, reason: "already_sent" }` to a loser. |
+| `send-meeting-email` | The real summary email (HTML). Called by `deliverResults` once for the owner, then once per allowlisted reviewer on the invite (`recipientEmail` in the body). Claims `email_deliveries` **before** calling Resend, so one recipient gets one summary per meeting no matter how many callers race; returns `{ success: true, skipped: true, reason: "already_sent" }` to a loser. |
 | `send-meeting-summary-email` | Thin summary-only variant |
 | `send-email-report` | Digest/report email rendering and send |
 | `send-scheduled-emails` | Drains scheduled sends |

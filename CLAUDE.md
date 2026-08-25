@@ -60,6 +60,7 @@ npm run functions:serve  # Serve Supabase Edge Functions locally (needs supabase
 **Edge Functions (Deno):**
 - `supabase/functions/process-meeting/` -- Orchestrates transcription (Sarvam primary, Whisper fallback) + GPT insight generation. Whisper currently OOMs in the edge function for audio > ~15 MB — see `errors.md` `whisper:oom` entry.
 - `supabase/functions/sarvam-webhook/` -- Async callback from Sarvam STT. Auto-falls-back to Whisper on any download error (covers Sarvam's `KeyError: 'timestamps'` server bug on long audio). **Takes an atomic in-flight claim (`meetings.sarvam_webhook_claimed_at`) on terminal callbacks** — Sarvam re-fires the same callback every ~8 s while this handler works, and the read-then-check status guard cannot stop those.
+- `supabase/functions/_shared/summary-recipients.ts` -- Resolves the reviewer copies: allowlisted addresses ∩ the meeting's attendees, minus the owner. Reads `meetings.attendees` and falls back to `calendar_events.attendees` via `calendar_event_id`. Never throws — a failed lookup costs a reviewer copy, never the owner's summary.
 - `supabase/functions/send-meeting-email/` -- The summary email. Claims a row in `email_deliveries` before calling Resend; a racing caller gets `23505` and returns `{ skipped: true, reason: "already_sent" }` instead of sending a second copy.
 - `supabase/functions/recall-webhook/` -- Receives Recall lifecycle events. `bot.done` queries Recall's `/audio_mixed/` endpoint to avoid race-marking good meetings as failed. Terminal classification via `classifySubCode()`: a bot kicked / not admitted *before* recording → **`cancelled`** (neutral, no audio was captured); bad/expired link → `failed`; genuine pipeline failures (`audio_mixed.failed`, etc.) → `failed`. A bot kicked *after* recording still emits `audio_mixed.done` and completes normally — that path is untouched. (See [`docs/engineering-notes.md`](docs/engineering-notes.md) #23.)
 - `supabase/functions/check-recall-status/` -- Polled by frontend; uses `sarvam_webhook_triggered_at` atomic lock to re-fire the Sarvam webhook when the callback was missed.
@@ -86,6 +87,7 @@ PostgreSQL with Row-Level Security. Key tables:
 - `meetings` -- metadata (title, source, status, audio_url, **`error_message`**, **`sarvam_webhook_triggered_at`**, **`sarvam_webhook_claimed_at`**, `sarvam_job_id`, `processing_config`)
 - `transcripts` -- transcript text + speaker segments (JSONB)
 - `meeting_insights` -- AI output (summary, action_items, decisions, risks, timeline, metrics)
+- `summary_recipient_allowlist` -- global reviewer list. An address here that is **also an attendee of the meeting** gets a copy of the summary email (`_shared/summary-recipients.ts` → `deliverResults`). Being on the list alone does not fan mail out. Service-role only; accounts for these people are created by invite, public signup stays closed.
 - `email_deliveries` -- one claim row per summary email sent, unique on `(meeting_id, lower(recipient_email), kind)`. `send-meeting-email` inserts it **before** calling Resend, so a duplicate caller gets `23505` and skips. Service-role only. This is what makes "one email per recipient per meeting" a guarantee rather than a hope.
 - `monitor_events` -- audit trail of every stuck-meeting detection from the monitor cron. Deduped via a generated `hour_bucket` column (one row per meeting+signature+hour). See `errors.md` for signature reference.
 - `profiles` -- user settings, integration flags
@@ -101,6 +103,7 @@ Migrations are in `supabase/migrations/`. Recent additions worth knowing about:
 - `20260425170100_monitor_stuck_meetings_cron.sql` — pg_cron schedule for the monitor
 - `20260613120000_reduce_cron_frequency.sql` — cuts auto-join (1→5 min) and monitor (5→15 min) cron frequency; the `net.http_post` calls these crons fired were 94.4% of all DB execution time and were depleting the Disk IO Budget (see [`docs/engineering-notes.md`](docs/engineering-notes.md) #22)
 - `20260613120100_prune_cron_pgnet_bookkeeping.sql` — daily prune of `cron.job_run_details` + `net._http_response`
+- `20260824120000_summary_recipient_allowlist.sql` — adds the `summary_recipient_allowlist` table (reviewers who get a copy of the summary when they are on the calendar invite)
 - `20260821180000_email_delivery_dedup.sql` — adds the `email_deliveries` claim table and `meetings.sarvam_webhook_claimed_at`, after Sarvam replayed one callback three times and the user got three identical summary emails (see [`docs/engineering-notes.md`](docs/engineering-notes.md) #24)
 
 ## Tech Stack

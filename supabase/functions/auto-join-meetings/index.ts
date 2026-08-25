@@ -153,6 +153,10 @@ serve(async (req) => {
             platform,
             status: 'joining',
             start_time: eventStart.toISOString(),
+            // Kept so the summary can be copied to allowlisted reviewers on the
+            // invite (see _shared/summary-recipients.ts) and so insight
+            // generation has real participant names to map speakers onto.
+            attendees: event.attendees || [],
           })
           .select('id')
           .single()
