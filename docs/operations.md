@@ -154,6 +154,40 @@ row (deduped per meeting + signature + hour). Email goes to `ALERT_EMAIL_TO` fro
 > Resend returning 403 with `"error code: 1010"` is **Cloudflare, not auth** — it bans
 > Python's default `urllib` User-Agent. Set a real UA before concluding the key is bad.
 
+### Auth mail (password reset, invites)
+
+The templates live in project config too, not in this repo. Regenerate and push
+them from the shared shell:
+
+```bash
+npm run emails:auth        # render supabase/auth-emails/*.html
+npm run emails:auth:push   # PATCH the live project, then read it back to verify
+```
+
+Auth mail does **not** go through the edge functions — Supabase Auth talks to Resend
+over SMTP, configured on the project, not in this repo. Symptom of a stale key:
+`POST /auth/v1/recover` returns `500 unexpected_failure` / `"Error sending recovery email"`.
+
+Read and write it with the Management API (the CLI has no command for it):
+
+```bash
+TOK=$(security find-generic-password -s "Supabase CLI" -w | sed 's/^go-keyring-base64://' | base64 -d)
+curl -s -H "Authorization: Bearer $TOK" \
+  https://api.supabase.com/v1/projects/$PROJECT_REF/config/auth
+```
+
+> **`smtp_*` is an all-or-nothing group.** PATCHing `smtp_pass` alone silently clears
+> `smtp_host`, `smtp_port`, `smtp_user`, `smtp_admin_email` and `smtp_sender_name`, which
+> drops the project back to Supabase's rate-limited default sender. Always send the whole
+> block: host `smtp.resend.com`, port `587`, user `resend`, pass = the Resend API key,
+> admin email `noreply@echobrief.in`, sender name `EchoBrief`.
+
+> The `smtp_pass` the API reads back is a **masked digest, and not a plain sha256 of the
+> key** — unlike edge-function secrets, you cannot diff it against `.env` to tell whether
+> the stored key is current. Verify the key itself with an SMTP login
+> (`smtplib`, `login("resend", key)`), then confirm the config end-to-end by calling
+> `/auth/v1/recover` and checking for `200` rather than `500`.
+
 ---
 
 ## Incident playbook

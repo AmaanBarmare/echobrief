@@ -1,3 +1,11 @@
+/**
+ * DEAD — superseded by send-meeting-email.
+ *
+ * Nothing invokes this: `deliverResults` calls send-meeting-email, which owns
+ * the summary mail, the email_deliveries claim that stops duplicates, and the
+ * brand shell. This one still carries its own hand-rolled layout. Do not wire
+ * it back up; delete it once we are sure no external caller remembers the URL.
+ */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY")!;

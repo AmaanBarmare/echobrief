@@ -1,3 +1,9 @@
+/**
+ * PARKED — onboarding emails are deliberately not shipped yet.
+ *
+ * Whatever renders these when they land must use _shared/email-brand.ts, not a
+ * new layout.
+ */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 

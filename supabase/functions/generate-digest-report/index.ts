@@ -1,3 +1,9 @@
+/**
+ * PARKED — the digest report is deliberately not shipped yet.
+ *
+ * Its HTML predates the shared shell. Before this is turned on, rebuild the
+ * markup with _shared/email-brand.ts so it matches every other mail we send.
+ */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { formatISTDate } from "../_shared/time.ts";

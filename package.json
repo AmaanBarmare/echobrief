@@ -13,7 +13,9 @@
     "preview": "vite preview",
     "functions:serve": "supabase functions serve --env-file ./supabase/.env.local",
     "test:unit": "deno test -A supabase/functions/tests/",
-    "prepare": "git config core.hooksPath githooks || true"
+    "prepare": "git config core.hooksPath githooks || true",
+    "emails:auth": "node scripts/auth-emails.mjs",
+    "emails:auth:push": "node scripts/auth-emails.mjs --push"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

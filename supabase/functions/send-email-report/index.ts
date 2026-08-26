@@ -2,6 +2,17 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, handleCorsPrelight } from "../_shared/cors.ts"
 import { formatISTDate } from "../_shared/time.ts";
+import {
+  APP_URL,
+  BODY,
+  C,
+  emailShell,
+  escapeHtml,
+  MONO,
+  panel,
+  row,
+  section,
+} from "../_shared/email-brand.ts";
 
 const supabaseClient = createClient(
   Deno.env.get('SUPABASE_URL')!,
@@ -17,95 +28,92 @@ interface EmailReportRequest {
   include_transcript?: boolean
 }
 
+/**
+ * The report a user emails to somebody else from the meeting page.
+ *
+ * Same shell as the automatic summary (_shared/email-brand.ts) — this used to
+ * be a separate design with its own fonts, its own header gradient and a dead
+ * *.vercel.app link in the footer, which is exactly the drift the shared shell
+ * exists to stop. Content differs from the digest on purpose: whoever was sent
+ * this may never have seen the meeting, so key points stay in.
+ */
 function generateEmailHTML(insights: any, meeting: any): string {
+  const esc = escapeHtml
   const summary = insights.summary_short || ''
   const keyPoints = Array.isArray(insights.key_points) ? insights.key_points.slice(0, 5) : []
   const decisions = Array.isArray(insights.decisions) ? insights.decisions.slice(0, 3) : []
   const actionItems = Array.isArray(insights.action_items) ? insights.action_items.slice(0, 5) : []
 
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #333; line-height: 1.6; }
-    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-    .header { background: linear-gradient(135deg, #D93F0B, #F5C842); padding: 30px; border-radius: 8px; color: white; margin-bottom: 30px; }
-    .header h1 { margin: 0; font-size: 24px; }
-    .header p { margin: 5px 0 0 0; opacity: 0.9; }
-    .section { margin-bottom: 25px; }
-    .section-title { font-size: 16px; font-weight: 600; color: #190F0B; margin-bottom: 12px; border-bottom: 2px solid #D93F0B; padding-bottom: 8px; }
-    .summary { background: #F8E7DF; padding: 15px; border-radius: 6px; border-left: 4px solid #D93F0B; }
-    .summary p { margin: 0; color: #333; }
-    ul { margin: 0; padding-left: 20px; }
-    li { margin-bottom: 8px; }
-    .action-item { background: #FAF4EF; padding: 12px; border-radius: 4px; margin-bottom: 8px; }
-    .action-item strong { color: #D93F0B; }
-    .footer { text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; color: #999; font-size: 12px; }
-    .badge { display: inline-block; background: #D93F0B; color: white; padding: 4px 8px; border-radius: 3px; font-size: 12px; margin-right: 5px; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h1>📋 ${meeting.title}</h1>
-      <p>${formatISTDate(meeting.start_time, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}</p>
-    </div>
+  const bullet = (content: string, accent: string) => `
+              <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom:8px;">
+                <tr>
+                  <td width="3" style="background-color:${accent};border-radius:2px 0 0 2px;">&nbsp;</td>
+                  <td style="background-color:${C.paperCard};border:1px solid ${C.rule};border-left:none;border-radius:0 8px 8px 0;padding:12px 14px;font-family:${BODY};font-size:14px;line-height:1.55;color:${C.inkMid};">${content}</td>
+                </tr>
+              </table>`
 
-    ${summary ? `
-    <div class="section">
-      <div class="section-title">Executive Summary</div>
-      <div class="summary">
-        <p>${summary}</p>
-      </div>
-    </div>
-    ` : ''}
+  const keyPointsHtml = keyPoints
+    .map((point: unknown) => bullet(esc(point), C.ember))
+    .join('')
 
-    ${keyPoints.length > 0 ? `
-    <div class="section">
-      <div class="section-title">🎯 Key Points</div>
-      <ul>
-        ${keyPoints.map(point => `<li>${point}</li>`).join('')}
-      </ul>
-    </div>
-    ` : ''}
+  const decisionsHtml = decisions
+    .map((d: any) => bullet(esc(typeof d === 'string' ? d : d?.decision ?? ''), C.ember))
+    .join('')
 
-    ${decisions.length > 0 ? `
-    <div class="section">
-      <div class="section-title">✅ Key Decisions</div>
-      <ul>
-        ${decisions.map(d => `<li>${d}</li>`).join('')}
-      </ul>
-    </div>
-    ` : ''}
+  const actionItemsHtml = actionItems
+    .map((item: any) => {
+      const task = typeof item === 'string' ? item : item.task || ''
+      const owner = typeof item === 'object' && item.owner ? item.owner : null
+      const priority = typeof item === 'object' && item.priority ? item.priority : null
+      const ownerHtml = owner
+        ? `<div style="margin-top:5px;font-family:${BODY};font-size:12px;color:${C.inkSoft};">Owner: <span style="color:${C.emberDeep};font-weight:600;">${esc(owner)}</span></div>`
+        : ''
+      const priorityHtml = priority
+        ? ` <span style="font-family:${MONO};font-size:10px;font-weight:600;letter-spacing:0.08em;color:${priorityColor(priority)};">${esc(String(priority).toUpperCase())}</span>`
+        : ''
+      return bullet(
+        `<span style="color:${C.ink};font-weight:600;">${esc(task)}</span>${priorityHtml}${ownerHtml}`,
+        C.gold,
+      )
+    })
+    .join('')
 
-    ${actionItems.length > 0 ? `
-    <div class="section">
-      <div class="section-title">📌 Action Items</div>
-      ${actionItems.map((item, i) => {
-        const task = typeof item === 'string' ? item : item.task || ''
-        const owner = typeof item === 'object' && item.owner ? item.owner : null
-        const priority = typeof item === 'object' && item.priority ? item.priority : null
-        return `
-        <div class="action-item">
-          <strong>${i + 1}. ${task}</strong>
-          ${owner ? `<br><small style="color: #666;">Owner: ${owner}</small>` : ''}
-          ${priority ? `<br><span class="badge">${priority}</span>` : ''}
-        </div>
-        `
-      }).join('')}
-    </div>
-    ` : ''}
+  return emailShell({
+    eyebrow: 'Meeting report',
+    headline: meeting.title,
+    meta: esc(
+      formatISTDate(meeting.start_time, {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      }),
+    ),
+    bodyRows: [
+      summary
+        ? row(
+          panel(
+            `<p style="margin:0;font-family:${BODY};font-size:15px;line-height:1.6;color:${C.ink};">${esc(summary)}</p>`,
+          ),
+          '20px 28px 26px',
+        )
+        : '',
+      keyPointsHtml ? section('Key points', keyPointsHtml) : '',
+      decisionsHtml ? section('Decisions', decisionsHtml) : '',
+      actionItemsHtml ? section('Action items', actionItemsHtml) : '',
+    ].join(''),
+    cta: { href: `${APP_URL}/meeting/${meeting.id}`, label: 'Open the full report' },
+    ctaNote: 'The transcript, timeline and the rest of the analysis are on the report page.',
+  })
+}
 
-    <div class="footer">
-      <p>Generated by EchoBrief • ${formatISTDate(new Date(), { year: 'numeric', month: 'short', day: 'numeric' })}</p>
-      <p style="margin-top: 10px;"><a href="https://echobrief-ten.vercel.app" style="color: #D93F0B; text-decoration: none;">View full report →</a></p>
-    </div>
-  </div>
-</body>
-</html>
-`.trim()
+function priorityColor(priority: string): string {
+  switch (String(priority).toLowerCase()) {
+    case 'high': return C.stop
+    case 'medium': return C.warn
+    case 'low': return C.ok
+    default: return C.inkSoft
+  }
 }
 
 async function sendViaResend(
@@ -197,11 +205,11 @@ serve(async (req) => {
     const html = generateEmailHTML(insights, meeting)
 
     // Send via Resend
-    const sendResult = await sendViaResend(
-      recipient_email,
-      `Meeting Report: ${meeting.title}`,
-      html
-    )
+    // Subject matches the summary mail's shape: what the reader gets first,
+    // not our own name — the from-address already says EchoBrief.
+    const subject = `${meeting.title} \u2014 meeting report`
+
+    const sendResult = await sendViaResend(recipient_email, subject, html)
 
     if (!sendResult.success) {
       throw new Error(sendResult.error || 'Failed to send email')
@@ -215,7 +223,7 @@ serve(async (req) => {
       .insert({
         meeting_id,
         recipient_email,
-        subject: `Meeting Report: ${meeting.title}`,
+        subject,
         status: 'sent',
         message_id: sendResult.messageId,
         sent_at: new Date().toISOString(),

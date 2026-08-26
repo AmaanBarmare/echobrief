@@ -214,9 +214,9 @@
     "gold-22-on-paper": "#F9EAC9",
     "ember-10-on-char": "#271209",
     "ember-25-on-char": "#481A09",
-    "font-head": "'Switzer',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif",
-    "font-body": "'Switzer',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif",
-    "font-serif": "'DM Serif Display',Georgia,'Times New Roman',serif",
-    "font-mono": "'JetBrains Mono',Consolas,'Courier New',monospace"
+    "font-note": "Email is a BRAND surface, so it takes the brand stack from brand/TYPOGRAPHY.md — DM Serif Display display, Manrope body, IBM Plex Mono eyebrows. The app stack (Switzer + JetBrains Mono) is for the dashboard and is off-brand in mail. These are the exact stacks in supabase/functions/_shared/email-brand.ts.",
+    "font-display": "'DM Serif Display',Georgia,'Times New Roman',serif",
+    "font-body": "'Manrope',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif",
+    "font-mono": "'IBM Plex Mono',Consolas,'Courier New',monospace"
   }
 }

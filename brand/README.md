@@ -46,9 +46,20 @@ surface.
 ### HTML email
 
 Email supports neither CSS variables nor `color-mix()`, and won't reliably load
-Switzer or DM Serif Display. The `email` block of `tokens/colors.json` holds the
-flat, pre-composited tints and the fallback font stacks to use instead. Take
-values from there rather than eyeballing a new hex.
+webfonts at all. The `email` block of `tokens/colors.json` holds the flat,
+pre-composited tints and the fallback font stacks to use instead. Take values
+from there rather than eyeballing a new hex.
+
+**Do not build a new email layout.** Every mail EchoBrief sends is rendered from
+one shell — [`supabase/functions/_shared/email-brand.ts`](../supabase/functions/_shared/email-brand.ts):
+the meeting summary, the report a user forwards, the pipeline alert, and the
+Supabase Auth mails (reset, invite, confirm, magic link, email change). The auth
+templates are the odd ones out — Supabase renders them from project config, not
+from this repo — so they are generated into
+[`supabase/auth-emails/`](../supabase/auth-emails/) with `npm run emails:auth`
+and pushed with `npm run emails:auth:push`. That indirection is why they sat on
+a retired navy-and-orange palette long after everything else moved: nothing here
+rendered them, so nothing flagged them.
 
 ## Quick facts
 
