@@ -15,16 +15,7 @@ import {
   downloadSarvamResults,
   getSarvamJobStatus,
 } from "../_shared/sarvam.ts";
-import {
-  BODY,
-  C,
-  emailShell,
-  escapeHtml,
-  MONO,
-  panel,
-  row,
-  section,
-} from "../_shared/email-brand.ts";
+import { buildAlertHtml, buildAlertSubject } from "./alert-template.ts";
 import { KNOWN_PATTERNS, isKnown, RecoveryAction } from "./known-patterns.ts";
 
 const STUCK_AFTER_MIN = 15;
@@ -333,88 +324,21 @@ async function sendAlertEmail(
     console.log(`[monitor] Skipping alert email for harness meeting ${meeting.id} (HARNESS_EMAILS not enabled)`);
     return false;
   }
-  const subjectPrefix = isHarnessMeeting
-    ? "[ECHOBRIEF HARNESS TEST]"
-    : isNewPattern
-      ? "[ECHOBRIEF NEW ERROR]"
-      : "[ECHOBRIEF]";
-  const subject = `${subjectPrefix} ${detection.signature} — ${meeting.title}`;
-
-  const dashboardLink = `https://echobrief.in/meeting/${meeting.id}`;
-  const detailsBlock = JSON.stringify(detection.details, null, 2);
-
-  const knownAdvice = KNOWN_PATTERNS[detection.signature]?.description
-    || "Unknown pattern. Investigate the meeting and add an entry to errors.md + known-patterns.ts.";
-
-  // Same shell as every user-facing mail. This one goes to us, not a customer,
-  // but an alert that looks like a different product is one more thing to
-  // recognise at 2am — and the shell costs nothing to reuse.
-  const tone = isHarnessMeeting ? C.ok : isNewPattern ? C.stop : C.ember;
-  const headline = isHarnessMeeting
-    ? "Harness test alert"
-    : isNewPattern
-      ? "New error pattern"
-      : "Stuck meeting";
-  const standfirst = isHarnessMeeting
-    ? "Triggered by a [harness] meeting. Expected — safe to ignore."
-    : isNewPattern
-      ? "This signature is not in KNOWN_PATTERNS. Investigate, then add it to errors.md and known-patterns.ts."
-      : "A meeting has been stuck past the threshold and the canonical recovery was attempted.";
-
-  const fact = (label: string, value: string, mono = false) => `
-                <tr>
-                  <td style="padding:0 0 6px;font-family:${MONO};font-size:10px;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:${C.inkFaint};width:120px;" valign="top">${escapeHtml(label)}</td>
-                  <td style="padding:0 0 6px;font-family:${mono ? MONO : BODY};font-size:13px;line-height:1.5;color:${C.inkMid};">${escapeHtml(value)}</td>
-                </tr>`;
-
-  const factTable = (rows: string) =>
-    `<table width="100%" cellpadding="0" cellspacing="0" role="presentation">${rows}</table>`;
-
-  const html = emailShell({
-    eyebrow: "Pipeline alert",
-    headline,
-    meta: `<span style="color:${tone};font-weight:600;">${escapeHtml(detection.signature)}</span>`,
-    bodyRows: [
-      row(
-        panel(
-          `<p style="margin:0;font-family:${BODY};font-size:15px;line-height:1.6;color:${C.ink};">${escapeHtml(standfirst)}</p>`,
-          isNewPattern ? "gold" : "ember",
-        ),
-        "20px 28px 26px",
-      ),
-      section(
-        "Recovery",
-        factTable(
-          fact("Attempted", `${recoveryOk ? "succeeded" : "failed"} — ${recoveryNote}`) +
-            fact("Guidance", knownAdvice),
-        ),
-      ),
-      section(
-        "Meeting",
-        factTable(
-          fact("Title", meeting.title) +
-            fact("ID", meeting.id, true) +
-            fact("Owner", meeting.user_id, true) +
-            fact("Status", meeting.status, true) +
-            fact("Stuck for", `${Math.round(detection.age_minutes)} min`) +
-            fact("Recall bot", meeting.recall_bot_id || "none", true) +
-            fact("Sarvam job", meeting.sarvam_job_id || "none", true),
-        ),
-      ),
-      section(
-        "Details",
-        `<pre style="margin:0;background-color:${C.paper};border:1px solid ${C.rule};border-radius:10px;padding:14px;overflow-x:auto;font-family:${MONO};font-size:12px;line-height:1.5;color:${C.inkMid};">${escapeHtml(detailsBlock)}</pre>`,
-      ),
-      isNewPattern
-        ? section(
-          "Next step",
-          `<p style="margin:0;font-family:${BODY};font-size:14px;line-height:1.6;color:${C.inkMid};">Investigate this signature, then add it to <span style="font-family:${MONO};font-size:13px;">errors.md</span> and <span style="font-family:${MONO};font-size:13px;">monitor-stuck-meetings/known-patterns.ts</span> with a recovery action. They drift if you only update one.</p>`,
-        )
-        : "",
-    ].join(""),
-    cta: { href: dashboardLink, label: "Open in dashboard" },
-    signoff: "Sent by",
-    hideFooterLink: true,
+  const subject = buildAlertSubject({
+    meeting,
+    detection,
+    recoveryNote,
+    recoveryOk,
+    isNewPattern,
+    isHarnessMeeting,
+  });
+  const html = buildAlertHtml({
+    meeting,
+    detection,
+    recoveryNote,
+    recoveryOk,
+    isNewPattern,
+    isHarnessMeeting,
   });
 
   try {

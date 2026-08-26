@@ -1,6 +1,8 @@
 import { assert, assertEquals, assertStringIncludes } from "https://deno.land/std@0.208.0/assert/mod.ts";
 import { C, emailShell, escapeHtml, GRADIENT, LOCKUP } from "../_shared/email-brand.ts";
 import { buildEmailHtml } from "../send-meeting-email/template.ts";
+import { generateEmailHTML } from "../send-email-report/template.ts";
+import { buildAlertHtml, buildAlertSubject } from "../monitor-stuck-meetings/alert-template.ts";
 
 /**
  * These lock the one thing that kept drifting: every mail we send looking like
@@ -99,4 +101,48 @@ Deno.test("auth templates keep the Go placeholders Supabase substitutes", async 
       assertStringIncludes(html, v, `auth:${name} lost ${v} — the mail would ship a dead link`);
     }
   }
+});
+
+Deno.test("the forwarded report is built from the shell, and escapes its content", () => {
+  const html = generateEmailHTML(
+    {
+      summary_short: "Pricing lands in October.",
+      key_points: ["<script>alert(1)</script>"],
+      decisions: [{ decision: "Ship on the 1st" }],
+      action_items: [{ task: "Send the note", owner: "Adnan", priority: "medium" }],
+    },
+    { id: "m-2", title: "Pricing review", start_time: "2026-08-24T13:15:00Z" },
+  );
+  assertOnBrand(html, "report email");
+  assert(!html.includes("<script>"), "report did not escape a key point");
+  assertStringIncludes(html, "Meeting report");
+});
+
+Deno.test("the monitor alert is built from the shell and names the signature", () => {
+  const input = {
+    meeting: {
+      id: "m-3",
+      title: "Daily sync",
+      user_id: "u-1",
+      status: "processing",
+      recall_bot_id: null,
+      sarvam_job_id: null,
+    },
+    detection: { signature: "stuck:processing:no_sarvam_job", age_minutes: 37, details: { a: 1 } },
+    recoveryNote: "re-fired check-recall-status",
+    recoveryOk: true,
+    isNewPattern: false,
+    isHarnessMeeting: false,
+  };
+  assertOnBrand(buildAlertHtml(input), "monitor alert");
+  assertStringIncludes(buildAlertHtml(input), "stuck:processing:no_sarvam_job");
+  assertStringIncludes(buildAlertSubject(input), "[ECHOBRIEF]");
+  assertStringIncludes(
+    buildAlertSubject({ ...input, isNewPattern: true }),
+    "[ECHOBRIEF NEW ERROR]",
+  );
+  assertStringIncludes(
+    buildAlertSubject({ ...input, isHarnessMeeting: true }),
+    "[ECHOBRIEF HARNESS TEST]",
+  );
 });
