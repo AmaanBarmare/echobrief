@@ -158,7 +158,7 @@ python3 scripts/evals/run_evals.py --snapshot <id>    # pull a prod meeting into
 ```bash
 npm run lint             # ESLint
 npm run build            # type-check + production build
-npm run test:unit        # 78 deno tests, <1 s
+npm run test:unit        # 104 deno tests, <1 s
 python3 scripts/pipeline-test/harness.py     # 12/12 against real prod
 python3 scripts/evals/run_evals.py           # 8 evals, exit code gates the deploy
 ```

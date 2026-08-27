@@ -102,6 +102,10 @@ export interface MeetingMetrics {
   longest_monologue_seconds?: number;
   longest_monologue_speaker?: string | null;
   participation_balance?: number | null;
+  questions_asked?: number;
+  turns_per_minute?: number | null;
+  dominant_speaker?: string | null;
+  dominant_speaker_share?: number | null;
 }
 
 export interface MeetingInsights {

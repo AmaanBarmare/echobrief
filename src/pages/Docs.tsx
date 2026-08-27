@@ -257,7 +257,7 @@ export default function Docs() {
                   <li>Explicit decisions and commitments</li>
                   <li>Risks, blockers, and open questions</li>
                   <li>A timestamped timeline of the conversation</li>
-                  <li>Conversation metrics — talk time, turn-taking, longest monologue</li>
+                  <li>Conversation metrics — talk time, who held the floor, questions, turn-taking</li>
                   <li>A full transcript with real participant names</li>
                 </ul>
                 <Callout title="Recording is bot-based">
@@ -444,12 +444,12 @@ export default function Docs() {
                   a summary:
                 </p>
                 <ul className="ml-5 list-disc space-y-1.5">
-                  <li><strong className="text-foreground">Executive summary</strong> — why the meeting happened, what materially changed, what happens next.</li>
-                  <li><strong className="text-foreground">Detailed summary</strong> — the longer narrative, with speaker attribution.</li>
-                  <li><strong className="text-foreground">Strategic insights</strong> — implications and non-obvious takeaways, tagged by category.</li>
-                  <li><strong className="text-foreground">Decisions</strong> — only explicit decisions where consensus was clearly stated, with the owner where known.</li>
-                  <li><strong className="text-foreground">Risks &amp; open questions</strong> — unresolved concerns and dependencies, so nobody mistakes silence for agreement.</li>
-                  <li><strong className="text-foreground">Timeline</strong> — key moments with timestamps.</li>
+                  <li><strong className="text-foreground">Executive summary</strong> — why the meeting happened, what changed, what happens next.</li>
+                  <li><strong className="text-foreground">Notes by topic</strong> — the longer write-up, grouped the way Fireflies-style notes are, with speaker names.</li>
+                  <li><strong className="text-foreground">Action items</strong> — verb-first commitments, with an owner and a due date only when those were spoken.</li>
+                  <li><strong className="text-foreground">Decisions</strong> — only explicit agreement, not “we should” or “maybe”.</li>
+                  <li><strong className="text-foreground">Open questions and risks</strong> — unresolved concerns, so silence is not mistaken for alignment.</li>
+                  <li><strong className="text-foreground">Outline</strong> — chapter headings whose timestamps come from the transcript clock, not a guess.</li>
                 </ul>
                 <Callout title="Accuracy over completeness">
                   The analysis is instructed not to invent detail, not to assign an owner unless it
@@ -480,8 +480,9 @@ export default function Docs() {
                 </p>
                 <ul className="ml-5 list-disc space-y-1.5">
                   <li><strong className="text-foreground">Talk time per speaker</strong> — seconds and share of total speech, plus turns, questions asked, words, and speaking pace.</li>
+                  <li><strong className="text-foreground">Airtime</strong> — who held the floor, as a share of speech. Shown when two or more people spoke.</li>
+                  <li><strong className="text-foreground">Questions and back-and-forth</strong> — how many questions were asked, and how often the floor changed per minute.</li>
                   <li><strong className="text-foreground">Silence</strong> — how much of the meeting had nobody speaking, including dead air before the first word and after the last.</li>
-                  <li><strong className="text-foreground">Turn count</strong> — how often the floor changed hands.</li>
                   <li><strong className="text-foreground">Longest monologue</strong> — the longest genuinely uninterrupted stretch. A pause of more than fifteen seconds ends it, so this is not simply “total time this person spoke”.</li>
                   <li><strong className="text-foreground">Participation balance</strong> — how evenly speaking time was shared, where 1.00 is perfectly even.</li>
                 </ul>

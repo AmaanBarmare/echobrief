@@ -43,6 +43,14 @@ export interface ConversationMetrics {
    * than two speakers, where "balance" describes nothing.
    */
   participation_balance: number | null;
+  /** Sum of `?` across all speakers. What Read.ai/Fireflies surface as "questions asked". */
+  questions_asked: number;
+  /** Speaker changes per minute of wall-clock. Null when duration is unknown. */
+  turns_per_minute: number | null;
+  /** Speaker with the most speech time, or null when nobody spoke. */
+  dominant_speaker: string | null;
+  /** That speaker's share of speech (0–100). Null when nobody spoke. */
+  dominant_speaker_share: number | null;
 }
 
 /**
@@ -108,6 +116,10 @@ export function computeConversationMetrics(
     longest_monologue_seconds: 0,
     longest_monologue_speaker: null,
     participation_balance: null,
+    questions_asked: 0,
+    turns_per_minute: null,
+    dominant_speaker: null,
+    dominant_speaker_share: null,
   };
 
   if (!Array.isArray(segments) || segments.length === 0) {
@@ -205,6 +217,8 @@ export function computeConversationMetrics(
   const leadIn = Number.isFinite(firstStart) ? Math.max(0, firstStart) : 0;
   const trailing = durationSeconds > 0 ? Math.max(0, durationSeconds - lastEnd) : 0;
   const totalWords = [...bySpeaker.values()].reduce((a, v) => a + v.words, 0);
+  const questionsAsked = [...bySpeaker.values()].reduce((a, v) => a + v.questions, 0);
+  const lead = participation[0];
 
   return {
     speaker_participation: participation,
@@ -220,14 +234,20 @@ export function computeConversationMetrics(
     participation_balance: participation.length >= 2
       ? round(1 - gini(participation.map((p) => p.seconds)))
       : null,
+    questions_asked: questionsAsked,
+    turns_per_minute: durationSeconds > 0
+      ? round(turnCount / (durationSeconds / 60))
+      : null,
+    dominant_speaker: lead?.speaker ?? null,
+    dominant_speaker_share: lead ? lead.percentage : null,
   };
 }
 
 /**
  * Merge the model's meeting_metrics with the computed ones.
  *
- * A whitelist, not a spread. Removing engagement_score from the prompt does not
- * stop gpt-4o-mini from volunteering it in JSON mode — observed in production on
+ * A whitelist, not a spread. Removing a field from the prompt does not stop
+ * gpt-4o-mini from volunteering it in JSON mode — observed in production on
  * 2026-08-20, where a plain `{...model, ...computed}` merge let `engagement_score: 80`
  * back into the row because no computed key shadowed it. sentiment_score is the
  * only model-produced value we keep, because it is a genuine judgment call rather

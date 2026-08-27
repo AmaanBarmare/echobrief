@@ -641,10 +641,17 @@ export default function MeetingDetail() {
                             {item.priority}
                           </span>
                         )}
-                        {item.owner && (
+                        {(item.owner || item.due_date) && (
                           <span className="mt-1 block text-xs text-muted-foreground">
-                            Owner: <span className="font-medium" style={{ color: 'var(--ember)' }}>{item.owner}</span>
+                            {item.owner && (
+                              <>Owner: <span className="font-medium" style={{ color: 'var(--ember)' }}>{item.owner}</span></>
+                            )}
+                            {item.owner && item.due_date && ' · '}
+                            {item.due_date && <>Due {item.due_date}</>}
                           </span>
+                        )}
+                        {item.outcome && (
+                          <span className="mt-1 block text-xs text-muted-foreground">Done when: {item.outcome}</span>
                         )}
                       </InsightItem>
                     ))}
@@ -728,7 +735,7 @@ export default function MeetingDetail() {
                 )}
 
                 {insights.timeline_entries && insights.timeline_entries.length > 0 && (
-                  <InsightSection title="How it unfolded">
+                  <InsightSection title="Outline">
                     <div className="rounded-lg border border-border px-4 py-3" style={{ background: 'var(--paper-card)' }}>
                       {(insights.timeline_entries as TimelineEntry[]).slice(0, 8).map((e, i) => (
                         <div key={i} className="flex gap-3 py-1.5">
@@ -766,8 +773,12 @@ export default function MeetingDetail() {
                         <div className={cn('text-sm text-foreground', item.done && 'text-muted-foreground line-through')}>
                           {typeof item === 'string' ? item : item.task}
                         </div>
-                        {item.owner && (
-                          <div className="mt-0.5 text-xs text-muted-foreground">Assigned to {item.owner}</div>
+                        {(item.owner || item.due_date) && (
+                          <div className="mt-0.5 text-xs text-muted-foreground">
+                            {item.owner ? `Assigned to ${item.owner}` : ''}
+                            {item.owner && item.due_date ? ' · ' : ''}
+                            {item.due_date ? `Due ${item.due_date}` : ''}
+                          </div>
                         )}
                       </div>
                       {item.owner && (

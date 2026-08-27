@@ -56,6 +56,236 @@ function emptyInsights() {
   };
 }
 
+/** `[m:ss]` clock used in the transcript we send to the model. */
+export function formatClock(seconds: number): string {
+  const total = Math.max(0, Math.floor(Number.isFinite(seconds) ? seconds : 0));
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `[${m}:${String(s).padStart(2, "0")}]`;
+}
+
+/**
+ * Timestamped, speaker-labeled transcript. Fireflies/Read.ai chapter times
+ * are only as good as the times in the source; without them the model guesses.
+ */
+export function formatLabeledTranscript(
+  segments: SpeakerSegment[],
+  fallback: string,
+): string {
+  if (!Array.isArray(segments) || segments.length === 0) return fallback;
+  return segments
+    .map((s) => {
+      const start = Number(s.start);
+      const clock = Number.isFinite(start) ? `${formatClock(start)} ` : "";
+      return `${clock}${s.speaker || "Unknown"}: ${s.text ?? ""}`.trimEnd();
+    })
+    .join("\n");
+}
+
+/** Snap a model timestamp onto the nearest real segment start. */
+export function snapTimestamp(raw: unknown, segments: SpeakerSegment[]): number {
+  const t = Number(raw);
+  const fallback = Number(segments[0]?.start ?? 0);
+  if (!Number.isFinite(t) || t < 0) {
+    return Math.round(Number.isFinite(fallback) ? fallback : 0);
+  }
+  if (!Array.isArray(segments) || segments.length === 0) return Math.round(t);
+
+  let bestStart = Number(segments[0].start ?? t);
+  let bestDist = Math.abs(bestStart - t);
+  for (const s of segments) {
+    const start = Number(s.start ?? 0);
+    if (!Number.isFinite(start)) continue;
+    const dist = Math.abs(start - t);
+    if (dist < bestDist) {
+      bestStart = start;
+      bestDist = dist;
+    }
+  }
+  return Math.round(bestStart);
+}
+
+function asStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      if (typeof item === "string") return item.trim();
+      if (item && typeof item === "object" && "insight" in (item as object)) {
+        return String((item as { insight?: unknown }).insight ?? "").trim();
+      }
+      return String(item ?? "").trim();
+    })
+    .filter(Boolean);
+}
+
+function flattenDecision(d: unknown): string {
+  if (typeof d === "string") return d.trim();
+  if (d && typeof d === "object" && "decision" in d) {
+    const obj = d as { decision?: unknown; owner?: unknown; context?: unknown };
+    const owner = obj.owner ? ` (${obj.owner})` : "";
+    const context = obj.context ? ` — ${obj.context}` : "";
+    return `${obj.decision ?? ""}${owner}${context}`.trim();
+  }
+  return String(d ?? "").trim();
+}
+
+const PRIORITIES = new Set(["high", "medium", "low"]);
+
+function normalizeActionItem(item: unknown): Record<string, unknown> | null {
+  if (typeof item === "string") {
+    const task = item.trim();
+    return task ? { task } : null;
+  }
+  if (!item || typeof item !== "object") return null;
+  const raw = item as Record<string, unknown>;
+  const task = String(raw.task ?? "").trim();
+  if (!task) return null;
+  const owner = raw.owner == null || raw.owner === "null" ? null : String(raw.owner).trim() || null;
+  const priority = String(raw.priority ?? "").toLowerCase();
+  const confidence = String(raw.confidence ?? "").toLowerCase();
+  const due = raw.due_date == null || raw.due_date === "null"
+    ? null
+    : String(raw.due_date).trim() || null;
+  const outcome = raw.outcome == null ? null : String(raw.outcome).trim() || null;
+  const ts = Number(raw.source_timestamp);
+  return {
+    task,
+    owner,
+    priority: PRIORITIES.has(priority) ? priority : "medium",
+    confidence: PRIORITIES.has(confidence) ? confidence : "medium",
+    ...(due ? { due_date: due } : {}),
+    ...(outcome ? { outcome } : {}),
+    ...(Number.isFinite(ts) && ts >= 0 ? { source_timestamp: ts } : {}),
+  };
+}
+
+/**
+ * Coerce the model's JSON into the shape the rest of the pipeline stores.
+ * Drops empty rows, snaps chapter times onto real segments, and never lets
+ * a guessed talk-time object through — metrics are merged later.
+ */
+export function normalizeInsights(
+  raw: Record<string, unknown>,
+  segments: SpeakerSegment[],
+): Record<string, unknown> {
+  const actionItems = Array.isArray(raw.action_items)
+    ? (raw.action_items.map(normalizeActionItem).filter(Boolean) as Record<string, unknown>[])
+      .map((item) =>
+        typeof item.source_timestamp === "number"
+          ? { ...item, source_timestamp: snapTimestamp(item.source_timestamp, segments) }
+          : item
+      )
+    : [];
+
+  const timeline = Array.isArray(raw.timeline_entries)
+    ? raw.timeline_entries
+      .map((entry) => {
+        if (!entry || typeof entry !== "object") return null;
+        const e = entry as Record<string, unknown>;
+        const content = String(e.content ?? "").trim();
+        if (!content) return null;
+        const type = String(e.type ?? "topic");
+        const speaker = e.speaker == null || e.speaker === "null"
+          ? null
+          : String(e.speaker).trim() || null;
+        return {
+          timestamp: snapTimestamp(e.timestamp, segments),
+          type: ["topic", "question", "decision", "action", "risk"].includes(type)
+            ? type
+            : "topic",
+          content,
+          speaker,
+        };
+      })
+      .filter(Boolean)
+      .slice(0, 12)
+    : [];
+
+  const highlights = Array.isArray(raw.speaker_highlights)
+    ? raw.speaker_highlights
+      .map((h) => {
+        if (!h || typeof h !== "object") return null;
+        const o = h as Record<string, unknown>;
+        const highlight = String(o.highlight ?? "").trim();
+        const speaker = String(o.speaker ?? "").trim();
+        if (!highlight || !speaker) return null;
+        return {
+          speaker,
+          highlight,
+          context: String(o.context ?? "").trim(),
+        };
+      })
+      .filter(Boolean)
+      .slice(0, 8)
+    : [];
+
+  const strategic = Array.isArray(raw.strategic_insights)
+    ? raw.strategic_insights
+      .map((s) => {
+        if (!s || typeof s !== "object") return null;
+        const o = s as Record<string, unknown>;
+        const insight = String(o.insight ?? "").trim();
+        if (!insight) return null;
+        const category = String(o.category ?? "process");
+        return {
+          insight,
+          category: ["market", "risk", "opportunity", "process"].includes(category)
+            ? category
+            : "process",
+        };
+      })
+      .filter(Boolean)
+      .slice(0, 5)
+    : [];
+
+  const followUps = Array.isArray(raw.follow_ups)
+    ? raw.follow_ups
+      .map((f) => {
+        if (typeof f === "string") {
+          const description = f.trim();
+          return description ? { description, assignee: null, type: "research" } : null;
+        }
+        if (!f || typeof f !== "object") return null;
+        const o = f as Record<string, unknown>;
+        const description = String(o.description ?? "").trim();
+        if (!description) return null;
+        const type = String(o.type ?? "research");
+        return {
+          description,
+          assignee: o.assignee == null || o.assignee === "null"
+            ? null
+            : String(o.assignee).trim() || null,
+          type: ["meeting", "research", "validation"].includes(type) ? type : "research",
+        };
+      })
+      .filter(Boolean)
+    : [];
+
+  const sentimentRaw = Number(
+    (raw.meeting_metrics as { sentiment_score?: unknown } | undefined)?.sentiment_score,
+  );
+  const sentiment = Number.isFinite(sentimentRaw)
+    ? Math.max(-1, Math.min(1, sentimentRaw))
+    : undefined;
+
+  return {
+    summary_short: String(raw.summary_short ?? "").trim(),
+    summary_detailed: String(raw.summary_detailed ?? "").trim(),
+    strategic_insights: strategic,
+    speaker_highlights: highlights,
+    key_points: asStringArray(raw.key_points).slice(0, 10),
+    action_items: actionItems,
+    decisions: (Array.isArray(raw.decisions) ? raw.decisions : [])
+      .map(flattenDecision)
+      .filter(Boolean),
+    risks: asStringArray(raw.risks),
+    open_questions: asStringArray(raw.open_questions),
+    follow_ups: followUps,
+    timeline_entries: timeline,
+    meeting_metrics: sentiment === undefined ? {} : { sentiment_score: sentiment },
+  };
+}
+
 export async function generateInsights(
   openai: OpenAI,
   meeting: Record<string, any>,
@@ -70,132 +300,84 @@ export async function generateInsights(
     .filter(Boolean);
   const attendeesContext =
     attendeesList.length > 0
-      ? `\n\nMEETING PARTICIPANTS:\n${attendeesList.join(", ")}`
-      : "";
+      ? `\nKnown participants (calendar): ${attendeesList.join(", ")}`
+      : "\nKnown participants: none on file. Keep SPEAKER_XX labels; do not invent names.";
 
-  const speakerLabeledTranscript =
-    speakerSegments.length > 0
-      ? speakerSegments.map((s) => `${s.speaker}: ${s.text}`).join("\n")
-      : transcript;
+  const duration = Number(meeting.duration_seconds);
+  const durationLine = Number.isFinite(duration) && duration > 0
+    ? `\nDuration: ${Math.round(duration / 60)} minutes (${Math.round(duration)} seconds).`
+    : "";
 
-  const insightsPrompt = `You are an intelligent chief-of-staff analyzing a meeting transcript. Your goal is to produce a decision-grade insight report that provides clarity, ownership, risk awareness, and next steps — not just meeting notes.
+  const labeled = formatLabeledTranscript(
+    speakerSegments,
+    transcript || "No transcript available",
+  );
 
-MEETING TITLE: ${meeting.title}${attendeesContext}
+  const insightsPrompt = `Write a meeting report in the style of Fireflies, Read.ai, and Fathom: scannable recap, notes by topic, owners on commitments, empty lists when nothing was decided.
 
-TRANSCRIPT (with speaker labels where available):
-${speakerLabeledTranscript || "No transcript available"}
+MEETING: ${meeting.title}${durationLine}${attendeesContext}
 
----
+TRANSCRIPT (each line is [mm:ss] Speaker: speech — use these times, do not guess):
+${labeled}
 
-CRITICAL ACCURACY RULES:
-- Do NOT invent insights or add information not in the transcript
-- Do NOT assign ownership unless explicitly stated or strongly implied
-- Prefer "Open Question" over speculation
-- Accuracy > completeness
-- Only list EXPLICIT decisions where consensus was clearly stated
+RULES
+- Only facts from the transcript. No market commentary, no invented strategy.
+- "We should" / "maybe" / "let's think about" is NOT a decision. A decision is explicit agreement.
+- Owner on an action item only if that person committed or was assigned. Otherwise owner is null.
+- due_date only if a time was spoken ("Friday", "by Thursday", "next week"). Never invent a calendar date.
+- Prefer an empty list over a padded one. Casual / off-topic chat is not an action item.
+- Keep SPEAKER_XX labels unless that speaker's real name is used in the speech itself.
+- summary_short: 3–5 sentences. Why this meeting, what changed, what happens next. No agenda restatement.
+- summary_detailed: notes grouped by topic (the Fireflies "Notes" section), with speaker names. Not a second recap.
+- key_points: 4–8 bullets of what was actually discussed.
+- strategic_insights: at most 3, and only if the discussion itself supports an implication. Skip if this was operational/casual.
+- speaker_highlights: at most one notable quote per speaker, with why it mattered in this meeting.
+- timeline_entries: 4–8 chapter headings covering the meeting in order. timestamp MUST be a number of seconds copied from a [mm:ss] line above.
+- sentiment_score: overall tone from -1 (tense/negative) to 1 (warm/positive). Neutral meetings are ~0, not 0.5. Do not report talk time or engagement.
 
----
-
-Provide a comprehensive analysis with the following structure:
-
-1. EXECUTIVE SUMMARY (3-5 sentences)
-   Focus on: Why the meeting happened, what materially changed, what happens next.
-   Do NOT repeat the agenda.
-
-2. STRATEGIC INSIGHTS
-   Key implications for the business, signals about market direction/risk/opportunity, non-obvious takeaways inferred from discussion.
-   This requires reasoning, not transcription.
-
-3. SPEAKER-ATTRIBUTED HIGHLIGHTS
-   Clean speaker-attributed insights with short context for why it matters.
-   Format: "Speaker Name: [What they said/emphasized] — [Why it matters]"
-
-4. ACTION ITEMS (Execution-Ready)
-   Each must have:
-   - Clear task description
-   - Owner (only if explicitly stated or strongly implied, otherwise null)
-   - Priority (high/medium/low)
-   - Confidence level (high/medium/low) - only assign when discussion was clear
-   - Outcome expected (what success looks like)
-   Avoid guessing deadlines.
-
-5. DECISIONS & COMMITMENTS (Strict)
-   Only list explicit decisions where consensus was clearly stated.
-   Include decision owner if applicable.
-
-6. RISKS, OPEN QUESTIONS & BLOCKERS
-   - Unresolved concerns
-   - Dependencies
-   - Areas needing clarification
-   This helps prevent false alignment.
-
-7. FOLLOW-UPS & NEXT TOUCHPOINTS
-   Only include if justified by the conversation:
-   - Follow-up meetings
-   - Research tasks
-   - Decisions that need validation
-
-8. TIMELINE ENTRIES (Timestamped)
-   Create a chronological timeline of key moments in the meeting:
-   - Topics discussed
-   - Key questions raised
-   - Decisions made
-   - Action items identified
-   - Risks mentioned
-   Each entry should have an estimated timestamp (in seconds from start).
-
-9. MEETING METRICS
-   Analyze the meeting and provide:
-   - Engagement score (0-100): How engaged were participants?
-   - Sentiment score (-1 to 1): Overall tone of the meeting
-   - Speaker participation breakdown if multiple speakers
-
----
-
-Format your response as JSON with this exact structure:
+JSON shape:
 {
-  "summary_short": "3-5 sentence executive brief focusing on why the meeting happened, what changed, and what happens next",
-  "summary_detailed": "Detailed summary with speaker attribution where relevant",
-  "strategic_insights": [
-    {"insight": "Key business implication or non-obvious takeaway", "category": "market|risk|opportunity|process"}
-  ],
-  "speaker_highlights": [
-    {"speaker": "Name", "highlight": "What they said/emphasized", "context": "Why it matters"}
-  ],
-  "key_points": ["Main discussion points with speaker attribution where clear"],
+  "summary_short": "",
+  "summary_detailed": "",
+  "strategic_insights": [{"insight": "", "category": "market|risk|opportunity|process"}],
+  "speaker_highlights": [{"speaker": "", "highlight": "", "context": ""}],
+  "key_points": [""],
   "action_items": [
     {
-      "task": "Clear task description with expected outcome",
-      "owner": "Person name or null",
+      "task": "verb-first commitment",
+      "owner": "Name or null",
+      "due_date": "as spoken, or null",
       "priority": "high|medium|low",
       "confidence": "high|medium|low",
-      "outcome": "What success looks like",
+      "outcome": "what done looks like",
       "source_timestamp": 0
     }
   ],
   "decisions": [
-    {"decision": "Explicit decision made", "owner": "Who made/owns it or null", "context": "Brief context"}
+    {"decision": "", "owner": "Name or null", "context": ""}
   ],
-  "risks": ["Risk/blocker with who raised it if known"],
-  "open_questions": ["Unresolved concerns, dependencies, areas needing clarification"],
+  "risks": [""],
+  "open_questions": [""],
   "follow_ups": [
-    {"description": "Follow-up action", "assignee": "Person or null", "type": "meeting|research|validation"}
+    {"description": "", "assignee": "Name or null", "type": "meeting|research|validation"}
   ],
   "timeline_entries": [
-    {"timestamp": 0, "type": "topic|question|decision|action|risk", "content": "What happened", "speaker": "Name or null"}
+    {"timestamp": 0, "type": "topic|question|decision|action|risk", "content": "", "speaker": "Name or null"}
   ],
   "meeting_metrics": {
-    "sentiment_score": 0.5
+    "sentiment_score": 0
   }
 }`;
 
   const completion = await openai.chat.completions.create({
     model: "gpt-4o-mini",
+    temperature: 0,
+    max_tokens: 4096,
     messages: [
       {
         role: "system",
         content:
-          "You are an expert meeting analyst producing decision-grade insight reports. Extract actionable insights with precision. Speaker labels (SPEAKER_00, SPEAKER_01, etc.) are acoustically verified diarization labels. Use them confidently for attribution. If participant names are available from the attendee list, map SPEAKER_XX IDs to names where context makes it clear. Be conservative with speaker attribution - only attribute when confident. Never invent information. Format decisions as objects with decision, owner, and context fields. Always respond with valid JSON.",
+          "You are a meeting notetaker. Your notes must be faithful to the transcript, specific, and useful the next morning. Never invent owners, deadlines, decisions, or names. Empty arrays are correct when the meeting did not produce that kind of output. Always respond with valid JSON.",
       },
       { role: "user", content: insightsPrompt },
     ],
@@ -206,19 +388,11 @@ Format your response as JSON with this exact structure:
 
   try {
     const insights = JSON.parse(insightsText);
-
-    if (insights.decisions && Array.isArray(insights.decisions)) {
-      insights.decisions = insights.decisions.map((d: any) => {
-        if (typeof d === "object" && d.decision) {
-          const owner = d.owner ? ` (${d.owner})` : "";
-          const context = d.context ? ` — ${d.context}` : "";
-          return `${d.decision}${owner}${context}`;
-        }
-        return d;
-      });
+    const normalized = normalizeInsights(insights, speakerSegments);
+    if (!normalized.summary_short) {
+      normalized.summary_short = "Unable to generate summary";
     }
-
-    return insights;
+    return normalized;
   } catch {
     return {
       summary_short: "Unable to generate summary",

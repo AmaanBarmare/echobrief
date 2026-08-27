@@ -56,8 +56,13 @@ export function buildEmailHtml(data: EmailData): string {
   // --- the three things worth acting on -------------------------------------
   const actionList = (insights?.action_items || []) as any[];
   const actionsHtml = actionList.map((item: any) => {
-    const owner = item?.owner
-      ? `<div style="margin-top:5px;font-family:${BODY};font-size:12px;color:${C.inkSoft};">Owner: <span style="color:${C.emberDeep};font-weight:600;">${esc(item.owner)}</span></div>`
+    const ownerBits: string[] = [];
+    if (item?.owner) {
+      ownerBits.push(`Owner: <span style="color:${C.emberDeep};font-weight:600;">${esc(item.owner)}</span>`);
+    }
+    if (item?.due_date) ownerBits.push(`Due ${esc(String(item.due_date))}`);
+    const owner = ownerBits.length
+      ? `<div style="margin-top:5px;font-family:${BODY};font-size:12px;color:${C.inkSoft};">${ownerBits.join(" · ")}</div>`
       : "";
     const priority = item?.priority
       ? ` <span style="font-family:${MONO};font-size:10px;font-weight:600;letter-spacing:0.08em;color:${getPriorityColor(item.priority)};">${esc(String(item.priority).toUpperCase())}</span>`
@@ -79,17 +84,27 @@ export function buildEmailHtml(data: EmailData): string {
     cards.push({ label: "Talk time", value: clock(m.total_speaking_seconds),
       caption: typeof m.total_words === "number" ? `${m.total_words} words` : "of speech" });
   }
-  if (typeof m.words_per_minute === "number") {
-    cards.push({ label: "Pace", value: `${m.words_per_minute}`, caption: "words per minute" });
+  if (m.dominant_speaker && typeof m.dominant_speaker_share === "number" &&
+      (m.speaker_participation?.length ?? 0) >= 2) {
+    cards.push({
+      label: "Airtime",
+      value: `${Math.round(m.dominant_speaker_share)}%`,
+      caption: String(m.dominant_speaker),
+    });
   }
-  if (typeof m.silence_percentage === "number") {
-    cards.push({ label: "Silence", value: `${Math.round(m.silence_percentage)}%`, caption: "of the meeting" });
+  if (typeof m.questions_asked === "number") {
+    cards.push({
+      label: "Questions",
+      value: `${m.questions_asked}`,
+      caption: "asked in the meeting",
+    });
   }
   if (typeof m.participation_balance === "number") {
     cards.push({ label: "Balance", value: `${Math.round(m.participation_balance * 100)}%`, caption: "time shared evenly" });
-  } else if (typeof m.turn_count === "number") {
-    cards.push({ label: "Turns", value: `${m.turn_count}`,
-      caption: m.turn_count === 1 ? "one speaker throughout" : "hand-offs" });
+  } else if (typeof m.silence_percentage === "number") {
+    cards.push({ label: "Silence", value: `${Math.round(m.silence_percentage)}%`, caption: "of the meeting" });
+  } else if (typeof m.words_per_minute === "number") {
+    cards.push({ label: "Pace", value: `${m.words_per_minute}`, caption: "words per minute" });
   }
   const glance = cards.slice(0, 4);
 
@@ -119,7 +134,7 @@ export function buildEmailHtml(data: EmailData): string {
     (insights?.open_questions || []).length ? "open questions" : null,
     (insights?.follow_ups || []).length ? "follow-ups" : null,
     (insights?.strategic_insights || []).length ? "strategic insights" : null,
-    (insights?.timeline_entries || []).length ? "the full timeline" : null,
+    (insights?.timeline_entries || []).length ? "the outline" : null,
     "the transcript",
   ].filter(Boolean) as string[];
   const alsoLine = alsoInReport.length > 1

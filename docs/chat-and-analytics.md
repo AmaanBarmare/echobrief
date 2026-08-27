@@ -118,7 +118,7 @@ const citations = citedIds.filter((id) => byId.has(id)).map(/* … */);
 
 [`_shared/metrics.ts`](../supabase/functions/_shared/metrics.ts) computes everything
 below from segment timestamps. Pure, synchronous, no I/O, no clock, no randomness —
-and covered by 25 unit tests.
+and covered by 28 unit tests.
 
 | Metric | Definition |
 |---|---|
@@ -131,6 +131,9 @@ and covered by 25 unit tests.
 | `trailing_silence_seconds` | Dead air after the last word |
 | `longest_monologue_seconds` / `_speaker` | Longest **uninterrupted** stretch |
 | `participation_balance` | `1 − Gini` over per-speaker seconds. `1` = perfectly even. **`null` below two speakers.** |
+| `questions_asked` | Sum of `?` across all speakers |
+| `turns_per_minute` | `turn_count / (duration / 60)`. **`null` when duration is unknown.** |
+| `dominant_speaker` / `_share` | Speaker with the most speech time, and their share of speech (0–100) |
 
 ### Why these are computed, not generated
 
@@ -180,7 +183,7 @@ no computed key shadowed it. Only keys the code names survive.
 `sentiment_score` is the one model value kept, because it is a genuine judgment call
 rather than a measurement the transcript already contains.
 
-> **Known wart:** the prose section of the insights prompt still asks for an
-> "Engagement score (0-100)" even though the JSON schema below it omits the field.
-> The whitelist makes this harmless, but the prompt and schema disagree and the prompt
-> should be trimmed.
+The insights prompt asks only for `sentiment_score`. Talk time, questions, airtime,
+and turn rate are computed in `metrics.ts` and merged in after generation. Timeline
+timestamps are snapped onto the nearest real segment start so chapter times match
+the transcript clock, not a model guess.

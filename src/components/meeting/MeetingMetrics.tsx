@@ -47,8 +47,37 @@ export function MeetingMetrics({ metrics }: MeetingMetricsProps) {
       caption: typeof metrics.total_words === 'number' ? `${metrics.total_words} words` : undefined,
     });
   }
+  if (
+    metrics.dominant_speaker &&
+    typeof metrics.dominant_speaker_share === 'number' &&
+    (metrics.speaker_participation?.length ?? 0) >= 2
+  ) {
+    tiles.push({
+      label: 'Airtime',
+      value: `${Math.round(metrics.dominant_speaker_share)}%`,
+      caption: metrics.dominant_speaker,
+    });
+  }
+  if (typeof metrics.questions_asked === 'number') {
+    tiles.push({
+      label: 'Questions',
+      value: `${metrics.questions_asked}`,
+      caption: 'asked in the meeting',
+    });
+  }
+  if (typeof metrics.turns_per_minute === 'number') {
+    tiles.push({
+      label: 'Back-and-forth',
+      value: `${metrics.turns_per_minute}`,
+      caption: 'speaker turns per minute',
+    });
+  }
   if (typeof metrics.words_per_minute === 'number') {
-    tiles.push({ label: 'Speaking rate', value: `${metrics.words_per_minute}`, caption: 'words per minute' });
+    const pace =
+      metrics.words_per_minute < 110 ? 'on the slow side' :
+      metrics.words_per_minute > 180 ? 'on the fast side' :
+      'conversational pace';
+    tiles.push({ label: 'Speaking rate', value: `${metrics.words_per_minute}`, caption: `${pace} · words per minute` });
   }
   if (typeof metrics.silence_percentage === 'number') {
     tiles.push({ label: 'Silence', value: `${Math.round(metrics.silence_percentage)}%`, caption: 'of the meeting' });

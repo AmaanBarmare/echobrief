@@ -245,4 +245,33 @@ Deno.test("empty segments report no words and no rate", () => {
   assertEquals(m.words_per_minute, null);
   assertEquals(m.lead_in_silence_seconds, 0);
   assertEquals(m.trailing_silence_seconds, 0);
+  assertEquals(m.questions_asked, 0);
+  assertEquals(m.dominant_speaker, null);
+  assertEquals(m.dominant_speaker_share, null);
+});
+
+Deno.test("questions_asked is the sum across speakers", () => {
+  const m = computeConversationMetrics(
+    [
+      { speaker: "Alice", text: "Ready? When?", start: 0, end: 10 },
+      { speaker: "Bob", text: "Now?", start: 10, end: 20 },
+    ],
+    20,
+  );
+  assertEquals(m.questions_asked, 3);
+});
+
+Deno.test("turns_per_minute is wall-clock, not speech-clock", () => {
+  const m = computeConversationMetrics(
+    [seg("Alice", 0, 10), seg("Bob", 10, 20), seg("Alice", 20, 30), seg("Bob", 30, 40)],
+    40,
+  );
+  // 4 turns in 40 seconds = 6 per minute
+  assertEquals(m.turns_per_minute, 6);
+});
+
+Deno.test("dominant speaker is the one with the most speech", () => {
+  const m = computeConversationMetrics([seg("Alice", 0, 90), seg("Bob", 90, 100)], 100);
+  assertEquals(m.dominant_speaker, "Alice");
+  assertEquals(m.dominant_speaker_share, 90);
 });
