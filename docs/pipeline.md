@@ -219,10 +219,10 @@ flowchart TD
     B -->|yes| C["split-audio<br/>transcribe: whisper<br/>(chunk-wise, ~1 MB each)"]
     C --> D{"Usable?"}
     D -->|yes| Z
-    D -->|no| E["process-meeting<br/>forceWhisper: true<br/>(whole file)"]
-    E --> F{"Under ~15 MB?"}
-    F -->|yes| Z
-    F -->|no| G["OOM → status=failed<br/>monitor alerts"]
+    D -->|no| L{"Long meeting?<br/>(>6 min or multi-chunk)"}
+    L -->|yes| G["status=failed<br/>skip whole-file Whisper"]
+    L -->|no| E["process-meeting<br/>forceWhisper: true<br/>(whole file, short only)"]
+    E --> Z
 ```
 
 Each hop maps to a documented failure in [`errors.md`](../errors.md):
@@ -231,8 +231,9 @@ Each hop maps to a documented failure in [`errors.md`](../errors.md):
 |---|---|---|
 | Sarvam returns 200 with empty transcript | `sarvam:silent_empty_output` | chunk-wise Whisper |
 | Sarvam server bug on long audio | `sarvam:keyerror_timestamps` | chunk-wise Whisper |
-| Sarvam download error of any kind | — | chunk-wise Whisper, then whole-file |
-| Whisper on a large file in-edge | `whisper:oom` | none — fails, monitor alerts |
+| Sarvam download error of any kind | — | chunk-wise Whisper; whole-file only if the meeting is short |
+| Long meeting, chunk-wise Whisper fails | `whisper:audio_too_large` (legacy) | none — whole-file Whisper is skipped |
+| Whisper on a large file in-edge | `whisper:oom` | chunk-wise Whisper via `split-audio` |
 
 ## Race conditions the pipeline survives
 

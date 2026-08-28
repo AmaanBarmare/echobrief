@@ -17,6 +17,7 @@ import {
 } from "../_shared/sarvam.ts";
 import { buildAlertHtml, buildAlertSubject } from "./alert-template.ts";
 import { KNOWN_PATTERNS, isKnown, RecoveryAction } from "./known-patterns.ts";
+import { isLongMeeting } from "../_shared/whisper-chunked.ts";
 
 const STUCK_AFTER_MIN = 15;
 const SARVAM_TAKING_TOO_LONG_MIN = 30;
@@ -273,6 +274,18 @@ async function attemptRecovery(
     if (!meeting.sarvam_job_id) {
       return { ok: false, note: "no sarvam_job_id to trigger" };
     }
+    // The webhook skips `failed` / `transcribing`. Stuck recoveries must
+    // reopen the row and drop a stale in-flight claim or the re-fire no-ops.
+    await supabase
+      .from("meetings")
+      .update({
+        status: "processing",
+        error_message: null,
+        sarvam_webhook_triggered_at: null,
+        sarvam_webhook_claimed_at: null,
+      })
+      .eq("id", meeting.id);
+
     const res = await fetch(`${SUPABASE_URL}/functions/v1/sarvam-webhook`, {
       method: "POST",
       headers: {
@@ -398,13 +411,9 @@ serve(async (req) => {
       let recovery: RecoveryAction = known
         ? KNOWN_PATTERNS[detection.signature].recovery
         : "none";
-      // Chunked meetings: full-file forceWhisper would reject >25 MB audio.
-      // Re-firing sarvam-webhook is strictly better — it stitches chunk
-      // outputs and carries its own chunk-wise Whisper fallback.
-      if (
-        recovery === "force_whisper" &&
-        (meeting.processing_config as any)?.split_method === "vercel-ffmpeg"
-      ) {
+      // Long meetings: full-file forceWhisper rejects >25 MB (or OOMs). Re-fire
+      // sarvam-webhook, which stitches chunks and runs chunk-wise Whisper.
+      if (recovery === "force_whisper" && isLongMeeting(meeting.processing_config as any)) {
         recovery = "trigger_sarvam_webhook";
       }
 

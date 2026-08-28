@@ -27,13 +27,13 @@ export const KNOWN_PATTERNS: Record<string, KnownPattern> = {
   // -- Sarvam patterns --
   "stuck:processing:sarvam_keyerror": {
     signature: "stuck:processing:sarvam_keyerror",
-    recovery: "force_whisper",
-    description: "Sarvam returned KeyError on long audio. Falling back to Whisper.",
+    recovery: "trigger_sarvam_webhook",
+    description: "Sarvam returned KeyError on long audio. Re-fire webhook (chunk-wise Whisper fallback).",
   },
   "stuck:processing:sarvam_silent_empty": {
     signature: "stuck:processing:sarvam_silent_empty",
-    recovery: "force_whisper",
-    description: "Sarvam returned successful job with empty transcript. Falling back to Whisper.",
+    recovery: "trigger_sarvam_webhook",
+    description: "Sarvam returned successful job with empty transcript. Re-fire webhook (chunk-wise Whisper fallback).",
   },
   "stuck:processing:sarvam_webhook_lost": {
     signature: "stuck:processing:sarvam_webhook_lost",

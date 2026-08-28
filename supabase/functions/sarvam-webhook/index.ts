@@ -15,6 +15,10 @@ import {
   deliverResults,
   SpeakerSegment,
 } from "../_shared/insights.ts";
+import {
+  isLongMeeting,
+  transcribeViaSplitAudio,
+} from "../_shared/whisper-chunked.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -131,7 +135,7 @@ serve(async (req) => {
       claimedMeetingId = meeting.id;
     }
 
-    if (normalizedState === "COMPLETED") {
+    if (normalizedState === "COMPLETED" || normalizedState === "FAILED") {
       // Chunked path: audio was split into N chunks by the Vercel split-audio
       // function (one Sarvam job, N files). Download every chunk's output in
       // order, offset its timestamps by chunk_index * chunk_seconds, and merge
@@ -144,7 +148,12 @@ serve(async (req) => {
       let result: Record<string, unknown>;
       let sttProvider = "sarvam";
 
-      if (isChunked) {
+      if (normalizedState === "FAILED") {
+        // Job-level failure still has the archived audio. Do not jump to
+        // whole-file Whisper — that path rejects anything over 25 MB.
+        console.error(`Sarvam job ${job_id} failed — will try chunk-wise Whisper`);
+        result = { transcript: "", language_code: "unknown", diarized_transcript: { entries: [] } };
+      } else if (isChunked) {
         let chunkResults: Record<string, unknown>[] = [];
         // __harness_inline: test seam used by the pipeline harness to inject
         // ordered chunk results without creating a real Sarvam job. Production
@@ -211,78 +220,40 @@ serve(async (req) => {
       // runs for the direct-fallback path too: that is exactly the case where a
       // 70-minute meeting used to end up "completed" with no transcript.
       if (!String((result as any).transcript || "").trim() && meeting.audio_url) {
-        const splitUrl = Deno.env.get("SPLIT_AUDIO_URL");
-        const splitSecret = Deno.env.get("SPLIT_AUDIO_SECRET");
-        if (splitUrl && splitSecret) {
-          console.warn(
-            `[sarvam-webhook] Job ${job_id} returned an empty transcript (split_method=${config.split_method || "none"}) — retrying via chunk-wise Whisper`,
+        console.warn(
+          `[sarvam-webhook] Job ${job_id} returned an empty transcript (split_method=${config.split_method || "none"}) — retrying via chunk-wise Whisper`,
+        );
+        // Block concurrent re-entry while Whisper runs (same pattern as
+        // the legacy fallback). Restored to the normal flow on success
+        // because the completion update below sets status=completed.
+        await supabase
+          .from("meetings")
+          .update({ status: "transcribing" })
+          .eq("id", meeting.id);
+        try {
+          const w = await transcribeViaSplitAudio(supabase, meeting.audio_url);
+          result = {
+            transcript: w.transcript,
+            language_code: w.language_code,
+            diarized_transcript: w.diarized_transcript,
+          };
+          sttProvider = "whisper-chunked";
+          console.log(
+            `[sarvam-webhook] Whisper-chunked fallback succeeded: ${w.transcript.length} chars, ${w.diarized_transcript.entries.length} segments`,
           );
-          // Block concurrent re-entry while Whisper runs (same pattern as
-          // the legacy fallback). Restored to the normal flow on success
-          // because the completion update below sets status=completed.
           await supabase
             .from("meetings")
-            .update({ status: "transcribing" })
+            .update({ status: "processing" })
             .eq("id", meeting.id);
-          try {
-            const storagePath = meeting.audio_url.replace(/^recordings\//, "");
-            const { data: signed } = await supabase.storage
-              .from("recordings")
-              .createSignedUrl(storagePath, 3600);
-            if (!signed?.signedUrl) throw new Error("could not sign audio URL");
-            const whisperRes = await fetch(splitUrl, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${splitSecret}`,
-              },
-              body: JSON.stringify({
-                audioUrl: signed.signedUrl,
-                transcribe: "whisper",
-              }),
-            });
-            if (!whisperRes.ok) {
-              throw new Error(
-                `split-audio whisper mode returned ${whisperRes.status}: ${(await whisperRes.text()).substring(0, 200)}`,
-              );
-            }
-            const w = await whisperRes.json();
-            if (String(w.transcript || "").trim()) {
-              result = {
-                transcript: w.transcript,
-                language_code: w.language_code || "unknown",
-                diarized_transcript: {
-                  entries: (w.segments || []).map(
-                    (s: { text: string; start: number; end: number }) => ({
-                      speaker_id: "0",
-                      transcript: s.text,
-                      start_time_seconds: s.start,
-                      end_time_seconds: s.end,
-                    }),
-                  ),
-                },
-              };
-              sttProvider = "whisper-chunked";
-              console.log(
-                `[sarvam-webhook] Whisper-chunked fallback succeeded: ${String(w.transcript).length} chars, ${(w.segments || []).length} segments`,
-              );
-            }
-            // Restore status so the normal completion flow (or the legacy
-            // fallback below, if Whisper also returned empty) proceeds.
-            await supabase
-              .from("meetings")
-              .update({ status: "processing" })
-              .eq("id", meeting.id);
-          } catch (whisperErr) {
-            console.warn(
-              "[sarvam-webhook] Whisper-chunked fallback failed, falling through to legacy path:",
-              whisperErr,
-            );
-            await supabase
-              .from("meetings")
-              .update({ status: "processing" })
-              .eq("id", meeting.id);
-          }
+        } catch (whisperErr) {
+          console.warn(
+            "[sarvam-webhook] Whisper-chunked fallback failed:",
+            whisperErr,
+          );
+          await supabase
+            .from("meetings")
+            .update({ status: "processing" })
+            .eq("id", meeting.id);
         }
       }
 
@@ -431,6 +402,23 @@ serve(async (req) => {
       // instead of saving "no clear speech" — the audio may be fine but Sarvam
       // couldn't handle it.
       if (!finalTranscript) {
+        // Long recordings cannot use in-edge whole-file Whisper (25 MB / ~15 MB
+        // OOM). Chunk-wise already ran above; falling through would only rewrite
+        // the meeting as "Audio file too large for Whisper".
+        if (isLongMeeting(config)) {
+          const errMsg =
+            "Transcription failed: Sarvam returned an empty transcript and chunk-wise Whisper did not produce one. Whole-file Whisper is skipped for long recordings.";
+          console.error(`[sarvam-webhook] ${errMsg} job=${job_id}`);
+          await supabase
+            .from("meetings")
+            .update({ status: "failed", error_message: errMsg })
+            .eq("id", meeting.id);
+          return new Response(
+            JSON.stringify({ success: false, error: errMsg, fallback: "whisper-chunked" }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          );
+        }
+
         console.warn(`Sarvam returned empty transcript for job ${job_id}, falling back to Whisper`);
 
         // Mark meeting as "transcribing" to prevent check-recall-status from
@@ -539,37 +527,6 @@ serve(async (req) => {
 
       console.log(`Meeting ${meeting.id} completed via Sarvam`);
       return new Response(JSON.stringify({ success: true }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
-    if (normalizedState === "FAILED") {
-      console.error(`Sarvam job ${job_id} failed, falling back to Whisper`);
-
-      try {
-        const fallbackUrl = `${supabaseUrl}/functions/v1/process-meeting`;
-        await fetch(fallbackUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${supabaseServiceKey}`,
-          },
-          body: JSON.stringify({
-            meetingId: meeting.id,
-            sendEmail: config.sendEmail,
-            forceWhisper: true,
-          }),
-        });
-      } catch (fallbackError) {
-        console.error("Whisper fallback also failed:", fallbackError);
-        await supabase
-          .from("meetings")
-          .update({ status: "failed" })
-          .eq("id", meeting.id);
-      }
-
-      return new Response(JSON.stringify({ success: true, fallback: true }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       });

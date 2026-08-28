@@ -42,7 +42,7 @@ This is the canonical list of error patterns the pipeline can hit, with root cau
 
 Audio ≥ ~15 MB blows the budget.
 
-**Recovery:** For chunked (Recall/split) meetings this path is now bypassed entirely — `sarvam-webhook` falls back to **chunk-wise Whisper via the Vercel `api/split-audio` function** (`transcribe: "whisper"` mode, shipped 2026-06-11): each 300 s chunk is ~1 MB, transcribed off-edge with 2 GB memory, so neither the edge OOM nor the 25 MB limit applies. Requires `OPENAI_API_KEY` in the Vercel env. The legacy in-edge `process-meeting` forceWhisper path remains only for non-chunked (extension/small) audio. Manual fallback: [`/tmp/recover_meeting.py`](/tmp/recover_meeting.py).
+**Recovery:** For long (Recall/split) meetings this path is bypassed — `sarvam-webhook` and `process-meeting` both use **chunk-wise Whisper via the Vercel `api/split-audio` function** (`transcribe: "whisper"` mode): each 300 s chunk is ~1 MB, transcribed off-edge with 2 GB memory, so neither the edge OOM nor the 25 MB limit applies. Requires `OPENAI_API_KEY` in the Vercel env. The legacy in-edge `forceWhisper` path remains only for short audio. Manual fallback: [`/tmp/recover_meeting.py`](/tmp/recover_meeting.py).
 
 ---
 
@@ -51,7 +51,7 @@ Audio ≥ ~15 MB blows the budget.
 
 **Root cause:** OpenAI Whisper's hard 25 MB upload limit. Affects roughly any audio > ~25 minutes at standard MP3 bitrate.
 
-**Recovery:** For chunked (Recall/split) meetings: automatic since 2026-06-11 — `sarvam-webhook` retries via the Vercel splitter's chunk-wise Whisper mode (300 s chunks ≈ 1 MB each, far under the 25 MB limit). The monitor also routes `force_whisper` recoveries for chunked meetings to `trigger_sarvam_webhook` instead, which carries this fallback. Non-chunked uploads (extension path) still lack automatic recovery.
+**Recovery:** Automatic. `sarvam-webhook` retries via the Vercel splitter's chunk-wise Whisper mode (300 s chunks ≈ 1 MB each). `process-meeting` does the same when it is invoked on a long recording instead of throwing this error. The monitor re-fires `sarvam-webhook` for long meetings rather than `forceWhisper`. Whole-file Whisper is never used above 6 minutes or on multi-chunk jobs.
 
 ---
 

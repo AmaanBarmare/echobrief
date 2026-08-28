@@ -15,6 +15,21 @@ import {
   SpeakerSegment,
 } from "../_shared/insights.ts";
 import { computeConversationMetrics, mergeMeetingMetrics } from "../_shared/metrics.ts";
+import {
+  isLongMeeting,
+  transcribeViaSplitAudio,
+  WHISPER_WHOLE_FILE_MAX_BYTES,
+  type ChunkedWhisperResult,
+} from "../_shared/whisper-chunked.ts";
+
+function speakerSegmentsFromChunked(w: ChunkedWhisperResult): SpeakerSegment[] {
+  return w.diarized_transcript.entries.map((e) => ({
+    speaker: `SPEAKER_${String(e.speaker_id || "0").padStart(2, "0")}`,
+    text: e.transcript,
+    start: e.start_time_seconds,
+    end: e.end_time_seconds,
+  }));
+}
 
 async function whisperTranscribe(
   openai: OpenAI,
@@ -35,9 +50,22 @@ async function whisperTranscribe(
   let transcript = "";
   let speakerSegments: SpeakerSegment[] = [];
   let wordTimestamps: any[] = [];
+  let sttProvider = "whisper";
 
   if (meeting.audio_url) {
     try {
+      const long = isLongMeeting(meeting.processing_config);
+
+      if (long) {
+        // Do not pull a 40–50 MB blob into this isolate — that is the OOM path.
+        console.warn(
+          `[whisper] Long meeting (${meeting.processing_config?.audio_duration_seconds || "?"}s) — using chunk-wise Whisper`,
+        );
+        const w = await transcribeViaSplitAudio(supabase, meeting.audio_url);
+        transcript = w.transcript;
+        speakerSegments = speakerSegmentsFromChunked(w);
+        sttProvider = "whisper-chunked";
+      } else {
       const { data: audioData, error: downloadError } =
         await supabase.storage
           .from("recordings")
@@ -54,16 +82,15 @@ async function whisperTranscribe(
       const mimeType = isMP3 ? "audio/mpeg" : "audio/webm";
       console.log(`[whisper] Audio size: ${audioSizeMB.toFixed(2)} MB, format: ${fileName}`);
 
-      // Whisper API has a 25MB file size limit.
-      // Splitting compressed audio (MP3/WebM) at arbitrary byte boundaries produces
-      // invalid audio that Whisper can't decode, so we don't attempt chunking.
-      const WHISPER_SIZE_LIMIT = 24.5 * 1024 * 1024; // 24.5 MB with safety margin
-
-      if (audioData.size > WHISPER_SIZE_LIMIT) {
-        console.error(`[whisper] Audio file (${audioSizeMB.toFixed(1)} MB) exceeds Whisper 25MB limit — cannot transcribe`);
-        throw new Error(`Audio file too large for Whisper (${audioSizeMB.toFixed(1)} MB). Whisper supports up to 25 MB.`);
-      }
-
+      if (audioData.size > WHISPER_WHOLE_FILE_MAX_BYTES) {
+        console.warn(
+          `[whisper] Audio file (${audioSizeMB.toFixed(1)} MB) exceeds Whisper 25MB limit — using chunk-wise Whisper`,
+        );
+        const w = await transcribeViaSplitAudio(supabase, meeting.audio_url);
+        transcript = w.transcript;
+        speakerSegments = speakerSegmentsFromChunked(w);
+        sttProvider = "whisper-chunked";
+      } else {
       const audioFile = new File([audioData], fileName, { type: mimeType });
       const transcription = await openai.audio.transcriptions.create({
         file: audioFile,
@@ -152,6 +179,8 @@ Only include segments where you can make a reasonable attribution.`;
           }
         }
       }
+      } // in-edge Whisper
+      } // short-meeting download path
 
       const { data: existingTranscript } = await supabase
         .from("transcripts")
@@ -168,29 +197,24 @@ Only include segments where you can make a reasonable attribution.`;
           content: transcript,
           speakers: speakerSegments,
           word_timestamps: wordTimestamps,
-          stt_provider: "whisper",
+          stt_provider: sttProvider,
         });
       }
     } catch (transcribeError) {
       const errMsg = transcribeError instanceof Error ? transcribeError.message : String(transcribeError);
       console.error("Transcription error:", errMsg);
-      // If the file is too large for Whisper, save a clear error instead of
-      // proceeding with an empty transcript that produces "no speech detected".
-      if (errMsg.includes("too large")) {
-        await supabase
-          .from("meetings")
-          .update({ status: "failed", error_message: errMsg })
-          .eq("id", meetingId);
-        return {
-          success: false,
-          hasTranscript: false,
-          hasInsights: false,
-          hasSpeakerSegments: false,
-          noAudioDetected: false,
-          emailSent: false,
-        };
-      }
-      transcript = "";
+      await supabase
+        .from("meetings")
+        .update({ status: "failed", error_message: errMsg })
+        .eq("id", meetingId);
+      return {
+        success: false,
+        hasTranscript: false,
+        hasInsights: false,
+        hasSpeakerSegments: false,
+        noAudioDetected: false,
+        emailSent: false,
+      };
     }
   }
 

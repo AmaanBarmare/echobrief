@@ -91,7 +91,7 @@ the `transcribing` deadlock.
 |---|---|
 | `SARVAM_API_KEY` | `split-audio` submits chunks directly |
 | `SPLIT_AUDIO_SECRET` | Same value as the Supabase secret |
-| `OPENAI_API_KEY` | `transcribe: "whisper"` mode. Missing → the mode 500s and the webhook falls through to the legacy path. |
+| `OPENAI_API_KEY` | `transcribe: "whisper"` mode. Missing → the mode 500s and long meetings fail instead of falling through to whole-file Whisper. |
 
 > **`.env` is the source of truth.** A credential change must be propagated to
 > **both** Supabase secrets and Vercel env, then verified. Supabase secret digests are

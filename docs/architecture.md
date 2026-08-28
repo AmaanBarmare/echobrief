@@ -136,8 +136,10 @@ Transcription is a chain, not a call:
 2. **Chunk-wise Whisper** via `split-audio`'s `transcribe: "whisper"` mode — used
    when a chunked Sarvam job stitches to empty. Each 300 s chunk is ~1 MB, far under
    Whisper's 25 MB limit.
-3. **Whole-file Whisper** via `process-meeting` with `forceWhisper: true` — the
-   legacy path, still there, still OOM-prone above ~15 MB.
+3. **Whole-file Whisper** via `process-meeting` with `forceWhisper: true` — short
+   recordings only. Long meetings (`audio_duration_seconds > 360` or multi-chunk
+   `vercel-ffmpeg`) never take this hop; `process-meeting` itself routes them
+   through chunk-wise Whisper instead of the 25 MB upload.
 
 Each hop is triggered by a specific observed failure mode, not by a generic retry.
 
@@ -161,6 +163,7 @@ duplicated across functions:
 | `recall-pipeline.ts` | Recall bot/transcript fetch, audio download, speaker timeline, Sarvam submission |
 | `sarvam.ts` | Sarvam job create / upload / start / output discovery / ordered download |
 | `stitch.ts` | Pure chunk-stitch math — offsets, sorting, empty-chunk counting |
+| `whisper-chunked.ts` | Long-meeting detection + split-audio Whisper client |
 | `insights.ts` | Hallucination detection, GPT prompt, insight persistence, delivery gating |
 | `metrics.ts` | Pure conversation metrics + the model-output whitelist merge |
 | `cors.ts` | Origin allowlist and preflight |
