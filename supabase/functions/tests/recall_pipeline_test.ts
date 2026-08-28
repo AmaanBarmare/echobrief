@@ -8,6 +8,7 @@ import {
   getAudioDownloadUrl,
   getAudioMixedStatus,
   getRecallTranscript,
+  getVideoDownloadUrl,
 } from "../_shared/recall-pipeline.ts";
 import { jsonResponse, mockFetch } from "./helpers.ts";
 
@@ -169,6 +170,64 @@ Deno.test("getAudioDownloadUrl: falls back to video_url when audio_mixed unavail
       await getAudioDownloadUrl({ recordings: [{ id: "r" }], video_url: "https://cdn.example/video.mp4" }),
       "https://cdn.example/video.mp4",
     );
+  } finally {
+    restore();
+  }
+});
+
+Deno.test("getVideoDownloadUrl: uses media_shortcuts video_mixed URL without an API call", async () => {
+  const restore = mockFetch((url) => {
+    throw new Error(`should not have fetched: ${url}`);
+  });
+  try {
+    const result = await getVideoDownloadUrl({
+      recordings: [
+        { id: "rec-1", media_shortcuts: { video_mixed: { data: { download_url: "https://cdn.example/v.mp4" } } } },
+      ],
+    });
+    assertEquals(result, { url: "https://cdn.example/v.mp4", status: "done" });
+  } finally {
+    restore();
+  }
+});
+
+Deno.test("getVideoDownloadUrl: still-rendering mp4 reports processing, not missing", async () => {
+  const restore = mockFetch((url) => {
+    throw new Error(`should not have fetched: ${url}`);
+  });
+  try {
+    const result = await getVideoDownloadUrl({
+      recordings: [{ id: "rec-1", media_shortcuts: { video_mixed: { status: { code: "processing" } } } }],
+    });
+    assertEquals(result, { url: null, status: "processing" });
+  } finally {
+    restore();
+  }
+});
+
+Deno.test("getVideoDownloadUrl: falls back to the video_mixed endpoint", async () => {
+  const restore = mockFetch((url) => {
+    if (url.includes("/video_mixed/?recording_id=rec-2")) {
+      return jsonResponse({
+        results: [{ status: { code: "done" }, data: { download_url: "https://cdn.example/v2.mp4" } }],
+      });
+    }
+    throw new Error(`unexpected fetch: ${url}`);
+  });
+  try {
+    const result = await getVideoDownloadUrl({ recordings: [{ id: "rec-2" }] });
+    assertEquals(result, { url: "https://cdn.example/v2.mp4", status: "done" });
+  } finally {
+    restore();
+  }
+});
+
+Deno.test("getVideoDownloadUrl: bot recorded before video was enabled → missing", async () => {
+  const restore = mockFetch((url) => {
+    throw new Error(`should not have fetched: ${url}`);
+  });
+  try {
+    assertEquals(await getVideoDownloadUrl({ recordings: [] }), { url: null, status: "missing" });
   } finally {
     restore();
   }

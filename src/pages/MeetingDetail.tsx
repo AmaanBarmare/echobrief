@@ -6,6 +6,7 @@ import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { EmailReportSelector } from '@/components/dashboard/EmailReportSelector';
 import { MeetingMetrics } from '@/components/meeting/MeetingMetrics';
 import { InsightSection, InsightItem } from '@/components/meeting/InsightSection';
+import { RecordingPlayer } from '@/components/meeting/RecordingPlayer';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Meeting, Transcript, MeetingInsights, StrategicInsight, SpeakerHighlight, ActionItem, FollowUp, TimelineEntry } from '@/types/meeting';
@@ -25,7 +26,7 @@ import {
 import { 
   ArrowLeft, Calendar, Clock, Loader2, ChevronRight, Trash2, Users, 
   Lightbulb, AlertTriangle, HelpCircle, RefreshCw, Zap, CheckCircle2, 
-  FileText, Globe, Mail, Languages, Bot
+  FileText, Globe, Mail, Languages, Bot, Video
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -419,6 +420,7 @@ export default function MeetingDetail() {
     { id: 'summary', label: 'Summary', icon: <Zap size={14} /> },
     { id: 'actions', label: `Actions (${actionItemCount})`, icon: <CheckCircle2 size={14} /> },
     { id: 'transcript', label: 'Transcript', icon: <FileText size={14} /> },
+    { id: 'recording', label: 'Recording', icon: <Video size={14} /> },
     { id: 'delivery', label: 'Delivery', icon: <Mail size={14} /> },
   ];
 
@@ -849,6 +851,8 @@ export default function MeetingDetail() {
               </div>
             )}
 
+            {activeTab === 'recording' && <RecordingPlayer meetingId={meeting.id} />}
+
             {/* ═══ DELIVERY TAB ═══ */}
             {activeTab === 'delivery' && (
               <div className="space-y-3">
@@ -910,9 +914,14 @@ export default function MeetingDetail() {
             </p>
           </div>
         ) : (
-          <div className="py-16 text-center">
-            <p className="mb-1 text-base font-medium text-foreground">No insights available</p>
-            <p className="text-sm text-muted-foreground">This meeting hasn&apos;t been processed yet.</p>
+          <div className="py-10">
+            <div className="mb-8 text-center">
+              <p className="mb-1 text-base font-medium text-foreground">No insights available</p>
+              <p className="text-sm text-muted-foreground">This meeting hasn&apos;t been processed yet.</p>
+            </div>
+            {/* A meeting with no insights still has a recording worth watching —
+                and audio for a failed meeting is kept far longer than usual. */}
+            <RecordingPlayer meetingId={meeting.id} />
           </div>
         )}
       </div>

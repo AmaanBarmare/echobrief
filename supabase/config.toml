@@ -80,3 +80,6 @@ verify_jwt = false
 
 [functions.monitor-stuck-meetings]
 verify_jwt = false
+
+[functions.get-recording-media]
+verify_jwt = true

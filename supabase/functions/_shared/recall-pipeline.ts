@@ -173,6 +173,61 @@ export async function getAudioMixedStatus(
   }
 }
 
+/**
+ * Resolves a fresh playback URL for the bot's mixed video (mp4), plus the
+ * artifact's status so the caller can tell "still rendering" from "never
+ * recorded". Recall signs these URLs and they expire (~5 h), so this is
+ * called at play time and the URL is never persisted anywhere.
+ *
+ * Video is requested via `video_mixed_mp4: {}` in the bot's recording_config.
+ * Meetings recorded before that config existed have no video artifact at all
+ * and come back as "missing" — callers fall back to the archived audio.
+ */
+export async function getVideoDownloadUrl(
+  botData: Record<string, any>,
+): Promise<{
+  url: string | null;
+  status: "done" | "processing" | "failed" | "missing" | "unknown";
+}> {
+  const recordings = Array.isArray(botData.recordings) ? botData.recordings : [];
+
+  // Unlike audio_mixed, video_mixed IS exposed through media_shortcuts.
+  for (const rec of recordings) {
+    const shortcut = rec?.media_shortcuts?.video_mixed;
+    const url = shortcut?.data?.download_url;
+    if (url) return { url, status: "done" };
+    const code = shortcut?.status?.code;
+    if (code === "processing" || code === "failed") return { url: null, status: code };
+  }
+
+  // Fall back to the dedicated endpoint, same shape as audio_mixed.
+  const recordingWithId = recordings.find((r: any) => r?.id);
+  if (!recordingWithId?.id) return { url: null, status: "missing" };
+
+  try {
+    const response = await fetch(
+      `${RECALL_API_URL}/video_mixed/?recording_id=${recordingWithId.id}`,
+      {
+        headers: {
+          Authorization: RECALL_API_KEY,
+          Accept: "application/json",
+        },
+      },
+    );
+    if (!response.ok) return { url: null, status: "unknown" };
+    const data = await response.json();
+    const result = data.results?.[0];
+    if (!result) return { url: null, status: "missing" };
+    const code = result?.status?.code;
+    const status = code === "done" || code === "processing" || code === "failed"
+      ? code
+      : "unknown";
+    return { url: result?.data?.download_url || null, status };
+  } catch {
+    return { url: null, status: "unknown" };
+  }
+}
+
 export async function getAudioDownloadUrl(botData: Record<string, any>) {
   const recordings = Array.isArray(botData.recordings)
     ? botData.recordings

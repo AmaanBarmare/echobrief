@@ -1,0 +1,126 @@
+import { useQuery } from '@tanstack/react-query';
+import { Loader2, RefreshCw, Video } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+
+/**
+ * Plays back one meeting's recording.
+ *
+ * The URL is resolved per view by the `get-recording-media` edge function and
+ * deliberately not cached in the database: Recall signs its mp4 links and they
+ * expire in a few hours. Video streams straight from Recall (a 720p hour is
+ * ~1 GB — the whole Supabase bucket), and older meetings that predate video
+ * recording fall back to the archived mp3, which prune-recordings clears a few
+ * days after transcription. So "nothing to play" is a normal state, not a bug.
+ */
+interface RecordingMedia {
+  kind: 'video' | 'audio' | 'none';
+  url?: string;
+  video_status?: string;
+}
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+
+function Placeholder({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      className="rounded-xl px-6 py-12 text-center"
+      style={{ background: 'var(--paper-card)', border: '1px solid var(--rule)' }}
+    >
+      <Video size={32} className="mx-auto mb-3" style={{ color: 'var(--ink-soft)' }} strokeWidth={1.5} />
+      <p className="text-sm" style={{ color: 'var(--ink-mid)' }}>{children}</p>
+    </div>
+  );
+}
+
+export function RecordingPlayer({ meetingId }: { meetingId: string }) {
+  const { data, isLoading, isError, refetch, isFetching } = useQuery({
+    queryKey: ['recording-media', meetingId],
+    // Well inside the shortest link life the function hands out (1 h for the
+    // signed audio URL), so a revisit reuses the link instead of re-signing.
+    staleTime: 30 * 60 * 1000,
+    queryFn: async (): Promise<RecordingMedia> => {
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      if (!token) throw new Error('Not signed in');
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/get-recording-media`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ meeting_id: meetingId }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body?.error || 'Failed to load recording');
+      return body as RecordingMedia;
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center rounded-xl py-16" style={{ border: '1px solid var(--rule)' }}>
+        <Loader2 className="h-6 w-6 animate-spin" style={{ color: 'var(--ink-soft)' }} />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <Placeholder>
+        Could not load the recording.{' '}
+        <button
+          type="button"
+          onClick={() => refetch()}
+          className="inline-flex items-center gap-1 font-medium"
+          style={{ color: 'var(--ember-deep)' }}
+        >
+          <RefreshCw size={12} strokeWidth={1.75} /> Try again
+        </button>
+      </Placeholder>
+    );
+  }
+
+  if (data?.kind === 'video' && data.url) {
+    return (
+      <video
+        key={data.url}
+        src={data.url}
+        controls
+        preload="metadata"
+        className="w-full rounded-xl"
+        style={{ background: 'var(--ink)', border: '1px solid var(--rule)' }}
+      />
+    );
+  }
+
+  if (data?.kind === 'audio' && data.url) {
+    return (
+      <div className="rounded-xl p-5" style={{ background: 'var(--paper-card)', border: '1px solid var(--rule)' }}>
+        <p className="mb-3 text-[13px]" style={{ color: 'var(--ink-mid)' }}>
+          No video for this meeting — playing the archived audio.
+        </p>
+        <audio key={data.url} src={data.url} controls preload="metadata" className="w-full" />
+      </div>
+    );
+  }
+
+  if (data?.video_status === 'processing') {
+    return (
+      <Placeholder>
+        The video is still being prepared by the recorder.{' '}
+        <button
+          type="button"
+          onClick={() => refetch()}
+          disabled={isFetching}
+          className="inline-flex items-center gap-1 font-medium"
+          style={{ color: 'var(--ember-deep)' }}
+        >
+          <RefreshCw size={12} strokeWidth={1.75} /> Check again
+        </button>
+      </Placeholder>
+    );
+  }
+
+  return (
+    <Placeholder>
+      No recording is available for this meeting. Recordings are kept for a limited
+      time after a meeting is transcribed.
+    </Placeholder>
+  );
+}

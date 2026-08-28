@@ -182,6 +182,9 @@ serve(async (req) => {
             bot_name: pref.notetaker_name || 'EchoBrief Notetaker',
             recording_config: {
               audio_mixed_mp3: {},
+              // Playback-only mp4, streamed from Recall at view time and never
+              // stored by us. Must stay in sync with start-recall-recording.
+              video_mixed_mp4: {},
               // Required for speaker-name resolution: without a transcript
               // provider Recall produces no transcript, so sarvam-webhook has
               // no speaker timeline to map SPEAKER_XX onto real participants.

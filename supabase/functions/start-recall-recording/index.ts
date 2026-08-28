@@ -47,6 +47,11 @@ serve(async (req) => {
         bot_name: botName,
         recording_config: {
           audio_mixed_mp3: {},
+          // The mp4 is playback-only: it is never downloaded into Supabase
+          // Storage (720p costs ~750 MB-1 GB per hour, against a 1 GB bucket
+          // cap). MeetingDetail streams it straight from Recall through a
+          // freshly signed URL. Must stay in sync with auto-join-meetings.
+          video_mixed_mp4: {},
           transcript: {
             provider: {
               recallai_streaming: {

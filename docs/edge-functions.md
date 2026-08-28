@@ -4,7 +4,7 @@ All Supabase Edge Functions run on Deno at
 `https://<project>.supabase.co/functions/v1/<name>`.
 
 `verify_jwt` is declared per function in [`supabase/config.toml`](../supabase/config.toml).
-**Only `chat-transcripts` has `verify_jwt = true`** — every other function either
+**Only `chat-transcripts` and `get-recording-media` have `verify_jwt = true`** — every other function either
 authenticates itself (webhook signature, shared secret, service-role bearer) or reads
 the caller's token manually. Treat that as a deliberate, audited choice, not an
 oversight; see [Security § function auth](security.md#edge-function-authentication).
@@ -49,7 +49,8 @@ The longest function in the codebase (554 lines) and the pipeline's real centre 
 2. For chunked jobs, downloads outputs `0.json … N.json` in numeric order and stitches
    them with `i × chunk_seconds` offsets, then time-sorts.
 3. On empty output or any download error, falls back to chunk-wise Whisper via the
-   splitter, then to whole-file Whisper via `process-meeting`.
+   splitter. Whole-file Whisper is used only for short meetings; long recordings
+   never take that hop.
 4. Maps speakers per segment against Recall's timeline, retrying the timeline fetch
    once if it is missing.
 5. Generates insights, computes conversation metrics, saves, and delivers.
@@ -83,8 +84,24 @@ callback was lost. Claims the recovery with an atomic
 ### `start-recall-recording`
 **Trigger:** dashboard · **Auth:** caller JWT read manually
 
-Creates a Recall bot with `recallai_streaming` real-time transcription enabled and
-inserts the `meetings` row at `status = joining`.
+Creates a Recall bot with `recallai_streaming` real-time transcription enabled,
+requests both `audio_mixed_mp3` (transcription) and `video_mixed_mp4` (playback), and
+inserts the `meetings` row at `status = joining`. The recording_config must stay in
+sync with `auto-join-meetings`.
+
+### `get-recording-media`
+**Trigger:** meeting page, Recording tab · **Auth:** caller JWT (`verify_jwt = true`)
+
+Resolves a short-lived playback URL for one meeting and returns
+`{ kind: "video" | "audio" | "none", url?, video_status? }`. Video comes from Recall's
+`video_mixed` artifact (signed by Recall, expires in hours — resolved per view, never
+persisted); if there is no video it signs the archived mp3 in the `recordings` bucket
+instead. The meeting is read scoped to the caller's `user_id`, so a playback URL can
+only ever be minted for one's own meeting.
+
+> The mp4 is never downloaded into Supabase Storage — 720p costs ~750 MB–1 GB per
+> hour against a 1 GB bucket cap. See `storage:bucket_full_blocks_pipeline` in
+> [`errors.md`](../errors.md) for what a full bucket does to the pipeline.
 
 ### `auto-join-meetings`
 **Trigger:** pg_cron, every 5 min · **Auth:** none

@@ -23,10 +23,12 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-// Audio is never played back — nothing in the app renders an <audio> element,
-// and the only other read of audio_url is to delete the file. It is needed
-// until transcription succeeds and then never again, so it is kept just long
-// enough to re-run a pipeline that failed late. The candidate query below
+// Audio exists for transcription, not for listening: the meeting page's
+// Recording tab plays Recall's mp4 (streamed from Recall, never stored here)
+// and only falls back to this archived mp3 for meetings recorded before video
+// was enabled. So it is kept just long enough to re-run a pipeline that failed
+// late — a longer window would put the 1 GB cap back at risk for a fallback
+// almost nobody hits. The candidate query below
 // already refuses to delete audio for a meeting with no transcript, so a
 // failed meeting keeps its recording regardless of this number.
 //

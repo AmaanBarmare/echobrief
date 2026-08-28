@@ -51,6 +51,7 @@ const GROUPS: Group[] = [
       { id: 'action-items', name: 'Action items' },
       { id: 'metrics', name: 'Conversation metrics' },
       { id: 'transcripts', name: 'Transcripts & speakers' },
+      { id: 'playback', name: 'Watching the recording' },
       { id: 'ask', name: 'Ask: chat with your meetings' },
       { id: 'languages', name: 'Languages' },
     ],
@@ -507,6 +508,21 @@ export default function Docs() {
                   </code>
                   . That means participant information was not available for that recording — the
                   transcript is still accurate, only the names are missing.
+                </p>
+              </section>
+
+              <section className="space-y-4">
+                <SectionHeading id="playback">Watching the recording</SectionHeading>
+                <p>
+                  Open a meeting and choose the{' '}
+                  <strong className="text-foreground">Recording</strong> tab to play back what the
+                  notetaker captured — video where it is available, otherwise the meeting audio.
+                </p>
+                <p>
+                  Video is streamed from the recorder rather than stored by EchoBrief, and audio is
+                  cleared a few days after a meeting has been transcribed. The transcript, summary
+                  and action items are the permanent record; the recording is not. Meetings recorded
+                  before video playback was introduced have audio only.
                 </p>
               </section>
 
