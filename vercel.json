@@ -2,9 +2,15 @@
   "functions": {
     "api/split-audio.ts": {
       "maxDuration": 300
+    },
+    "api/mcp.ts": {
+      "maxDuration": 60
     }
   },
   "rewrites": [
-    { "source": "/((?!api/).*)", "destination": "/index.html" }
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
+    }
   ]
 }
