@@ -83,3 +83,6 @@ verify_jwt = false
 
 [functions.get-recording-media]
 verify_jwt = true
+
+[functions.manage-api-tokens]
+verify_jwt = true
