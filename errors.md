@@ -24,9 +24,20 @@ This is the canonical list of error patterns the pipeline can hit, with root cau
 ### `sarvam:silent_empty_output`
 **What it looks like:** Sarvam job reports `successful_files_count: 1, state: Success`, but the downloaded output JSON is fully empty: `transcript: ""` (or a single space), `diarized_transcript: null`, `language_code: null`. **No exception is raised** — this is a silent failure.
 
-**Root cause:** Same upstream bug as `sarvam:keyerror_timestamps`. When timestamps OR diarization is disabled in an attempt to dodge the KeyError, Sarvam's pipeline returns success metadata but produces no content. Likely the language-detection step itself fails on long audio and cascades to all output fields being null.
+**Root cause (confirmed 2026-08-29, and this is the big one):** the **Content-Type of the blob we PUT to Sarvam's presigned upload URL**. Sarvam's batch pipeline decodes the uploaded file by its stored content type. Uploaded as `application/octet-stream` — which both `_shared/sarvam.ts` and `api/split-audio.ts` did — the job reports `state: Success`, `successful_files_count: 1`, and returns `transcript: ""`, `language_code: null`. Uploaded as `audio/mpeg`, the identical bytes transcribe correctly.
 
-**Recovery:** Same as `sarvam:keyerror_timestamps` — primarily PREVENTED by the 2026-06-10 chunking fix (Vercel `api/split-audio` → multi-file Sarvam job → stitched in `sarvam-webhook`). If a chunked job still returns empty, the existing `!finalTranscript` branch falls back to Whisper.
+Proven by submitting one file twice, changing nothing but that header:
+
+| Upload Content-Type | Job state | Output |
+|---|---|---|
+| `application/octet-stream` | `Completed` / `Success` | **0 chars**, `language_code: null` |
+| `audio/mpeg` | `Completed` / `Success` | 2,908 chars of English (6.5 min Hindi fixture) |
+
+Independent of length: a clean **7-second** English clip was also empty under octet-stream. Independent of mode: `transcribe` and `translate` both empty. Independent of chunking: whole-file and 2-chunk submissions both empty. **The sync `/speech-to-text` endpoint is unaffected** — same API key, correct transcript — which is exactly why the key and the account looked healthy while every batch job silently produced nothing.
+
+The earlier duration-triggered theory above still explains the 2026-06 chunking fix; it does not explain this, and this one hits every file regardless of size.
+
+**Recovery:** FIXED at the source — both uploaders now send a real audio content type (`contentTypeFor()` in `_shared/sarvam.ts`, `audio/mpeg` in `api/split-audio.ts`), covered by unit tests so it cannot regress silently. Chunking (2026-06-10) remains the defence for the duration bug. If a job still returns empty, the `!finalTranscript` branch in `sarvam-webhook` falls back to chunk-wise Whisper — which is what masked this for as long as it lasted: meetings still completed, just on the wrong provider.
 
 ---
 

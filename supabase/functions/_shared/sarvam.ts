@@ -58,6 +58,19 @@ export async function createSarvamJob(
   return res.json();
 }
 
+/** Sarvam decodes the blob by its stored content type — see the PUT below. */
+function contentTypeFor(fileName: string): string {
+  const ext = fileName.toLowerCase().split(".").pop();
+  switch (ext) {
+    case "wav": return "audio/wav";
+    case "m4a": return "audio/mp4";
+    case "mp4": return "video/mp4";
+    case "ogg": return "audio/ogg";
+    case "webm": return "audio/webm";
+    default: return "audio/mpeg";
+  }
+}
+
 export async function uploadToSarvamJob(
   apiKey: string,
   jobId: string,
@@ -91,11 +104,21 @@ export async function uploadToSarvamJob(
     );
   }
 
-  // Step 2: PUT the audio file to the presigned URL
+  // Step 2: PUT the audio file to the presigned URL.
+  //
+  // The Content-Type here is NOT cosmetic. Sarvam's batch pipeline reads the
+  // blob's stored content type to decide how to decode the audio: uploaded as
+  // `application/octet-stream` the job still reports `state: Success` with
+  // `successful_files_count: 1`, but every output field comes back empty —
+  // `transcript: ""`, `language_code: null`. Confirmed 2026-08-29 by uploading
+  // one identical file twice: octet-stream returned 0 chars, `audio/mpeg`
+  // returned the full transcript. The sync endpoint is unaffected, which is why
+  // the key looked healthy while every batch job silently produced nothing.
+  // See `sarvam:silent_empty_output` in errors.md.
   const putRes = await fetch(presignedUrl, {
     method: "PUT",
     headers: {
-      "Content-Type": "application/octet-stream",
+      "Content-Type": contentTypeFor(fileName),
       "x-ms-blob-type": "BlockBlob",
     },
     body: audioBlob,

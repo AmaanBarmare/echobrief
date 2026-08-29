@@ -329,7 +329,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const bytes = await readFile(chunkPaths[i]);
       const put = await fetch(presigned, {
         method: "PUT",
-        headers: { "Content-Type": "application/octet-stream", "x-ms-blob-type": "BlockBlob" },
+        // Must be audio/mpeg, not octet-stream: Sarvam decodes the blob by its
+        // stored content type and silently returns an EMPTY transcript (with
+        // state: Success) for octet-stream uploads. Confirmed 2026-08-29 — see
+        // `sarvam:silent_empty_output` in errors.md. Keep in sync with
+        // _shared/sarvam.ts.
+        headers: { "Content-Type": "audio/mpeg", "x-ms-blob-type": "BlockBlob" },
         body: new Uint8Array(bytes),
       });
       if (!put.ok) {
