@@ -86,8 +86,10 @@ callback was lost. Claims the recovery with an atomic
 
 Creates a Recall bot with `recallai_streaming` real-time transcription enabled,
 requests both `audio_mixed_mp3` (transcription) and `video_mixed_mp4` (playback), and
-inserts the `meetings` row at `status = joining`. The recording_config must stay in
-sync with `auto-join-meetings`.
+inserts the `meetings` row at `status = joining`. Retention is pinned to
+`{ type: "timed", hours: 168 }` — Recall stores media free for 7 days and bills past
+it, and nothing needs the recording that long. The recording_config must stay in sync
+with `auto-join-meetings`.
 
 ### `get-recording-media`
 **Trigger:** meeting page, Recording tab · **Auth:** caller JWT (`verify_jwt = true`)

@@ -52,6 +52,11 @@ serve(async (req) => {
           // cap). MeetingDetail streams it straight from Recall through a
           // freshly signed URL. Must stay in sync with auto-join-meetings.
           video_mixed_mp4: {},
+          // Recall stores media free for 7 days and bills beyond that. Nothing
+          // needs the recording after that: the transcript and insights are
+          // ours within minutes, and the archived mp3 is pruned sooner still.
+          // 168 h is the free ceiling — raising it starts a storage bill.
+          retention: { type: "timed", hours: 168 },
           transcript: {
             provider: {
               recallai_streaming: {

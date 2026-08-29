@@ -519,10 +519,11 @@ export default function Docs() {
                   notetaker captured — video where it is available, otherwise the meeting audio.
                 </p>
                 <p>
-                  Video is streamed from the recorder rather than stored by EchoBrief, and audio is
-                  cleared a few days after a meeting has been transcribed. The transcript, summary
-                  and action items are the permanent record; the recording is not. Meetings recorded
-                  before video playback was introduced have audio only.
+                  Recordings are available for{' '}
+                  <strong className="text-foreground">7 days</strong> after the meeting, then they
+                  expire. The transcript, summary and action items are the permanent record; the
+                  recording is not. Meetings recorded before video playback was introduced have
+                  audio only, and that audio is cleared sooner.
                 </p>
               </section>
 

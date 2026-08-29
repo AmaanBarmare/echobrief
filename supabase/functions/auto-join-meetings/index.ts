@@ -185,6 +185,8 @@ serve(async (req) => {
               // Playback-only mp4, streamed from Recall at view time and never
               // stored by us. Must stay in sync with start-recall-recording.
               video_mixed_mp4: {},
+              // 168 h is Recall's free storage ceiling; past it they bill.
+              retention: { type: "timed", hours: 168 },
               // Required for speaker-name resolution: without a transcript
               // provider Recall produces no transcript, so sarvam-webhook has
               // no speaker timeline to map SPEAKER_XX onto real participants.

@@ -10,7 +10,8 @@ import { supabase } from '@/integrations/supabase/client';
  * expire in a few hours. Video streams straight from Recall (a 720p hour is
  * ~1 GB — the whole Supabase bucket), and older meetings that predate video
  * recording fall back to the archived mp3, which prune-recordings clears a few
- * days after transcription. So "nothing to play" is a normal state, not a bug.
+ * days after transcription. Recall itself drops the video after 7 days (its free
+ * storage ceiling). So "nothing to play" is a normal state, not a bug.
  */
 interface RecordingMedia {
   kind: 'video' | 'audio' | 'none';
@@ -119,8 +120,8 @@ export function RecordingPlayer({ meetingId }: { meetingId: string }) {
 
   return (
     <Placeholder>
-      No recording is available for this meeting. Recordings are kept for a limited
-      time after a meeting is transcribed.
+      No recording is available for this meeting. Recordings expire 7 days after the
+      meeting.
     </Placeholder>
   );
 }
