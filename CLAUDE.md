@@ -19,7 +19,8 @@ This file is the working brief; the docs are the reference.
 | [`docs/pipeline.md`](docs/pipeline.md) | Every pipeline stage, the fallback chain, the races it survives |
 | [`docs/chat-and-analytics.md`](docs/chat-and-analytics.md) | Chat retrieval strategy and computed conversation metrics |
 | [`docs/database.md`](docs/database.md) | Schema, RLS, migration history |
-| [`docs/edge-functions.md`](docs/edge-functions.md) | All 27 functions — triggers, auth, request/response shapes |
+| [`docs/edge-functions.md`](docs/edge-functions.md) | All 28 functions — triggers, auth, request/response shapes |
+| [`docs/mcp.md`](docs/mcp.md) | MCP endpoint — tools, PAT auth, client setup |
 | [`docs/testing.md`](docs/testing.md) | The four test tiers and the eval suite |
 | [`docs/operations.md`](docs/operations.md) | Deploying, cron, alerts, incident playbook, quota ceilings |
 | [`docs/security.md`](docs/security.md) | Auth, RLS, webhook verification, secrets |
@@ -192,6 +193,8 @@ System name **Warm Dispatch**: ember `#D93F0B` (light) / `#E8430A` (dark) on war
 - **Output-quality evals:** [`scripts/evals/`](scripts/evals/). 8 evals (schema, English output, stitch integrity, speaker attribution, action-item recall/precision, summary faithfulness, decision accuracy) with gpt-4o-mini as judge. `--snapshot <meeting-id>` pulls a prod meeting into the dataset (the production→eval feedback loop). See [`scripts/evals/EVALS.md`](scripts/evals/EVALS.md).
 
 - **Long-audio chunking:** [`api/split-audio.ts`](api/split-audio.ts) (Vercel function, ffmpeg). Splits >6-min audio into 300 s chunks for Sarvam (its saaras:v3 silently returns empty transcripts on long files — see `errors.md` `sarvam:silent_empty_output`). Deployed via GitHub auto-deploy; the Vercel account that owns echobrief.in is separate — do NOT use the local Vercel CLI for it.
+
+- **MCP endpoint:** [`api/mcp.ts`](api/mcp.ts) + [`api/_mcp/`](api/_mcp/) — a stateless Streamable-HTTP MCP server at `https://www.echobrief.in/api/mcp`, letting Claude Code, Claude Desktop and Cursor read a user's meetings. Authenticated by personal access tokens in `api_tokens` (minted at Settings → Developer via `manage-api-tokens`). It resolves the token with the service role, then **mints a 60-second Supabase user JWT so RLS does the scoping** — never a service-role client with a `user_id` filter. Seven tools; the only write is the reversible action-item checkbox. Tests: `npm run test:mcp` (typechecks `api/`, which `npm run build` does not, plus node:test) and `MCP_TOKEN=… npm run test:mcp:contract`. **No TypeScript parameter properties in `api/_mcp/`** — esbuild accepts them but Node's strip-only type stripping, which runs the tests, does not. Deploys via GitHub auto-deploy like `split-audio`, never the local Vercel CLI. See [`docs/mcp.md`](docs/mcp.md).
 
 - **Errors runbook:** [`errors.md`](errors.md). Canonical list of every error pattern the pipeline can hit, with root cause, recovery action, and resolution status. The monitor cron's `KNOWN_PATTERNS` set in [`supabase/functions/monitor-stuck-meetings/known-patterns.ts`](supabase/functions/monitor-stuck-meetings/known-patterns.ts) is the programmatic mirror.
 
