@@ -272,7 +272,7 @@ Expected: `added N packages`.
 Then edit `package.json` `scripts` to add, after the existing `"test:unit"` line:
 
 ```json
-    "test:mcp": "tsc -p tsconfig.api.json --noEmit && node --test api/_mcp/tests/",
+    "test:mcp": "tsc -p tsconfig.api.json --noEmit && node --test \"api/_mcp/tests/*.test.ts\"",
 ```
 
 - [ ] **Step 2: Create `tsconfig.api.json`**
@@ -407,7 +407,7 @@ test("mintUserJwt refuses to sign with a missing secret", () => {
 
 - [ ] **Step 4: Run the tests to verify they fail**
 
-Run: `node --test api/_mcp/tests/`
+Run: `node --test "api/_mcp/tests/*.test.ts"`  (Node 25 treats a bare directory as a module path, so the glob is required)
 Expected: FAIL — `Cannot find module '.../api/_mcp/token.ts'`.
 
 - [ ] **Step 5: Implement `api/_mcp/token.ts`**
@@ -677,7 +677,7 @@ test("remaining counts down", () => {
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
-Run: `node --test api/_mcp/tests/`
+Run: `node --test "api/_mcp/tests/*.test.ts"`  (Node 25 treats a bare directory as a module path, so the glob is required)
 Expected: FAIL — `Cannot find module '.../api/_mcp/format.ts'`.
 
 - [ ] **Step 3: Implement `api/_mcp/format.ts`**
