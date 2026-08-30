@@ -58,7 +58,10 @@ test("a request with no token is rejected with a bearer challenge", async () => 
   await withServer(async (port) => {
     const response = await toolsList(port);
     assert.equal(response.status, 401);
-    assert.match(response.headers.get("www-authenticate") ?? "", /Bearer/);
+    const challenge = response.headers.get("www-authenticate") ?? "";
+    assert.ok(challenge.startsWith("Bearer "));
+    assert.ok(challenge.includes('resource_metadata="https://www.echobrief.in/.well-known/oauth-protected-resource"'));
+    assert.ok(challenge.includes('scope="read write:action_items"'));
     const body = (await response.json()) as { jsonrpc?: string; error?: unknown };
     assert.equal(body.jsonrpc, "2.0");
     assert.ok(body.error, "expected a JSON-RPC error object");

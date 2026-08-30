@@ -15,6 +15,7 @@ import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/
 import { AuthError, authenticate, type McpSession } from "./_mcp/auth.js";
 import { checkRateLimit } from "./_mcp/ratelimit.js";
 import { registerTools } from "./_mcp/tools.js";
+import { wwwAuthenticate } from "./_oauth/metadata.js";
 
 const SERVER_INFO = { name: "echobrief", version: "1.0.0" };
 
@@ -52,7 +53,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     session = await authenticate(req.headers.authorization);
   } catch (error) {
     const status = error instanceof AuthError ? error.status : 500;
-    if (status === 401) res.setHeader("WWW-Authenticate", 'Bearer realm="echobrief"');
+    if (status === 401) res.setHeader("WWW-Authenticate", wwwAuthenticate());
     res.status(status).json({
       jsonrpc: "2.0",
       error: { code: -32001, message: (error as Error).message },

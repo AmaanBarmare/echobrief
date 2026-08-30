@@ -1,16 +1,13 @@
 {
   "functions": {
-    "api/split-audio.ts": {
-      "maxDuration": 300
-    },
-    "api/mcp.ts": {
-      "maxDuration": 60
-    }
+    "api/split-audio.ts": { "maxDuration": 300 },
+    "api/mcp.ts": { "maxDuration": 60 },
+    "api/oauth/*.ts": { "maxDuration": 10 }
   },
   "rewrites": [
-    {
-      "source": "/((?!api/).*)",
-      "destination": "/index.html"
-    }
+    { "source": "/.well-known/oauth-protected-resource", "destination": "/api/oauth/protected-resource" },
+    { "source": "/.well-known/oauth-protected-resource/api/mcp", "destination": "/api/oauth/protected-resource" },
+    { "source": "/.well-known/oauth-authorization-server", "destination": "/api/oauth/authorization-server" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }
