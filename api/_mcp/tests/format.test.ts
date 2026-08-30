@@ -59,3 +59,34 @@ test("wrapUntrusted neutralises a label that tries to break out of the attribute
   const out = wrapUntrusted('a" onload="x', "body");
   assert.match(out, /source="a onload=x"/);
 });
+
+import { labeledTranscriptText } from "../format.js";
+
+test("labeledTranscriptText renders [m:ss] Speaker: paragraphs", () => {
+  const out = labeledTranscriptText([
+    { speaker: "Mathew Ryan", start: 252, end: 255, text: "Do you want the stone-cold honesty?" },
+    { speaker: "Mathew Ryan", start: 256, end: 260, text: "I worked as a travel agent for 12 years." },
+    { speaker: "Khush Mutha", start: 261, end: 264, text: "Please, go ahead." },
+  ]);
+  assert.equal(
+    out,
+    "[4:12] Mathew Ryan: Do you want the stone-cold honesty? I worked as a travel agent for 12 years.\n\n" +
+      "[4:21] Khush Mutha: Please, go ahead.",
+  );
+});
+
+test("labeledTranscriptText breaks same-speaker paragraphs on long gaps", () => {
+  const out = labeledTranscriptText([
+    { speaker: "A", start: 0, end: 5, text: "First thought." },
+    { speaker: "A", start: 20, end: 25, text: "Different thought." },
+  ]);
+  assert.equal(out, "[0:00] A: First thought.\n\n[0:20] A: Different thought.");
+});
+
+test("labeledTranscriptText skips empty segments and handles empty input", () => {
+  assert.equal(labeledTranscriptText([]), "");
+  assert.equal(
+    labeledTranscriptText([{ speaker: "A", start: 1, end: 2, text: "  " }]),
+    "",
+  );
+});
