@@ -356,6 +356,7 @@ export type Database = {
           avatar_url: string | null
           bot_color: string | null
           created_at: string
+          custom_vocabulary: string[]
           email: string | null
           email_summaries_enabled: boolean | null
           full_name: string | null
@@ -382,6 +383,7 @@ export type Database = {
           avatar_url?: string | null
           bot_color?: string | null
           created_at?: string
+          custom_vocabulary?: string[]
           email?: string | null
           email_summaries_enabled?: boolean | null
           full_name?: string | null
@@ -408,6 +410,7 @@ export type Database = {
           avatar_url?: string | null
           bot_color?: string | null
           created_at?: string
+          custom_vocabulary?: string[]
           email?: string | null
           email_summaries_enabled?: boolean | null
           full_name?: string | null

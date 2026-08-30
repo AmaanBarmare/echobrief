@@ -7,7 +7,7 @@ import { RecordingButton } from '@/components/dashboard/RecordingButton';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Meeting } from '@/types/meeting';
-import { ChevronRight, Mic, Clock, CheckCircle2, Sparkles, Trash2, Loader2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Mic, Clock, CheckCircle2, Sparkles, Trash2, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 import { useToast } from '@/hooks/use-toast';
@@ -113,6 +113,7 @@ export default function Dashboard() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [deletingStatus, setDeletingStatus] = useState<'failed' | 'cancelled' | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
 
   const prefillMeeting = (location.state as { prefillMeeting?: PrefillMeeting })?.prefillMeeting;
 
@@ -196,6 +197,18 @@ export default function Dashboard() {
   const failedCount = useMemo(() => meetings.filter((m) => m.status === 'failed').length, [meetings]);
   const cancelledCount = useMemo(() => meetings.filter((m) => m.status === 'cancelled').length, [meetings]);
 
+  // Rendering split: meetings with (or on their way to) content stay on top in
+  // the query's start_time desc order; cancelled/failed ones collapse under a
+  // muted expander at the bottom. The query itself is untouched.
+  const activeMeetings = useMemo(
+    () => meetings.filter((m) => m.status !== 'cancelled' && m.status !== 'failed'),
+    [meetings]
+  );
+  const archivedMeetings = useMemo(
+    () => meetings.filter((m) => m.status === 'cancelled' || m.status === 'failed'),
+    [meetings]
+  );
+
   // Bulk-delete every meeting of one status (and its child rows + audio), the
   // same cleanup the single-meeting delete does. Completed meetings are never
   // touched. Only the targeted status is offered via the UI.
@@ -244,6 +257,73 @@ export default function Dashboard() {
   };
 
   const firstName = user?.user_metadata?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || 'there';
+
+  const renderMeetingRow = (meeting: Meeting, first: boolean, muted: boolean) => {
+    const s = statusConfig(meeting.status || 'scheduled');
+    const hasSummary = insightCounts[meeting.id];
+    const lang = (meeting as any).language;
+    return (
+      <Link
+        key={meeting.id}
+        to={`/meeting/${meeting.id}`}
+        className={`group flex items-center gap-4 px-5 py-4 no-underline transition-colors md:px-6${muted ? ' opacity-60' : ''}`}
+        style={{
+          borderTop: first ? 'none' : '1px solid var(--rule-soft)',
+        }}
+        onMouseEnter={(e) => { e.currentTarget.style.background = 'color-mix(in oklch, var(--ink) 3%, transparent)'; }}
+        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+      >
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              className="text-[14.5px] font-semibold truncate"
+              style={{ color: 'var(--ink)' }}
+            >
+              {meeting.title || 'Untitled meeting'}
+            </span>
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium"
+              style={{ background: s.tint, color: s.color }}
+            >
+              {meeting.status === 'recording' && (
+                <span className="status-dot recording" style={{ width: 6, height: 6 }} />
+              )}
+              {s.label}
+            </span>
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12.5px]" style={{ color: 'var(--ink-soft)' }}>
+            <span>{sourceLabel(meeting.source)}</span>
+            <span aria-hidden>·</span>
+            <span>{formatIST(new Date(meeting.start_time), 'MMM d, h:mm a')}</span>
+            {meeting.duration_seconds && (
+              <>
+                <span aria-hidden>·</span>
+                <span>{formatDuration(meeting.duration_seconds)}</span>
+              </>
+            )}
+            {lang && (
+              <>
+                <span aria-hidden>·</span>
+                <span>{lang}</span>
+              </>
+            )}
+            {hasSummary && (
+              <>
+                <span aria-hidden>·</span>
+                <span style={{ color: 'var(--ember-deep)', fontWeight: 500 }}>Summary ready</span>
+              </>
+            )}
+          </div>
+        </div>
+        <ChevronRight
+          size={16}
+          strokeWidth={1.75}
+          style={{ color: 'var(--ink-faint)' }}
+          className="shrink-0 transition-transform group-hover:translate-x-0.5"
+        />
+      </Link>
+    );
+  };
 
   return (
     <DashboardLayout>
@@ -386,72 +466,30 @@ export default function Dashboard() {
             className="overflow-hidden rounded-xl"
             style={{ border: '1px solid var(--rule)', background: 'var(--paper-card)' }}
           >
-            {meetings.map((meeting, idx) => {
-              const s = statusConfig(meeting.status || 'scheduled');
-              const hasSummary = insightCounts[meeting.id];
-              const lang = (meeting as any).language;
-              return (
-                <Link
-                  key={meeting.id}
-                  to={`/meeting/${meeting.id}`}
-                  className="group flex items-center gap-4 px-5 py-4 no-underline transition-colors md:px-6"
+            {activeMeetings.map((meeting, idx) => renderMeetingRow(meeting, idx === 0, false))}
+            {archivedMeetings.length > 0 && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setShowArchived((v) => !v)}
+                  aria-expanded={showArchived}
+                  className="flex w-full items-center gap-2 px-5 py-3 text-left text-[12.5px] font-medium transition-colors md:px-6"
                   style={{
-                    borderTop: idx === 0 ? 'none' : '1px solid var(--rule-soft)',
+                    borderTop: activeMeetings.length === 0 ? 'none' : '1px solid var(--rule-soft)',
+                    color: 'var(--ink-soft)',
+                    background: 'color-mix(in oklch, var(--ink) 2%, transparent)',
                   }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = 'color-mix(in oklch, var(--ink) 3%, transparent)'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
                 >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span
-                        className="text-[14.5px] font-semibold truncate"
-                        style={{ color: 'var(--ink)' }}
-                      >
-                        {meeting.title || 'Untitled meeting'}
-                      </span>
-                      <span
-                        className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium"
-                        style={{ background: s.tint, color: s.color }}
-                      >
-                        {meeting.status === 'recording' && (
-                          <span className="status-dot recording" style={{ width: 6, height: 6 }} />
-                        )}
-                        {s.label}
-                      </span>
-                    </div>
-                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12.5px]" style={{ color: 'var(--ink-soft)' }}>
-                      <span>{sourceLabel(meeting.source)}</span>
-                      <span aria-hidden>·</span>
-                      <span>{formatIST(new Date(meeting.start_time), 'MMM d, h:mm a')}</span>
-                      {meeting.duration_seconds && (
-                        <>
-                          <span aria-hidden>·</span>
-                          <span>{formatDuration(meeting.duration_seconds)}</span>
-                        </>
-                      )}
-                      {lang && (
-                        <>
-                          <span aria-hidden>·</span>
-                          <span>{lang}</span>
-                        </>
-                      )}
-                      {hasSummary && (
-                        <>
-                          <span aria-hidden>·</span>
-                          <span style={{ color: 'var(--ember-deep)', fontWeight: 500 }}>Summary ready</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                  <ChevronRight
-                    size={16}
-                    strokeWidth={1.75}
-                    style={{ color: 'var(--ink-faint)' }}
-                    className="shrink-0 transition-transform group-hover:translate-x-0.5"
-                  />
-                </Link>
-              );
-            })}
+                  {showArchived ? (
+                    <ChevronDown size={14} strokeWidth={1.75} />
+                  ) : (
+                    <ChevronRight size={14} strokeWidth={1.75} />
+                  )}
+                  Cancelled &amp; failed ({archivedMeetings.length})
+                </button>
+                {showArchived && archivedMeetings.map((meeting) => renderMeetingRow(meeting, false, true))}
+              </>
+            )}
           </div>
         )}
       </div>

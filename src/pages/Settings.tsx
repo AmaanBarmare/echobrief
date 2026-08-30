@@ -19,6 +19,7 @@ interface Profile {
   google_calendar_connected: boolean;
   email_summaries_enabled: boolean | null;
   recording_preference: 'audio_only' | 'audio_video';
+  custom_vocabulary: string[] | null;
 }
 
 interface GoogleCalendar {
@@ -52,6 +53,11 @@ export default function Settings() {
   // Account settings
   const [fullName, setFullName] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // Custom vocabulary — canonical spellings the transcription pipeline enforces
+  const [vocabulary, setVocabulary] = useState<string[]>([]);
+  const [vocabInput, setVocabInput] = useState('');
+  const [savingVocab, setSavingVocab] = useState(false);
 
   // Security settings
   const [newPassword, setNewPassword] = useState('');
@@ -95,6 +101,7 @@ export default function Settings() {
         setProfile(null);
       } else if (profileData) {
         setProfile(profileData as Profile);
+        setVocabulary(Array.isArray(profileData.custom_vocabulary) ? profileData.custom_vocabulary : []);
         const fromProfile = (profileData.full_name || '').trim();
         const resolvedName = fromProfile || fromAuthMeta;
         setFullName(resolvedName);
@@ -175,6 +182,50 @@ export default function Settings() {
     } finally {
       setSaving(false);
     }
+  };
+
+  // Custom vocabulary handlers. Each add/remove persists immediately, same as
+  // the other single-field profile updates on this page.
+  const saveVocabulary = async (next: string[]) => {
+    if (!user) return;
+    const previous = vocabulary;
+    setSavingVocab(true);
+    setVocabulary(next);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ custom_vocabulary: next })
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+      setProfile(prev => (prev ? { ...prev, custom_vocabulary: next } : null));
+      toast({ title: 'Saved', description: 'Your custom vocabulary has been updated.' });
+      return true;
+    } catch (error: any) {
+      setVocabulary(previous);
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      return false;
+    } finally {
+      setSavingVocab(false);
+    }
+  };
+
+  const handleAddVocabularyTerm = async () => {
+    const term = vocabInput.trim();
+    if (term.length < 3) {
+      toast({ title: 'Error', description: 'Terms must be at least 3 characters.', variant: 'destructive' });
+      return;
+    }
+    if (vocabulary.some(v => v.toLowerCase() === term.toLowerCase())) {
+      toast({ title: 'Error', description: `"${term}" is already in your vocabulary.`, variant: 'destructive' });
+      return;
+    }
+    const saved = await saveVocabulary([...vocabulary, term]);
+    if (saved) setVocabInput('');
+  };
+
+  const handleRemoveVocabularyTerm = (term: string) => {
+    saveVocabulary(vocabulary.filter(v => v !== term));
   };
 
   // Security handlers
@@ -487,6 +538,62 @@ export default function Settings() {
                 {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                 Save Changes
               </Button>
+            </div>
+
+            {/* Custom vocabulary */}
+            <div className="rounded-2xl border border-border bg-card p-6 text-card-foreground shadow-sm">
+              <h2 className="mb-1 text-base font-semibold text-foreground">Custom vocabulary</h2>
+              <p className="mb-4 text-[13px] text-muted-foreground">
+                Canonical spellings of company, product and client names. These exact spellings are
+                enforced in your transcripts and summaries.
+              </p>
+              <div className="mb-4 flex gap-2">
+                <Input
+                  value={vocabInput}
+                  onChange={(e) => setVocabInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddVocabularyTerm();
+                    }
+                  }}
+                  placeholder='e.g. "Oltaflock"'
+                  className="border-border bg-background text-foreground"
+                />
+                <Button
+                  onClick={handleAddVocabularyTerm}
+                  disabled={savingVocab}
+                  className="bg-orange-500 text-white hover:bg-orange-600"
+                >
+                  {savingVocab ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Add
+                </Button>
+              </div>
+              {vocabulary.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {vocabulary.map((term) => (
+                    <span
+                      key={term}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/50 px-3 py-1 text-[13px] text-foreground"
+                    >
+                      {term}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveVocabularyTerm(term)}
+                        disabled={savingVocab}
+                        className="cursor-pointer border-none bg-transparent p-0 text-muted-foreground hover:text-destructive disabled:opacity-50"
+                        title={`Remove ${term}`}
+                      >
+                        <X size={13} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  No terms yet. Add names the transcriber tends to misspell.
+                </p>
+              )}
             </div>
           </div>
         )}
