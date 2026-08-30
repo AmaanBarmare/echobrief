@@ -12,9 +12,9 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { AuthError, authenticate, type McpSession } from "./_mcp/auth.ts";
-import { checkRateLimit } from "./_mcp/ratelimit.ts";
-import { registerTools } from "./_mcp/tools.ts";
+import { AuthError, authenticate, type McpSession } from "./_mcp/auth.js";
+import { checkRateLimit } from "./_mcp/ratelimit.js";
+import { registerTools } from "./_mcp/tools.js";
 
 const SERVER_INFO = { name: "echobrief", version: "1.0.0" };
 

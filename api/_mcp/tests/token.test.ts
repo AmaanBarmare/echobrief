@@ -5,7 +5,7 @@ import {
   generateToken,
   hashToken,
   parseBearer,
-} from "../token.ts";
+} from "../token.js";
 
 test("generateToken produces a 51-character prefixed token", () => {
   const { token, prefix } = generateToken();

@@ -10,7 +10,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createServer, type Server } from "node:http";
-import handler from "../../mcp.ts";
+import handler from "../../mcp.js";
 
 function startServer(): Promise<{ server: Server; port: number }> {
   const server = createServer((req, res) => {

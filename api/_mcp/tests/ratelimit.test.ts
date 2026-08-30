@@ -5,7 +5,7 @@ import {
   RATE_LIMIT_WINDOW_MS,
   checkRateLimit,
   resetRateLimits,
-} from "../ratelimit.ts";
+} from "../ratelimit.js";
 
 test("allows up to the limit then blocks", () => {
   resetRateLimits();

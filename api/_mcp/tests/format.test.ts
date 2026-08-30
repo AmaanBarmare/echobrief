@@ -4,7 +4,7 @@ import {
   TRANSCRIPT_CHAR_LIMIT,
   sliceTranscript,
   wrapUntrusted,
-} from "../format.ts";
+} from "../format.js";
 
 test("sliceTranscript returns short content whole", () => {
   const r = sliceTranscript("hello world");

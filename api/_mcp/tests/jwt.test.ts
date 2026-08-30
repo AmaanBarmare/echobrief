@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
-import { mintUserJwt, decodeJwtPayload } from "../jwt.ts";
+import { mintUserJwt, decodeJwtPayload } from "../jwt.js";
 
 const SECRET = "test-secret";
 const ISSUER = "https://example.supabase.co/auth/v1";

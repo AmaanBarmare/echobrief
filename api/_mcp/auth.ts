@@ -7,8 +7,8 @@
  * somebody else's meetings.
  */
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { hashToken, parseBearer } from "./token.ts";
-import { mintUserJwt } from "./jwt.ts";
+import { hashToken, parseBearer } from "./token.js";
+import { mintUserJwt } from "./jwt.js";
 
 /** One write per token per hour, not per request. See engineering-notes.md #22. */
 const LAST_USED_THROTTLE_MS = 60 * 60 * 1000;

@@ -8,8 +8,8 @@
  */
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { McpSession } from "./auth.ts";
-import { sliceTranscript, wrapUntrusted } from "./format.ts";
+import type { McpSession } from "./auth.js";
+import { sliceTranscript, wrapUntrusted } from "./format.js";
 
 const HARNESS_PREFIX = "[harness]";
 
