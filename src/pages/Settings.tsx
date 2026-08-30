@@ -10,6 +10,7 @@ import { Loader2, Lock, Mail, Bell, LogOut, X, Trash2, Calendar } from 'lucide-r
 import { useToast } from '@/hooks/use-toast';
 import { displayNameFromUserMetadata } from '@/lib/userDisplayName';
 import { ApiTokensCard } from '@/components/settings/ApiTokensCard';
+import { BillingCard } from '@/components/settings/BillingCard';
 
 interface Profile {
   id: string;
@@ -28,7 +29,7 @@ interface GoogleCalendar {
   connected_at: string;
 }
 
-type SettingsTab = 'account' | 'bot' | 'integrations' | 'security' | 'developer';
+type SettingsTab = 'account' | 'bot' | 'integrations' | 'billing' | 'security' | 'developer';
 
 export default function Settings() {
   const { user, session } = useAuth();
@@ -38,7 +39,7 @@ export default function Settings() {
   const getInitialTab = (): SettingsTab => {
     const params = new URLSearchParams(window.location.search);
     const tabParam = params.get('tab');
-    if (tabParam === 'integrations' || tabParam === 'bot' || tabParam === 'security' || tabParam === 'developer') {
+    if (tabParam === 'integrations' || tabParam === 'bot' || tabParam === 'billing' || tabParam === 'security' || tabParam === 'developer') {
       return tabParam as SettingsTab;
     }
     return 'account';
@@ -408,6 +409,7 @@ export default function Settings() {
     { id: 'account' as const, label: 'Account', icon: '👤' },
     { id: 'bot' as const, label: 'Bot', icon: '🤖' },
     { id: 'integrations' as const, label: 'Integrations', icon: '🔗' },
+    { id: 'billing' as const, label: 'Billing', icon: '💳' },
     { id: 'security' as const, label: 'Security', icon: '🔒' },
     { id: 'developer' as const, label: 'Developer', icon: '⌘' },
   ];
@@ -688,6 +690,9 @@ export default function Settings() {
             </Dialog>
           </div>
         )}
+
+        {/* Developer Tab */}
+        {activeTab === 'billing' && <BillingCard />}
 
         {/* Developer Tab */}
         {activeTab === 'developer' && <ApiTokensCard />}

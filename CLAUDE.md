@@ -71,6 +71,9 @@ npm run functions:serve  # Serve Supabase Edge Functions locally (needs supabase
 - `supabase/functions/_shared/insights.ts` -- Hallucination detection, GPT prompt, insight saving, delivery
 - `supabase/functions/_shared/sarvam.ts` -- Sarvam API client (create job, upload, start). Uses `mode: "translate"` to output English regardless of source language, with `with_diarization: true`. **The upload's `Content-Type` must be a real audio type, never `application/octet-stream`** — Sarvam's batch pipeline decodes the blob by its stored content type and otherwise returns `state: Success` with an entirely empty transcript (confirmed 2026-08-29; the sync endpoint is unaffected, so the key looks healthy). `api/split-audio.ts` must match. See `sarvam:silent_empty_output` in `errors.md`.
 - `supabase/functions/_shared/recall-pipeline.ts` -- Shared Recall audio download + Sarvam submission logic (used by recall-webhook and check-recall-status). Fetches Recall's transcript via `media_shortcuts.transcript` download URL (the old `/bot/{id}/transcript/` endpoint is deprecated) to extract real participant names and build a speaker timeline (speaker name + time range) stored in `processing_config` for per-segment mapping in sarvam-webhook. Also exports `getAudioMixedStatus()` used by the bot.done race-safety check.
+- `supabase/functions/manage-billing/` -- Dodo Payments actions for the signed-in user (`verify_jwt = true`): `checkout` creates a subscription checkout session (product fixed server-side via `DODO_PRODUCT_ID`, `metadata.user_id` ties the subscription back to the profile), `portal` opens the Dodo customer portal.
+- `supabase/functions/dodo-webhook/` -- Dodo Payments webhook. Standard-Webhooks HMAC verification (`_shared/dodo.ts`), then an idempotency claim on `billing_events` (UNIQUE `event_id`; Dodo redelivers the same `webhook-id` up to 8 times). Maps `subscription.*` events to `profiles.subscription_status`; if the profile UPDATE fails it releases the claim and returns 500 so Dodo retries.
+- `supabase/functions/_shared/dodo.ts` -- Dodo API client (checkout session, customer portal), Standard-Webhooks signature verification, and the event→status mapping (unit-tested in `tests/dodo.test.ts`).
 - `supabase/functions/_shared/cors.ts` -- CORS headers shared across functions
 
 ### Scheduled Jobs (pg_cron + pg_net)
@@ -92,6 +95,7 @@ PostgreSQL with Row-Level Security. Key tables:
 - `meeting_insights` -- AI output (summary, action_items, decisions, risks, timeline, metrics)
 - `summary_recipient_allowlist` -- global reviewer list. An address here that is **also an attendee of the meeting** gets a copy of the summary email (`_shared/summary-recipients.ts` → `deliverResults`). Being on the list alone does not fan mail out. Service-role only; accounts for these people are created by invite, public signup stays closed.
 - `email_deliveries` -- one claim row per summary email sent, unique on `(meeting_id, lower(recipient_email), kind)`. `send-meeting-email` inserts it **before** calling Resend, so a duplicate caller gets `23505` and skips. Service-role only. This is what makes "one email per recipient per meeting" a guarantee rather than a hope.
+- `billing_events` -- one row per verified Dodo webhook delivery, unique on `event_id` — the idempotency claim for `dodo-webhook` plus a replayable audit payload. Service-role only. Subscription state itself lives on `profiles` (`subscription_status`, `dodo_customer_id`, `dodo_subscription_id`, `subscription_product_id`, `subscription_renews_at`).
 - `monitor_events` -- audit trail of every stuck-meeting detection from the monitor cron. Deduped via a generated `hour_bucket` column (one row per meeting+signature+hour). See `errors.md` for signature reference.
 - `profiles` -- user settings, integration flags
 - `user_oauth_tokens` -- Google OAuth tokens
@@ -108,6 +112,7 @@ Migrations are in `supabase/migrations/`. Recent additions worth knowing about:
 - `20260613120100_prune_cron_pgnet_bookkeeping.sql` — daily prune of `cron.job_run_details` + `net._http_response`
 - `20260824120000_summary_recipient_allowlist.sql` — adds the `summary_recipient_allowlist` table (reviewers who get a copy of the summary when they are on the calendar invite)
 - `20260821180000_email_delivery_dedup.sql` — adds the `email_deliveries` claim table and `meetings.sarvam_webhook_claimed_at`, after Sarvam replayed one callback three times and the user got three identical summary emails (see [`docs/engineering-notes.md`](docs/engineering-notes.md) #24)
+- `20260831120000_dodo_billing.sql` — Dodo Payments billing: subscription columns on `profiles` + the `billing_events` webhook-idempotency ledger
 
 ## Tech Stack
 
@@ -143,6 +148,11 @@ System name **Warm Dispatch**: ember `#D93F0B` (light) / `#E8430A` (dark) on war
 - `SPLIT_AUDIO_URL` -- URL of the Vercel split-audio function (`https://www.echobrief.in/api/split-audio`); if unset, recall-pipeline falls back to direct single-file Sarvam submission
 - `SPLIT_AUDIO_SECRET` -- Bearer secret for the split-audio function (must match the Vercel env var of the same name)
 - Google OAuth client ID/secret
+- `DODO_PAYMENTS_API_KEY` -- Dodo Payments API key (test or live)
+- `DODO_WEBHOOK_SECRET` -- `whsec_…` secret from the Dodo webhook endpoint's Overview tab
+- `DODO_PRODUCT_ID` -- the subscription product to sell; `manage-billing` 503s "Billing is not configured yet" while unset, so billing ships dormant
+- `DODO_ENVIRONMENT` -- `test_mode` (default) or `live_mode`; picks the API base URL
+- `APP_URL` -- checkout return URL base (defaults to `https://www.echobrief.in`)
 
 **Vercel (api/ functions — project `oltaflock-ai/echobrief`, which serves `echobrief.in` and `www.echobrief.in`; deploys happen via GitHub auto-deploy on push, NOT `vercel deploy`):**
 
