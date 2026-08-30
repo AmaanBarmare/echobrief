@@ -6,6 +6,9 @@ export type { MeetingMetricsData, SpeakerStat };
 
 interface MeetingMetricsProps {
   metrics: MeetingMetricsData;
+  /** When the coaching pass produced a sentiment timeline, the scalar tile is
+   * redundant (and misleading — a 0.5 average hides the arc). Hide it. */
+  hideSentiment?: boolean;
 }
 
 /** Historical rows wrote duration_seconds; computed rows write seconds. */
@@ -37,7 +40,7 @@ function MetricTile({ label, value, caption }: { label: string; value: string; c
   );
 }
 
-export function MeetingMetrics({ metrics }: MeetingMetricsProps) {
+export function MeetingMetrics({ metrics, hideSentiment }: MeetingMetricsProps) {
   const tiles: { label: string; value: string; caption?: string }[] = [];
 
   if (typeof metrics.total_speaking_seconds === 'number') {
@@ -106,7 +109,7 @@ export function MeetingMetrics({ metrics }: MeetingMetricsProps) {
       caption: 'how evenly time was shared',
     });
   }
-  if (typeof metrics.sentiment_score === 'number') {
+  if (typeof metrics.sentiment_score === 'number' && !hideSentiment) {
     tiles.push({
       label: 'Sentiment',
       value:
