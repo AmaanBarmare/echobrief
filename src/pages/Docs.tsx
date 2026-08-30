@@ -563,9 +563,12 @@ export default function Docs() {
                   <span className="text-sm font-medium text-foreground">Settings → Developer</span>
                 </div>
                 <p>
-                  Your meetings do not have to stay inside EchoBrief. Claude Code, Claude Desktop,
-                  Cursor and any other tool that speaks MCP can read them directly — so you can ask
-                  about a past decision without leaving the document you are writing.
+                  Your meetings do not have to stay inside EchoBrief. Claude on the web and in the
+                  mobile app connects through <strong className="text-foreground">Add custom connector</strong>{' '}
+                  with the address below and a one-click approval. Claude Code, Claude Desktop, Cursor
+                  and any other tool that speaks MCP can do the same, or use a token from Settings →
+                  Developer — so you can ask about a past decision without leaving the document you
+                  are writing.
                 </p>
                 <Steps
                   items={[

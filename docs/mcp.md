@@ -41,8 +41,11 @@ claude mcp add --transport http echobrief https://www.echobrief.in/api/mcp \
 }
 ```
 
-claude.ai **web** custom connectors require OAuth, which this server does not implement.
-Everything else — Claude Code, Claude Desktop, Cursor — supports bearer headers and works.
+**claude.ai web, Claude mobile, Cowork** — add a custom connector with the URL above
+and no client ID or secret. Claude discovers the authorization server, registers itself,
+and sends you to `https://www.echobrief.in/oauth/consent` to approve. The access token it
+receives is an ordinary personal access token (visible in Settings → Developer as
+`Claude (OAuth)`), so everything below about scoping applies unchanged.
 
 ---
 
@@ -69,6 +72,31 @@ migrated to asymmetric signing keys, `mintUserJwt()` in
 [`api/_mcp/jwt.ts`](../api/_mcp/jwt.ts) is the only place that changes.
 
 Revocation takes effect on the next request; there is no cache to invalidate.
+
+---
+
+### OAuth 2.1
+
+For clients that cannot carry a static header, the server is also its own
+authorization server (issuer `https://www.echobrief.in`):
+
+| | |
+|---|---|
+| Protected resource metadata | `/.well-known/oauth-protected-resource` (RFC 9728) |
+| Authorization server metadata | `/.well-known/oauth-authorization-server` (RFC 8414) |
+| Registration | `POST /api/oauth/register` (RFC 7591, public clients) |
+| Authorize | `GET /api/oauth/authorize` → consent page |
+| Token | `POST /api/oauth/token`, form-encoded, `authorization_code` + `refresh_token` |
+
+Rules: PKCE S256 is mandatory; `resource` must be `https://www.echobrief.in/api/mcp`;
+redirect URIs must match the registration exactly (loopback ignores the port, for
+Claude Code); codes are single-use with a 5-minute TTL; access tokens live 30 days;
+refresh tokens rotate on every use and a reused one revokes the grant. Storage is
+`oauth_clients`, `oauth_codes`, `oauth_refresh_tokens` — all service-role only,
+pruned daily at 03:45 UTC by the `prune-oauth` cron. Revoking the access token in
+Settings does not revoke its refresh token; the next refresh mints a new one.
+
+Check the deployed server with `npm run test:oauth:contract`.
 
 ---
 
