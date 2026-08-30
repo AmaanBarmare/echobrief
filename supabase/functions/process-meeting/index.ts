@@ -15,6 +15,10 @@ import {
   SpeakerSegment,
 } from "../_shared/insights.ts";
 import { computeConversationMetrics, mergeMeetingMetrics } from "../_shared/metrics.ts";
+import { annotateZones, computeBoundaries, meetingZone } from "../_shared/zones.ts";
+import { annotateLanguages, languageMix } from "../_shared/language.ts";
+import { buildVocabulary, correctEntities } from "../_shared/vocab.ts";
+import { generateCoaching } from "../_shared/coaching.ts";
 import {
   isLongMeeting,
   transcribeViaSplitAudio,
@@ -269,16 +273,77 @@ Only include segments where you can make a reasonable attribution.`;
       (endTime.getTime() - startTime.getTime()) / 1000,
   );
 
+  // ---- Production-quality passes (2026-08-31 plan), mirroring
+  // sarvam-webhook: entity correction, boundary zones, language mix. The
+  // transcript row was inserted above with the raw text, so it is updated in
+  // place with the corrected/zoned version.
+  const { data: ownerProfile } = await supabase
+    .from("profiles")
+    .select("custom_vocabulary")
+    .eq("user_id", meeting.user_id)
+    .maybeSingle();
+  const vocabulary = buildVocabulary(
+    meeting.attendees ?? [],
+    ownerProfile?.custom_vocabulary ?? [],
+  );
+  const entityCorrections: Array<{ from: string; to: string }> = [];
+  const correctedSegments = speakerSegments.map((seg) => {
+    const fixed = correctEntities(seg.text, vocabulary);
+    entityCorrections.push(...fixed.corrections);
+    return { ...seg, text: fixed.text };
+  });
+  const correctedTranscript = correctEntities(transcript, vocabulary).text;
+
+  const recallTimeline = meeting.processing_config?.recall_speaker_timeline || [];
+  const boundaries = computeBoundaries(meeting.attendees ?? [], recallTimeline);
+  const zonedSegments = annotateLanguages(
+    annotateZones(correctedSegments, boundaries),
+  );
+  const languages = languageMix(zonedSegments);
+  const insightSegments = meetingZone(zonedSegments);
+  const insightTranscript = insightSegments.length > 0
+    ? insightSegments.map((s) => s.text).join(" ")
+    : correctedTranscript;
+
+  if (zonedSegments.length > 0 || correctedTranscript !== transcript) {
+    await supabase
+      .from("transcripts")
+      .update({ content: correctedTranscript, speakers: zonedSegments })
+      .eq("meeting_id", meetingId);
+  }
+  // --------------------------------------------------------------------
+
   const insights = await generateInsights(
     openai,
     meeting,
-    transcript,
-    speakerSegments,
+    insightTranscript,
+    insightSegments.length > 0 ? insightSegments : speakerSegments,
+    { vocabulary },
   );
+  const zoneStart = boundaries.first_external_join_ts ?? 0;
+  const zoneEnd = boundaries.last_external_leave_ts !== null
+    ? Math.min(boundaries.last_external_leave_ts, durationSeconds || Infinity)
+    : durationSeconds;
+  const metricsDuration = Math.max(0, Math.round((zoneEnd || durationSeconds) - zoneStart)) || durationSeconds;
+  const metricsSegments = insightSegments.map((s) => ({
+    ...s,
+    start: Math.max(0, Number(s.start ?? 0) - zoneStart),
+    end: Math.max(0, Number(s.end ?? 0) - zoneStart),
+  }));
   // Whitelist merge: only sentiment_score survives from the model.
   insights.meeting_metrics = mergeMeetingMetrics(
     insights.meeting_metrics,
-    computeConversationMetrics(speakerSegments, durationSeconds),
+    computeConversationMetrics(
+      metricsSegments.length > 0 ? metricsSegments : speakerSegments,
+      metricsDuration,
+    ),
+  );
+  insights.coaching = await generateCoaching(
+    openai,
+    meeting,
+    insights.facts ?? null,
+    insights.meeting_metrics,
+    insightSegments.length > 0 ? insightSegments : speakerSegments,
   );
   await saveInsights(supabase, meetingId, insights);
 
@@ -288,6 +353,16 @@ Only include segments where you can make a reasonable attribution.`;
       status: "completed",
       end_time: endTime.toISOString(),
       duration_seconds: durationSeconds,
+      languages: Object.keys(languages).length > 0 ? languages : null,
+      boundaries,
+      ...(entityCorrections.length > 0
+        ? {
+          processing_config: {
+            ...(meeting.processing_config || {}),
+            entity_corrections: entityCorrections.slice(0, 50),
+          },
+        }
+        : {}),
     })
     .eq("id", meetingId);
 

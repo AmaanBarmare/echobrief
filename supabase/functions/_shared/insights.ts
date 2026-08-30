@@ -459,7 +459,7 @@ export async function generateInsights(
   transcript: string,
   speakerSegments: SpeakerSegment[],
   options: GenerateInsightsOptions = {},
-) {
+): Promise<Record<string, any>> {
   const noUsableTranscript = !transcript || transcript.trim().length < 20;
   if (noUsableTranscript) return emptyInsights();
 
