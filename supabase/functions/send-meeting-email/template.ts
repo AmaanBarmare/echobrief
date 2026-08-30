@@ -25,6 +25,7 @@ import {
   SERIF,
   panel,
 } from "../_shared/email-brand.ts";
+import { formatResolvedDate } from "../_shared/dates.ts";
 
 export interface EmailData {
   title: string;
@@ -60,7 +61,14 @@ export function buildEmailHtml(data: EmailData): string {
     if (item?.owner) {
       ownerBits.push(`Owner: <span style="color:${C.emberDeep};font-weight:600;">${esc(item.owner)}</span>`);
     }
-    if (item?.due_date) ownerBits.push(`Due ${esc(String(item.due_date))}`);
+    if (item?.due_date) {
+      // Prefer the resolved calendar date ("Tue, Sep 1, 2026") over the raw
+      // spoken phrase ("Tuesday"), which is meaningless a week later.
+      const due = item?.due_date_resolved
+        ? formatResolvedDate(String(item.due_date_resolved))
+        : String(item.due_date);
+      ownerBits.push(`Due ${esc(due)}`);
+    }
     const owner = ownerBits.length
       ? `<div style="margin-top:5px;font-family:${BODY};font-size:12px;color:${C.inkSoft};">${ownerBits.join(" · ")}</div>`
       : "";

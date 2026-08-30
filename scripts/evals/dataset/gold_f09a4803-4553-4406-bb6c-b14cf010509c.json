@@ -1,0 +1,20 @@
+{
+  "_comment": "Hand-labeled golds for the 2026-08-28 Vineet/Mathew discovery call (fixture of the 2026-08-31 production-quality plan). Labeled by the meeting participants — canonical.",
+  "numbers": [
+    {"metric": "annual TTV", "value": "$5M"},
+    {"metric": "average booking value", "value": "$20K"},
+    {"metric": "client base", "value": "400 clients"},
+    {"metric": "bookings per month", "value": "40-60"},
+    {"metric": "cold inquiry conversion", "value": "3%"},
+    {"metric": "referral conversion", "value": "85-90%"}
+  ],
+  "action_items": [
+    {"task": "Send Mathew a personalized proposal", "owner": "Khush Mutha", "due": "Tuesday"},
+    {"task": "Review the proposal on the follow-up call", "owner": "Mathew Ryan", "due": "Tuesday"}
+  ],
+  "decisions": [
+    "Schedule a follow-up call for Tuesday to review the personalized proposal"
+  ],
+  "entity_misspellings": ["AltaFlock", "Alta Flock", "OtaFlock"],
+  "internal_excerpts": ["मुर्टेजा"]
+}

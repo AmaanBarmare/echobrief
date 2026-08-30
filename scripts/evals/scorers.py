@@ -187,5 +187,83 @@ def decision_accuracy(case: dict[str, Any], api_key: str) -> dict[str, Any]:
     return _result("decision_accuracy", score >= 0.7, score, f"{sum(bool(c) for c in covered)}/{len(gold)} decisions covered")
 
 
-DETERMINISTIC = [schema_validity, english_output, stitch_integrity, speaker_attribution]
-LLM_JUDGED = [action_item_recall, action_item_precision, summary_faithfulness, decision_accuracy]
+def entity_spelling(case: dict[str, Any]) -> dict[str, Any]:
+    """No known-bad entity spelling may survive into the transcript or insights.
+
+    gold.entity_misspellings lists strings the ASR is known to produce for this
+    case (e.g. "AltaFlock" for "Oltaflock"). The vocab-correction pass exists
+    to remove them; this proves it keeps working. Skips when a case has none.
+    """
+    banned = (case.get("gold") or {}).get("entity_misspellings") or []
+    if not banned:
+        return _result("entity_spelling", True, 1.0, "no known misspellings for this case (skipped)")
+    ins = case.get("insights") or {}
+    haystack = " ".join([
+        case.get("transcript") or "",
+        ins.get("summary") or "",
+        json.dumps(ins.get("action_items") or []),
+        json.dumps(ins.get("key_points") or []),
+        json.dumps(ins.get("facts") or {}),
+    ]).lower()
+    found = [b for b in banned if b.lower() in haystack]
+    score = 1.0 - len(found) / len(banned)
+    return _result("entity_spelling", not found, score,
+                   f"banned spellings present: {found}" if found else f"none of {len(banned)} known misspellings present")
+
+
+def boundary_exclusion(case: dict[str, Any]) -> dict[str, Any]:
+    """Internal pre/post-meeting speech must not leak into the insights.
+
+    gold.internal_excerpts lists distinctive strings from the pre/post zones
+    (private chatter). None may appear in the summary, key points, action
+    items or facts. Skips when a case declares none.
+    """
+    excerpts = (case.get("gold") or {}).get("internal_excerpts") or []
+    if not excerpts:
+        return _result("boundary_exclusion", True, 1.0, "no internal excerpts declared (skipped)")
+    ins = case.get("insights") or {}
+    haystack = " ".join([
+        ins.get("summary") or "",
+        json.dumps(ins.get("action_items") or [], ensure_ascii=False),
+        json.dumps(ins.get("key_points") or [], ensure_ascii=False),
+        json.dumps(ins.get("facts") or {}, ensure_ascii=False),
+    ])
+    leaked = [e for e in excerpts if e in haystack]
+    score = 1.0 - len(leaked) / len(excerpts)
+    return _result("boundary_exclusion", not leaked, score,
+                   f"internal speech leaked into insights: {leaked}" if leaked else f"none of {len(excerpts)} internal excerpts leaked")
+
+
+def numbers_recall(case: dict[str, Any], api_key: str) -> dict[str, Any]:
+    """Every gold hard number must survive into key points or facts. Gate >= 0.95.
+
+    The headline metric: dropped numbers ($5M TTV, $20K average booking) are
+    exactly what the user needs for the follow-up proposal.
+    """
+    gold = (case.get("gold") or {}).get("numbers") or []
+    if not gold:
+        return _result("numbers_recall", True, 1.0, "no gold numbers (skipped)")
+    ins = case.get("insights") or {}
+    generated = {
+        "key_points": ins.get("key_points") or [],
+        "summary": ins.get("summary") or "",
+        "facts_numbers": ((ins.get("facts") or {}).get("numbers")) or [],
+    }
+    verdict = _judge(
+        api_key,
+        "You grade meeting-notes systems. For each REFERENCE number (a metric + value spoken in "
+        "a meeting), decide if it is present anywhere in the GENERATED output (key points, "
+        "summary, or extracted facts). The value must match (formatting may differ: $5M = "
+        "$5 million = 5 million dollars). "
+        'Return JSON: {"covered": [bool per reference], "reasoning": "<brief>"}',
+        f"REFERENCE:\n{json.dumps(gold, indent=1)}\n\nGENERATED:\n{json.dumps(generated, indent=1)}",
+    )
+    covered = verdict.get("covered") or []
+    score = sum(bool(c) for c in covered) / len(gold)
+    return _result("numbers_recall", score >= 0.95, score,
+                   f"{sum(bool(c) for c in covered)}/{len(gold)} gold numbers present")
+
+
+DETERMINISTIC = [schema_validity, english_output, stitch_integrity, speaker_attribution, entity_spelling, boundary_exclusion]
+LLM_JUDGED = [action_item_recall, action_item_precision, summary_faithfulness, decision_accuracy, numbers_recall]
+
