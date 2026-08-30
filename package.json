@@ -13,8 +13,9 @@
     "preview": "vite preview",
     "functions:serve": "supabase functions serve --env-file ./supabase/.env.local",
     "test:unit": "deno test -A supabase/functions/tests/",
-    "test:mcp": "tsc -p tsconfig.api.json --noEmit && node --import ./scripts/ts-resolve.mjs --test \"api/_mcp/tests/*.test.ts\"",
+    "test:mcp": "tsc -p tsconfig.api.json --noEmit && node --import ./scripts/ts-resolve.mjs --test \"api/_mcp/tests/*.test.ts\" \"api/_oauth/tests/*.test.ts\"",
     "test:mcp:contract": "node scripts/mcp-contract.mjs",
+    "test:oauth:contract": "node scripts/oauth-contract.mjs",
     "prepare": "git config core.hooksPath githooks || true",
     "emails:auth": "node scripts/auth-emails.mjs",
     "emails:auth:push": "node scripts/auth-emails.mjs --push"

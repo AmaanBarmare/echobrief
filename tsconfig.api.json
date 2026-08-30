@@ -18,6 +18,8 @@
     ]
   },
   "include": [
+    "api/_oauth",
+    "api/oauth",
     "api/_mcp",
     "api/mcp.ts"
   ]
