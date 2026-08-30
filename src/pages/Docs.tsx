@@ -12,6 +12,7 @@ import {
   Mail,
   MessagesSquare,
   PlayCircle,
+  Plug,
   Rocket,
   Search,
   Settings as SettingsIcon,
@@ -53,6 +54,7 @@ const GROUPS: Group[] = [
       { id: 'transcripts', name: 'Transcripts & speakers' },
       { id: 'playback', name: 'Watching the recording' },
       { id: 'ask', name: 'Ask: chat with your meetings' },
+      { id: 'connect', name: 'Connect Claude & other AI tools' },
       { id: 'languages', name: 'Languages' },
     ],
   },
@@ -551,6 +553,47 @@ export default function Docs() {
                   Retrieval is scoped to your account at the database level. Meetings that captured
                   no usable speech are excluded, because quoting an empty recording back at you is
                   worse than saying nothing.
+                </Callout>
+              </section>
+
+              <section className="space-y-4">
+                <SectionHeading id="connect">Connect Claude &amp; other AI tools</SectionHeading>
+                <div className="mb-2 flex items-center gap-2">
+                  <Plug size={18} style={{ color: 'var(--ember)' }} />
+                  <span className="text-sm font-medium text-foreground">Settings → Developer</span>
+                </div>
+                <p>
+                  Your meetings do not have to stay inside EchoBrief. Claude Code, Claude Desktop,
+                  Cursor and any other tool that speaks MCP can read them directly — so you can ask
+                  about a past decision without leaving the document you are writing.
+                </p>
+                <Steps
+                  items={[
+                    <>
+                      Go to <strong className="text-foreground">Settings → Developer</strong> and
+                      create an access token. It is shown once — copy it then.
+                    </>,
+                    <>
+                      Add EchoBrief to your tool. In Claude Code that is a single command, shown on
+                      the same page.
+                    </>,
+                    <>
+                      Ask away. “What did we decide about pricing last quarter?” now works wherever
+                      you are.
+                    </>,
+                  ]}
+                />
+                <p>Once connected, the assistant can:</p>
+                <ul className="ml-5 list-disc space-y-1.5">
+                  <li>Search across every transcript and summary you have</li>
+                  <li>Read a specific meeting's transcript, decisions and risks</li>
+                  <li>Pull your open action items — and tick them off</li>
+                </ul>
+                <Callout title="It only ever sees your own meetings">
+                  A token stands in for you and nobody else. Scoping is enforced by the database,
+                  not by the tool asking nicely, and you can revoke a token at any time from the
+                  same page. Apart from ticking an action item, reading is all it can do — it
+                  cannot start recordings, spend anything, or delete a meeting.
                 </Callout>
               </section>
 
