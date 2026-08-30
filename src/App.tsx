@@ -21,6 +21,7 @@ import Chat from "./pages/Chat";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import Terms from "./pages/Terms";
 import Docs from "./pages/Docs";
+import OAuthConsent from "./pages/OAuthConsent";
 import NotFound from "./pages/NotFound";
 
 // Cache server reads so revisiting a page renders instantly from cache and
@@ -66,6 +67,7 @@ function AppRoutes() {
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         <Route path="/terms" element={<Terms />} />
         <Route path="/docs" element={<Docs />} />
+        <Route path="/oauth/consent" element={<OAuthConsent />} />
         <Route
           path="/onboarding"
           element={

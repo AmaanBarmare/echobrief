@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
+import { consumePostLoginRedirect } from '@/lib/postLoginRedirect';
 import { supabase } from '@/integrations/supabase/client';
 import { Mail, Lock, User, ArrowLeft, ArrowRight, Loader2, Check } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -39,7 +40,7 @@ export default function Auth() {
   const isResetPassword = isPasswordRecovery;
 
   useEffect(() => {
-    if (user && !isResetPassword) navigate('/dashboard');
+    if (user && !isResetPassword) navigate(consumePostLoginRedirect() ?? '/dashboard');
   }, [user, isResetPassword, navigate]);
 
   const handleResetPassword = async (e: React.FormEvent) => {
@@ -58,7 +59,7 @@ export default function Auth() {
       if (error) throw error;
       toast({ title: 'Password updated' });
       clearPasswordRecovery();
-      navigate('/dashboard');
+      navigate(consumePostLoginRedirect() ?? '/dashboard');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Something went wrong';
       toast({ title: 'Error', description: message, variant: 'destructive' });
@@ -102,7 +103,7 @@ export default function Auth() {
         const { error } = await signIn(email, password);
         if (error) throw error;
       }
-      navigate('/dashboard');
+      navigate(consumePostLoginRedirect() ?? '/dashboard');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Something went wrong';
       toast({ title: 'Error', description: message, variant: 'destructive' });
