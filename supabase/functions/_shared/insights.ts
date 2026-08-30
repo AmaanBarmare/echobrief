@@ -135,6 +135,31 @@ function flattenDecision(d: unknown): string {
   return String(d ?? "").trim();
 }
 
+/**
+ * summary_detailed must end up a string. Asked for "notes grouped by topic",
+ * JSON mode sometimes returns an object or array instead — which String()
+ * turns into the literal "[object Object]" (observed in prod 2026-08-31).
+ */
+export function flattenSummaryDetailed(value: unknown): string {
+  if (typeof value === "string") return value.trim();
+  if (Array.isArray(value)) {
+    return value.map((v) => flattenSummaryDetailed(v)).filter(Boolean).join("\n\n");
+  }
+  if (value && typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    // {topic: "...", notes: "..."} shaped entry
+    if (typeof obj.topic === "string" && obj.notes !== undefined) {
+      return `${obj.topic}: ${flattenSummaryDetailed(obj.notes)}`.trim();
+    }
+    // {"Topic A": "notes", "Topic B": [...]} shaped map
+    return Object.entries(obj)
+      .map(([k, v]) => `${k}: ${flattenSummaryDetailed(v)}`.trim())
+      .filter((s) => s.length > 2)
+      .join("\n\n");
+  }
+  return "";
+}
+
 const PRIORITIES = new Set(["high", "medium", "low"]);
 
 function normalizeActionItem(item: unknown): Record<string, unknown> | null {
@@ -276,7 +301,7 @@ export function normalizeInsights(
 
   return {
     summary_short: String(raw.summary_short ?? "").trim(),
-    summary_detailed: String(raw.summary_detailed ?? "").trim(),
+    summary_detailed: flattenSummaryDetailed(raw.summary_detailed),
     strategic_insights: strategic,
     speaker_highlights: highlights,
     key_points: asStringArray(raw.key_points).slice(0, 10),
@@ -355,7 +380,8 @@ RULES
 - key_points MUST include every item from "numbers" (metric + value) and every item from "explicit_asks". These are never summarized away — they are what the reader needs for the follow-up.
 - If "objections" contradicts an easy framing (e.g. the prospect explicitly rejects lead generation), the summary MUST lead with the other party's actual stated need, not the pitch.
 - summary_short: 3–5 sentences. Why this meeting, what changed, what happens next.
-- summary_detailed: notes grouped by topic (use "topics" for structure, enrich from the other facts), with speaker names where the facts carry them.
+- summary_detailed: ONE STRING (never an object/array) — notes grouped by topic as paragraphs (use "topics" for structure, enrich from the other facts), with speaker names where the facts carry them.
+- key_points are written as readable sentences that carry the numbers ("Doing $5M TTV a year across 400 clients"), never bare "metric: value" pairs.
 - strategic_insights: at most 3, only if the facts support an implication. Empty for operational meetings.
 - follow_ups: from commitments that need future contact (meetings, sending things). assignee from the commitment's "who".
 - sentiment_score: overall tone from -1 (tense) to 1 (warm). Neutral is ~0.
@@ -434,7 +460,9 @@ function assembleInsights(
     decisions: facts.decisions.map((d) => ({
       decision: d.decision,
       owner: d.owner,
-      context: "",
+      // The verbatim quote carries the substance ("Tuesday at the same
+      // time") that a terse decision label loses.
+      context: d.quote ? `“${d.quote}”` : "",
     })),
     risks: facts.risks.map((r) => r.statement),
     open_questions: facts.open_questions,

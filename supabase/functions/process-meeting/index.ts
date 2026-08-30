@@ -17,6 +17,7 @@ import {
 import { computeConversationMetrics, mergeMeetingMetrics } from "../_shared/metrics.ts";
 import { annotateZones, computeBoundaries, meetingZone } from "../_shared/zones.ts";
 import { annotateLanguages, languageMix } from "../_shared/language.ts";
+import { translateLeakedSegments } from "../_shared/translate-leaks.ts";
 import { buildVocabulary, correctEntities } from "../_shared/vocab.ts";
 import { generateCoaching } from "../_shared/coaching.ts";
 import {
@@ -286,20 +287,24 @@ Only include segments where you can make a reasonable attribution.`;
     meeting.attendees ?? [],
     ownerProfile?.custom_vocabulary ?? [],
   );
+  // Language tags + mix reflect what was SPOKEN (computed before translation).
+  const languageTagged = annotateLanguages(speakerSegments);
+  const languages = languageMix(languageTagged);
+  const translatedSegments = await translateLeakedSegments(openai, languageTagged);
+
   const entityCorrections: Array<{ from: string; to: string }> = [];
-  const correctedSegments = speakerSegments.map((seg) => {
+  const correctedSegments = translatedSegments.map((seg) => {
     const fixed = correctEntities(seg.text, vocabulary);
     entityCorrections.push(...fixed.corrections);
     return { ...seg, text: fixed.text };
   });
-  const correctedTranscript = correctEntities(transcript, vocabulary).text;
 
   const recallTimeline = meeting.processing_config?.recall_speaker_timeline || [];
   const boundaries = computeBoundaries(meeting.attendees ?? [], recallTimeline);
-  const zonedSegments = annotateLanguages(
-    annotateZones(correctedSegments, boundaries),
-  );
-  const languages = languageMix(zonedSegments);
+  const zonedSegments = annotateZones(correctedSegments, boundaries);
+  const correctedTranscript = zonedSegments.length > 0
+    ? zonedSegments.map((s) => s.text).join(" ")
+    : correctEntities(transcript, vocabulary).text;
   const insightSegments = meetingZone(zonedSegments);
   const insightTranscript = insightSegments.length > 0
     ? insightSegments.map((s) => s.text).join(" ")

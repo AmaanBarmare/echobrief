@@ -9,7 +9,7 @@
     {"metric": "referral conversion", "value": "85-90%"}
   ],
   "action_items": [
-    {"task": "Send Mathew a personalized proposal", "owner": "Khush Mutha", "due": "Tuesday"},
+    {"task": "Prepare and send Mathew a personalized proposal (before the Tuesday follow-up)", "owner": "Khush Mutha"},
     {"task": "Review the proposal on the follow-up call", "owner": "Mathew Ryan", "due": "Tuesday"}
   ],
   "decisions": [

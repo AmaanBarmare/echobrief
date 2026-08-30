@@ -21,6 +21,7 @@ import {
 } from "../_shared/whisper-chunked.ts";
 import { annotateZones, computeBoundaries, meetingZone } from "../_shared/zones.ts";
 import { annotateLanguages, languageMix } from "../_shared/language.ts";
+import { translateLeakedSegments } from "../_shared/translate-leaks.ts";
 import { buildVocabulary, correctEntities } from "../_shared/vocab.ts";
 import { generateCoaching } from "../_shared/coaching.ts";
 
@@ -478,26 +479,31 @@ serve(async (req) => {
         meeting.attendees ?? [],
         ownerProfile?.custom_vocabulary ?? [],
       );
+      // Language tags + the meeting-level mix reflect what was SPOKEN, so
+      // they are computed before the leaked-Devanagari translation pass.
+      const languageTagged = annotateLanguages(speakerSegments);
+      const languages = languageMix(languageTagged);
+      const translatedSegments = await translateLeakedSegments(openai, languageTagged);
+
       const entityCorrections: Array<{ from: string; to: string }> = [];
-      const correctedSegments = speakerSegments.map((seg) => {
+      const correctedSegments = translatedSegments.map((seg) => {
         const fixed = correctEntities(seg.text, vocabulary);
         entityCorrections.push(...fixed.corrections);
         return { ...seg, text: fixed.text };
       });
-      const correctedTranscript = correctEntities(finalTranscript, vocabulary).text;
       if (entityCorrections.length > 0) {
         console.log(
           `[sarvam-webhook] Entity corrections: ${entityCorrections.slice(0, 10).map((c) => `${c.from}→${c.to}`).join(", ")}${entityCorrections.length > 10 ? ` (+${entityCorrections.length - 10} more)` : ""}`,
         );
       }
 
-      // 2. Boundary zones (privacy trim) + per-segment language, and the
-      //    meeting-level language mix that replaces the single wrong label.
+      // 2. Boundary zones (privacy trim). The stored transcript content is
+      //    rebuilt from the translated/corrected segments so it matches them.
       const boundaries = computeBoundaries(meeting.attendees ?? [], recallTimeline);
-      const zonedSegments = annotateLanguages(
-        annotateZones(correctedSegments, boundaries),
-      );
-      const languages = languageMix(zonedSegments);
+      const zonedSegments = annotateZones(correctedSegments, boundaries);
+      const correctedTranscript = zonedSegments.length > 0
+        ? zonedSegments.map((s) => s.text).join(" ")
+        : correctEntities(finalTranscript, vocabulary).text;
       const insightSegments = meetingZone(zonedSegments);
       const trimmedCount = zonedSegments.length - insightSegments.length;
       if (trimmedCount > 0) {

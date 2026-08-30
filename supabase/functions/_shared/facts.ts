@@ -185,9 +185,10 @@ ${labeledTranscript}
 
 RULES
 - quote is VERBATIM from the transcript — never paraphrase inside quote.
-- Capture EVERY hard number spoken (money, volumes, percentages, counts, rates). Numbers are the single most valuable output.
+- Capture EVERY hard number spoken (money, volumes, percentages, counts, rates). Numbers are the single most valuable output. Before finishing, re-scan the transcript for digits and add any number you missed — comparative pairs count as separate numbers ("converts at 3%" AND "referrals book at 85-90%").
 - An objection is explicit pushback ("I don't need X", "that won't work for me"). Record whether it was later addressed and where.
-- A commitment is a person agreeing to do a concrete thing. due is the time AS SPOKEN ("Tuesday"), or null.
+- A commitment is a person agreeing to do a concrete thing — from EITHER side. Agreeing to attend a follow-up, review a proposal, or send materials all count. due is the time AS SPOKEN ("Tuesday"), or null.
+- explicit_asks: when the customer says what they DO want ("what I do need is..."), capture it in their words — this is the single most important sentence of a sales call.
 - A decision is explicit agreement, not "we should maybe".
 - explicit_asks are what the customer/other party SAID they want, in their words.
 - meeting_type: sales_discovery (qualifying a prospect), sales_proposal, coaching, internal_sync (only same-company attendees / operational), client_checkin, other.
