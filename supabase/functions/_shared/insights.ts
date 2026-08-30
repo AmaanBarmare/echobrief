@@ -1,5 +1,11 @@
 import OpenAI from "https://esm.sh/openai@4.20.1";
 import { resolveAllowlistedRecipients } from "./summary-recipients.ts";
+import {
+  extractFacts,
+  MeetingFacts,
+  validateInsights,
+} from "./facts.ts";
+import { resolveRelativeDate } from "./dates.ts";
 
 export interface SpeakerSegment {
   speaker: string;
@@ -286,15 +292,233 @@ export function normalizeInsights(
   };
 }
 
+/**
+ * Attach resolved calendar dates to action items whose due_date was spoken
+ * as a relative phrase. "Tuesday" (said Fri Aug 28) → due_date_resolved
+ * "2026-09-01"; "next week" → due_date_range. The raw phrase is always kept.
+ */
+export function resolveActionItemDates(
+  insights: Record<string, any>,
+  meetingStartISO: string | null | undefined,
+): void {
+  if (!Array.isArray(insights.action_items)) return;
+  insights.action_items = insights.action_items.map((item: Record<string, unknown>) => {
+    const due = typeof item.due_date === "string" ? item.due_date : null;
+    if (!due) return item;
+    const resolved = resolveRelativeDate(due, meetingStartISO);
+    if (!resolved) return item;
+    return {
+      ...item,
+      ...(resolved.date ? { due_date_resolved: resolved.date } : {}),
+      ...(resolved.range ? { due_date_range: resolved.range } : {}),
+    };
+  });
+}
+
+/**
+ * Pass 2: synthesis. Receives ONLY the facts object — not the transcript —
+ * so every sentence it writes is traceable to an extracted, quoted fact.
+ */
+async function synthesizeFromFacts(
+  openai: OpenAI,
+  meeting: Record<string, any>,
+  facts: MeetingFacts,
+): Promise<Record<string, unknown>> {
+  const durationLine = Number.isFinite(Number(meeting.duration_seconds))
+    ? ` (${Math.round(Number(meeting.duration_seconds) / 60)} minutes)`
+    : "";
+
+  const templateHints: Record<string, string> = {
+    sales_discovery:
+      "Discovery call: cover prospect profile, pain points, buying signals, the numbers, objections and the agreed next step. Lead with what the prospect SAID they need.",
+    sales_proposal:
+      "Proposal call: cover what was proposed, the reaction per item, pricing discussion, objections and close status.",
+    coaching:
+      "Coaching call: cover advice given, commitments made and exercises assigned.",
+    internal_sync:
+      "Internal sync: decisions, blockers and owner-tagged commitments only. Keep prose minimal — nobody reads padding about their own standup.",
+    client_checkin:
+      "Client check-in: cover status, concerns raised, commitments both ways and the next touchpoint.",
+    other: "General meeting notes.",
+  };
+
+  const prompt = `Write the meeting report from these extracted facts. You do NOT have the transcript — the facts object (verbatim quotes + timestamps) is your only source, so never add information that is not in it.
+
+MEETING: ${meeting.title}${durationLine}
+MEETING TYPE: ${facts.meeting_type} — ${templateHints[facts.meeting_type] ?? templateHints.other}
+
+FACTS:
+${JSON.stringify(facts)}
+
+RULES
+- Every sentence must be traceable to at least one fact. No market commentary, no invented strategy.
+- key_points MUST include every item from "numbers" (metric + value) and every item from "explicit_asks". These are never summarized away — they are what the reader needs for the follow-up.
+- If "objections" contradicts an easy framing (e.g. the prospect explicitly rejects lead generation), the summary MUST lead with the other party's actual stated need, not the pitch.
+- summary_short: 3–5 sentences. Why this meeting, what changed, what happens next.
+- summary_detailed: notes grouped by topic (use "topics" for structure, enrich from the other facts), with speaker names where the facts carry them.
+- strategic_insights: at most 3, only if the facts support an implication. Empty for operational meetings.
+- follow_ups: from commitments that need future contact (meetings, sending things). assignee from the commitment's "who".
+- sentiment_score: overall tone from -1 (tense) to 1 (warm). Neutral is ~0.
+
+JSON shape:
+{
+  "summary_short": "",
+  "summary_detailed": "",
+  "key_points": [""],
+  "strategic_insights": [{"insight": "", "category": "market|risk|opportunity|process"}],
+  "follow_ups": [{"description": "", "assignee": "Name or null", "type": "meeting|research|validation"}],
+  "meeting_metrics": {"sentiment_score": 0}
+}`;
+
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    temperature: 0,
+    max_tokens: 2048,
+    messages: [
+      {
+        role: "system",
+        content:
+          "You write meeting reports strictly from provided structured facts. You never add information that is not in the facts. Always respond with valid JSON.",
+      },
+      { role: "user", content: prompt },
+    ],
+    response_format: { type: "json_object" },
+  });
+
+  return JSON.parse(completion.choices[0]?.message?.content || "{}");
+}
+
+/**
+ * Deterministic assembly: everything that CAN come straight from quoted facts
+ * does — action items from commitments, decisions from decisions, timeline
+ * from topics, highlights from notable quotes — leaving the model responsible
+ * only for prose. The combined raw object then rides through the same
+ * normalizeInsights whitelist as the legacy path.
+ */
+function assembleInsights(
+  facts: MeetingFacts,
+  synth: Record<string, unknown>,
+  segments: SpeakerSegment[],
+): Record<string, unknown> {
+  const timeline = [
+    ...facts.topics.map((t) => ({
+      timestamp: t.ts,
+      type: "topic",
+      content: t.topic,
+      speaker: null as string | null,
+    })),
+    ...facts.decisions.map((d) => ({
+      timestamp: d.ts,
+      type: "decision",
+      content: d.decision,
+      speaker: d.owner,
+    })),
+  ].sort((a, b) => a.timestamp - b.timestamp);
+
+  const raw = {
+    summary_short: synth.summary_short,
+    summary_detailed: synth.summary_detailed,
+    key_points: synth.key_points,
+    strategic_insights: synth.strategic_insights,
+    follow_ups: synth.follow_ups,
+    meeting_metrics: synth.meeting_metrics,
+    action_items: facts.commitments.map((c) => ({
+      task: c.what,
+      owner: c.who,
+      due_date: c.due,
+      priority: "medium",
+      // Verbatim-grounded: the commitment carries its own quote.
+      confidence: "high",
+      source_timestamp: c.ts,
+    })),
+    decisions: facts.decisions.map((d) => ({
+      decision: d.decision,
+      owner: d.owner,
+      context: "",
+    })),
+    risks: facts.risks.map((r) => r.statement),
+    open_questions: facts.open_questions,
+    speaker_highlights: facts.notable_quotes.map((q) => ({
+      speaker: q.speaker,
+      highlight: q.quote,
+      context: q.why,
+    })),
+    timeline_entries: timeline,
+  };
+  return normalizeInsights(raw, segments);
+}
+
+export interface GenerateInsightsOptions {
+  /** Canonical spellings passed into the extraction prompt. */
+  vocabulary?: string[];
+}
+
 export async function generateInsights(
   openai: OpenAI,
   meeting: Record<string, any>,
   transcript: string,
   speakerSegments: SpeakerSegment[],
+  options: GenerateInsightsOptions = {},
 ) {
   const noUsableTranscript = !transcript || transcript.trim().length < 20;
   if (noUsableTranscript) return emptyInsights();
 
+  const labeled = formatLabeledTranscript(
+    speakerSegments,
+    transcript || "No transcript available",
+  );
+
+  // Two-pass pipeline: extract quoted facts, synthesize prose from facts
+  // only, then audit the prose against the facts. Any failure falls back to
+  // the battle-tested single-shot path — a meeting must never lose its
+  // summary to a new pipeline stage.
+  let facts: MeetingFacts | null = null;
+  let normalized: Record<string, any> | null = null;
+  try {
+    facts = await extractFacts(openai, meeting, labeled, options.vocabulary ?? []);
+    const synth = await synthesizeFromFacts(openai, meeting, facts);
+    normalized = assembleInsights(facts, synth, speakerSegments);
+    if (!normalized.summary_short) {
+      throw new Error("synthesis produced no summary");
+    }
+  } catch (twoPassError) {
+    console.warn(
+      "[generateInsights] Two-pass pipeline failed, falling back to single-shot:",
+      twoPassError instanceof Error ? twoPassError.message : twoPassError,
+    );
+    facts = facts && facts.topics.length + facts.commitments.length > 0 ? facts : null;
+    normalized = null;
+  }
+
+  if (!normalized) {
+    normalized = await legacyGenerateInsights(openai, meeting, transcript, speakerSegments);
+  }
+
+  resolveActionItemDates(normalized, meeting.start_time);
+
+  if (facts) {
+    try {
+      facts.validation = await validateInsights(openai, facts, normalized);
+      if (facts.validation.unverified.length > 0) {
+        console.warn(
+          `[generateInsights] ${facts.validation.unverified.length} claim(s) failed grounding (rate ${facts.validation.grounding_rate})`,
+        );
+      }
+    } catch (validationError) {
+      console.warn("[generateInsights] Validation pass failed:", validationError);
+    }
+    normalized.facts = facts;
+  }
+
+  return normalized;
+}
+
+async function legacyGenerateInsights(
+  openai: OpenAI,
+  meeting: Record<string, any>,
+  transcript: string,
+  speakerSegments: SpeakerSegment[],
+) {
   const attendeesList = (meeting.attendees || [])
     .map((a: any) => a.displayName || a.email)
     .filter(Boolean);
@@ -437,6 +661,8 @@ export async function saveInsights(
       speaker_highlights: insights.speaker_highlights || [],
       timeline_entries: insights.timeline_entries || [],
       meeting_metrics: insights.meeting_metrics || {},
+      facts: insights.facts || null,
+      coaching: insights.coaching || null,
     });
     if (insertError) {
       console.error(`[saveInsights] Failed to insert insights for meeting ${meetingId}:`, insertError);
