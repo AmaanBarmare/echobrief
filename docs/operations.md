@@ -68,6 +68,7 @@ the `transcribing` deadlock.
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | Anon key — public by design; RLS is the control |
 | `VITE_SUPABASE_PROJECT_ID` | Project identification |
 | `VITE_SENTRY_DSN` | Optional. Sentry DSN for frontend error reporting — unset means Sentry never initialises (build-time flag; `tracesSampleRate` 0.1, environment from the Vite mode) |
+| `VITE_GOOGLE_SIGNIN` | Optional, default hidden. `true` shows the "Continue with Google" button on `/auth`. Enable after the Supabase Auth → Google provider is pointed at a live OAuth client whose authorized redirect URIs include `https://lekkpfpojlspbuwrtmzt.supabase.co/auth/v1/callback` — the current provider references a deleted client and the button would fail |
 
 ### Edge Functions (Supabase secrets)
 

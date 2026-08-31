@@ -370,8 +370,8 @@ export default function Settings() {
       toast({ title: 'Error', description: 'Passwords do not match.', variant: 'destructive' });
       return;
     }
-    if (newPassword.length < 6) {
-      toast({ title: 'Error', description: 'Password must be at least 6 characters.', variant: 'destructive' });
+    if (newPassword.length < 10) {
+      toast({ title: 'Error', description: 'Use at least 10 characters with letters and numbers.', variant: 'destructive' });
       return;
     }
     setChangingPassword(true);
@@ -986,8 +986,12 @@ export default function Settings() {
                     type="password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
+                    minLength={10}
                     className="border-border bg-background text-foreground"
                   />
+                  <p className="mt-1.5 text-[12px] text-muted-foreground">
+                    At least 10 characters with letters and numbers
+                  </p>
                 </div>
                 <div>
                   <label className="mb-2 block text-[13px] font-medium text-foreground">Confirm Password</label>
