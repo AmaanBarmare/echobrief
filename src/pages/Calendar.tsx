@@ -10,6 +10,7 @@ import { useCalendar } from '@/contexts/CalendarContext';
 import {isToday, isTomorrow, parseISO} from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { MeetingDetailModal } from '@/components/dashboard/MeetingDetailModal';
+import { GoogleReconnectBanner } from '@/components/dashboard/GoogleReconnectBanner';
 import { cn } from '@/lib/utils';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
@@ -257,6 +258,8 @@ export default function Calendar() {
             </Button>
           </div>
         </div>
+
+        <GoogleReconnectBanner />
 
         {/* Events or Empty State */}
         {events.length === 0 ? (

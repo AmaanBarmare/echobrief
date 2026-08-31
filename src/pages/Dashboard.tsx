@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { RecordingButton } from '@/components/dashboard/RecordingButton';
+import { GoogleReconnectBanner } from '@/components/dashboard/GoogleReconnectBanner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Meeting } from '@/types/meeting';
@@ -246,6 +247,8 @@ export default function Dashboard() {
             attendees={prefillMeeting?.attendees}
           />
         </div>
+
+        <GoogleReconnectBanner />
 
         {fetchError && !loading && (
           <div

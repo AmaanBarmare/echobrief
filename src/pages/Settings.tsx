@@ -20,6 +20,7 @@ interface Profile {
   full_name: string | null;
   email: string | null;
   google_calendar_connected: boolean;
+  google_needs_reconnect: boolean | null;
   email_summaries_enabled: boolean | null;
   recording_preference: 'audio_only' | 'audio_video';
   custom_vocabulary: string[] | null;
@@ -892,9 +893,24 @@ export default function Settings() {
                   className="bg-orange-500 text-white hover:bg-orange-600"
                 >
                   {connectingGoogle ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  Add Calendar
+                  {profile?.google_needs_reconnect ? 'Reconnect' : 'Add Calendar'}
                 </Button>
               </div>
+
+              {profile?.google_needs_reconnect && (
+                <div
+                  role="alert"
+                  className="mb-4 rounded-md px-4 py-3 text-[13px]"
+                  style={{
+                    border: '1px solid color-mix(in oklch, hsl(var(--warning)) 35%, transparent)',
+                    background: 'color-mix(in oklch, hsl(var(--warning)) 8%, transparent)',
+                    color: 'var(--ink)',
+                  }}
+                >
+                  Google Calendar disconnected — reconnect to keep auto-join working. Your saved
+                  connection stopped refreshing; click Reconnect to sign in with Google again.
+                </div>
+              )}
 
               {googleCalendars.length > 0 ? (
                 <div className="flex flex-col gap-2">
