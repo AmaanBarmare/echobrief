@@ -74,6 +74,10 @@ serve(async (req) => {
     if (String(v).toLowerCase() === from.toLowerCase()) overrides[k] = to;
   }
   overrides[from] = to;
+  // A rename back to the original leaves no-op entries behind — drop them.
+  for (const [k, v] of Object.entries(overrides)) {
+    if (k.trim().toLowerCase() === String(v).trim().toLowerCase()) delete overrides[k];
+  }
   await supabase
     .from("meetings")
     .update({

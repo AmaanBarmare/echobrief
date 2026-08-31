@@ -460,6 +460,14 @@ export default function Docs() {
                   Every timestamp on the page — in the outline, the transcript, action items and
                   coaching evidence — is a link into the recording at that moment.
                 </p>
+                <p>
+                  Two buttons in the header act on the report: <strong className="text-foreground">Draft
+                  follow-up</strong> writes the follow-up email from the extracted facts (their own words
+                  for what they need, the commitments both ways, the agreed time — nothing invented) for
+                  you to edit and send; <strong className="text-foreground">Regenerate</strong> rebuilds
+                  the whole report from the stored transcript with the current pipeline, which is how
+                  older meetings gain the Numbers &amp; asks and Coaching sections.
+                </p>
                 <Callout title="Grounded in the transcript, twice over">
                   The report is written in two passes: first the facts are extracted with the exact
                   words that support them, then the summary is written from those facts alone. A
@@ -480,6 +488,9 @@ export default function Docs() {
                   priority, a confidence level, and what success looks like. When a due date was
                   spoken as a day (“Tuesday”, “next week”), it is resolved against the meeting's own
                   date — so you see <em>Tue, Sep 1</em>, not a word that means nothing a week later.
+                  Items with a resolved date get an <strong className="text-foreground">Add to
+                  calendar</strong> button that creates the follow-up in your Google Calendar at the
+                  original meeting's time; attendees are invited only if you tick the box.
                 </p>
                 <p>
                   The <strong className="text-foreground">Action Items</strong> page collects them
@@ -538,7 +549,43 @@ export default function Docs() {
                   Company, product and client names the transcription keeps misspelling can be
                   fixed for good under <strong className="text-foreground">Settings → Custom
                   vocabulary</strong>: add the correct spelling once and it is enforced in every
-                  future transcript and summary.
+                  future transcript and summary. If a speaker was mislabelled, click their name in
+                  the transcript to rename them — the change applies to the metrics, action items,
+                  facts and coaching too, and survives a regeneration.
+                </p>
+              </section>
+
+              <section className="space-y-4">
+                <SectionHeading id="contacts">Contacts &amp; account briefs</SectionHeading>
+                <p>
+                  Everyone from outside your company who attends a recorded meeting becomes a contact
+                  automatically — name, email, company from their domain — with every meeting, number
+                  and commitment attached to their timeline. Before the next call, open the contact and
+                  press <strong className="text-foreground">Generate brief</strong>: a two-minute read of
+                  where things stand, open commitments on both sides, objections never resolved, and
+                  what to bring.
+                </p>
+              </section>
+
+              <section className="space-y-4">
+                <SectionHeading id="coaching">Coaching scorecard</SectionHeading>
+                <p>
+                  The Coaching page rolls every external call up by week: talk ratio, hedge-word
+                  density, how often a next step was secured and how often objections were handled,
+                  with the individual calls underneath. Reports exist for calls processed after
+                  31 August 2026; press Regenerate on an older meeting to add it.
+                </p>
+              </section>
+
+              <section className="space-y-4">
+                <SectionHeading id="automation">Automation webhook</SectionHeading>
+                <p>
+                  Under <strong className="text-foreground">Settings → Automation webhook</strong> you
+                  can give EchoBrief a URL. Within a minute of a meeting's insights being ready it POSTs
+                  a JSON payload — summary, action items with resolved dates, the extracted numbers,
+                  commitments and asks, the coaching summary; never the transcript — signed with
+                  Standard Webhooks headers so n8n, Make, Zapier or your CRM bridge can verify it. Every
+                  delivery is logged on the same settings card.
                 </p>
               </section>
 

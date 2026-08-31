@@ -247,8 +247,15 @@ Between speaker attribution and insight generation, both `sarvam-webhook` and
    `next_step_secured` + strength), a per-2-minute sentiment timeline for the external
    participant, and a coach's summary. Skipped for internal-only meetings; non-fatal.
 
-The whole sequence adds roughly 60–90 s to the callback. The regression fixture is
-meeting `f09a4803` (`scripts/evals/dataset/case_live_f09a4803.json`).
+The sequence lives in `_shared/post-transcription.ts` and is shared by `sarvam-webhook`,
+`process-meeting` and `regenerate-insights` — change it there, never in a call site.
+Validation and coaching run in parallel; the whole sequence adds roughly 60–90 s to the
+callback. When guests exist but never match the Recall timeline (SPEAKER_XX meetings),
+`boundary-llm.ts` estimates the window from the conversation itself
+(`source: "llm_estimated"`). After the insights row is saved, `afterInsightsSaved` upserts
+the meeting's external attendees into `contacts` and POSTs `meeting.insights_ready` to the
+user's automation webhook if one is configured. The regression fixture is meeting
+`f09a4803` (`scripts/evals/dataset/case_live_f09a4803.json`).
 
 ---
 

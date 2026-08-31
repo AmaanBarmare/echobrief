@@ -93,19 +93,20 @@ verify_jwt = true
 [functions.dodo-webhook]
 verify_jwt = false
 
-# User-or-service authenticated in code (see _shared/auth.ts); the gateway
-# check would reject the service-role bearer used by backfills.
+# User-or-service authenticated in code (see _shared/auth.ts). The gateway
+# verifies the JWT signature for user AND service-role tokens; the code then
+# reads the role claim.
 [functions.regenerate-insights]
-verify_jwt = false
+verify_jwt = true
 
 [functions.rename-speaker]
-verify_jwt = false
+verify_jwt = true
 
 [functions.create-followup-event]
-verify_jwt = false
+verify_jwt = true
 
 [functions.draft-followup-email]
-verify_jwt = false
+verify_jwt = true
 
 [functions.account-brief]
-verify_jwt = false
+verify_jwt = true
