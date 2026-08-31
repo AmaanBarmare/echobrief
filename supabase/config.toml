@@ -34,7 +34,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.start-recall-recording]
-verify_jwt = false
+verify_jwt = true
 
 [functions.check-recall-status]
 verify_jwt = false

@@ -1,11 +1,19 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsPrelight } from "../_shared/cors.ts";
+import { authenticate } from "../_shared/auth.ts";
+import { parseMeetingUrl } from "../_shared/validation.ts";
 
 const RECALL_API_KEY = Deno.env.get("RECALL_API_KEY")!;
 const RECALL_API_BASE_URL =
   Deno.env.get("RECALL_API_BASE_URL") || "https://us-east-1.recall.ai";
 const RECALL_API_URL = `${RECALL_API_BASE_URL}/api/v1`;
+
+// Statuses that mean a bot is (or is about to be) live for this user. Terminal
+// states are completed/failed/cancelled; processing/transcribing are pipeline
+// stages after the bot has left the call, so they don't count against the cap.
+const IN_PROGRESS_STATUSES = ["joining", "in_call", "recording"];
+const MAX_CONCURRENT_RECORDINGS = 3;
 
 serve(async (req) => {
   const corsResponse = handleCorsPrelight(req);
@@ -15,13 +23,46 @@ serve(async (req) => {
   const corsHeaders = getCorsHeaders(origin);
 
   try {
-    const { meeting_url, user_id, calendar_event_id, title } = await req.json();
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    if (!meeting_url || !user_id) {
-      return new Response(JSON.stringify({ error: 'Missing meeting_url or user_id' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    // verify_jwt = true: the gateway has verified the JWT signature.
+    const caller = await authenticate(req, supabase, corsHeaders);
+    if (!caller.ok) return caller.response;
+
+    const body = await req.json().catch(() => ({}));
+    const { meeting_url, calendar_event_id, title } = body;
+
+    // The user identity comes from the JWT, never from the body. A service
+    // caller (backfill, another function) may name a user explicitly; any
+    // body user_id from a user-authenticated caller is ignored.
+    const user_id: string | undefined = caller.isService
+      ? (typeof body.user_id === "string" && body.user_id ? body.user_id : undefined)
+      : caller.userId;
+    if (!user_id) {
+      return new Response(JSON.stringify({ error: 'Missing user_id' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    const parsed = parseMeetingUrl(meeting_url);
+    if (!parsed.ok) {
+      return new Response(JSON.stringify({ error: parsed.error }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    const platform = parsed.platform;
+
+    // Concurrency cap: bots cost real money and a runaway caller (or a stuck
+    // meeting nobody noticed) should not be able to fan out an unbounded fleet.
+    const { count: inProgress, error: capError } = await supabase
+      .from('meetings')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user_id)
+      .in('status', IN_PROGRESS_STATUSES);
+    if (capError) throw capError;
+    if ((inProgress ?? 0) >= MAX_CONCURRENT_RECORDINGS) {
+      return new Response(
+        JSON.stringify({ error: `You already have ${MAX_CONCURRENT_RECORDINGS} recordings in progress` }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
     }
 
     // Use the name the user set in Settings -> Bot. auto-join-meetings reads the
@@ -77,12 +118,6 @@ serve(async (req) => {
     const botData = await recallResponse.json();
     console.log('[start-recall-recording] Bot created:', botData.id);
 
-    // Determine platform
-    let platform = 'unknown';
-    if (meeting_url.includes('teams.microsoft.com')) platform = 'teams';
-    else if (meeting_url.includes('zoom.us')) platform = 'zoom';
-    else if (meeting_url.includes('meet.google.com')) platform = 'google_meet';
-
     // Create meeting record in Supabase
     const { data: meeting, error: createError } = await supabase
       .from('meetings')
@@ -115,7 +150,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Start recording error:', error);
     return new Response(
-      JSON.stringify({ error: error.message || 'Failed to start recording' }),
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Failed to start recording' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
