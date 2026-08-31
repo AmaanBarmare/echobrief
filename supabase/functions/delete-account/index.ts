@@ -35,16 +35,22 @@ import { authenticate } from "../_shared/auth.ts";
 //                             from contacts, so it follows)
 //  - webhook_events           meeting_id is ON DELETE SET NULL, user_id no FK
 //  - meeting_notifications    meeting_id is nullable, user_id no FK
-//  - billing_events           user_id no FK; carries the user's billing
-//                             identity, so it goes with the account
+//  - billing_events           user_id no FK. NOT deleted: it is the Dodo
+//                             webhook idempotency ledger (UNIQUE event_id) and
+//                             a financial audit record. Deleting a row would
+//                             let a redelivered webhook reprocess. The user_id
+//                             link is nulled instead, severing the identity
+//                             while keeping the claim and the audit trail.
 const NON_CASCADING_USER_TABLES = [
   "user_oauth_tokens",
   "google_oauth_states",
   "contacts",
   "webhook_events",
   "meeting_notifications",
-  "billing_events",
 ];
+
+// Rows kept for their own integrity, with the identity link removed.
+const ANONYMISE_USER_TABLES = ["billing_events"];
 
 const STORAGE_PAGE_SIZE = 1000;
 const STORAGE_REMOVE_BATCH = 100;
@@ -151,7 +157,16 @@ serve(async (req) => {
       if (delError) throw new Error(`delete from ${table} failed: ${delError.message}`);
     }
 
-    // 4. The account itself — FK cascades clear everything else.
+    // 4. Rows that must survive, with the identity link severed.
+    for (const table of ANONYMISE_USER_TABLES) {
+      const { error: anonError } = await supabase
+        .from(table)
+        .update({ user_id: null })
+        .eq("user_id", userId);
+      if (anonError) throw new Error(`anonymise ${table} failed: ${anonError.message}`);
+    }
+
+    // 5. The account itself — FK cascades clear everything else.
     const { error: deleteError } = await supabase.auth.admin.deleteUser(userId);
     if (deleteError) throw new Error(`auth deleteUser failed: ${deleteError.message}`);
 

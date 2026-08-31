@@ -14,6 +14,11 @@ const RECALL_API_URL = `${RECALL_API_BASE_URL}/api/v1`;
 // stages after the bot has left the call, so they don't count against the cap.
 const IN_PROGRESS_STATUSES = ["joining", "in_call", "recording"];
 const MAX_CONCURRENT_RECORDINGS = 3;
+// Only recent rows count. A meeting that got stuck in `recording` because a
+// webhook never arrived would otherwise consume a slot forever and lock the
+// user out of their own product; no real bot outlives this window (Recall's
+// own retention is 168 h and our longest observed call is ~1 h).
+const CAP_WINDOW_HOURS = 6;
 
 serve(async (req) => {
   const corsResponse = handleCorsPrelight(req);
@@ -56,7 +61,8 @@ serve(async (req) => {
       .from('meetings')
       .select('id', { count: 'exact', head: true })
       .eq('user_id', user_id)
-      .in('status', IN_PROGRESS_STATUSES);
+      .in('status', IN_PROGRESS_STATUSES)
+      .gte('created_at', new Date(Date.now() - CAP_WINDOW_HOURS * 3600_000).toISOString());
     if (capError) throw capError;
     if ((inProgress ?? 0) >= MAX_CONCURRENT_RECORDINGS) {
       return new Response(
