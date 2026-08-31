@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsPrelight } from "../_shared/cors.ts";
+import { authenticate } from "../_shared/auth.ts";
 import { buildEmailHtml, buildSubject } from "./template.ts";
 import { formatISTDate, formatISTTime } from "../_shared/time.ts";
 import {
@@ -28,6 +29,17 @@ serve(async (req) => {
   let pendingClaim: { supabase: any; claimId?: string } | null = null;
 
   try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // verify_jwt = true: the gateway has verified the JWT signature. Service
+    // callers (deliverResults in _shared/insights.ts, the harness) keep the
+    // full contract incl. reviewer copies via recipientEmail; a user token is
+    // scoped to its own meetings and can only mail itself.
+    const caller = await authenticate(req, supabase, corsHeaders);
+    if (!caller.ok) return caller.response;
+
     const { meetingId, recipientEmail }: EmailRequest = await req.json();
 
     if (!meetingId) {
@@ -37,16 +49,13 @@ serve(async (req) => {
       );
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Get meeting with insights
-    const { data: meeting, error: meetingError } = await supabase
+    // Get meeting with insights (scoped to the caller when not service)
+    let meetingQuery = supabase
       .from("meetings")
       .select("*")
-      .eq("id", meetingId)
-      .single();
+      .eq("id", meetingId);
+    if (!caller.isService) meetingQuery = meetingQuery.eq("user_id", caller.userId);
+    const { data: meeting, error: meetingError } = await meetingQuery.single();
 
     if (meetingError || !meeting) {
       console.error("Meeting not found:", meetingError);
@@ -70,8 +79,12 @@ serve(async (req) => {
       .eq("user_id", meeting.user_id)
       .single();
 
-    const toEmail = recipientEmail || profile?.email;
-    
+    // A user token can only send the summary to its own address — the meeting
+    // is already scoped to the caller above, so the owner's profile email IS
+    // the caller's email. Arbitrary recipients are a service-caller privilege
+    // (reviewer copies resolved by _shared/summary-recipients.ts).
+    const toEmail = caller.isService ? (recipientEmail || profile?.email) : profile?.email;
+
     if (!toEmail) {
       console.error("No recipient email found");
       return new Response(

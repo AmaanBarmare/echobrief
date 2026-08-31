@@ -31,7 +31,7 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.send-meeting-email]
-verify_jwt = false
+verify_jwt = true
 
 [functions.start-recall-recording]
 verify_jwt = true
