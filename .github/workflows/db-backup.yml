@@ -37,10 +37,16 @@ jobs:
     name: Dump, encrypt, upload
     runs-on: ubuntu-latest
     env:
-      DB_HOST: db.lekkpfpojlspbuwrtmzt.supabase.co
+      # The direct host db.<ref>.supabase.co is IPv6-ONLY (verified: it has an
+      # AAAA record and no A record) and GitHub-hosted runners have no IPv6, so
+      # a dump against it fails to connect. Use the session-mode pooler, which
+      # is dual-stack: port 5432 is session mode (required by pg_dump); 6543 is
+      # transaction mode and will NOT work for a dump. The pooler username is
+      # postgres.<project-ref>, not plain postgres.
+      DB_HOST: aws-1-ap-southeast-2.pooler.supabase.com
       DB_PORT: "5432"
       DB_NAME: postgres
-      DB_USER: postgres
+      DB_USER: postgres.lekkpfpojlspbuwrtmzt
       BACKUPS_REPO: Oltaflock-AI/echobrief-backups
       MIN_DUMP_BYTES: "204800" # 200 KiB — real data is ~23 MB uncompressed
     steps:

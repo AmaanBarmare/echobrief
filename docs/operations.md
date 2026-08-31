@@ -168,6 +168,17 @@ the frequency migrations re-declare jobs rather than unscheduling first.
 
 ## Backups and restore
 
+> **Connection host — do not change this back.** The direct host
+> `db.lekkpfpojlspbuwrtmzt.supabase.co` is **IPv6-only** (it has an AAAA record and no
+> A record) and GitHub-hosted runners have no IPv6, so a dump against it never connects.
+> The workflow therefore uses the **session-mode pooler**:
+> `aws-1-ap-southeast-2.pooler.supabase.com`, port **5432**, user
+> **`postgres.lekkpfpojlspbuwrtmzt`**. Port 6543 on the same host is *transaction* mode
+> and will not work for `pg_dump`. `scripts/backup/restore.sh` refuses either route to
+> production unless `--i-really-mean-it` is passed — the project ref appears in both the
+> direct hostname and the pooler username, which is what makes that guard work.
+
+
 Supabase Free has **no backups and no PITR**, so we run our own: a GitHub Actions
 job ([`.github/workflows/db-backup.yml`](../.github/workflows/db-backup.yml))
 takes a nightly `pg_dump` at **02:30 UTC** (chosen to stay clear of the prod

@@ -29,7 +29,12 @@
 #                  --repo Oltaflock-AI/echobrief-backups --pattern '*.enc'
 set -euo pipefail
 
+# Two ways to reach production: the direct host, and the session pooler. The
+# pooler hostname is generic (aws-1-...pooler.supabase.com) but its USERNAME is
+# postgres.<ref>, so PROD_REF is the load-bearing guard — it matches both forms.
+# Do not "simplify" this to a hostname check.
 PROD_HOST="db.lekkpfpojlspbuwrtmzt.supabase.co"
+PROD_POOLER="aws-1-ap-southeast-2.pooler.supabase.com"
 PROD_REF="lekkpfpojlspbuwrtmzt"
 
 usage() {
@@ -51,13 +56,10 @@ for arg in "$@"; do
   esac
 done
 
-[ -f "$ENC_FILE" ] || { echo "ERROR: no such file: $ENC_FILE" >&2; exit 1; }
-[ -n "${BACKUP_PASSPHRASE:-}" ] || { echo "ERROR: BACKUP_PASSPHRASE env var is not set." >&2; exit 1; }
-command -v psql > /dev/null || { echo "ERROR: psql not found on PATH." >&2; exit 1; }
-command -v openssl > /dev/null || { echo "ERROR: openssl not found on PATH." >&2; exit 1; }
-
+# Safety first: refuse a production target BEFORE anything else, so the guard
+# is reached even on a machine without psql installed.
 case "$DB_URL" in
-  *"$PROD_HOST"* | *"$PROD_REF"*)
+  *"$PROD_HOST"* | *"$PROD_POOLER"* | *"$PROD_REF"*)
     if [ "$MEAN_IT" != true ]; then
       echo "ERROR: target URL points at PRODUCTION ($PROD_HOST)." >&2
       echo "If you are certain (e.g. restoring into a freshly reset project), re-run with --i-really-mean-it." >&2
@@ -66,6 +68,11 @@ case "$DB_URL" in
     echo "WARNING: restoring against PRODUCTION because --i-really-mean-it was passed."
     ;;
 esac
+
+[ -f "$ENC_FILE" ] || { echo "ERROR: no such file: $ENC_FILE" >&2; exit 1; }
+[ -n "${BACKUP_PASSPHRASE:-}" ] || { echo "ERROR: BACKUP_PASSPHRASE env var is not set." >&2; exit 1; }
+command -v psql > /dev/null || { echo "ERROR: psql not found on PATH." >&2; exit 1; }
+command -v openssl > /dev/null || { echo "ERROR: openssl not found on PATH." >&2; exit 1; }
 
 WORKDIR="$(mktemp -d)"
 trap 'rm -rf "$WORKDIR"' EXIT
