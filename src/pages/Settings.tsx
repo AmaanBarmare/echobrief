@@ -6,9 +6,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Loader2, Lock, Mail, Bell, LogOut, X, Trash2, Calendar } from 'lucide-react';
+import { Loader2, Lock, Mail, Bell, LogOut, X, Trash2, Calendar, Copy, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { displayNameFromUserMetadata } from '@/lib/userDisplayName';
+import { formatIST } from '@/lib/time';
 import { ApiTokensCard } from '@/components/settings/ApiTokensCard';
 import { BillingCard } from '@/components/settings/BillingCard';
 
@@ -20,6 +21,18 @@ interface Profile {
   email_summaries_enabled: boolean | null;
   recording_preference: 'audio_only' | 'audio_video';
   custom_vocabulary: string[] | null;
+  webhook_url: string | null;
+  webhook_secret: string | null;
+}
+
+interface WebhookEvent {
+  id: string;
+  event_type: string;
+  status_code: number | null;
+  error: string | null;
+  delivered_at: string | null;
+  created_at: string;
+  meeting_id: string | null;
 }
 
 interface GoogleCalendar {
@@ -58,6 +71,13 @@ export default function Settings() {
   const [vocabulary, setVocabulary] = useState<string[]>([]);
   const [vocabInput, setVocabInput] = useState('');
   const [savingVocab, setSavingVocab] = useState(false);
+
+  // Automation webhook — signed POST to the user's endpoint when insights land
+  const [webhookUrl, setWebhookUrl] = useState('');
+  const [webhookSecret, setWebhookSecret] = useState<string | null>(null);
+  const [savingWebhook, setSavingWebhook] = useState(false);
+  const [regeneratingSecret, setRegeneratingSecret] = useState(false);
+  const [webhookEvents, setWebhookEvents] = useState<WebhookEvent[]>([]);
 
   // Security settings
   const [newPassword, setNewPassword] = useState('');
@@ -102,6 +122,8 @@ export default function Settings() {
       } else if (profileData) {
         setProfile(profileData as Profile);
         setVocabulary(Array.isArray(profileData.custom_vocabulary) ? profileData.custom_vocabulary : []);
+        setWebhookUrl(profileData.webhook_url ?? '');
+        setWebhookSecret(profileData.webhook_secret ?? null);
         const fromProfile = (profileData.full_name || '').trim();
         const resolvedName = fromProfile || fromAuthMeta;
         setFullName(resolvedName);
@@ -148,6 +170,20 @@ export default function Settings() {
             connected_at: new Date().toISOString(),
           }))
         );
+      }
+
+      // Last few automation webhook deliveries (written by the pipeline, read-only here)
+      const { data: eventsData, error: eventsError } = await supabase
+        .from('webhook_events')
+        .select('id, event_type, status_code, error, delivered_at, created_at, meeting_id')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (eventsError) {
+        console.warn('[Settings] webhook events fetch:', eventsError);
+      } else if (eventsData) {
+        setWebhookEvents(eventsData);
       }
 
       setLoading(false);
@@ -226,6 +262,98 @@ export default function Settings() {
 
   const handleRemoveVocabularyTerm = (term: string) => {
     saveVocabulary(vocabulary.filter(v => v !== term));
+  };
+
+  // Automation webhook handlers. The secret is minted client-side and stored on
+  // the profile; supabase/functions/_shared/webhooks.ts signs deliveries with it.
+  const generateWebhookSecret = () => {
+    const bytes = new Uint8Array(24); // 24 bytes → exactly 32 base64url chars, no padding
+    crypto.getRandomValues(bytes);
+    const base64 = btoa(Array.from(bytes, (b) => String.fromCharCode(b)).join(''));
+    return `whsec_${base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')}`;
+  };
+
+  const isHttpsUrl = (value: string) => {
+    try {
+      return new URL(value).protocol === 'https:';
+    } catch {
+      return false;
+    }
+  };
+
+  const handleSaveWebhookUrl = async () => {
+    if (!user) return;
+    const trimmed = webhookUrl.trim();
+    if (trimmed && !isHttpsUrl(trimmed)) {
+      toast({ title: 'Error', description: 'Endpoint URL must start with https://', variant: 'destructive' });
+      return;
+    }
+    // The first saved endpoint mints a signing secret so delivery #1 is already verifiable.
+    const mintedSecret = trimmed && !webhookSecret ? generateWebhookSecret() : null;
+    setSavingWebhook(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update(
+          mintedSecret
+            ? { webhook_url: trimmed || null, webhook_secret: mintedSecret }
+            : { webhook_url: trimmed || null }
+        )
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+      setWebhookUrl(trimmed);
+      if (mintedSecret) setWebhookSecret(mintedSecret);
+      setProfile(prev =>
+        prev
+          ? { ...prev, webhook_url: trimmed || null, webhook_secret: mintedSecret ?? prev.webhook_secret }
+          : null
+      );
+      toast({
+        title: 'Saved',
+        description: trimmed
+          ? 'Meeting insights will be posted to your endpoint.'
+          : 'Automation webhook turned off.',
+      });
+    } catch (error) {
+      toast({ title: 'Error', description: (error as Error).message, variant: 'destructive' });
+    } finally {
+      setSavingWebhook(false);
+    }
+  };
+
+  const handleRegenerateWebhookSecret = async () => {
+    if (!user) return;
+    setRegeneratingSecret(true);
+    try {
+      const next = generateWebhookSecret();
+      const { error } = await supabase
+        .from('profiles')
+        .update({ webhook_secret: next })
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+      setWebhookSecret(next);
+      setProfile(prev => (prev ? { ...prev, webhook_secret: next } : null));
+      toast({
+        title: 'Secret regenerated',
+        description: 'Update the secret on your receiver — deliveries signed with the old one will no longer verify.',
+      });
+    } catch (error) {
+      toast({ title: 'Error', description: (error as Error).message, variant: 'destructive' });
+    } finally {
+      setRegeneratingSecret(false);
+    }
+  };
+
+  const handleCopyWebhookSecret = async () => {
+    if (!webhookSecret) return;
+    try {
+      await navigator.clipboard.writeText(webhookSecret);
+      toast({ title: 'Copied to clipboard' });
+    } catch (error) {
+      toast({ title: 'Error', description: (error as Error).message, variant: 'destructive' });
+    }
   };
 
   // Security handlers
@@ -594,6 +722,124 @@ export default function Settings() {
                   No terms yet. Add names the transcriber tends to misspell.
                 </p>
               )}
+            </div>
+
+            {/* Automation webhook */}
+            <div className="rounded-2xl border border-border bg-card p-6 text-card-foreground shadow-sm">
+              <h2 className="mb-1 text-base font-semibold text-foreground">Automation webhook</h2>
+              <p className="mb-4 text-[13px] text-muted-foreground">
+                When a meeting&apos;s insights are ready, EchoBrief POSTs a JSON payload (summary, action
+                items, extracted facts, coaching summary — never the transcript) to this URL. Requests are
+                signed with Standard Webhooks headers (<code>webhook-id</code>, <code>webhook-timestamp</code>,{' '}
+                <code>webhook-signature</code> = <code>v1,&lt;base64 HMAC-SHA256 of id.timestamp.body&gt;</code>)
+                so n8n, Make, Zapier or your own endpoint can verify them. Events:{' '}
+                <code>meeting.insights_ready</code>, <code>meeting.insights_regenerated</code>.
+              </p>
+
+              <div className="mb-4">
+                <label className="mb-2 block text-[13px] font-medium text-foreground">Endpoint URL</label>
+                <div className="flex gap-2">
+                  <Input
+                    type="url"
+                    value={webhookUrl}
+                    onChange={(e) => setWebhookUrl(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleSaveWebhookUrl();
+                      }
+                    }}
+                    placeholder="https://your-n8n.example.com/webhook/echobrief"
+                    className="border-border bg-background text-foreground"
+                  />
+                  <Button
+                    onClick={handleSaveWebhookUrl}
+                    disabled={savingWebhook}
+                    className="bg-orange-500 text-white hover:bg-orange-600"
+                  >
+                    {savingWebhook ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    Save
+                  </Button>
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  https:// only. Save an empty field to turn the webhook off.
+                </p>
+              </div>
+
+              <div className="mb-4">
+                <label className="mb-2 block text-[13px] font-medium text-foreground">Signing secret</label>
+                {webhookSecret ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <code className="rounded-lg border border-border bg-muted/50 px-3 py-1.5 text-[13px] text-foreground">
+                      {webhookSecret.slice(0, 8)}••••••••••••••••
+                    </code>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCopyWebhookSecret}
+                      className="border-border text-foreground hover:bg-muted"
+                    >
+                      <Copy size={14} className="mr-2" />
+                      Copy
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleRegenerateWebhookSecret}
+                      disabled={regeneratingSecret}
+                      className="border-border text-foreground hover:bg-muted"
+                    >
+                      {regeneratingSecret ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <RefreshCw size={14} className="mr-2" />
+                      )}
+                      Regenerate
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    A secret is generated the first time you save an endpoint URL.
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <h3 className="mb-2 text-[13px] font-medium text-foreground">Recent deliveries</h3>
+                {webhookEvents.length > 0 ? (
+                  <div className="flex flex-col gap-2">
+                    {webhookEvents.map((ev) => (
+                      <div
+                        key={ev.id}
+                        className="flex items-start justify-between gap-3 rounded-lg border border-border bg-muted/30 px-4 py-3"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="m-0 text-[13px] font-medium text-foreground">{ev.event_type}</p>
+                          <p className="m-0 text-[11px] text-muted-foreground">
+                            {formatIST(ev.created_at, 'MMM d, yyyy h:mm a')}
+                          </p>
+                          {ev.error ? (
+                            <p className="m-0 mt-1 truncate text-[11px] text-destructive" title={ev.error}>
+                              {ev.error}
+                            </p>
+                          ) : null}
+                        </div>
+                        <span
+                          className={
+                            ev.error
+                              ? 'shrink-0 rounded bg-destructive/10 px-2 py-0.5 text-[10px] font-semibold text-destructive'
+                              : 'shrink-0 rounded bg-green-500/15 px-2 py-0.5 text-[10px] font-semibold text-green-600 dark:text-green-400'
+                          }
+                        >
+                          {ev.status_code ? `HTTP ${ev.status_code}` : ev.error ? 'Failed' : 'Delivered'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">No deliveries yet.</p>
+                )}
+              </div>
             </div>
           </div>
         )}
