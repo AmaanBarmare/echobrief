@@ -3,8 +3,9 @@ project_id = "lekkpfpojlspbuwrtmzt"
 [functions.chat-transcripts]
 verify_jwt = true
 
+# Service-role only in code (users go through regenerate-insights).
 [functions.process-meeting]
-verify_jwt = false
+verify_jwt = true
 
 [functions.prune-recordings]
 verify_jwt = false
