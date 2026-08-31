@@ -1,0 +1,14 @@
+-- Drop the permissive catch-all policy on google_oauth_states.
+--
+-- 20260402000003 added "oauth_states_service_role" with USING (true) /
+-- WITH CHECK (true) "for service role bypass" — but the service role bypasses
+-- RLS entirely and never needed a policy. What the policy actually did was
+-- grant EVERY authenticated (and anon) client full read/write on every user's
+-- OAuth state rows: another user's `state` value is exactly what an attacker
+-- needs to hijack a Google OAuth callback in flight.
+--
+-- No replacement policy: the edge functions (google-oauth-start,
+-- google-oauth-redirect) touch this table with the service role only. The
+-- original per-user SELECT/INSERT/DELETE policies from 20260108121042 remain
+-- and are harmless.
+DROP POLICY IF EXISTS "oauth_states_service_role" ON public.google_oauth_states;
