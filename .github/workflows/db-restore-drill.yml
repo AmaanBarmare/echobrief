@@ -1,0 +1,179 @@
+# Weekly restore drill.
+#
+# A backup nobody has restored is a hope, not a backup. This job downloads the
+# NEWEST encrypted dump from Oltaflock-AI/echobrief-backups, decrypts it, and
+# restores it into a throwaway postgres:17 service container, then asserts the
+# core tables exist and hold rows. It never touches production.
+#
+# Expected restore noise: the dump comes from Supabase, so the SQL references
+# things a vanilla postgres:17 container does not have (auth.uid() in RLS
+# policies, extension-owned functions, Supabase roles). The drill pre-creates
+# minimal stubs, restores WITHOUT ON_ERROR_STOP, counts the errors, and then
+# judges success on what actually matters: tables present and row counts > 0.
+# The full psql error log is printed so a failure is diagnosable from the run
+# page alone.
+#
+# Schedule: Mondays 05:30 UTC — after the nightly 02:30 UTC backup has run,
+# so it always drills a fresh dump. (It only talks to GitHub releases and a
+# local container, so prod pg_cron times are irrelevant here.)
+#
+# Required repo secrets: BACKUP_PASSPHRASE, BACKUPS_REPO_TOKEN.
+name: DB restore drill
+
+on:
+  schedule:
+    - cron: "30 5 * * 1" # Mondays 05:30 UTC, a few hours after the nightly backup
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  restore-drill:
+    name: Decrypt latest backup and restore into throwaway Postgres 17
+    runs-on: ubuntu-latest
+    env:
+      BACKUPS_REPO: Oltaflock-AI/echobrief-backups
+      PGHOST: 127.0.0.1
+      PGPORT: "5432"
+      PGUSER: postgres
+      PGPASSWORD: drill-only-throwaway
+      PGDATABASE: postgres
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: drill-only-throwaway
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Check required secrets
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+          BACKUPS_REPO_TOKEN: ${{ secrets.BACKUPS_REPO_TOKEN }}
+        run: |
+          missing=""
+          [ -n "$BACKUP_PASSPHRASE" ] || missing="$missing BACKUP_PASSPHRASE"
+          [ -n "$BACKUPS_REPO_TOKEN" ] || missing="$missing BACKUPS_REPO_TOKEN"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing required repo secret(s):$missing — drill cannot run."
+            exit 1
+          fi
+
+      - name: Install PostgreSQL 17 client
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17
+          /usr/lib/postgresql/17/bin/psql --version
+
+      - name: Download newest backup release asset
+        env:
+          GH_TOKEN: ${{ secrets.BACKUPS_REPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG=$(gh release list --repo "$BACKUPS_REPO" --limit 100 \
+            --json tagName --jq '[.[].tagName | select(test("^backup-\\d{4}-\\d{2}-\\d{2}$"))] | sort | last // empty')
+          if [ -z "$TAG" ]; then
+            echo "::error::No backup-YYYY-MM-DD releases found in $BACKUPS_REPO — has the nightly backup ever run?"
+            exit 1
+          fi
+          echo "Drilling restore of release: $TAG"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+          gh release download "$TAG" --repo "$BACKUPS_REPO" --pattern '*.tar.gz.enc' --dir .
+          ls -l ./*.tar.gz.enc
+
+      - name: Decrypt and unpack
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          ENC=$(ls ./*.tar.gz.enc | head -n1)
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 \
+            -pass env:BACKUP_PASSPHRASE -in "$ENC" -out backup.tar.gz \
+            || { echo "::error::Decryption of $ENC FAILED. Either BACKUP_PASSPHRASE in this repo no longer matches the one the backup was encrypted with, or the blob is corrupt. Every backup encrypted with the current passphrase may be unrecoverable — treat as an incident."; exit 1; }
+          tar -xzf backup.tar.gz
+          for f in public.sql auth_users.sql; do
+            [ -s "$f" ] || { echo "::error::$f missing or empty inside the archive — the backup job produced a malformed archive."; exit 1; }
+            echo "$f: $(wc -c < "$f") bytes"
+          done
+
+      - name: Restore into throwaway container
+        run: |
+          set -euo pipefail
+          PSQL=/usr/lib/postgresql/17/bin/psql
+
+          # Minimal Supabase stubs so the dump's DDL mostly applies cleanly:
+          # RLS policies call auth.uid()/auth.role(), tables reference
+          # auth.users, and some defaults use extensions functions.
+          "$PSQL" -v ON_ERROR_STOP=1 <<'SQL'
+          CREATE SCHEMA IF NOT EXISTS auth;
+          CREATE SCHEMA IF NOT EXISTS extensions;
+          CREATE EXTENSION IF NOT EXISTS pgcrypto;
+          CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+          CREATE OR REPLACE FUNCTION auth.uid() RETURNS uuid
+            LANGUAGE sql STABLE AS $$ SELECT NULL::uuid $$;
+          CREATE OR REPLACE FUNCTION auth.role() RETURNS text
+            LANGUAGE sql STABLE AS $$ SELECT NULL::text $$;
+          CREATE OR REPLACE FUNCTION auth.jwt() RETURNS jsonb
+            LANGUAGE sql STABLE AS $$ SELECT NULL::jsonb $$;
+          SQL
+
+          # auth.users first (public tables FK into it), then public.
+          # No ON_ERROR_STOP: Supabase-specific statements (roles, grants,
+          # extension triggers) are EXPECTED to fail here; we log everything
+          # and assert on the outcome instead.
+          "$PSQL" -f auth_users.sql 2> auth_errors.log || true
+          "$PSQL" -f public.sql 2> public_errors.log || true
+
+          for log in auth_errors.log public_errors.log; do
+            n=$(grep -c '^ERROR' "$log" || true)
+            echo "--- $log ($n errors) ---"
+            cat "$log"
+          done
+
+      - name: Assert restore actually worked
+        run: |
+          set -euo pipefail
+          PSQL=/usr/lib/postgresql/17/bin/psql
+          fail=0
+
+          echo "Tables restored into public schema:"
+          "$PSQL" -c "\dt public.*"
+
+          for t in meetings transcripts meeting_insights profiles; do
+            exists=$("$PSQL" -tAc "SELECT to_regclass('public.$t') IS NOT NULL")
+            if [ "$exists" != "t" ]; then
+              echo "::error::Table public.$t does NOT exist after restore ($TAG). The dump is structurally broken — check public_errors.log above for the CREATE TABLE failure."
+              fail=1
+              continue
+            fi
+            count=$("$PSQL" -tAc "SELECT count(*) FROM public.$t")
+            echo "public.$t: $count rows"
+            if [ "$count" -eq 0 ]; then
+              echo "::error::public.$t restored with 0 rows ($TAG). Either prod truly has no rows (verify!) or the COPY failed — search public_errors.log above for 'COPY $t'."
+              fail=1
+            fi
+          done
+
+          users=$("$PSQL" -tAc "SELECT count(*) FROM auth.users" 2>/dev/null || echo "TABLE MISSING")
+          echo "auth.users: $users rows"
+          if [ "$users" = "TABLE MISSING" ] || [ "$users" = "0" ]; then
+            echo "::error::auth.users did not restore ($users) — user accounts are not recoverable from this backup. Check auth_errors.log above."
+            fail=1
+          fi
+
+          if [ "$fail" -ne 0 ]; then
+            echo "::error::RESTORE DRILL FAILED for $TAG — the current backups may not be restorable. Fix before trusting them."
+            exit 1
+          fi
+          echo "Restore drill PASSED for $TAG."
