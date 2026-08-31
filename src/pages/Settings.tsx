@@ -496,7 +496,7 @@ export default function Settings() {
         }
       }, 500); // Small delay for DB write to complete
     }
-  }, [user]);
+  }, [user, toast]);
 
   // Backs deliverResults() in supabase/functions/_shared/insights.ts, which
   // treats a missing/true value as "send the summary".

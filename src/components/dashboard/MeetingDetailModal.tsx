@@ -104,8 +104,9 @@ export function MeetingDetailModal({ event, onClose, onRecordWithBot }: MeetingD
   }, []);
 
   // Check if a bot meeting already exists for this calendar event
+  const eventId = event?.id;
   useEffect(() => {
-    if (!event) return;
+    if (!eventId) return;
     setBotStatus('idle');
     setBotError('');
     setMeetingId(null);
@@ -115,7 +116,7 @@ export function MeetingDetailModal({ event, onClose, onRecordWithBot }: MeetingD
       const { data } = await supabase
         .from('meetings')
         .select('id, status')
-        .eq('calendar_event_id', event.id)
+        .eq('calendar_event_id', eventId)
         .not('recall_bot_id', 'is', null)
         .order('created_at', { ascending: false })
         .limit(1)
@@ -127,7 +128,7 @@ export function MeetingDetailModal({ event, onClose, onRecordWithBot }: MeetingD
       }
     };
     checkExisting();
-  }, [event?.id, stopPolling]);
+  }, [eventId, stopPolling]);
 
   // Poll meeting status via the check-recall-status edge function
   // Uses exponential backoff (10s → 20s → 40s → 60s cap) to avoid

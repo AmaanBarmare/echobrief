@@ -66,6 +66,8 @@ interface MeetingDetailData {
 // so anything in this list means "still working", not "never started".
 const IN_PROGRESS_STATUSES = ['joining', 'in_call', 'recording', 'processing', 'transcribing'];
 
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+
 // ─── Clean modern badges ───
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { color: string; tint: string; label: string }> = {
@@ -239,8 +241,6 @@ export default function MeetingDetail() {
     setSeekSeconds(Math.max(0, Math.floor(ts)));
     setActiveTab('recording');
   };
-
-  const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
   // Authenticated call to one of the meeting-action edge functions.
   const callFn = async (name: string, body: Record<string, unknown>) => {
@@ -437,10 +437,12 @@ export default function MeetingDetail() {
 
   // Listen for status updates via Supabase Realtime + a single backend
   // fallback call instead of hammering check-recall-status every 5 seconds.
+  const meetingStatus = meeting?.status;
+  const recallBotId = meeting?.recall_bot_id;
   useEffect(() => {
-    if (!user || !id || !meeting) return;
+    if (!user || !id || !meetingStatus) return;
     const terminalStatuses = ['completed', 'failed', 'cancelled'];
-    if (terminalStatuses.includes(meeting.status)) return;
+    if (terminalStatuses.includes(meetingStatus)) return;
 
     // Subscribe to realtime changes on this meeting row; any update refreshes
     // the cached composite (which re-pulls transcript + insights on completion).
@@ -460,7 +462,7 @@ export default function MeetingDetail() {
     let fallbackCount = 0;
     const maxFallbacks = 10; // stop after ~10 minutes
     const callFallback = async () => {
-      if (!meeting.recall_bot_id || fallbackCount >= maxFallbacks) return;
+      if (!recallBotId || fallbackCount >= maxFallbacks) return;
       fallbackCount++;
       try {
         const token = (await supabase.auth.getSession()).data.session?.access_token;
@@ -487,7 +489,7 @@ export default function MeetingDetail() {
       clearTimeout(initialTimeout);
       clearInterval(fallbackInterval);
     };
-  }, [user, id, meeting?.status, meeting?.recall_bot_id, queryClient]);
+  }, [user, id, meetingStatus, recallBotId, queryClient]);
 
   const handleDelete = async () => {
     if (!meeting || !user) return;
