@@ -36,6 +36,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # The Deno type-check resolves an `@types/node` type reference out of
+      # node_modules, so the npm deps must be installed even though the tests
+      # themselves run under Deno. Without this the job dies with
+      # `Could not find "@types/node" in a node_modules folder`.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
       - uses: denoland/setup-deno@v2
         with:
           # Matches the local toolchain (deno 2.9.1) and deno.lock.
