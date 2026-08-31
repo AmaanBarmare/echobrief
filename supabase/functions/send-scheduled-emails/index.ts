@@ -1,11 +1,19 @@
 /**
- * PARKED — scheduled digests are deliberately not shipped yet.
+ * PARKED — scheduled digests are deliberately not shipped yet. This function
+ * is NOT deployed and its cron job (send-onboarding-emails) is unscheduled
+ * (20260831190000_cron_service_auth.sql); the code is kept for later.
+ *
+ * If it ever is deployed: verify_jwt = true in config.toml and the
+ * service-role-only authenticate() gate below mean it exposes nothing, and the
+ * rescheduled cron must send the Vault-sourced Authorization header like the
+ * other cron jobs.
  *
  * Its HTML predates the shared shell. Before this is turned on, rebuild the
  * markup with _shared/email-brand.ts so it matches every other mail we send.
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { authenticate, json } from "../_shared/auth.ts";
 
 // Cron function - runs hourly to send due onboarding emails
 serve(async (req) => {
@@ -14,6 +22,10 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const resendApiKey = Deno.env.get("RESEND_API_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    const caller = await authenticate(req, supabase);
+    if (!caller.ok) return caller.response;
+    if (!caller.isService) return json({ error: "Service only" }, 403);
 
     // Get pending emails that are due (with anti-spam protections)
     const { data: pendingEmails, error: fetchError } = await supabase

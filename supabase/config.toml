@@ -48,20 +48,23 @@ verify_jwt = false
 [functions.fetch-google-calendars]
 verify_jwt = false
 
+# Parked (not deployed). Service-role-only in code; gateway-verified JWT required.
 [functions.generate-digest-report]
-verify_jwt = false
+verify_jwt = true
 
 [functions.get-user-calendars]
 verify_jwt = false
 
+# Parked (not deployed). Service-role-only in code; gateway-verified JWT required.
 [functions.queue-onboarding-emails]
-verify_jwt = false
+verify_jwt = true
 
 [functions.send-email-report]
 verify_jwt = false
 
+# Parked (not deployed, cron unscheduled). Service-role-only in code.
 [functions.send-scheduled-emails]
-verify_jwt = false
+verify_jwt = true
 
 [functions.sync-calendar-events]
 verify_jwt = false

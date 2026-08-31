@@ -1,11 +1,16 @@
 /**
- * PARKED — the digest report is deliberately not shipped yet.
+ * PARKED — the digest report is deliberately not shipped yet. This function is
+ * NOT deployed; the code is kept for when the feature lands.
+ *
+ * If it ever is deployed: verify_jwt = true in config.toml and the
+ * service-role-only authenticate() gate below mean it exposes nothing.
  *
  * Its HTML predates the shared shell. Before this is turned on, rebuild the
  * markup with _shared/email-brand.ts so it matches every other mail we send.
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { authenticate, json } from "../_shared/auth.ts";
 import { formatISTDate } from "../_shared/time.ts";
 
 const supabaseClient = createClient(
@@ -202,6 +207,10 @@ serve(async (req) => {
   if (req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 })
   }
+
+  const caller = await authenticate(req, supabaseClient);
+  if (!caller.ok) return caller.response;
+  if (!caller.isService) return json({ error: 'Service only' }, 403);
 
   try {
     const {
