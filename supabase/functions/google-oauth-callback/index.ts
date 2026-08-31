@@ -86,6 +86,9 @@ serve(async (req) => {
         user_id: user.id,
         google_access_token: tokenData.access_token,
         google_refresh_token: tokenData.refresh_token || null,
+        // Space-separated scopes Google actually granted — lets the app tell a
+        // read-only grant from one that can create events, before failing.
+        google_scopes: typeof tokenData.scope === "string" ? tokenData.scope : null,
         google_token_expiry: expiryDate.toISOString(),
       }, { onConflict: 'user_id' });
 

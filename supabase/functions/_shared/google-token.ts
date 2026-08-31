@@ -59,3 +59,21 @@ export async function getGoogleAccessToken(
   );
   return { ok: true, accessToken: refreshed.access_token };
 }
+
+const CALENDAR_WRITE_SCOPES = [
+  "https://www.googleapis.com/auth/calendar.events",
+  "https://www.googleapis.com/auth/calendar",
+];
+
+/**
+ * Can this grant create events? `null` scopes (recorded before we stored
+ * them) are unknown — callers should try and translate Google's 403.
+ */
+export function hasCalendarWriteScope(scopes: string | null | undefined): boolean | null {
+  if (typeof scopes !== "string" || !scopes.trim()) return null;
+  const granted = new Set(scopes.split(/\s+/).filter(Boolean));
+  return CALENDAR_WRITE_SCOPES.some((s) => granted.has(s));
+}
+
+export const RECONNECT_MESSAGE =
+  "Your Google Calendar connection is read-only. Reconnect it under Settings → Integrations to let EchoBrief create follow-up events.";

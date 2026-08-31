@@ -252,7 +252,11 @@ export default function MeetingDetail() {
       body: JSON.stringify(body),
     });
     const json = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(json?.error || `${name} failed (${res.status})`);
+    if (!res.ok) {
+      const err = new Error(json?.error || `${name} failed (${res.status})`) as Error & { code?: string };
+      err.code = json?.code;
+      throw err;
+    }
     return json;
   };
   const [regenerating, setRegenerating] = useState(false);
@@ -303,7 +307,13 @@ export default function MeetingDetail() {
       await refreshMeeting();
       toast({ title: 'Follow-up added to your calendar', description: inviteAttendees ? `${res.invited} attendee(s) invited.` : 'No invitations were sent.' });
     } catch (e) {
-      toast({ title: 'Could not create the event', description: e instanceof Error ? e.message : 'Unknown error', variant: 'destructive' });
+      const code = (e as { code?: string })?.code;
+      toast({
+        title: code === 'NEEDS_RECONNECT' ? 'Reconnect Google Calendar' : 'Could not create the event',
+        description: e instanceof Error ? e.message : 'Unknown error',
+        variant: 'destructive',
+      });
+      if (code === 'NEEDS_RECONNECT') setTimeout(() => navigate('/settings'), 1800);
     } finally {
       setCalendarBusy(null);
     }
