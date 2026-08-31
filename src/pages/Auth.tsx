@@ -14,10 +14,10 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 // project's auth config has to be changed too.
 const SIGNUPS_ENABLED = false;
 
-// Google sign-in ships dark: the Supabase Google auth provider currently
-// points at a deleted OAuth client, so the button would fail today. Set
-// VITE_GOOGLE_SIGNIN=true only once the provider is repointed at a live
-// client (see docs/operations.md).
+// Google sign-in is live: the Supabase Auth Google provider was repointed at
+// a fresh OAuth client on 2026-08-31 (the previous one had been deleted and
+// returned `deleted_client`). The env gate stays so the button can be pulled
+// without a code change if the provider breaks again (see docs/operations.md).
 const GOOGLE_SIGNIN_ENABLED = import.meta.env.VITE_GOOGLE_SIGNIN === 'true';
 
 const inputClass =

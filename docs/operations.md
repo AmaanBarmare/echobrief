@@ -68,7 +68,7 @@ the `transcribing` deadlock.
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | Anon key — public by design; RLS is the control |
 | `VITE_SUPABASE_PROJECT_ID` | Project identification |
 | `VITE_SENTRY_DSN` | Optional. Sentry DSN for frontend error reporting — unset means Sentry never initialises (build-time flag; `tracesSampleRate` 0.1, environment from the Vite mode) |
-| `VITE_GOOGLE_SIGNIN` | Optional, default hidden. `true` shows the "Continue with Google" button on `/auth`. Enable after the Supabase Auth → Google provider is pointed at a live OAuth client whose authorized redirect URIs include `https://lekkpfpojlspbuwrtmzt.supabase.co/auth/v1/callback` — the current provider references a deleted client and the button would fail |
+| `VITE_GOOGLE_SIGNIN` | `true` in all three Vercel environments since 2026-08-31, which shows the "Continue with Google" button on `/auth`. Vite inlines `VITE_*` at build time, so changing it requires a **redeploy**, not just an env edit. Set it back to `false` to pull the button without a code change. The Supabase Auth → Google provider must point at a live OAuth client whose authorized redirect URIs include `https://lekkpfpojlspbuwrtmzt.supabase.co/auth/v1/callback` (client `226681308853-qpq87ckp…`; the prior client was deleted and returned `deleted_client`) |
 
 ### Edge Functions (Supabase secrets)
 
@@ -219,6 +219,40 @@ curl -s -H "Authorization: Bearer $TOK" \
 > `/auth/v1/recover` and checking for `200` rather than `500`.
 
 ---
+
+## Google OAuth clients
+
+Two **separate** OAuth clients live in the Google Cloud project `Echobrief` (project number `226681308853`). They fail independently — check the right one.
+
+| Purpose | Client | Redirect URI | Configured in |
+|---|---|---|---|
+| Sign in with Google | `226681308853-qpq87ckp…` | `https://lekkpfpojlspbuwrtmzt.supabase.co/auth/v1/callback` | Supabase Auth → Providers → Google |
+| Calendar connect | `226681308853-7mqtgjgj…` | `https://lekkpfpojlspbuwrtmzt.supabase.co/functions/v1/google-oauth-redirect` | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` secrets |
+
+**Consent screen status (2026-08-31):** domain `echobrief.in` verified in Search Console (DNS TXT at GoDaddy), branding verified and shown to users. Publishing to Production still requires Google review because the calendar scopes (`calendar.readonly`, `calendar.events.readonly`, `calendar.events`) are *sensitive*.
+
+### Probing a client without signing in
+
+Deleting a client in the console does not surface anywhere in the app — the button just fails at click time. To check one is alive, request its consent page and grep the response:
+
+```bash
+CID=<client id>; RU=<its redirect uri>
+curl -sL "https://accounts.google.com/o/oauth2/v2/auth?client_id=$CID&redirect_uri=$RU&response_type=code&scope=email%20profile&state=probe" \
+  | grep -oiE "deleted_client|invalid_client|redirect_uri_mismatch|Access blocked|Sign in with Google"
+```
+
+`Sign in with Google` alone means healthy. `deleted_client` means the client is gone and must be recreated. This exercises the authorize step only — a wrong client **secret** fails later, at token exchange, and only a real sign-in catches it.
+
+To read or repoint the Supabase provider (the Management API returns the secret as a sha256 digest, never the value):
+
+```bash
+TOK=$(security find-generic-password -s "Supabase CLI" -w | sed 's/^go-keyring-base64://' | base64 -d)
+curl -s -H "Authorization: Bearer $TOK" \
+  https://api.supabase.com/v1/projects/lekkpfpojlspbuwrtmzt/config/auth \
+  | python3 -c "import json,sys;d=json.load(sys.stdin);print({k:v for k,v in d.items() if 'google' in k})"
+```
+
+Use `curl`, not Python's `urllib` — the default urllib User-Agent is Cloudflare-blocked and returns a bare `403`.
 
 ## Incident playbook
 
