@@ -3,6 +3,10 @@ project_id = "lekkpfpojlspbuwrtmzt"
 [functions.chat-transcripts]
 verify_jwt = true
 
+# Self-service account deletion. User JWT only — service callers get 403.
+[functions.delete-account]
+verify_jwt = true
+
 # Service-role only in code (users go through regenerate-insights).
 [functions.process-meeting]
 verify_jwt = true

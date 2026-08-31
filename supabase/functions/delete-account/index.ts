@@ -1,0 +1,167 @@
+/**
+ * delete-account — self-service, irreversible account deletion.
+ *
+ * POST { confirm: "DELETE" } with the account owner's own JWT
+ * (verify_jwt = true; service-role callers are refused — deletion is a
+ * decision only the owner can make, from their own session).
+ *
+ * Order matters:
+ *   1. Remove every object under recordings/<userId>/ in Storage (audio is
+ *      not covered by any DB cascade).
+ *   2. Best-effort revoke the Google refresh token at Google — BEFORE the
+ *      user_oauth_tokens row is deleted. Failures are ignored: the grant dies
+ *      with the account either way, revocation is just hygiene.
+ *   3. Delete rows in user-scoped tables that do NOT cascade from auth.users
+ *      (verified against the migrations — see NON_CASCADING_USER_TABLES).
+ *   4. supabase.auth.admin.deleteUser(userId) — the FK cascades then clear
+ *      profiles, meetings (→ transcripts, meeting_insights, email_messages,
+ *      email_deliveries, monitor_events, meeting_contacts,
+ *      action_item_completions), calendars, calendar_events, scheduled_emails,
+ *      digest_schedules, digest_reports, api_tokens (→ oauth_refresh_tokens)
+ *      and oauth_codes.
+ */
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getCorsHeaders, handleCorsPrelight } from "../_shared/cors.ts";
+import { authenticate } from "../_shared/auth.ts";
+
+// User-scoped tables with no ON DELETE CASCADE path from auth.users
+// (checked against supabase/migrations/, 2026-08-31):
+//  - user_oauth_tokens        user_id has no FK at all
+//  - google_oauth_states      the FK'd CREATE TABLE (20260402000003) was
+//                             IF NOT EXISTS over an existing table, so the
+//                             cascade never landed
+//  - contacts                 user_id has no FK (meeting_contacts cascades
+//                             from contacts, so it follows)
+//  - webhook_events           meeting_id is ON DELETE SET NULL, user_id no FK
+//  - meeting_notifications    meeting_id is nullable, user_id no FK
+//  - billing_events           user_id no FK; carries the user's billing
+//                             identity, so it goes with the account
+const NON_CASCADING_USER_TABLES = [
+  "user_oauth_tokens",
+  "google_oauth_states",
+  "contacts",
+  "webhook_events",
+  "meeting_notifications",
+  "billing_events",
+];
+
+const STORAGE_PAGE_SIZE = 1000;
+const STORAGE_REMOVE_BATCH = 100;
+
+/** One level of the recordings bucket: files carry an id, folders do not. */
+async function listLevel(
+  supabase: any,
+  prefix: string,
+): Promise<{ files: string[]; folders: string[] }> {
+  const files: string[] = [];
+  const folders: string[] = [];
+  for (let offset = 0; ; offset += STORAGE_PAGE_SIZE) {
+    const { data, error } = await supabase.storage
+      .from("recordings")
+      .list(prefix, { limit: STORAGE_PAGE_SIZE, offset });
+    if (error) throw new Error(`storage list failed for ${prefix}: ${error.message}`);
+    for (const entry of data ?? []) {
+      if (entry.id) files.push(`${prefix}/${entry.name}`);
+      else folders.push(`${prefix}/${entry.name}`);
+    }
+    if (!data || data.length < STORAGE_PAGE_SIZE) break;
+  }
+  return { files, folders };
+}
+
+/** Every object under recordings/<userId>/ (userId/meetingId/file layout). */
+async function collectUserObjects(supabase: any, userId: string): Promise<string[]> {
+  const files: string[] = [];
+  const queue = [userId];
+  while (queue.length > 0) {
+    const prefix = queue.shift()!;
+    const level = await listLevel(supabase, prefix);
+    files.push(...level.files);
+    queue.push(...level.folders);
+  }
+  return files;
+}
+
+serve(async (req) => {
+  const corsResponse = handleCorsPrelight(req);
+  if (corsResponse) return corsResponse;
+
+  const origin = req.headers.get("origin");
+  const corsHeaders = getCorsHeaders(origin);
+  const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
+  const respond = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), { status, headers: jsonHeaders });
+
+  if (req.method !== "POST") return respond({ error: "Method not allowed" }, 405);
+
+  try {
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+
+    const caller = await authenticate(req, supabase, corsHeaders);
+    if (!caller.ok) return caller.response;
+    if (caller.isService) {
+      return respond(
+        { error: "delete-account only accepts the account owner's own session" },
+        403,
+      );
+    }
+    const userId = caller.userId;
+
+    const body = await req.json().catch(() => ({}));
+    if (body?.confirm !== "DELETE") {
+      return respond({ error: 'Confirmation required: send { "confirm": "DELETE" }' }, 400);
+    }
+
+    console.log(`[delete-account] Deleting account ${userId}`);
+
+    // 1. Storage: every object under recordings/<userId>/
+    const objects = await collectUserObjects(supabase, userId);
+    for (let i = 0; i < objects.length; i += STORAGE_REMOVE_BATCH) {
+      const batch = objects.slice(i, i + STORAGE_REMOVE_BATCH);
+      const { error: rmError } = await supabase.storage.from("recordings").remove(batch);
+      if (rmError) throw new Error(`storage remove failed: ${rmError.message}`);
+    }
+    console.log(`[delete-account] Removed ${objects.length} storage object(s)`);
+
+    // 2. Best-effort Google token revocation (before the tokens row goes).
+    try {
+      const { data: tokens } = await supabase
+        .from("user_oauth_tokens")
+        .select("google_refresh_token, google_access_token")
+        .eq("user_id", userId)
+        .maybeSingle();
+      const revokable = tokens?.google_refresh_token || tokens?.google_access_token;
+      if (revokable) {
+        await fetch(
+          `https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(revokable)}`,
+          { method: "POST" },
+        );
+      }
+    } catch (revokeErr) {
+      console.warn("[delete-account] Google revoke failed (ignored):", revokeErr);
+    }
+
+    // 3. User-scoped rows with no cascade from auth.users.
+    for (const table of NON_CASCADING_USER_TABLES) {
+      const { error: delError } = await supabase.from(table).delete().eq("user_id", userId);
+      if (delError) throw new Error(`delete from ${table} failed: ${delError.message}`);
+    }
+
+    // 4. The account itself — FK cascades clear everything else.
+    const { error: deleteError } = await supabase.auth.admin.deleteUser(userId);
+    if (deleteError) throw new Error(`auth deleteUser failed: ${deleteError.message}`);
+
+    console.log(`[delete-account] Account ${userId} deleted`);
+    return respond({ success: true });
+  } catch (err) {
+    console.error("[delete-account] Error:", err);
+    return respond(
+      { error: err instanceof Error ? err.message : "Account deletion failed" },
+      500,
+    );
+  }
+});
