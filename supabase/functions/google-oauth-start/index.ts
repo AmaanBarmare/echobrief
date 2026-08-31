@@ -89,10 +89,15 @@ serve(async (req) => {
       client_id: googleClientId,
       redirect_uri: redirectUri,
       response_type: "code",
-      // calendar.events (write) is needed by create-followup-event; the two
-      // readonly scopes stay for listing. Users connected before 2026-08-31
-      // hold a read-only grant and must reconnect once.
-      scope: "https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events.readonly https://www.googleapis.com/auth/calendar.events",
+      // Narrowest set that covers what we actually call:
+      //   calendarlist.readonly -> calendarList.list (calendar picker)
+      //   events.readonly       -> events on calendars the user does not own
+      //   events.owned          -> insert on primary (create-followup-event)
+      // Narrowed 2026-08-31 for Google verification; the broader
+      // calendar.readonly / calendar.events are not needed. Grants issued
+      // before this date are dead (the old OAuth client was deleted) and
+      // every user must reconnect regardless.
+      scope: "https://www.googleapis.com/auth/calendar.calendarlist.readonly https://www.googleapis.com/auth/calendar.events.readonly https://www.googleapis.com/auth/calendar.events.owned",
       include_granted_scopes: "true",
       access_type: "offline",
       prompt: "consent",

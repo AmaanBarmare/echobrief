@@ -78,6 +78,10 @@ export async function getGoogleAccessToken(
 }
 
 const CALENDAR_WRITE_SCOPES = [
+  // Current grant (narrowed 2026-08-31). We only insert on `primary`, which
+  // the user owns, so events.owned is sufficient.
+  "https://www.googleapis.com/auth/calendar.events.owned",
+  // Still honoured for grants issued before the narrowing.
   "https://www.googleapis.com/auth/calendar.events",
   "https://www.googleapis.com/auth/calendar",
 ];

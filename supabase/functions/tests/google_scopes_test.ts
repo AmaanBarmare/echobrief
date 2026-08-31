@@ -8,3 +8,18 @@ Deno.test("hasCalendarWriteScope recognises write grants, read-only grants and u
   assertEquals(hasCalendarWriteScope(null), null);
   assertEquals(hasCalendarWriteScope(""), null);
 });
+
+Deno.test("hasCalendarWriteScope accepts the narrowed events.owned grant", () => {
+  assertEquals(
+    hasCalendarWriteScope(
+      "https://www.googleapis.com/auth/calendar.calendarlist.readonly https://www.googleapis.com/auth/calendar.events.readonly https://www.googleapis.com/auth/calendar.events.owned",
+    ),
+    true,
+  );
+  assertEquals(
+    hasCalendarWriteScope(
+      "https://www.googleapis.com/auth/calendar.calendarlist.readonly https://www.googleapis.com/auth/calendar.events.readonly",
+    ),
+    false,
+  );
+});
