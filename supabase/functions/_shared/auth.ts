@@ -23,23 +23,33 @@ export type Caller =
   | { ok: true; userId: null; isService: true }
   | { ok: false; response: Response };
 
-export function json(body: unknown, status = 200): Response {
+export function json(body: unknown, status = 200, headers?: Record<string, string>): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+    headers: { ...CORS_HEADERS, ...headers, "Content-Type": "application/json" },
   });
 }
 
-export async function authenticate(req: Request, supabase: any): Promise<Caller> {
+/**
+ * `corsHeaders` (optional) is merged into any 401 response — pass the result of
+ * `getCorsHeaders(origin)` from `_shared/cors.ts` in browser-facing functions so
+ * an auth failure still carries the origin-allowlisted CORS headers instead of
+ * this module's permissive `*`.
+ */
+export async function authenticate(
+  req: Request,
+  supabase: any,
+  corsHeaders?: Record<string, string>,
+): Promise<Caller> {
   const header = req.headers.get("authorization") || "";
   const token = header.replace(/^Bearer\s+/i, "").trim();
-  if (!token) return { ok: false, response: json({ error: "Missing authorization" }, 401) };
+  if (!token) return { ok: false, response: json({ error: "Missing authorization" }, 401, corsHeaders) };
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (serviceKey && token === serviceKey) return { ok: true, userId: null, isService: true };
   // Signature already verified by the gateway (verify_jwt = true); the claim is trustworthy.
   if (jwtRole(token) === "service_role") return { ok: true, userId: null, isService: true };
   const { data, error } = await supabase.auth.getUser(token);
-  if (error || !data?.user) return { ok: false, response: json({ error: "Invalid or expired session" }, 401) };
+  if (error || !data?.user) return { ok: false, response: json({ error: "Invalid or expired session" }, 401, corsHeaders) };
   return { ok: true, userId: data.user.id, isService: false };
 }
 
