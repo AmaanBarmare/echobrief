@@ -12,6 +12,7 @@ import { Loader2, Lock, Mail, Bell, LogOut, X, Trash2, Calendar, Copy, RefreshCw
 import { useToast } from '@/hooks/use-toast';
 import { displayNameFromUserMetadata } from '@/lib/userDisplayName';
 import { formatIST } from '@/lib/time';
+import { checkPwnedPassword } from '@/lib/pwned';
 import { ApiTokensCard } from '@/components/settings/ApiTokensCard';
 import { BillingCard } from '@/components/settings/BillingCard';
 
@@ -376,6 +377,15 @@ export default function Settings() {
     }
     setChangingPassword(true);
     try {
+      const pwned = await checkPwnedPassword(newPassword);
+      if (pwned.breached) {
+        toast({
+          title: 'Choose a different password',
+          description: `This password has appeared in ${pwned.count.toLocaleString()} known data breaches. Please choose a different one.`,
+          variant: 'destructive',
+        });
+        return;
+      }
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
       toast({ title: 'Password updated', description: 'Your password has been changed successfully.' });

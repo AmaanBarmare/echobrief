@@ -308,6 +308,11 @@ export default function Docs() {
                     <>Record your first meeting.</>,
                   ]}
                 />
+                <p>
+                  Passwords must be at least 10 characters with letters and numbers, and are checked
+                  against known data-breach lists when you set one. The check is private: only a
+                  5-character fragment of a hash is sent, so your password never leaves your browser.
+                </p>
                 <Callout title="Connecting Google Calendar is optional">
                   Without it you can still record any meeting by pasting its link. With it,
                   EchoBrief can see your upcoming meetings and — if you enable auto-join — send the

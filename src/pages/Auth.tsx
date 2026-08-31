@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
 import { consumePostLoginRedirect } from '@/lib/postLoginRedirect';
+import { checkPwnedPassword } from '@/lib/pwned';
 import { supabase } from '@/integrations/supabase/client';
 import { Mail, Lock, User, ArrowLeft, ArrowRight, Loader2, Check, type LucideIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -62,6 +63,15 @@ export default function Auth() {
     }
     setLoading(true);
     try {
+      const pwned = await checkPwnedPassword(password);
+      if (pwned.breached) {
+        toast({
+          title: 'Choose a different password',
+          description: `This password has appeared in ${pwned.count.toLocaleString()} known data breaches. Please choose a different one.`,
+          variant: 'destructive',
+        });
+        return;
+      }
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
       toast({ title: 'Password updated' });
@@ -120,6 +130,15 @@ export default function Auth() {
       if (isSignUp && SIGNUPS_ENABLED) {
         if (password.length < 10) {
           toast({ title: 'Password too short', description: 'Use at least 10 characters with letters and numbers.', variant: 'destructive' });
+          return;
+        }
+        const pwned = await checkPwnedPassword(password);
+        if (pwned.breached) {
+          toast({
+            title: 'Choose a different password',
+            description: `This password has appeared in ${pwned.count.toLocaleString()} known data breaches. Please choose a different one.`,
+            variant: 'destructive',
+          });
           return;
         }
         const { error } = await signUp(email, password, fullName);
