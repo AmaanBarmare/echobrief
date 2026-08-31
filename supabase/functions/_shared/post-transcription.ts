@@ -15,7 +15,7 @@ import OpenAI from "https://esm.sh/openai@4.20.1";
 import { generateInsights, SpeakerSegment, formatLabeledTranscript } from "./insights.ts";
 import { validateInsights } from "./facts.ts";
 import { computeConversationMetrics, mergeMeetingMetrics } from "./metrics.ts";
-import { annotateZones, Boundaries, computeBoundaries, externalAttendees, meetingZone, ownerDomain } from "./zones.ts";
+import { annotateZones, Boundaries, computeBoundaries, externalAttendees, guardBoundaries, meetingZone, ownerDomain } from "./zones.ts";
 import { annotateLanguages, languageMix } from "./language.ts";
 import { translateLeakedSegments } from "./translate-leaks.ts";
 import { buildVocabulary, correctEntities, EntityCorrection } from "./vocab.ts";
@@ -97,6 +97,7 @@ export async function runPostTranscription(
     );
     if (llm) boundaries = llm;
   }
+  boundaries = guardBoundaries(boundaries, corrected);
   const zonedSegments = annotateZones(corrected, boundaries);
   const insightSegments = meetingZone(zonedSegments);
   const trimmed = zonedSegments.length - insightSegments.length;

@@ -11,6 +11,8 @@ import {
   ownerDomain,
   speakerMatchesAttendee,
   zoneOf,
+  externalSpeakerNames,
+  guardBoundaries,
 } from "../_shared/zones.ts";
 
 const ATTENDEES = [
@@ -122,4 +124,47 @@ Deno.test("annotateZones + meetingZone split and filter the fixture shape", () =
   assertEquals(inMeeting.length, 2);
   // Untagged segments are treated as meeting (backwards compatibility).
   assertEquals(meetingZone([{ text: "old row" } as never]).length, 1);
+});
+
+Deno.test("externalSpeakerNames matches guests by elimination when the email has no name tokens", () => {
+  const attendees = [
+    { email: "vineet@oltaflock.ai" },
+    { email: "khush@oltaflock.ai", self: true },
+    { email: "gm@kananwas.com" }, // no usable name tokens
+  ];
+  const names = externalSpeakerNames(attendees, ["Devendra Singh", "Khush Mutha", "Vineet Patel"]);
+  assertEquals([...names], ["Devendra Singh"]);
+  // Direct matches still win when they exist.
+  assertEquals([...externalSpeakerNames(ATTENDEES, ["Mathew Ryan", "Khush Mutha"])], ["Mathew Ryan"]);
+  // Two unmatched speakers but one invited guest → too ambiguous to eliminate.
+  assertEquals(externalSpeakerNames(attendees, ["A B", "C D", "Khush Mutha"]).size, 0);
+  // Phantom diarization labels are never promoted to guests.
+  assertEquals(externalSpeakerNames(attendees, ["SPEAKER_01", "Khush Mutha"]).size, 0);
+});
+
+Deno.test("computeBoundaries uses elimination matching (the Kananwas case)", () => {
+  const attendees = [{ email: "khush@oltaflock.ai", self: true }, { email: "gm@kananwas.com" }];
+  const b = computeBoundaries(attendees, [
+    { speaker: "Khush Mutha", start: 0, end: 30 },
+    { speaker: "Devendra Singh", start: 100, end: 2000 },
+  ]);
+  assertEquals(b.source, "speech_estimated");
+  assertEquals(b.first_external_join_ts, 55);
+});
+
+Deno.test("guardBoundaries rejects a window that keeps under half the speech", () => {
+  const segments = [
+    { speaker: "A", text: "x", start: 0, end: 50 },
+    { speaker: "B", text: "y", start: 60, end: 2100 },
+  ];
+  const bad = { first_external_join_ts: 0, last_external_leave_ts: 55, source: "llm_estimated" as const, internal_only: false };
+  const kept = guardBoundaries(bad, segments);
+  assertEquals(kept.source, "none");
+  assertEquals(zoneOf(1000, kept), "meeting");
+  // A sane window passes through untouched.
+  const good = { first_external_join_ts: 40, last_external_leave_ts: 2120, source: "speech_estimated" as const, internal_only: false };
+  assertEquals(guardBoundaries(good, segments), good);
+  // Internal-only / untrimmed boundaries are left alone.
+  const none = { first_external_join_ts: null, last_external_leave_ts: null, source: "none" as const, internal_only: true };
+  assertEquals(guardBoundaries(none, segments), none);
 });
