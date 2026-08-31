@@ -17,6 +17,8 @@ import MeetingDetail from "./pages/MeetingDetail";
 import Settings from "./pages/Settings";
 import Calendar from "./pages/Calendar";
 import ActionItems from "./pages/ActionItems";
+import Contacts from "./pages/Contacts";
+import Coaching from "./pages/Coaching";
 import Chat from "./pages/Chat";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import Terms from "./pages/Terms";
@@ -121,6 +123,22 @@ function AppRoutes() {
           element={
             <ProtectedRoute>
               <ActionItems />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/contacts"
+          element={
+            <ProtectedRoute>
+              <Contacts />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/coaching"
+          element={
+            <ProtectedRoute>
+              <Coaching />
             </ProtectedRoute>
           }
         />

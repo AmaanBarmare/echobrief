@@ -127,6 +127,19 @@ Per-user completion state for an action item, addressed by
 
 ---
 
+### `contacts` / `meeting_contacts`
+External attendees (email domain ≠ owner's) of every completed meeting, one row per
+`(user_id, email)`, with `name` / `company` guessed from the address and never
+overwritten once set, `meeting_count`, first/last seen, and the cached `account_brief`
+JSONB (`where_it_stands`, open commitments both ways, unresolved objections, key
+numbers, next-call prep). `meeting_contacts` is the link table. Written by
+`_shared/contacts.ts` with the service role; owners can read, rename and delete.
+
+### `webhook_events`
+One row per outbound automation delivery (`meeting.insights_ready`,
+`meeting.insights_regenerated`): payload, HTTP status or error, `delivered_at`.
+The endpoint and secret live on `profiles.webhook_url` / `webhook_secret`.
+
 ## Integration tables
 
 | Table | Purpose |
@@ -207,6 +220,7 @@ in filename order. The ones that carry non-obvious history:
 | `20260820160000_prune_recordings_cron.sql` | Daily audio prune after the storage cap incident |
 | `20260821180000_email_delivery_dedup.sql` | `email_deliveries` claim table + `meetings.sarvam_webhook_claimed_at`. Makes three identical summary emails for one meeting impossible rather than merely unlikely |
 | `20260831130000_production_quality.sql` | `meetings.languages` / `boundaries`, `meeting_insights.facts` / `coaching`, `profiles.custom_vocabulary` — the columns behind language mix, privacy trim, two-pass insights and coaching |
+| `20260831160000_production_quality_2.sql` | `contacts` + `meeting_contacts` (CRM v1), `webhook_events` + `profiles.webhook_url` / `webhook_secret` (automation), `meeting_insights.followup_draft` |
 
 `cron.schedule()` with an existing job name **updates that job in place** — that is
 why the frequency migrations re-declare the jobs rather than unscheduling first.

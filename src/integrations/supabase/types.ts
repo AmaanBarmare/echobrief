@@ -377,6 +377,8 @@ export type Database = {
           subscription_renews_at: string | null
           updated_at: string
           user_id: string
+          webhook_secret: string | null
+          webhook_url: string | null
         }
         Insert: {
           auto_join_enabled?: boolean | null
@@ -404,6 +406,8 @@ export type Database = {
           subscription_renews_at?: string | null
           updated_at?: string
           user_id: string
+          webhook_secret?: string | null
+          webhook_url?: string | null
         }
         Update: {
           auto_join_enabled?: boolean | null
@@ -431,6 +435,8 @@ export type Database = {
           subscription_renews_at?: string | null
           updated_at?: string
           user_id?: string
+          webhook_secret?: string | null
+          webhook_url?: string | null
         }
         Relationships: []
       }
@@ -528,6 +534,50 @@ export type Database = {
           source?: string | null
         }
         Relationships: []
+      }
+      webhook_events: {
+        Row: {
+          created_at: string
+          delivered_at: string | null
+          error: string | null
+          event_type: string
+          id: string
+          meeting_id: string | null
+          payload: Json
+          status_code: number | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          delivered_at?: string | null
+          error?: string | null
+          event_type: string
+          id?: string
+          meeting_id?: string | null
+          payload: Json
+          status_code?: number | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          delivered_at?: string | null
+          error?: string | null
+          event_type?: string
+          id?: string
+          meeting_id?: string | null
+          payload?: Json
+          status_code?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "webhook_events_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "meetings"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

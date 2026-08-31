@@ -227,6 +227,33 @@ export interface CoachingReport {
 export interface MeetingBoundaries {
   first_external_join_ts: number | null;
   last_external_leave_ts: number | null;
-  source: 'speech_estimated' | 'none';
+  source: 'speech_estimated' | 'llm_estimated' | 'none';
   internal_only: boolean;
+}
+
+/** Rolling per-contact brief written by the account-brief edge function (contacts.account_brief). */
+export interface AccountBrief {
+  where_it_stands: string;
+  open_commitments_ours: string[];
+  open_commitments_theirs: string[];
+  unresolved_objections: string[];
+  key_numbers: string[];
+  next_call_prep: string[];
+  meetings_considered: number;
+  generated_at: string;
+}
+
+/** An external attendee rolled up across the user's meetings (contacts table). */
+export interface Contact {
+  id: string;
+  user_id: string;
+  email: string;
+  name: string | null;
+  company: string | null;
+  domain: string | null;
+  meeting_count: number;
+  first_seen_at: string | null;
+  last_seen_at: string | null;
+  account_brief: AccountBrief | null;
+  account_brief_at: string | null;
 }

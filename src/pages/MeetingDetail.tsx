@@ -26,7 +26,8 @@ import {
 import { 
   ArrowLeft, Calendar, Clock, Loader2, ChevronRight, Trash2, Users, 
   Lightbulb, AlertTriangle, HelpCircle, RefreshCw, Zap, CheckCircle2, 
-  FileText, Globe, Mail, Languages, Bot, Video, Target, EyeOff, Eye, Hash
+  FileText, Globe, Mail, Languages, Bot, Video, Target, EyeOff, Eye, Hash,
+  CalendarPlus, PenLine, Copy, ExternalLink, Pencil
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -103,7 +104,7 @@ function SourceBadge({ source }: { source: string }) {
   );
 }
 
-function ShareButton({ icon: Icon, label, onClick }: { icon: React.ComponentType<{ className?: string; strokeWidth?: number; size?: number }>; label: string; onClick: () => void }) {
+function ShareButton({ icon: Icon, label, onClick }: { icon: React.ElementType; label: string; onClick: () => void }) {
   return (
     <button
       type="button"
@@ -240,6 +241,90 @@ export default function MeetingDetail() {
   };
 
   const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+
+  // Authenticated call to one of the meeting-action edge functions.
+  const callFn = async (name: string, body: Record<string, unknown>) => {
+    const token = (await supabase.auth.getSession()).data.session?.access_token;
+    if (!token) throw new Error('Not signed in');
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/${name}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(json?.error || `${name} failed (${res.status})`);
+    return json;
+  };
+  const [regenerating, setRegenerating] = useState(false);
+  const [draftOpen, setDraftOpen] = useState(false);
+  const [drafting, setDrafting] = useState(false);
+  const [draft, setDraft] = useState<{ subject: string; body: string; to?: string[] } | null>(null);
+  const [calendarBusy, setCalendarBusy] = useState<number | null>(null);
+  const [inviteAttendees, setInviteAttendees] = useState(false);
+  const [renameTarget, setRenameTarget] = useState<{ from: string; value: string } | null>(null);
+  const [renaming, setRenaming] = useState(false);
+
+  const refreshMeeting = () => queryClient.invalidateQueries({ queryKey: ['meeting-detail', id, user?.id] });
+
+  const handleRegenerate = async () => {
+    setRegenerating(true);
+    try {
+      await callFn('regenerate-insights', { meeting_id: id });
+      await refreshMeeting();
+      toast({ title: 'Insights regenerated', description: 'Facts, coaching and the summary were rebuilt from the transcript.' });
+    } catch (e) {
+      toast({ title: 'Could not regenerate', description: e instanceof Error ? e.message : 'Unknown error', variant: 'destructive' });
+    } finally {
+      setRegenerating(false);
+    }
+  };
+
+  const handleDraft = async (force = false) => {
+    setDraftOpen(true);
+    if (draft && !force) return;
+    setDrafting(true);
+    try {
+      const res = await callFn('draft-followup-email', { meeting_id: id, force });
+      setDraft(res.draft);
+    } catch (e) {
+      toast({ title: 'Could not draft the email', description: e instanceof Error ? e.message : 'Unknown error', variant: 'destructive' });
+      setDraftOpen(false);
+    } finally {
+      setDrafting(false);
+    }
+  };
+
+  const handleAddToCalendar = async (index: number, date: string) => {
+    setCalendarBusy(index);
+    try {
+      const res = await callFn('create-followup-event', {
+        meeting_id: id, date, action_index: index, invite_attendees: inviteAttendees,
+      });
+      await refreshMeeting();
+      toast({ title: 'Follow-up added to your calendar', description: inviteAttendees ? `${res.invited} attendee(s) invited.` : 'No invitations were sent.' });
+    } catch (e) {
+      toast({ title: 'Could not create the event', description: e instanceof Error ? e.message : 'Unknown error', variant: 'destructive' });
+    } finally {
+      setCalendarBusy(null);
+    }
+  };
+
+  const handleRename = async () => {
+    if (!renameTarget) return;
+    const to = renameTarget.value.trim();
+    if (!to || to === renameTarget.from) { setRenameTarget(null); return; }
+    setRenaming(true);
+    try {
+      const res = await callFn('rename-speaker', { meeting_id: id, from: renameTarget.from, to });
+      await refreshMeeting();
+      toast({ title: `Renamed to ${to}`, description: `${res.segments_renamed} transcript segments and every derived view were updated.` });
+      setRenameTarget(null);
+    } catch (e) {
+      toast({ title: 'Could not rename speaker', description: e instanceof Error ? e.message : 'Unknown error', variant: 'destructive' });
+    } finally {
+      setRenaming(false);
+    }
+  };
 
   // All meeting-detail reads in one cached query, so revisiting a meeting
   // renders instantly from cache instead of refetching every mount.
@@ -554,6 +639,12 @@ export default function MeetingDetail() {
                     <span>{meeting.language}</span>
                   </>
                 ) : null}
+                {insights?.facts?.meeting_type && insights.facts.meeting_type !== 'other' && (
+                  <>
+                    <span aria-hidden>·</span>
+                    <span className="capitalize">{insights.facts.meeting_type.replace(/_/g, ' ')}</span>
+                  </>
+                )}
               </div>
               {(meeting.status === 'failed' || meeting.status === 'cancelled') && meeting.error_message && (
                 <p className="mt-2 text-[13px]" style={{ color: 'hsl(var(--destructive))' }}>
@@ -566,6 +657,35 @@ export default function MeetingDetail() {
               {insights && (
                 <>
                   <ShareButton icon={Mail} label="Email" onClick={() => setEmailDialogOpen(true)} />
+                  {insights.facts && (
+                    <ShareButton icon={PenLine} label="Draft follow-up" onClick={() => handleDraft(false)} />
+                  )}
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <button
+                        type="button"
+                        disabled={regenerating}
+                        className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors disabled:opacity-60"
+                        style={{ border: '1px solid var(--rule)', background: 'var(--paper-card)', color: 'var(--ink)' }}
+                      >
+                        {regenerating ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} strokeWidth={1.75} />}
+                        {regenerating ? 'Regenerating…' : 'Regenerate'}
+                      </button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Regenerate insights?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Rebuilds the summary, extracted facts, action items and coaching from the stored transcript
+                          using the current pipeline (no re-transcription). Speaker renames are kept. Takes about a minute.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleRegenerate}>Regenerate</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </>
               )}
               <AlertDialog>
@@ -599,6 +719,63 @@ export default function MeetingDetail() {
             </div>
           </div>
         </div>
+
+        {/* Follow-up email draft (facts-grounded) */}
+        <AlertDialog open={draftOpen} onOpenChange={setDraftOpen}>
+          <AlertDialogContent className="max-w-2xl">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Follow-up email draft</AlertDialogTitle>
+              <AlertDialogDescription>
+                Written from the extracted facts only — their own words for what they need, the commitments both ways, and the follow-up time. Edit before sending.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            {drafting || !draft ? (
+              <div className="flex items-center justify-center py-10"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+            ) : (
+              <div className="space-y-3">
+                <div className="text-sm"><span className="text-muted-foreground">To:</span> {draft.to?.join(', ') || '—'}</div>
+                <div className="text-sm font-medium text-foreground">{draft.subject}</div>
+                <textarea
+                  readOnly
+                  value={draft.body}
+                  rows={12}
+                  className="w-full rounded-md p-3 text-sm leading-relaxed outline-none"
+                  style={{ border: '1px solid var(--rule)', background: 'var(--paper-card)', color: 'var(--ink)' }}
+                />
+              </div>
+            )}
+            <AlertDialogFooter className="flex-wrap gap-2">
+              <AlertDialogCancel>Close</AlertDialogCancel>
+              {draft && !drafting && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => handleDraft(true)}
+                    className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] font-medium"
+                    style={{ border: '1px solid var(--rule)', background: 'var(--paper-card)', color: 'var(--ink)' }}
+                  >
+                    <RefreshCw size={13} strokeWidth={1.75} /> Redraft
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => { await navigator.clipboard.writeText(`Subject: ${draft.subject}\n\n${draft.body}`); toast({ title: 'Copied to clipboard' }); }}
+                    className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] font-medium"
+                    style={{ border: '1px solid var(--rule)', background: 'var(--paper-card)', color: 'var(--ink)' }}
+                  >
+                    <Copy size={13} strokeWidth={1.75} /> Copy
+                  </button>
+                  <a
+                    href={`mailto:${encodeURIComponent((draft.to ?? []).filter((t) => t.includes('@')).join(','))}?subject=${encodeURIComponent(draft.subject)}&body=${encodeURIComponent(draft.body)}`}
+                    className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] font-medium text-white"
+                    style={{ background: 'var(--ember)' }}
+                  >
+                    <Mail size={13} strokeWidth={1.75} /> Open in mail
+                  </a>
+                </>
+              )}
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         {/* Email Report Selector */}
         <EmailReportSelector
@@ -914,6 +1091,12 @@ export default function MeetingDetail() {
             {/* ═══ ACTIONS TAB ═══ */}
             {activeTab === 'actions' && (
               <div className="space-y-2">
+                {insights.action_items && (insights.action_items as ActionItem[]).some((it) => it.due_date_resolved) && (
+                  <label className="flex items-center gap-2 pb-1 text-xs" style={{ color: 'var(--ink-soft)' }}>
+                    <Checkbox checked={inviteAttendees} onCheckedChange={(v) => setInviteAttendees(v === true)} />
+                    Invite the meeting's attendees when I add a follow-up to my calendar
+                  </label>
+                )}
                 {insights.action_items && (insights.action_items as ActionItem[]).map((item, i) => (
                   <ProtoCard key={i} style={{ padding: 16 }}>
                     <div className="flex items-center gap-3">
@@ -948,6 +1131,32 @@ export default function MeetingDetail() {
                         </Badge>
                       )}
                     </div>
+                    {(item.due_date_resolved || (item as ActionItem & { calendar_event_link?: string }).calendar_event_link) && (
+                      <div className="mt-2 flex flex-wrap items-center gap-3 pl-8 text-xs">
+                        {(item as ActionItem & { calendar_event_link?: string }).calendar_event_link ? (
+                          <a
+                            href={(item as ActionItem & { calendar_event_link?: string }).calendar_event_link}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 font-medium"
+                            style={{ color: 'var(--ember-deep)' }}
+                          >
+                            <ExternalLink size={12} strokeWidth={1.75} /> Open calendar event
+                          </a>
+                        ) : item.due_date_resolved ? (
+                          <button
+                            type="button"
+                            disabled={calendarBusy === i}
+                            onClick={() => handleAddToCalendar(i, item.due_date_resolved!)}
+                            className="inline-flex items-center gap-1 font-medium disabled:opacity-60"
+                            style={{ color: 'var(--ember-deep)' }}
+                          >
+                            {calendarBusy === i ? <Loader2 size={12} className="animate-spin" /> : <CalendarPlus size={12} strokeWidth={1.75} />}
+                            Add {formatDueDate(item.due_date_resolved)} to calendar
+                          </button>
+                        ) : null}
+                      </div>
+                    )}
                   </ProtoCard>
                 ))}
                 {(!insights.action_items || insights.action_items.length === 0) && (
@@ -1054,7 +1263,7 @@ export default function MeetingDetail() {
                     style={{ background: 'var(--paper-card)', border: '1px solid var(--rule)' }}
                   >
                     <span className="text-[12.5px]" style={{ color: 'var(--ink-mid)' }}>
-                      {internalCount} internal segment{internalCount === 1 ? '' : 's'} (pre/post-meeting chatter) {showInternal ? 'shown below' : 'hidden'} — visible only to you, never included in summaries or shares.
+                      {internalCount} internal segment{internalCount === 1 ? '' : 's'} (pre/post-meeting chatter) {showInternal ? 'shown below' : 'hidden'} — visible only to you, never included in summaries or shares. Window {meeting.boundaries?.source === 'llm_estimated' ? 'estimated from the conversation' : 'estimated from who spoke when'}.
                     </span>
                     <button
                       type="button"
@@ -1088,7 +1297,33 @@ export default function MeetingDetail() {
                       <div>
                         {isNewSpeaker && (
                           <div className="flex gap-2 items-center mb-1">
-                            <span className="text-[13px] font-medium text-foreground">{seg.speaker}</span>
+                            {renameTarget && renameTarget.from === seg.speaker ? (
+                              <span className="flex items-center gap-1.5">
+                                <input
+                                  autoFocus
+                                  value={renameTarget.value}
+                                  onChange={(e) => setRenameTarget({ from: seg.speaker, value: e.target.value })}
+                                  onKeyDown={(e) => { if (e.key === 'Enter') handleRename(); if (e.key === 'Escape') setRenameTarget(null); }}
+                                  className="rounded-md px-2 py-0.5 text-[13px] outline-none"
+                                  style={{ border: '1px solid var(--rule)', background: 'var(--paper-card)', color: 'var(--ink)', width: 180 }}
+                                  aria-label="New speaker name"
+                                />
+                                <button type="button" onClick={handleRename} disabled={renaming} className="text-[12px] font-medium" style={{ color: 'var(--ember-deep)' }}>
+                                  {renaming ? 'Saving…' : 'Save'}
+                                </button>
+                                <button type="button" onClick={() => setRenameTarget(null)} className="text-[12px]" style={{ color: 'var(--ink-soft)' }}>Cancel</button>
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setRenameTarget({ from: seg.speaker, value: seg.speaker })}
+                                className="group inline-flex items-center gap-1 text-[13px] font-medium text-foreground"
+                                title="Rename this speaker everywhere"
+                              >
+                                {seg.speaker}
+                                <Pencil size={11} strokeWidth={1.75} className="opacity-0 transition-opacity group-hover:opacity-60" />
+                              </button>
+                            )}
                             {seg.start !== undefined && (
                               <TsLink ts={seg.start} onJump={jumpToRecording} />
                             )}
@@ -1171,6 +1406,22 @@ export default function MeetingDetail() {
         ) : IN_PROGRESS_STATUSES.includes(meeting.status) ? (
           <div className="py-16 text-center">
             <Loader2 className="mx-auto mb-4 h-12 w-12 animate-spin text-muted-foreground" />
+            <ol className="mx-auto mb-4 flex max-w-md items-center justify-center gap-2 text-[12px]">
+              {(['Recording', 'Transcribing & analysing', 'Ready'] as const).map((label, idx) => {
+                const current = ['joining', 'in_call', 'recording'].includes(meeting.status) ? 0 : 1;
+                const state = idx < current ? 'done' : idx === current ? 'active' : 'todo';
+                return (
+                  <li key={label} className="flex items-center gap-2">
+                    <span
+                      className="inline-block h-2 w-2 rounded-full"
+                      style={{ background: state === 'todo' ? 'var(--rule)' : 'var(--ember)', opacity: state === 'done' ? 0.5 : 1 }}
+                    />
+                    <span style={{ color: state === 'active' ? 'var(--ink)' : 'var(--ink-soft)', fontWeight: state === 'active' ? 600 : 400 }}>{label}</span>
+                    {idx < 2 && <span aria-hidden style={{ color: 'var(--rule)' }}>—</span>}
+                  </li>
+                );
+              })}
+            </ol>
             <p className="mb-1 text-base font-medium text-foreground">
               {meeting.status === 'transcribing'
                 ? 'Transcribing meeting...'

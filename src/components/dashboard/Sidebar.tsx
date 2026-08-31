@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Mic, Calendar, CheckSquare, MessageSquare, Settings, ChevronLeft, Menu } from 'lucide-react';
+import { Mic, Calendar, CheckSquare, Users, Target, MessageSquare, Settings, ChevronLeft, Menu } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Logo, LogoMark } from '@/components/ui/Logo';
 
@@ -12,6 +12,8 @@ const navItems = [
   { icon: Mic, label: 'Meetings', path: '/dashboard' },
   { icon: Calendar, label: 'Calendar', path: '/calendar' },
   { icon: CheckSquare, label: 'Action items', path: '/action-items' },
+  { icon: Users, label: 'Contacts', path: '/contacts' },
+  { icon: Target, label: 'Coaching', path: '/coaching' },
   { icon: MessageSquare, label: 'Ask', path: '/chat' },
   { icon: Settings, label: 'Settings', path: '/settings' },
 ];

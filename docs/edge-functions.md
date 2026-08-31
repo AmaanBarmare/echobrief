@@ -87,6 +87,46 @@ callback was lost. Claims the recovery with an atomic
 
 ---
 
+### `regenerate-insights`
+**Trigger:** meeting page "Regenerate" or `scripts/regenerate_insights.py` · **Auth:** user JWT (scoped) or service-role bearer (`verify_jwt = false`, checked in `_shared/auth.ts`)
+
+Rebuilds a completed meeting's insights from the stored transcript through the shared
+post-transcription sequence — no re-transcription. Re-runs translation and entity
+correction from `original_text` where present, keeps `processing_config.speaker_overrides`,
+replaces the `meeting_insights` row (insert-only `saveInsights` means delete first),
+updates `transcripts` in place, and fires `meeting.insights_regenerated`. ~60–100 s.
+
+### `rename-speaker`
+**Trigger:** inline rename on the transcript · **Auth:** as above
+
+`{ meeting_id, from, to }`. Renames a speaker across transcript segments, action-item
+owners, decision owner tags, highlights, timeline, metrics, facts, coaching and the
+stored Recall timeline, and records `speaker_overrides` so regeneration preserves it.
+
+### `create-followup-event`
+**Trigger:** "Add … to calendar" on an action item with a resolved due date · **Auth:** user JWT only
+
+`{ meeting_id, date, action_index?, invite_attendees?, duration_minutes? }`. Creates a
+Google Calendar event on the resolved date at the original meeting's IST time of day
+(30 min default) via `_shared/google-token.ts` (refreshes the stored token). Attendees
+are invited **only** when `invite_attendees` is true — this is outward-facing mail.
+Stores `calendar_event_link` on the action item.
+
+### `draft-followup-email`
+**Trigger:** "Draft follow-up" on the meeting page · **Auth:** user JWT or service role
+
+Writes a 120–180-word follow-up from the facts object only (their explicit asks in
+their words, top pain point, commitments both ways, follow-up time). Cached on
+`meeting_insights.followup_draft`; `force: true` redrafts.
+
+### `account-brief`
+**Trigger:** Contacts page · **Auth:** user JWT or service role
+
+`{ contact_id, force? }`. The two-minute pre-call read for a contact, written from the
+facts of up to 8 most recent meetings with them. Cached on `contacts.account_brief`.
+
+---
+
 ## Recording control
 
 ### `start-recall-recording`

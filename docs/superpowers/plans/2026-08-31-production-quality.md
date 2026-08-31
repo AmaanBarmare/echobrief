@@ -87,3 +87,23 @@ Annotate zones + languages → persist (meetings.languages/boundaries, zone on s
 
 ### Task 12: Deploy + verify
 - `npm run test:unit`, `npm run build`, `npm run test:mcp`; deploy edge functions + migration; harness 12/12; evals gate; re-process fixture meeting; docs (CLAUDE.md, docs/pipeline.md, Docs.tsx) updated.
+
+---
+
+## Batch 2 (same day) — the previously deferred items that were feasible
+
+Shipped on `feat/production-quality-2` after the user asked for the flagged items too:
+
+| Doc item | Delivered as |
+|---|---|
+| P0-2 fallback boundary detection | `_shared/boundary-llm.ts` — LLM window estimate when guests never match the Recall timeline (`source: llm_estimated`) |
+| P0-3 speaker_confidence + manual re-label | `speaker_confidence` on mapped segments; `rename-speaker` function + inline rename in the transcript, propagated to insights/metrics/facts/coaching/timeline and kept via `processing_config.speaker_overrides` |
+| P0-1 vocabulary seed | Owner profile seeded with the doc's terms; Settings editor already shipped |
+| P1-2 automation hooks | `profiles.webhook_url/secret`, `webhook_events`, `_shared/webhooks.ts` — `meeting.insights_ready` / `insights_regenerated`, Standard-Webhooks signed; Settings card with delivery log |
+| P1-2 one-click actions | `create-followup-event` (Google Calendar at the resolved date, invites opt-in) and `draft-followup-email` (facts-grounded), both on the meeting page |
+| P2-1 rep scorecard | `/coaching` page — weekly talk ratio, hedge density, next-step rate, objection-handled rate over the last 90 days |
+| P2-3 CRM v1 | `contacts` + `meeting_contacts` auto-populated from external attendees; `/contacts` page with meeting timeline; `account-brief` rolling brief |
+| P2-4 latency indicator | Processing step indicator on the meeting page |
+| Regeneration | `regenerate-insights` function + `scripts/regenerate_insights.py` backfill; shared sequence extracted to `_shared/post-transcription.ts` |
+
+Remaining deferred: ASR vendor benchmark/swap, hand-corrected WER golden set, HubSpot/Sheets connectors, WhatsApp recap, overdue digests (parked by decision), custom templates, manual meeting-type override.

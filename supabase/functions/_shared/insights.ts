@@ -479,6 +479,11 @@ function assembleInsights(
 export interface GenerateInsightsOptions {
   /** Canonical spellings passed into the extraction prompt. */
   vocabulary?: string[];
+  /**
+   * Leave the grounding check to the caller (post-transcription.ts runs it
+   * in parallel with the coaching pass to shave ~20 s off the callback).
+   */
+  skipValidation?: boolean;
 }
 
 export async function generateInsights(
@@ -524,7 +529,7 @@ export async function generateInsights(
 
   resolveActionItemDates(normalized, meeting.start_time);
 
-  if (facts) {
+  if (facts && !options.skipValidation) {
     try {
       facts.validation = await validateInsights(openai, facts, normalized);
       if (facts.validation.unverified.length > 0) {
@@ -535,8 +540,8 @@ export async function generateInsights(
     } catch (validationError) {
       console.warn("[generateInsights] Validation pass failed:", validationError);
     }
-    normalized.facts = facts;
   }
+  if (facts) normalized.facts = facts;
 
   return normalized;
 }
