@@ -1,6 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { getCorsHeaders, handleCorsPrelight } from "../_shared/cors.ts"
+import { authenticate } from "../_shared/auth.ts";
+import { isValidEmail } from "../_shared/validation.ts";
 import { generateEmailHTML } from "./template.ts";
 
 const supabaseClient = createClient(
@@ -10,9 +12,9 @@ const supabaseClient = createClient(
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
 
+// Any body user_id is deliberately ignored — identity comes from the JWT.
 interface EmailReportRequest {
   meeting_id: string
-  user_id: string
   recipient_email: string
   include_transcript?: boolean
 }
@@ -64,9 +66,12 @@ serve(async (req) => {
   }
 
   try {
+    // verify_jwt = true: the gateway has verified the JWT signature.
+    const caller = await authenticate(req, supabaseClient, corsHeaders)
+    if (!caller.ok) return caller.response
+
     const {
       meeting_id,
-      user_id,
       recipient_email,
       include_transcript = false,
     }: EmailReportRequest = await req.json()
@@ -78,17 +83,28 @@ serve(async (req) => {
       )
     }
 
+    if (!isValidEmail(recipient_email)) {
+      return new Response(
+        JSON.stringify({ error: 'recipient_email is not a valid email address' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     console.log(`Sending email report for meeting ${meeting_id} to ${recipient_email}`)
 
-    // Fetch meeting
-    const { data: meeting, error: meetingError } = await supabaseClient
+    // Fetch meeting (a user token can only send reports for its own meetings)
+    let meetingQuery = supabaseClient
       .from('meetings')
       .select('*')
       .eq('id', meeting_id)
-      .single()
+    if (!caller.isService) meetingQuery = meetingQuery.eq('user_id', caller.userId)
+    const { data: meeting, error: meetingError } = await meetingQuery.single()
 
     if (meetingError || !meeting) {
-      throw new Error('Meeting not found')
+      return new Response(
+        JSON.stringify({ error: 'Meeting not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
     // Fetch insights

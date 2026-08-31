@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { authenticate, json } from "../_shared/auth.ts"
 
 const RECALL_API_KEY = Deno.env.get('RECALL_API_KEY')
 const RECALL_API_BASE_URL =
@@ -15,6 +16,13 @@ const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 serve(async (req) => {
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+
+    // Cron-only: pg_cron sends the Vault-sourced service key (see migration
+    // 20260831190000_cron_service_auth.sql). This sweep touches every
+    // auto-join profile, so nothing short of the service role may run it.
+    const caller = await authenticate(req, supabase)
+    if (!caller.ok) return caller.response
+    if (!caller.isService) return json({ error: 'Service only' }, 403)
 
     // Get all users with auto-join enabled from profiles table
     const { data: prefs, error: prefsError } = await supabase
@@ -46,7 +54,22 @@ serve(async (req) => {
         const googleClientId = Deno.env.get('GOOGLE_CLIENT_ID')
         const googleClientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET')
 
-        if (tokens.google_refresh_token && googleClientId && googleClientSecret) {
+        // Missing client creds is OUR configuration problem, not this user's
+        // grant — skip them this tick without touching their profile.
+        if (!googleClientId || !googleClientSecret) continue
+
+        if (!tokens.google_refresh_token) {
+          // Expired with nothing to refresh with: the grant can never recover
+          // on its own. Flag the profile so the UI asks for a reconnect
+          // instead of auto-join silently doing nothing forever.
+          await supabase
+            .from('profiles')
+            .update({ google_calendar_connected: false, google_needs_reconnect: true })
+            .eq('user_id', pref.user_id)
+          continue
+        }
+
+        try {
           const refreshResponse = await fetch('https://oauth2.googleapis.com/token', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -57,8 +80,13 @@ serve(async (req) => {
               grant_type: 'refresh_token',
             }),
           })
-          const refreshData = await refreshResponse.json()
-          if (refreshData.access_token) {
+          let refreshData: any = null
+          try {
+            refreshData = await refreshResponse.json()
+          } catch {
+            refreshData = null
+          }
+          if (refreshData?.access_token) {
             accessToken = refreshData.access_token
             const expiryDate = new Date()
             expiryDate.setSeconds(expiryDate.getSeconds() + (refreshData.expires_in || 3600))
@@ -69,7 +97,22 @@ serve(async (req) => {
                 google_token_expiry: expiryDate.toISOString()
               })
               .eq('user_id', pref.user_id)
+          } else {
+            // A parseable non-5xx answer with no access_token (typically
+            // invalid_grant) means the grant is dead — flag the profile. A 5xx
+            // or non-JSON body is transient: leave the flags alone.
+            if (refreshData !== null && refreshResponse.status < 500) {
+              await supabase
+                .from('profiles')
+                .update({ google_calendar_connected: false, google_needs_reconnect: true })
+                .eq('user_id', pref.user_id)
+            }
+            continue
           }
+        } catch (refreshErr) {
+          // Network error reaching Google: transient, never a profile flip.
+          console.warn(`[auto-join] Google token refresh failed for ${pref.user_id}:`, refreshErr)
+          continue
         }
       }
 
@@ -234,7 +277,7 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('auto-join-meetings error:', error)
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     })

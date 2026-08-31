@@ -3,83 +3,88 @@ project_id = "lekkpfpojlspbuwrtmzt"
 [functions.chat-transcripts]
 verify_jwt = true
 
-[functions.process-meeting]
-verify_jwt = false
+# Self-service account deletion. User JWT only — service callers get 403.
+[functions.delete-account]
+verify_jwt = true
 
+# Service-role only in code (users go through regenerate-insights).
+[functions.process-meeting]
+verify_jwt = true
+
+# Cron-only. pg_cron sends the Vault-sourced service key (20260831190000).
 [functions.prune-recordings]
-verify_jwt = false
+verify_jwt = true
 
 [functions.sync-google-calendar]
-verify_jwt = false
+verify_jwt = true
 
 [functions.google-oauth-callback]
-verify_jwt = false
+verify_jwt = true
 
+# Public: serves only the OAuth client ID (not a secret) to the login page.
 [functions.get-google-client-id]
 verify_jwt = false
 
 [functions.google-oauth-start]
-verify_jwt = false
+verify_jwt = true
 
+# Browser redirect target from Google — arrives with no JWT by design; the
+# single-use `state` row in google_oauth_states is what authenticates it.
 [functions.google-oauth-redirect]
 verify_jwt = false
 
 [functions.disconnect-google]
-verify_jwt = false
+verify_jwt = true
 
 [functions.sarvam-webhook]
 verify_jwt = false
 
 [functions.send-meeting-email]
-verify_jwt = false
+verify_jwt = true
 
 [functions.start-recall-recording]
-verify_jwt = false
+verify_jwt = true
 
 [functions.check-recall-status]
-verify_jwt = false
+verify_jwt = true
 
 [functions.recall-webhook]
 verify_jwt = false
 
+# Cron-only. pg_cron sends the Vault-sourced service key (20260831190000).
 [functions.auto-join-meetings]
-verify_jwt = false
-
-[functions.fetch-calendar-events]
-verify_jwt = false
+verify_jwt = true
 
 [functions.fetch-google-calendars]
-verify_jwt = false
+verify_jwt = true
 
+# Parked (not deployed). Service-role-only in code; gateway-verified JWT required.
 [functions.generate-digest-report]
-verify_jwt = false
-
-[functions.generate-meeting-insights]
-verify_jwt = false
+verify_jwt = true
 
 [functions.get-user-calendars]
-verify_jwt = false
+verify_jwt = true
 
+# Parked (not deployed). Service-role-only in code; gateway-verified JWT required.
 [functions.queue-onboarding-emails]
-verify_jwt = false
+verify_jwt = true
 
 [functions.send-email-report]
-verify_jwt = false
+verify_jwt = true
 
-[functions.send-meeting-summary-email]
-verify_jwt = false
-
+# Parked (not deployed, cron unscheduled). Service-role-only in code.
 [functions.send-scheduled-emails]
-verify_jwt = false
+verify_jwt = true
 
 [functions.sync-calendar-events]
-verify_jwt = false
+verify_jwt = true
 
 [functions.sync-calendars]
-verify_jwt = false
+verify_jwt = true
 
+# Cron-only. pg_cron sends the Vault-sourced service key (20260831190000).
 [functions.monitor-stuck-meetings]
-verify_jwt = false
+verify_jwt = true
 
 [functions.get-recording-media]
 verify_jwt = true

@@ -4,16 +4,21 @@ All Supabase Edge Functions run on Deno at
 `https://<project>.supabase.co/functions/v1/<name>`.
 
 `verify_jwt` is declared per function in [`supabase/config.toml`](../supabase/config.toml).
-**Only `chat-transcripts` and `get-recording-media` have `verify_jwt = true`** — every other function either
-authenticates itself (webhook signature, shared secret, service-role bearer) or reads
-the caller's token manually. Treat that as a deliberate, audited choice, not an
-oversight; see [Security § function auth](security.md#edge-function-authentication).
+**Since the 2026-08-31 auth audit, `verify_jwt = true` is the default** — the gateway
+verifies the JWT signature, then `_shared/auth.ts` `authenticate()` reads the `role`
+claim to distinguish user tokens from service-role bearers. Only five functions keep
+`verify_jwt = false`, each for a stated reason: the three signature-verified webhooks
+(`recall-webhook`, `sarvam-webhook`, `dodo-webhook`), `google-oauth-redirect` (a
+browser redirect from Google that authenticates via the single-use `state` row), and
+`get-google-client-id` (serves only the public client ID). See
+[Security § function auth](security.md#edge-function-authentication).
 
 - [Pipeline](#pipeline)
 - [Recording control](#recording-control)
 - [Intelligence](#intelligence)
 - [Calendar and OAuth](#calendar-and-oauth)
 - [Delivery](#delivery)
+- [Account](#account)
 - [Operations](#operations)
 - [Outside Supabase](#outside-supabase)
 
@@ -64,7 +69,7 @@ The longest function in the codebase (554 lines) and the pipeline's real centre 
 ---
 
 ### `process-meeting`
-**Trigger:** invoked by other functions · **Auth:** service-role bearer
+**Trigger:** invoked by other functions · **Auth:** service-role bearer only (`verify_jwt = true` + `authenticate()`; user tokens get 403 — users regenerate via `regenerate-insights`)
 
 Orchestrates transcription and insight generation directly. Accepts `forceWhisper`
 and transcript-reuse flags. The Sarvam path here is **async webhook-based**, so this
@@ -78,7 +83,7 @@ with the translated/corrected/zoned segments).
 ---
 
 ### `check-recall-status`
-**Trigger:** polled by the frontend while a meeting is in flight · **Auth:** none (`verify_jwt = false`)
+**Trigger:** polled by the frontend while a meeting is in flight · **Auth:** user JWT (read scoped to own meetings) or service-role bearer (`verify_jwt = true`)
 
 Syncs live bot status from Recall into the DB, and recovers meetings whose Sarvam
 callback was lost. Claims the recovery with an atomic
@@ -88,7 +93,7 @@ callback was lost. Claims the recovery with an atomic
 ---
 
 ### `regenerate-insights`
-**Trigger:** meeting page "Regenerate" or `scripts/regenerate_insights.py` · **Auth:** user JWT (scoped) or service-role bearer (`verify_jwt = false`, checked in `_shared/auth.ts`)
+**Trigger:** meeting page "Regenerate" or `scripts/regenerate_insights.py` · **Auth:** user JWT (scoped) or service-role bearer (`verify_jwt = true`, role read in `_shared/auth.ts`)
 
 Rebuilds a completed meeting's insights from the stored transcript through the shared
 post-transcription sequence — no re-transcription. Re-runs translation and entity
@@ -133,7 +138,11 @@ facts of up to 8 most recent meetings with them. Cached on `contacts.account_bri
 ## Recording control
 
 ### `start-recall-recording`
-**Trigger:** dashboard · **Auth:** caller JWT read manually
+**Trigger:** dashboard · **Auth:** user JWT (`verify_jwt = true`); identity comes from the token — a service-role bearer may name a `user_id` in the body, a user token's body `user_id` is ignored
+
+Rejects `meeting_url`s that are not http(s) links on a Zoom / Google Meet / Microsoft
+Teams host (400, `_shared/validation.ts`), and returns **429** when the user already
+has 3 meetings in `joining`/`in_call`/`recording` — bots cost real money.
 
 Creates a Recall bot with `recallai_streaming` real-time transcription enabled,
 requests both `audio_mixed_mp3` (transcription) and `video_mixed_mp4` (playback), and
@@ -157,7 +166,7 @@ only ever be minted for one's own meeting.
 > [`errors.md`](../errors.md) for what a full bucket does to the pipeline.
 
 ### `auto-join-meetings`
-**Trigger:** pg_cron, every 5 min · **Auth:** none
+**Trigger:** pg_cron, every 5 min · **Auth:** service-role bearer only (`verify_jwt = true`; the cron job sends the Vault-sourced key — see [Operations § scheduled jobs](operations.md#scheduled-jobs))
 
 For every profile with `auto_join_enabled`, dispatches a bot to calendar events
 starting within 7 minutes. Per-event dedup guard plus a unique index prevent duplicate
@@ -188,33 +197,38 @@ token rather than the service-role key** so Postgres RLS — not an application-
   "context_meetings": 12, "context_tokens": 41230, "truncated": false }
 ```
 
-### `generate-meeting-insights`
-**Trigger:** manual / dashboard · **Auth:** none
-
-Insight generation entry point for a meeting that already has a transcript.
-
 ### `generate-digest-report`
-**Trigger:** scheduled and manual · **Auth:** none
+**Trigger:** parked (not scheduled) · **Auth:** service-role bearer only (`verify_jwt = true` + `authenticate()`)
 
-Builds weekly/monthly aggregate digests across a user's meetings.
+Builds weekly/monthly aggregate digests across a user's meetings. Parked — not
+deployed; hardened to service-only so an accidental deploy exposes nothing.
 
 ---
 
 ## Calendar and OAuth
 
+All rows are `verify_jwt = true` and require the caller's JWT, except the two noted.
+`sync-calendars` takes its identity from the JWT — a body `user_id` is honoured only
+for service-role bearers.
+
 | Function | Purpose |
 |---|---|
 | `google-oauth-start` | Begins the OAuth flow, persists a `google_oauth_states` row |
 | `google-oauth-callback` | Exchanges the code, stores tokens in `user_oauth_tokens` |
-| `google-oauth-redirect` | Redirect shim that returns the user to `return_to` |
-| `get-google-client-id` | Serves the public client ID to the frontend |
-| `disconnect-google` | Revokes and clears stored Google tokens |
+| `google-oauth-redirect` | Redirect target from Google — no JWT by design (`verify_jwt = false`); the single-use `state` row authenticates it |
+| `get-google-client-id` | Serves the public client ID to the frontend (`verify_jwt = false`, nothing secret) |
+| `disconnect-google` | Revokes and clears stored Google tokens; clears `google_needs_reconnect` |
 | `sync-google-calendar` | Full sync of a single Google calendar |
 | `sync-calendars` | Discovers and syncs the user's calendar list |
 | `sync-calendar-events` | Event-level sync into `calendar_events` |
 | `fetch-google-calendars` | Lists calendars available on the Google account |
-| `fetch-calendar-events` | Reads events for the UI |
 | `get-user-calendars` | Reads the user's connected calendars from the DB |
+
+A permanently dead grant (Google answers `invalid_grant`, or a refresh yields no
+`access_token` in a parseable non-5xx response) sets
+`profiles.google_calendar_connected = false` and `google_needs_reconnect = true`
+(`_shared/google-token.ts`, `auto-join-meetings`); both OAuth success paths and
+`disconnect-google` clear the flag. Transient failures never flip it.
 
 ---
 
@@ -222,11 +236,10 @@ Builds weekly/monthly aggregate digests across a user's meetings.
 
 | Function | Purpose |
 |---|---|
-| `send-meeting-email` | The real summary email (HTML). Called by `deliverResults` once for the owner, then once per allowlisted reviewer on the invite (`recipientEmail` in the body). Claims `email_deliveries` **before** calling Resend, so one recipient gets one summary per meeting no matter how many callers race; returns `{ success: true, skipped: true, reason: "already_sent" }` to a loser. |
-| `send-meeting-summary-email` | Thin summary-only variant |
-| `send-email-report` | Digest/report email rendering and send |
-| `send-scheduled-emails` | Drains scheduled sends |
-| `queue-onboarding-emails` | Enqueues the onboarding sequence |
+| `send-meeting-email` | The real summary email (HTML). `verify_jwt = true`: service callers keep the full contract — `deliverResults` sends once for the owner, then once per allowlisted reviewer on the invite (`recipientEmail` in the body); a **user token is scoped to its own meetings and the recipient is forced to the owner's profile email**. Claims `email_deliveries` **before** calling Resend, so one recipient gets one summary per meeting no matter how many callers race; returns `{ success: true, skipped: true, reason: "already_sent" }` to a loser. |
+| `send-email-report` | Meeting report mail from the meeting page. `verify_jwt = true`; non-service callers only for meetings they own (404 otherwise), `recipient_email` shape-checked, body `user_id` ignored |
+| `send-scheduled-emails` | Drains scheduled sends. **Parked/undeployed**; service-role only, cron job unscheduled |
+| `queue-onboarding-emails` | Enqueues the onboarding sequence. **Parked/undeployed**; service-role only |
 
 All email goes through **Resend**, from `hello@echobrief.in`.
 
@@ -237,10 +250,26 @@ Delivery is suppressed for `[harness]`-prefixed meetings unless `HARNESS_EMAILS=
 
 ---
 
+## Account
+
+### `delete-account`
+**Trigger:** Settings, "Delete account" · **Auth:** user JWT only (`verify_jwt = true`; service-role bearers get 403 — deletion is a decision only the owner's own session can make)
+
+`POST { "confirm": "DELETE" }` (400 without the exact confirmation string). In order:
+removes every object under `recordings/<userId>/` in Storage (paginated, batched),
+best-effort revokes the Google refresh token at Google (failures ignored), deletes
+rows in the user-scoped tables that do **not** cascade from `auth.users`
+(`user_oauth_tokens`, `google_oauth_states`, `contacts`, `webhook_events`,
+`meeting_notifications`, `billing_events`), then `auth.admin.deleteUser` — the FK
+cascades clear profiles, meetings and everything hanging off them. Returns
+`{ success: true }`. Irreversible.
+
+---
+
 ## Operations
 
 ### `monitor-stuck-meetings`
-**Trigger:** pg_cron, every 15 min · **Auth:** none
+**Trigger:** pg_cron, every 15 min · **Auth:** service-role bearer only (`verify_jwt = true`; the cron job sends the Vault-sourced key)
 
 Finds meetings sitting >15 minutes in a non-terminal status, derives a signature,
 and acts:
@@ -261,7 +290,7 @@ Known signatures live in
 which **mirrors** [`errors.md`](../errors.md). Update both or they drift.
 
 ### `prune-recordings`
-**Trigger:** pg_cron, daily 03:30 UTC · **Auth:** none
+**Trigger:** pg_cron, daily 22:00 UTC (03:30 IST) · **Auth:** service-role bearer only (`verify_jwt = true`; the cron job sends the Vault-sourced key)
 
 Clears `audio_url` and deletes the archived mp3 for meetings older than **30 days**
 that already have a non-empty transcript — dropping to **7 days** when the bucket is
@@ -304,3 +333,19 @@ upload concurrency 6, 270 s internal time budget against Vercel's 300 s ceiling.
 
 Deployed via **GitHub auto-deploy**. The Vercel account that owns `echobrief.in` is
 separate — do **not** use the local Vercel CLI for it.
+
+---
+
+## Changelog
+
+- **2026-08-31** — production auth audit: `verify_jwt = true` became the default
+  (see the intro above), the cron-invoked functions went service-role-only with
+  pg_cron authenticating from Vault, the parked email functions were locked to the
+  service role, `sync-calendars` stopped trusting a body `user_id`, and
+  `delete-account` was added.
+- **2026-08-31** — removed `send-meeting-summary-email`, `generate-meeting-insights`
+  and `fetch-calendar-events` (undeployed alongside this change). All three were
+  reachable with **no authentication** and had no remaining callers — the summary
+  email goes through `send-meeting-email`, insights through
+  `process-meeting`/`regenerate-insights`, and the UI reads calendar events from
+  the `calendar_events` table directly. Deleted rather than hardened.

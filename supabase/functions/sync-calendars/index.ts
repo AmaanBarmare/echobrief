@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { authenticate } from "../_shared/auth.ts"
 
 const supabaseClient = createClient(
   Deno.env.get('SUPABASE_URL')!,
@@ -99,23 +100,14 @@ serve(async (req) => {
   }
 
   try {
-    const body = await req.json()
-    let user_id = body?.user_id
+    const body = await req.json().catch(() => ({}))
 
-    // If no user_id in body, try to get from auth header
-    if (!user_id) {
-      const authHeader = req.headers.get('authorization')
-      if (authHeader) {
-        const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-        const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-        const supabase = createClient(supabaseUrl, supabaseServiceKey)
-        const token = authHeader.replace('Bearer ', '')
-        const { data: { user }, error: userError } = await supabase.auth.getUser(token)
-        if (!userError && user) {
-          user_id = user.id
-        }
-      }
-    }
+    // Identity comes from the JWT (gateway-verified; verify_jwt = true).
+    // Only a service-role caller may name a user in the body — a user token's
+    // body user_id is ignored.
+    const caller = await authenticate(req, supabaseClient)
+    if (!caller.ok) return caller.response
+    const user_id = caller.isService ? body?.user_id : caller.userId
 
     if (!user_id) {
       return new Response(JSON.stringify({ error: 'Missing or invalid user_id' }), { status: 400 })
@@ -127,14 +119,14 @@ serve(async (req) => {
 
     // Get access token for fetching calendars from Google
     let googleAccessToken: string | null = null
-    const { data: tokenData } = await supabaseClient
+    const { data: listTokenData } = await supabaseClient
       .from('user_oauth_tokens')
       .select('google_access_token')
       .eq('user_id', user_id)
       .single()
 
-    if (tokenData?.google_access_token) {
-      googleAccessToken = tokenData.google_access_token
+    if (listTokenData?.google_access_token) {
+      googleAccessToken = listTokenData.google_access_token
     }
 
     // If no calendar_ids provided, fetch from Google API

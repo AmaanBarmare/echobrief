@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsPrelight } from "../_shared/cors.ts";
+import { authenticate } from "../_shared/auth.ts";
 import { processRecallAudio } from "../_shared/recall-pipeline.ts";
 import { getSarvamJobStatus } from "../_shared/sarvam.ts";
 
@@ -47,6 +48,16 @@ serve(async (req) => {
   const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
 
   try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // verify_jwt = true: the gateway has verified the JWT signature. Service
+    // callers (monitor-stuck-meetings, the harness) may inspect any meeting;
+    // a user token is scoped to its own meetings below.
+    const caller = await authenticate(req, supabase, corsHeaders);
+    if (!caller.ok) return caller.response;
+
     const { meeting_id } = await req.json();
     if (!meeting_id) {
       return new Response(JSON.stringify({ error: "Missing meeting_id" }), {
@@ -55,16 +66,13 @@ serve(async (req) => {
       });
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Fetch the meeting
-    const { data: meeting, error } = await supabase
+    // Fetch the meeting (scoped to the caller when not service)
+    let meetingQuery = supabase
       .from("meetings")
       .select("*")
-      .eq("id", meeting_id)
-      .single();
+      .eq("id", meeting_id);
+    if (!caller.isService) meetingQuery = meetingQuery.eq("user_id", caller.userId);
+    const { data: meeting, error } = await meetingQuery.single();
 
     if (error || !meeting) {
       return new Response(JSON.stringify({ error: "Meeting not found" }), {

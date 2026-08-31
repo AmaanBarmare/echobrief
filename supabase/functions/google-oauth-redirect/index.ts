@@ -194,10 +194,11 @@ serve(async (req) => {
         console.error("Calendar sync failed:", err);
       }
 
-      // Update profile to mark calendar as connected
+      // Update profile to mark calendar as connected.
+      // A fresh grant also clears any pending reconnect flag.
       const { error: profileError } = await supabase
         .from("profiles")
-        .update({ google_calendar_connected: true })
+        .update({ google_calendar_connected: true, google_needs_reconnect: false })
         .eq("user_id", stateData.user_id);
 
       if (profileError) {

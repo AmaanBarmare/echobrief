@@ -101,14 +101,42 @@ the `transcribing` deadlock.
 
 ## Scheduled jobs
 
-Four pg_cron jobs invoke Edge Functions over HTTP via `pg_net`.
+Three pg_cron jobs invoke Edge Functions over HTTP via `pg_net`; two more are pure
+SQL (`prune-job-logs` at `45 21 * * *`, `prune-oauth` at `45 3 * * *`).
 
 | Job | Schedule | What it does |
 |---|---|---|
 | `auto-join-meetings` | `*/5 * * * *` | Dispatch bots to calendar meetings starting within 7 min |
 | `monitor-stuck-meetings` | `*/15 * * * *` | Detect + recover + alert on meetings stuck >15 min |
-| `prune-job-logs` | `15 3 * * *` | Trim `cron.job_run_details` (>7 d) and `net._http_response` (>1 d) |
-| `prune-recordings` | `30 3 * * *` | Clear archived audio older than 30 d (7 d when the bucket is near cap) |
+| `prune-recordings` | `0 22 * * *` (03:30 IST) | Clear archived audio once transcribed (see the function header for retention) |
+
+### The Vault `service_role_key` secret (required)
+
+The HTTP-invoked functions require a service-role bearer (`verify_jwt = true` +
+`authenticate()`), so each cron tick builds its `Authorization` header from Supabase
+Vault at execution time
+(`20260831190000_cron_service_auth.sql`):
+
+```sql
+headers := jsonb_build_object(
+  'Content-Type', 'application/json',
+  'Authorization', 'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'service_role_key')
+)
+```
+
+To (re)create the secret — e.g. after rotating the service-role key — run in the SQL
+editor:
+
+```sql
+select vault.create_secret('<service role jwt>', 'service_role_key');
+-- rotation: select vault.update_secret(id, new_secret := '<new jwt>')
+--           with the id from: select id from vault.secrets where name = 'service_role_key';
+```
+
+No secret literal is ever stored in `cron.job` or a migration; a rotated Vault secret
+takes effect on the next tick without rescheduling. **If the secret is missing, every
+HTTP cron tick 401s silently** — the migration refuses to apply without it, but check
+here first if all three jobs stop producing effects.
 
 ### ⚠️ Do not raise these frequencies
 

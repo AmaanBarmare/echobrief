@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import OpenAI from "https://esm.sh/openai@4.20.1";
 import { getCorsHeaders, handleCorsPrelight } from "../_shared/cors.ts";
+import { authenticate } from "../_shared/auth.ts";
 import {
   createSarvamJob,
   uploadToSarvamJob,
@@ -112,7 +113,7 @@ async function whisperTranscribe(
       });
 
       transcript = transcription.text;
-      wordTimestamps = transcription.words || [];
+      wordTimestamps = (transcription as any).words || [];
 
       const hallucinated = isLikelyHallucination(transcript);
       if (hallucinated) {
@@ -340,6 +341,25 @@ serve(async (req) => {
   const corsHeaders = getCorsHeaders(origin);
 
   try {
+    // Service-role callers only (sarvam-webhook's Whisper fallback and the
+    // monitor's recovery path). Users regenerate through regenerate-insights,
+    // which is scoped; this function re-runs transcription with the service
+    // role and must not be reachable with a user token.
+    {
+      const supabase = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      );
+      const caller = await authenticate(req, supabase, corsHeaders);
+      if (!caller.ok) return caller.response;
+      if (!caller.isService) {
+        return new Response(
+          JSON.stringify({ error: "Service only" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+    }
+
     const { meetingId, sendEmail, forceWhisper } = await req.json();
 
     if (!meetingId) {

@@ -53,13 +53,30 @@ the browser by design — **RLS is the actual access control**, not a second lay
 
 `verify_jwt` is declared per function in [`supabase/config.toml`](../supabase/config.toml).
 
-**Only `chat-transcripts` sets `verify_jwt = true`.** Every other function either:
+**Since the 2026-08-31 auth audit, `verify_jwt = true` is the default.** The gateway
+verifies the JWT signature (user tokens AND service-role bearers — two valid
+service-role JWTs exist, the runtime-injected key and the one in `.env`, so code must
+read the `role` claim via `_shared/auth.ts` `authenticate()`, never string-compare the
+bearer). Functions then fall into three shapes:
 
-- verifies a webhook signature (`recall-webhook`),
-- validates a callback token issued at job-creation time (`sarvam-webhook`),
-- requires a shared bearer secret (`split-audio`),
-- is called with the service-role key by another function, or
-- reads and validates the caller's JWT in its own body.
+- **User-facing** (`start-recall-recording`, `check-recall-status`,
+  `send-email-report`, `send-meeting-email`, the meeting-action five, the
+  calendar/OAuth set, `delete-account`): identity comes from the JWT, every read is
+  scoped by `user_id` when the caller is not service. Body-supplied `user_id` is
+  ignored (or honoured only for service-role bearers).
+- **Service-only** (`process-meeting`, `auto-join-meetings`,
+  `monitor-stuck-meetings`, `prune-recordings`, and the parked
+  `queue-onboarding-emails` / `generate-digest-report` / `send-scheduled-emails`):
+  `authenticate()` returns 401 without a token, 403 for user tokens. The pg_cron
+  jobs authenticate with the Vault-sourced `service_role_key`
+  (see [Operations § scheduled jobs](operations.md#scheduled-jobs)).
+- **`verify_jwt = false`, exactly five, each with its own verification**:
+  - `recall-webhook` — signature checked against the raw body,
+  - `sarvam-webhook` — callback `auth_token` issued at job creation,
+  - `dodo-webhook` — Standard-Webhooks HMAC,
+  - `google-oauth-redirect` — browser redirect from Google, no JWT possible;
+    the single-use `state` row in `google_oauth_states` authenticates it,
+  - `get-google-client-id` — serves only the public OAuth client ID.
 
 This is a real attack surface and should be audited whenever a function is added.
 The rule of thumb: **if the operation is user-scoped, use the caller's token and let
@@ -140,6 +157,12 @@ in-memory sliding-window limiter with per-endpoint configs in `RATE_LIMITS`.
   Resend (summary email bodies).
 - **Google OAuth tokens** are stored in `user_oauth_tokens` under RLS and revoked by
   `disconnect-google`.
+- **Account deletion** is self-service via the `delete-account` function (user JWT
+  only — a service-role bearer is refused). It removes the user's Storage objects,
+  best-effort revokes the Google grant, explicitly clears the user-scoped tables that
+  do not cascade from `auth.users`, then deletes the auth user so the FK cascades
+  clear everything else. See
+  [Edge functions § delete-account](edge-functions.md#delete-account).
 
 Deleting a meeting removes the row; cascading behaviour for transcripts and insights
 follows the foreign keys declared in the migrations.

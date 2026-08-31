@@ -1,24 +1,33 @@
 /**
- * PARKED — onboarding emails are deliberately not shipped yet.
+ * PARKED — onboarding emails are deliberately not shipped yet. This function
+ * is NOT deployed; the code is kept for when the feature lands.
+ *
+ * If it ever is deployed: verify_jwt = true in config.toml and the
+ * service-role-only authenticate() gate below mean it exposes nothing.
  *
  * Whatever renders these when they land must use _shared/email-brand.ts, not a
  * new layout.
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { authenticate, json } from "../_shared/auth.ts";
 
 // Called when a new user signs up (via database trigger or direct call)
 serve(async (req) => {
   try {
-    const { user_id, email, full_name } = await req.json();
-    
-    if (!user_id || !email) {
-      return new Response(JSON.stringify({ error: "user_id and email required" }), { status: 400 });
-    }
-
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    const caller = await authenticate(req, supabase);
+    if (!caller.ok) return caller.response;
+    if (!caller.isService) return json({ error: "Service only" }, 403);
+
+    const { user_id, email, full_name } = await req.json();
+
+    if (!user_id || !email) {
+      return new Response(JSON.stringify({ error: "user_id and email required" }), { status: 400 });
+    }
 
     // ANTI-SPAM: Check if user already has onboarding emails queued
     const { data: existingEmails } = await supabase
