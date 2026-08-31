@@ -4,8 +4,11 @@
  */
 import { assertEquals, assertRejects } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
+  hasSplitterSource,
   isLongMeeting,
+  resolveSplitterSourceUrl,
   splitAudioResultToSarvamShape,
+  transcribeMeetingViaSplitAudio,
   transcribeViaSplitAudio,
   LONG_MEETING_SECONDS,
 } from "../_shared/whisper-chunked.ts";
@@ -90,4 +93,110 @@ Deno.test("transcribeViaSplitAudio throws when splitter is not configured", asyn
     Error,
     "not configured",
   );
+});
+
+// --- Audio source resolution: archive first, Recall when Storage rejected it ---
+
+const signingSupabase = {
+  storage: {
+    from: () => ({
+      createSignedUrl: () =>
+        Promise.resolve({ data: { signedUrl: "https://signed.example/audio.mp3" } }),
+    }),
+  },
+};
+
+/** Recall bot + audio_mixed endpoints for bot-1; anything else is a test bug. */
+function recallRouter(url: string): Response {
+  if (url.endsWith("/api/v1/bot/bot-1/")) {
+    return jsonResponse({ id: "bot-1", recordings: [{ id: "rec-1" }] });
+  }
+  if (url.includes("/audio_mixed/")) {
+    return jsonResponse({
+      results: [{ status: { code: "done" }, data: { download_url: "https://recall.example/audio.mp3" } }],
+    });
+  }
+  throw new Error(`unexpected fetch: ${url}`);
+}
+
+Deno.test("hasSplitterSource: archive, bot on the row, or bot in processing_config", () => {
+  assertEquals(hasSplitterSource({}), false);
+  assertEquals(hasSplitterSource({ audio_url: null, recall_bot_id: null }), false);
+  assertEquals(hasSplitterSource({ audio_url: "recordings/u/m/recall-audio.mp3" }), true);
+  assertEquals(hasSplitterSource({ recall_bot_id: "bot-1" }), true);
+  assertEquals(hasSplitterSource({ processing_config: { recall_bot_id: "bot-1" } }), true);
+});
+
+Deno.test("resolveSplitterSourceUrl prefers the archived copy", async () => {
+  const restore = mockFetch((url) => {
+    throw new Error(`should not touch Recall when the archive exists: ${url}`);
+  });
+  try {
+    const out = await resolveSplitterSourceUrl(signingSupabase, {
+      audio_url: "recordings/u/m/recall-audio.mp3",
+      recall_bot_id: "bot-1",
+    });
+    assertEquals(out, { url: "https://signed.example/audio.mp3", source: "storage" });
+  } finally {
+    restore();
+  }
+});
+
+Deno.test("resolveSplitterSourceUrl falls back to Recall when Storage rejected the archive", async () => {
+  const restore = mockFetch(recallRouter);
+  try {
+    const out = await resolveSplitterSourceUrl({}, { audio_url: null, recall_bot_id: "bot-1" });
+    assertEquals(out, { url: "https://recall.example/audio.mp3", source: "recall" });
+    const viaConfig = await resolveSplitterSourceUrl({}, { processing_config: { recall_bot_id: "bot-1" } });
+    assertEquals(viaConfig?.source, "recall");
+  } finally {
+    restore();
+  }
+});
+
+Deno.test("resolveSplitterSourceUrl is null when there is nowhere to download from", async () => {
+  assertEquals(await resolveSplitterSourceUrl({}, {}), null);
+});
+
+Deno.test("transcribeMeetingViaSplitAudio posts Recall's URL when there is no archive", async () => {
+  Deno.env.set("SPLIT_AUDIO_URL", "https://example.test/api/split-audio");
+  Deno.env.set("SPLIT_AUDIO_SECRET", "secret");
+  const posted: string[] = [];
+  const restore = mockFetch((url, init) => {
+    if (url === "https://example.test/api/split-audio") {
+      const body = JSON.parse(String(init?.body));
+      posted.push(body.audioUrl);
+      assertEquals(body.transcribe, "whisper");
+      return jsonResponse({
+        transcript: "hello there",
+        language_code: "en",
+        segments: [{ text: "hello there", start: 0, end: 1 }],
+      });
+    }
+    return recallRouter(url);
+  });
+  try {
+    const out = await transcribeMeetingViaSplitAudio({}, { recall_bot_id: "bot-1" });
+    assertEquals(out.transcript, "hello there");
+    assertEquals(posted, ["https://recall.example/audio.mp3"]);
+  } finally {
+    restore();
+    Deno.env.delete("SPLIT_AUDIO_URL");
+    Deno.env.delete("SPLIT_AUDIO_SECRET");
+  }
+});
+
+Deno.test("transcribeMeetingViaSplitAudio throws when there is no source at all", async () => {
+  Deno.env.set("SPLIT_AUDIO_URL", "https://example.test/api/split-audio");
+  Deno.env.set("SPLIT_AUDIO_SECRET", "secret");
+  try {
+    await assertRejects(
+      () => transcribeMeetingViaSplitAudio({}, { audio_url: null }),
+      Error,
+      "no audio source",
+    );
+  } finally {
+    Deno.env.delete("SPLIT_AUDIO_URL");
+    Deno.env.delete("SPLIT_AUDIO_SECRET");
+  }
 });

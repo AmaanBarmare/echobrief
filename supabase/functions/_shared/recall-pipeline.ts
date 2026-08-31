@@ -470,6 +470,10 @@ export async function processRecallAudio(
       upsert: true,
     });
 
+  // Kept in processing_config so a meeting with no audio_url explains itself.
+  const archiveError = uploadError
+    ? String((uploadError as { message?: string }).message || uploadError)
+    : null;
   if (uploadError) {
     console.error("[recall-pipeline] Storage upload error:", uploadError);
   } else {
@@ -494,13 +498,33 @@ export async function processRecallAudio(
   let chunkMeta: Record<string, unknown> | null = null;
   let splitError: string | null = null;
 
-  if (splitUrl && splitSecret && !uploadError) {
+  if (splitUrl && splitSecret) {
     try {
-      const { data: signed, error: signError } = await supabase.storage
-        .from("recordings")
-        .createSignedUrl(storagePath, 3600);
-      if (signError || !signed?.signedUrl) {
-        throw new Error(`Could not sign audio URL: ${signError?.message}`);
+      // Hand the splitter the archived copy when there is one, otherwise
+      // Recall's own download URL — we fetched the bytes from it seconds ago.
+      // Storage rejects anything over the project's 50 MiB cap (a ~55-minute
+      // call at 128 kbps), so the long meetings that need chunking most are
+      // exactly the ones with no archive. Until 2026-08-31 a failed archive
+      // silently forced the whole-file path: a 60-minute call went to Sarvam
+      // as one unchunked job and every Whisper fallback was skipped as well.
+      let sourceUrl = audioUrl;
+      let splitSource: "storage" | "recall" = "recall";
+      if (!uploadError) {
+        const { data: signed, error: signError } = await supabase.storage
+          .from("recordings")
+          .createSignedUrl(storagePath, 3600);
+        if (signed?.signedUrl) {
+          sourceUrl = signed.signedUrl;
+          splitSource = "storage";
+        } else {
+          console.warn(
+            `[recall-pipeline] Could not sign archived audio (${signError?.message}) — splitter will download from Recall instead`,
+          );
+        }
+      } else {
+        console.warn(
+          "[recall-pipeline] Audio was not archived — splitter will download from Recall directly",
+        );
       }
       const splitRes = await fetch(splitUrl, {
         method: "POST",
@@ -509,7 +533,7 @@ export async function processRecallAudio(
           Authorization: `Bearer ${splitSecret}`,
         },
         body: JSON.stringify({
-          audioUrl: signed.signedUrl,
+          audioUrl: sourceUrl,
           callbackUrl,
           callbackToken: sarvamWebhookSecret,
         }),
@@ -523,6 +547,8 @@ export async function processRecallAudio(
       jobId = splitData.job_id;
       chunkMeta = {
         split_method: "vercel-ffmpeg",
+        split_source: splitSource,
+        ...(archiveError ? { archive_error: archiveError } : {}),
         chunk_count: splitData.chunk_count,
         chunk_seconds: splitData.chunk_seconds,
         audio_duration_seconds: splitData.duration_seconds,
@@ -539,8 +565,6 @@ export async function processRecallAudio(
       jobId = null;
       chunkMeta = null;
     }
-  } else if (uploadError) {
-    splitError = "audio was not archived to Storage, so it could not be signed for the splitter";
   } else {
     splitError = "SPLIT_AUDIO_URL / SPLIT_AUDIO_SECRET not configured";
   }
@@ -551,7 +575,11 @@ export async function processRecallAudio(
     // we ended up here. Without this the failure was invisible: the job came back
     // "COMPLETED" with nothing in it and there was no trace of the splitter ever
     // having been attempted.
-    chunkMeta = { split_method: "direct-fallback", split_error: splitError };
+    chunkMeta = {
+      split_method: "direct-fallback",
+      split_error: splitError,
+      ...(archiveError ? { archive_error: archiveError } : {}),
+    };
     console.warn(
       `[recall-pipeline] Falling back to whole-file Sarvam for ${audioSizeMB.toFixed(1)} MB of audio — reason: ${splitError}`,
     );

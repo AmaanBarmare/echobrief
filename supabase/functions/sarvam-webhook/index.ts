@@ -14,8 +14,9 @@ import {
   SpeakerSegment,
 } from "../_shared/insights.ts";
 import {
+  hasSplitterSource,
   isLongMeeting,
-  transcribeViaSplitAudio,
+  transcribeMeetingViaSplitAudio,
 } from "../_shared/whisper-chunked.ts";
 import { afterInsightsSaved, meetingPatch, runPostTranscription } from "../_shared/post-transcription.ts";
 
@@ -217,8 +218,10 @@ serve(async (req) => {
       // chunk is ~1 MB, so this works for ANY meeting length, unlike the legacy
       // full-file forceWhisper path which rejects >25 MB audio outright. This
       // runs for the direct-fallback path too: that is exactly the case where a
-      // 70-minute meeting used to end up "completed" with no transcript.
-      if (!String((result as any).transcript || "").trim() && meeting.audio_url) {
+      // 70-minute meeting used to end up "completed" with no transcript. Reads
+      // the archive when there is one, else Recall directly — Storage rejects
+      // anything over 50 MiB, so long calls often have no archive at all.
+      if (!String((result as any).transcript || "").trim() && hasSplitterSource(meeting)) {
         console.warn(
           `[sarvam-webhook] Job ${job_id} returned an empty transcript (split_method=${config.split_method || "none"}) — retrying via chunk-wise Whisper`,
         );
@@ -230,7 +233,7 @@ serve(async (req) => {
           .update({ status: "transcribing" })
           .eq("id", meeting.id);
         try {
-          const w = await transcribeViaSplitAudio(supabase, meeting.audio_url);
+          const w = await transcribeMeetingViaSplitAudio(supabase, meeting);
           result = {
             transcript: w.transcript,
             language_code: w.language_code,

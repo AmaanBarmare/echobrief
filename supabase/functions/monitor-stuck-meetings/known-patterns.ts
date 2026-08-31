@@ -86,6 +86,12 @@ export const KNOWN_PATTERNS: Record<string, KnownPattern> = {
     recovery: "none",
     description: "Meeting in processing but doesn't match any known pattern. Investigate.",
   },
+
+  // Terminal failures the monitor cannot observe (it only inspects non-terminal
+  // statuses) are documented in errors.md without a signature here, so the two
+  // files stay in step: `storage:file_size_limit_skips_splitter` and
+  // `pipeline:hallucination_detector_discards_long_transcript` (both 2026-08-31)
+  // end as status=failed within minutes and never look like a stuck meeting.
 };
 
 export function isKnown(signature: string): boolean {

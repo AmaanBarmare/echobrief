@@ -7,6 +7,7 @@
  * `api/split-audio?transcribe=whisper` cuts the same file into 300 s chunks
  * (~1 MB each) and transcribes them off-edge.
  */
+import { getAudioDownloadUrl, getRecallBot } from "./recall-pipeline.ts";
 
 export const LONG_MEETING_SECONDS = 360; // matches split-audio SINGLE_FILE_MAX_SECONDS
 export const WHISPER_WHOLE_FILE_MAX_BYTES = 24.5 * 1024 * 1024;
@@ -84,7 +85,15 @@ export async function transcribeViaSplitAudio(
     .from("recordings")
     .createSignedUrl(storagePath, 3600);
   if (!signed?.signedUrl) throw new Error("could not sign audio URL");
+  return await transcribeUrlViaSplitAudio(splitUrl, splitSecret, signed.signedUrl);
+}
 
+/** POST one downloadable URL to split-audio's whisper mode and shape the result. */
+async function transcribeUrlViaSplitAudio(
+  splitUrl: string,
+  splitSecret: string,
+  sourceUrl: string,
+): Promise<ChunkedWhisperResult> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), SPLIT_AUDIO_WHISPER_TIMEOUT_MS);
   try {
@@ -95,7 +104,7 @@ export async function transcribeViaSplitAudio(
         Authorization: `Bearer ${splitSecret}`,
       },
       body: JSON.stringify({
-        audioUrl: signed.signedUrl,
+        audioUrl: sourceUrl,
         transcribe: "whisper",
       }),
       signal: controller.signal,
@@ -121,4 +130,74 @@ export async function transcribeViaSplitAudio(
   } finally {
     clearTimeout(timer);
   }
+}
+
+type SplitterSourceMeeting = {
+  audio_url?: string | null;
+  recall_bot_id?: string | null;
+  processing_config?: Record<string, unknown> | null;
+};
+
+function recallBotIdOf(meeting: SplitterSourceMeeting): string | null {
+  return (
+    meeting.recall_bot_id ||
+    (meeting.processing_config?.recall_bot_id as string | undefined) ||
+    null
+  );
+}
+
+/** True when there is somewhere the splitter can download this meeting's audio from. */
+export function hasSplitterSource(meeting: SplitterSourceMeeting): boolean {
+  return !!(meeting.audio_url || recallBotIdOf(meeting));
+}
+
+/**
+ * Where the splitter should download the audio from: the archived Storage copy
+ * when there is one, otherwise a fresh download URL from Recall. Storage rejects
+ * anything over the project's 50 MiB cap — a ~55-minute call at 128 kbps — so
+ * the long meetings that need chunking most are exactly the ones with no
+ * archive. On 2026-08-31 a 60-minute call (54.75 MiB) hit that: every fallback
+ * keyed on `audio_url` was silently skipped and the meeting was marked failed
+ * with "no usable transcript" although Recall held a perfect recording.
+ */
+export async function resolveSplitterSourceUrl(
+  supabase: any,
+  meeting: SplitterSourceMeeting,
+): Promise<{ url: string; source: "storage" | "recall" } | null> {
+  if (meeting.audio_url) {
+    const storagePath = meeting.audio_url.replace(/^recordings\//, "");
+    const { data: signed } = await supabase.storage
+      .from("recordings")
+      .createSignedUrl(storagePath, 3600);
+    if (signed?.signedUrl) return { url: signed.signedUrl, source: "storage" };
+    console.warn("[whisper-chunked] could not sign archived audio — trying Recall");
+  }
+  const botId = recallBotIdOf(meeting);
+  if (botId) {
+    const url = await getAudioDownloadUrl(await getRecallBot(botId));
+    if (url) return { url, source: "recall" };
+  }
+  return null;
+}
+
+/**
+ * Chunk-wise Whisper for a meeting row, from whichever audio source exists.
+ * Throws when the splitter is not configured, there is no source at all, the
+ * call fails, or the transcript comes back empty.
+ */
+export async function transcribeMeetingViaSplitAudio(
+  supabase: any,
+  meeting: SplitterSourceMeeting,
+): Promise<ChunkedWhisperResult> {
+  const splitUrl = Deno.env.get("SPLIT_AUDIO_URL");
+  const splitSecret = Deno.env.get("SPLIT_AUDIO_SECRET");
+  if (!splitUrl || !splitSecret) {
+    throw new Error("SPLIT_AUDIO_URL or SPLIT_AUDIO_SECRET not configured");
+  }
+  const source = await resolveSplitterSourceUrl(supabase, meeting);
+  if (!source) {
+    throw new Error("no audio source: not archived to Storage and no Recall bot on the meeting");
+  }
+  console.log(`[whisper-chunked] transcribing from ${source.source}`);
+  return await transcribeUrlViaSplitAudio(splitUrl, splitSecret, source.url);
 }
