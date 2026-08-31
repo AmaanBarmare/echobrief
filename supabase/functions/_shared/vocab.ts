@@ -56,7 +56,7 @@ export function buildVocabulary(
   return [...terms];
 }
 
-const GENERIC_DOMAINS = new Set([
+export const GENERIC_DOMAINS = new Set([
   "gmail", "googlemail", "yahoo", "outlook", "hotmail", "live", "icloud",
   "proton", "protonmail", "aol", "mail", "email", "me",
 ]);

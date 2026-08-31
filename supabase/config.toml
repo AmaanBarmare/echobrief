@@ -92,3 +92,20 @@ verify_jwt = true
 
 [functions.dodo-webhook]
 verify_jwt = false
+
+# User-or-service authenticated in code (see _shared/auth.ts); the gateway
+# check would reject the service-role bearer used by backfills.
+[functions.regenerate-insights]
+verify_jwt = false
+
+[functions.rename-speaker]
+verify_jwt = false
+
+[functions.create-followup-event]
+verify_jwt = false
+
+[functions.draft-followup-email]
+verify_jwt = false
+
+[functions.account-brief]
+verify_jwt = false

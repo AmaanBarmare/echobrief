@@ -6,11 +6,9 @@ import {
   downloadSarvamResults,
 } from "../_shared/sarvam.ts";
 import { stitchChunkResults } from "../_shared/stitch.ts";
-import { computeConversationMetrics, mergeMeetingMetrics } from "../_shared/metrics.ts";
 import { fetchSpeakerContext } from "../_shared/recall-pipeline.ts";
 import {
   isLikelyHallucination,
-  generateInsights,
   saveInsights,
   deliverResults,
   SpeakerSegment,
@@ -19,11 +17,7 @@ import {
   isLongMeeting,
   transcribeViaSplitAudio,
 } from "../_shared/whisper-chunked.ts";
-import { annotateZones, computeBoundaries, meetingZone } from "../_shared/zones.ts";
-import { annotateLanguages, languageMix } from "../_shared/language.ts";
-import { translateLeakedSegments } from "../_shared/translate-leaks.ts";
-import { buildVocabulary, correctEntities } from "../_shared/vocab.ts";
-import { generateCoaching } from "../_shared/coaching.ts";
+import { afterInsightsSaved, meetingPatch, runPostTranscription } from "../_shared/post-transcription.ts";
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -332,6 +326,9 @@ serve(async (req) => {
         }
       }
       const perSegmentSpeaker: (string | null)[] = rawSegments.map(() => null);
+      // How sure the mapping is: 1 for the solo fast path, the overlap share
+      // of the segment for timeline matches, 0.3 for nearest-neighbour guesses.
+      const perSegmentConfidence: number[] = rawSegments.map(() => 0);
 
       // Fast path: if only one participant joined the meeting, every word
       // belongs to them. Recall's timeline has confidence-gated gaps (short
@@ -341,6 +338,7 @@ serve(async (req) => {
         const soloName = recallParticipants[0].name;
         for (let i = 0; i < rawSegments.length; i++) {
           perSegmentSpeaker[i] = soloName;
+          perSegmentConfidence[i] = 1;
         }
         console.log(
           `Speaker mapping: single-participant fast path → all segments attributed to "${soloName}"`,
@@ -366,6 +364,11 @@ serve(async (req) => {
           // of SPEAKER_XX. A short utterance that slipped past Recall's speech
           // detection is still much more likely to be the nearest speaker than
           // a phantom diarization label.
+          if (bestName) {
+            const segLen = Math.max(0.01, (seg.end || 0) - (seg.start || 0));
+            perSegmentConfidence[i] = Math.round(Math.min(1, bestOverlap / segLen) * 100) / 100;
+          }
+
           if (!bestName) {
             const segMid = ((seg.start || 0) + (seg.end || 0)) / 2;
             let bestDistance = Infinity;
@@ -381,6 +384,7 @@ serve(async (req) => {
 
           if (bestName) {
             perSegmentSpeaker[i] = bestName;
+            if (perSegmentConfidence[i] === 0) perSegmentConfidence[i] = 0.3;
           }
         }
 
@@ -394,6 +398,7 @@ serve(async (req) => {
       const speakerSegments: SpeakerSegment[] = rawSegments.map((seg, i) => ({
         ...seg,
         speaker: perSegmentSpeaker[i] || seg.speaker,
+        ...(perSegmentSpeaker[i] ? { speaker_confidence: perSegmentConfidence[i] } : {}),
       }));
 
       const hallucinated = isLikelyHallucination(transcript);
@@ -467,54 +472,21 @@ serve(async (req) => {
         }
       }
 
-      // ---- Production-quality passes (2026-08-31 plan) -------------------
-      // 1. Entity-spelling correction: vocabulary from the calendar + the
-      //    user's custom list; every change is logged, never a rewrite.
-      const { data: ownerProfile } = await supabase
-        .from("profiles")
-        .select("custom_vocabulary")
-        .eq("user_id", meeting.user_id)
-        .maybeSingle();
-      const vocabulary = buildVocabulary(
-        meeting.attendees ?? [],
-        ownerProfile?.custom_vocabulary ?? [],
-      );
-      // Language tags + the meeting-level mix reflect what was SPOKEN, so
-      // they are computed before the leaked-Devanagari translation pass.
-      const languageTagged = annotateLanguages(speakerSegments);
-      const languages = languageMix(languageTagged);
-      const translatedSegments = await translateLeakedSegments(openai, languageTagged);
-
-      const entityCorrections: Array<{ from: string; to: string }> = [];
-      const correctedSegments = translatedSegments.map((seg) => {
-        const fixed = correctEntities(seg.text, vocabulary);
-        entityCorrections.push(...fixed.corrections);
-        return { ...seg, text: fixed.text };
+      // Post-transcription passes (language mix, leak translation, entity
+      // correction, privacy zones, two-pass insights, metrics, coaching) —
+      // shared with process-meeting and regenerate-insights.
+      const audioDurationForPasses = Number(config.audio_duration_seconds) ||
+        speakerSegments.reduce((max, seg) => Math.max(max, Number(seg.end) || 0), 0);
+      const passes = await runPostTranscription({
+        supabase,
+        openai,
+        meeting,
+        transcript: finalTranscript,
+        segments: speakerSegments,
+        recallTimeline,
+        durationSeconds: Math.round(audioDurationForPasses),
       });
-      if (entityCorrections.length > 0) {
-        console.log(
-          `[sarvam-webhook] Entity corrections: ${entityCorrections.slice(0, 10).map((c) => `${c.from}→${c.to}`).join(", ")}${entityCorrections.length > 10 ? ` (+${entityCorrections.length - 10} more)` : ""}`,
-        );
-      }
-
-      // 2. Boundary zones (privacy trim). The stored transcript content is
-      //    rebuilt from the translated/corrected segments so it matches them.
-      const boundaries = computeBoundaries(meeting.attendees ?? [], recallTimeline);
-      const zonedSegments = annotateZones(correctedSegments, boundaries);
-      const correctedTranscript = zonedSegments.length > 0
-        ? zonedSegments.map((s) => s.text).join(" ")
-        : correctEntities(finalTranscript, vocabulary).text;
-      const insightSegments = meetingZone(zonedSegments);
-      const trimmedCount = zonedSegments.length - insightSegments.length;
-      if (trimmedCount > 0) {
-        console.log(
-          `[sarvam-webhook] Boundary trim: ${trimmedCount} of ${zonedSegments.length} segments are internal pre/post chatter (window ${boundaries.first_external_join_ts}s–${boundaries.last_external_leave_ts}s)`,
-        );
-      }
-      const insightTranscript = insightSegments.length > 0
-        ? insightSegments.map((s) => s.text).join(" ")
-        : correctedTranscript;
-      // --------------------------------------------------------------------
+      const { zonedSegments, correctedTranscript } = passes;
 
       const { data: existingTranscript } = await supabase
         .from("transcripts")
@@ -551,40 +523,7 @@ serve(async (req) => {
           (endTime.getTime() - startTime.getTime()) / 1000,
       );
 
-      // Insights and metrics see the MEETING zone only — pre-call chatter and
-      // the post-call debrief must never leak into a summary a prospect can
-      // read. Metrics timestamps are shifted to the zone window so silence
-      // and lead-in are measured against the external-facing call, not the
-      // bot's whole recording.
-      const insights = await generateInsights(
-        openai,
-        meeting,
-        insightTranscript,
-        insightSegments,
-        { vocabulary },
-      );
-      const zoneStart = boundaries.first_external_join_ts ?? 0;
-      const zoneEnd = boundaries.last_external_leave_ts !== null
-        ? Math.min(boundaries.last_external_leave_ts, durationSeconds || Infinity)
-        : durationSeconds;
-      const metricsDuration = Math.max(0, Math.round((zoneEnd || durationSeconds) - zoneStart)) || durationSeconds;
-      const metricsSegments = insightSegments.map((s) => ({
-        ...s,
-        start: Math.max(0, Number(s.start ?? 0) - zoneStart),
-        end: Math.max(0, Number(s.end ?? 0) - zoneStart),
-      }));
-      // Whitelist merge: only sentiment_score survives from the model.
-      insights.meeting_metrics = mergeMeetingMetrics(
-        insights.meeting_metrics,
-        computeConversationMetrics(metricsSegments, metricsDuration),
-      );
-      insights.coaching = await generateCoaching(
-        openai,
-        meeting,
-        insights.facts ?? null,
-        insights.meeting_metrics,
-        insightSegments,
-      );
+      const insights = passes.insights;
       await saveInsights(supabase, meeting.id, insights);
 
       await supabase
@@ -593,18 +532,14 @@ serve(async (req) => {
           status: "completed",
           end_time: endTime.toISOString(),
           duration_seconds: durationSeconds,
-          languages: Object.keys(languages).length > 0 ? languages : null,
-          boundaries,
-          processing_config: {
-            ...config,
+          ...meetingPatch(passes, config, {
             ...(recallTimeline.length > 0 ? { recall_speaker_timeline: recallTimeline } : {}),
             ...(recallParticipants.length > 0 ? { recall_participants: recallParticipants } : {}),
-            ...(entityCorrections.length > 0
-              ? { entity_corrections: entityCorrections.slice(0, 50) }
-              : {}),
-          },
+          }),
         })
         .eq("id", meeting.id);
+
+      await afterInsightsSaved(supabase, meeting, insights);
 
       await deliverResults(supabase, meeting, insights, {
         sendEmail: config.sendEmail,

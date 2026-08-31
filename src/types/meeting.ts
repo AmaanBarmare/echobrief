@@ -227,6 +227,6 @@ export interface CoachingReport {
 export interface MeetingBoundaries {
   first_external_join_ts: number | null;
   last_external_leave_ts: number | null;
-  source: 'speech_estimated' | 'none';
+  source: 'speech_estimated' | 'llm_estimated' | 'none';
   internal_only: boolean;
 }
