@@ -15,6 +15,10 @@ export interface SpeakerSegment {
   speaker_id?: string;
 }
 
+// A looping hallucination ("you you you…", one sentence repeated for an hour)
+// never has more than a handful of distinct words, however long it runs.
+const MAX_LOOP_VOCABULARY = 50;
+
 export function isLikelyHallucination(text: string): boolean {
   if (!text || text.trim().length === 0) return true;
 
@@ -24,7 +28,13 @@ export function isLikelyHallucination(text: string): boolean {
   const uniqueWords = new Set(words);
   const uniqueRatio = uniqueWords.size / words.length;
 
-  if (words.length >= 5 && uniqueRatio < 0.2) return true;
+  // Degenerate repetition. A bare ratio threshold is wrong for long text:
+  // vocabulary grows sub-linearly with length (Heaps' law), so a real
+  // 10,000-word conversation has ~1,500 distinct words — a ratio near 0.15 —
+  // and that is exactly how a genuine 60-minute call was discarded on
+  // 2026-08-31. Require the tiny ABSOLUTE vocabulary of a loop as well.
+  // tests/hallucination_test.ts holds both shapes.
+  if (words.length >= 5 && uniqueRatio < 0.2 && uniqueWords.size < MAX_LOOP_VOCABULARY) return true;
 
   const cleaned = text.trim().toLowerCase().replace(/[.,!?]/g, "");
   const patterns = [

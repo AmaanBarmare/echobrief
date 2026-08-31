@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { formatIST } from '@/lib/time';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -7,14 +7,14 @@ import { RecordingButton } from '@/components/dashboard/RecordingButton';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Meeting } from '@/types/meeting';
-import { ChevronDown, ChevronRight, Mic, Clock, CheckCircle2, Sparkles, Trash2, Loader2 } from 'lucide-react';
+import { ChevronRight, Mic, Clock, CheckCircle2, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
-import { useToast } from '@/hooks/use-toast';
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
+// Meetings that produced no content never reach the dashboard. Cancelled means
+// the bot was never admitted; failed means the pipeline gave up. Both rows stay
+// in the database — a failed meeting is still reachable at /meeting/:id from
+// search or an alert, and can be reprocessed — but nothing lists them here.
+const HIDDEN_STATUSES = new Set<string>(['cancelled', 'failed']);
 
 interface CalendarAttendee {
   email: string;
@@ -37,8 +37,6 @@ function statusConfig(status: string) {
     case 'transcribing': return { label: 'Transcribing', color: 'hsl(var(--warning))', tint: 'color-mix(in oklch, hsl(var(--warning)) 14%, transparent)' };
     case 'processing': return { label: 'Processing', color: 'hsl(var(--warning))', tint: 'color-mix(in oklch, hsl(var(--warning)) 14%, transparent)' };
     case 'completed': return { label: 'Completed', color: 'hsl(var(--success))', tint: 'color-mix(in oklch, hsl(var(--success)) 14%, transparent)' };
-    case 'failed': return { label: 'Failed', color: 'hsl(var(--destructive))', tint: 'color-mix(in oklch, hsl(var(--destructive)) 12%, transparent)' };
-    case 'cancelled': return { label: 'Cancelled', color: 'hsl(var(--destructive))', tint: 'color-mix(in oklch, hsl(var(--destructive)) 12%, transparent)' };
     default: return { label: 'Scheduled', color: 'var(--ink-soft)', tint: 'color-mix(in oklch, var(--ink) 8%, transparent)' };
   }
 }
@@ -65,55 +63,11 @@ function formatTotalHours(seconds: number) {
   return `${mins}m`;
 }
 
-// Confirm-then-delete button for clearing all meetings of one status.
-function BulkDeleteButton({ status, count, deleting, onConfirm }: {
-  status: 'failed' | 'cancelled';
-  count: number;
-  deleting: boolean;
-  onConfirm: () => void;
-}) {
-  const label = status === 'failed' ? 'Delete all failed meetings' : 'Delete all cancelled meetings';
-  return (
-    <AlertDialog>
-      <AlertDialogTrigger asChild>
-        <button
-          type="button"
-          disabled={deleting}
-          className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[12.5px] font-medium transition-colors disabled:opacity-60"
-          style={{ border: '1px solid var(--rule)', background: 'var(--paper-card)', color: 'hsl(var(--destructive))' }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'color-mix(in oklch, hsl(var(--destructive)) 8%, transparent)'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--paper-card)'; }}
-        >
-          {deleting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} strokeWidth={1.75} />}
-          {label}
-        </button>
-      </AlertDialogTrigger>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Delete all {status} meetings?</AlertDialogTitle>
-          <AlertDialogDescription>
-            This permanently deletes {count} {status} meeting{count === 1 ? '' : 's'} and their data. Completed meetings are not affected. This cannot be undone.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction onClick={onConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-            Delete {count}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  );
-}
-
 export default function Dashboard() {
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { toast } = useToast();
-  const [deletingStatus, setDeletingStatus] = useState<'failed' | 'cancelled' | null>(null);
-  const [showArchived, setShowArchived] = useState(false);
 
   const prefillMeeting = (location.state as { prefillMeeting?: PrefillMeeting })?.prefillMeeting;
 
@@ -143,6 +97,7 @@ export default function Dashboard() {
         .from('meetings')
         .select('*')
         .eq('user_id', user!.id)
+        .not('status', 'in', `(${[...HIDDEN_STATUSES].join(',')})`)
         .order('start_time', { ascending: false });
       if (error) throw error;
       return (data ?? []) as Meeting[];
@@ -175,10 +130,15 @@ export default function Dashboard() {
         { event: '*', schema: 'public', table: 'meetings', filter: `user_id=eq.${user.id}` },
         (payload) => {
           queryClient.setQueryData<Meeting[]>(['meetings', user.id], (prev = []) => {
-            if (payload.eventType === 'INSERT') return [payload.new as Meeting, ...prev];
-            if (payload.eventType === 'UPDATE') return prev.map((m) => (m.id === (payload.new as Meeting).id ? (payload.new as Meeting) : m));
-            if (payload.eventType === 'DELETE') return prev.filter((m) => m.id !== (payload.old as Meeting).id);
-            return prev;
+            const next = (() => {
+              if (payload.eventType === 'INSERT') return [payload.new as Meeting, ...prev];
+              if (payload.eventType === 'UPDATE') return prev.map((m) => (m.id === (payload.new as Meeting).id ? (payload.new as Meeting) : m));
+              if (payload.eventType === 'DELETE') return prev.filter((m) => m.id !== (payload.old as Meeting).id);
+              return prev;
+            })();
+            // Same rule as the query: a meeting that just became cancelled or
+            // failed drops off the list instead of lingering with a red badge.
+            return next.filter((m) => !HIDDEN_STATUSES.has(m.status));
           });
         })
       .subscribe();
@@ -194,71 +154,9 @@ export default function Dashboard() {
     return { totalMeetings, totalDuration, summarized, timeSavedMin };
   }, [meetings, insightCounts]);
 
-  const failedCount = useMemo(() => meetings.filter((m) => m.status === 'failed').length, [meetings]);
-  const cancelledCount = useMemo(() => meetings.filter((m) => m.status === 'cancelled').length, [meetings]);
-
-  // Rendering split: meetings with (or on their way to) content stay on top in
-  // the query's start_time desc order; cancelled/failed ones collapse under a
-  // muted expander at the bottom. The query itself is untouched.
-  const activeMeetings = useMemo(
-    () => meetings.filter((m) => m.status !== 'cancelled' && m.status !== 'failed'),
-    [meetings]
-  );
-  const archivedMeetings = useMemo(
-    () => meetings.filter((m) => m.status === 'cancelled' || m.status === 'failed'),
-    [meetings]
-  );
-
-  // Bulk-delete every meeting of one status (and its child rows + audio), the
-  // same cleanup the single-meeting delete does. Completed meetings are never
-  // touched. Only the targeted status is offered via the UI.
-  const deleteMeetingsByStatus = async (status: 'failed' | 'cancelled') => {
-    if (!user) return;
-    setDeletingStatus(status);
-    try {
-      const { data: targets, error: fetchErr } = await supabase
-        .from('meetings')
-        .select('id, audio_url')
-        .eq('user_id', user.id)
-        .eq('status', status);
-      if (fetchErr) throw fetchErr;
-      const ids = (targets ?? []).map((m) => m.id);
-      if (ids.length === 0) {
-        toast({ title: 'Nothing to delete', description: `No ${status} meetings found.` });
-        return;
-      }
-      // Remove child rows first (mirrors the single-meeting delete).
-      await supabase.from('meeting_insights').delete().in('meeting_id', ids);
-      await supabase.from('transcripts').delete().in('meeting_id', ids);
-      const audioPaths = (targets ?? [])
-        .map((m) => m.audio_url)
-        .filter((p): p is string => !!p);
-      if (audioPaths.length > 0) {
-        await supabase.storage.from('recordings').remove(audioPaths);
-      }
-      const { error: delErr } = await supabase
-        .from('meetings')
-        .delete()
-        .eq('user_id', user.id)
-        .eq('status', status);
-      if (delErr) throw delErr;
-      queryClient.setQueryData<Meeting[]>(['meetings', user.id], (prev = []) =>
-        prev.filter((m) => m.status !== status));
-      toast({ title: 'Deleted', description: `Removed ${ids.length} ${status} meeting${ids.length === 1 ? '' : 's'}.` });
-    } catch (err) {
-      toast({
-        title: 'Error',
-        description: err instanceof Error ? err.message : `Could not delete ${status} meetings`,
-        variant: 'destructive',
-      });
-    } finally {
-      setDeletingStatus(null);
-    }
-  };
-
   const firstName = user?.user_metadata?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || 'there';
 
-  const renderMeetingRow = (meeting: Meeting, first: boolean, muted: boolean) => {
+  const renderMeetingRow = (meeting: Meeting, first: boolean) => {
     const s = statusConfig(meeting.status || 'scheduled');
     const hasSummary = insightCounts[meeting.id];
     const lang = (meeting as any).language;
@@ -266,7 +164,7 @@ export default function Dashboard() {
       <Link
         key={meeting.id}
         to={`/meeting/${meeting.id}`}
-        className={`group flex items-center gap-4 px-5 py-4 no-underline transition-colors md:px-6${muted ? ' opacity-60' : ''}`}
+        className="group flex items-center gap-4 px-5 py-4 no-underline transition-colors md:px-6"
         style={{
           borderTop: first ? 'none' : '1px solid var(--rule-soft)',
         }}
@@ -410,22 +308,6 @@ export default function Dashboard() {
             Recent meetings
           </h2>
           <div className="flex flex-wrap items-center gap-2">
-            {!loading && failedCount > 0 && (
-              <BulkDeleteButton
-                status="failed"
-                count={failedCount}
-                deleting={deletingStatus === 'failed'}
-                onConfirm={() => deleteMeetingsByStatus('failed')}
-              />
-            )}
-            {!loading && cancelledCount > 0 && (
-              <BulkDeleteButton
-                status="cancelled"
-                count={cancelledCount}
-                deleting={deletingStatus === 'cancelled'}
-                onConfirm={() => deleteMeetingsByStatus('cancelled')}
-              />
-            )}
             {!loading && meetings.length > 0 && (
               <span className="text-[13px]" style={{ color: 'var(--ink-soft)' }}>
                 {meetings.length} total
@@ -466,30 +348,7 @@ export default function Dashboard() {
             className="overflow-hidden rounded-xl"
             style={{ border: '1px solid var(--rule)', background: 'var(--paper-card)' }}
           >
-            {activeMeetings.map((meeting, idx) => renderMeetingRow(meeting, idx === 0, false))}
-            {archivedMeetings.length > 0 && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setShowArchived((v) => !v)}
-                  aria-expanded={showArchived}
-                  className="flex w-full items-center gap-2 px-5 py-3 text-left text-[12.5px] font-medium transition-colors md:px-6"
-                  style={{
-                    borderTop: activeMeetings.length === 0 ? 'none' : '1px solid var(--rule-soft)',
-                    color: 'var(--ink-soft)',
-                    background: 'color-mix(in oklch, var(--ink) 2%, transparent)',
-                  }}
-                >
-                  {showArchived ? (
-                    <ChevronDown size={14} strokeWidth={1.75} />
-                  ) : (
-                    <ChevronRight size={14} strokeWidth={1.75} />
-                  )}
-                  Cancelled &amp; failed ({archivedMeetings.length})
-                </button>
-                {showArchived && archivedMeetings.map((meeting) => renderMeetingRow(meeting, false, true))}
-              </>
-            )}
+            {meetings.map((meeting, idx) => renderMeetingRow(meeting, idx === 0))}
           </div>
         )}
       </div>

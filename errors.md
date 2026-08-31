@@ -183,6 +183,17 @@ Recall's `audio_mixed` output is **16 kHz mono 128 kbps mp3**, already Sarvam's 
 
 ---
 
+### `pipeline:hallucination_detector_discards_long_transcript`
+**What it looks like:** `sarvam-webhook` logs `Hallucinated Sarvam transcript, discarding:` followed by the opening lines of a perfectly normal conversation, then `Sarvam returned empty transcript for job …, falling back to Whisper`. The Sarvam job itself is `Completed` with a full `0.json` — `python3 scripts/check_sarvam_job.py <job_id>` says "Looks healthy". Long meetings only. 2026-08-31: a 60-minute call, 410 diarized entries, 53,543 characters, thrown away.
+
+**Root cause:** `isLikelyHallucination` flagged any text whose `unique words / total words` was below 0.2. That ratio only means something for short text. Vocabulary grows sub-linearly with length (Heaps' law): the discarded transcript had 10,363 words and 1,531 distinct ones — 0.148 — while its own first 1,000 words scored 0.35 and its first 5,000 words 0.185. Every dense conversation past roughly 30–40 minutes was one vocabulary roll away from "no usable transcript", and because the discard happens *before* the Whisper fallback, a healthy Sarvam result was replaced by whatever the fallback managed — here nothing, see `storage:file_size_limit_skips_splitter`.
+
+**Fix shipped 2026-08-31:** the ratio test now also requires the tiny *absolute* vocabulary of a real loop (fewer than 50 distinct words). "you you you…" and one sentence repeated for an hour still trip it; a real hour of conversation cannot. `supabase/functions/tests/hallucination_test.ts` holds a 10k-word synthetic transcript with the same statistics.
+
+**If it recurs:** the Sarvam output is still on their side — PATCH the meeting `{status: "processing", sarvam_webhook_claimed_at: null, sarvam_webhook_triggered_at: null}` and POST `/functions/v1/sarvam-webhook` `{job_id, job_state: "COMPLETED"}` with the Sarvam webhook secret. Nothing needs re-transcribing.
+
+---
+
 ## Storage errors
 
 ### `storage:bucket_full_blocks_pipeline`
@@ -201,6 +212,22 @@ Five separate failures chained, every one of them silent. The bucket being full 
 **Check it manually:** `GET /functions/v1/prune-recordings?dry_run=1` reports current bucket bytes, headroom, and what would be deleted, without touching anything.
 
 **If it recurs:** headroom is the number to watch. 1 GB is roughly 20 long meetings. Upgrading Supabase to Pro (100 GB) removes the ceiling; the prune job keeps growth flat either way.
+
+---
+
+### `storage:file_size_limit_skips_splitter`
+**What it looks like:** A meeting longer than ~55 minutes ends `failed` with `error_message = "No usable transcript could be produced…"` a minute or two after the call ends. `audio_url` is NULL, `processing_config.split_method` is `direct-fallback`, and the recall-pipeline log shows `Storage upload error: StorageApiError: The object exceeded the maximum allowed size` (HTTP 413, `EntityTooLarge`). Found 2026-08-31 on a 60-minute call: 57,407,498 bytes.
+
+**Root cause:** Supabase's project-wide `fileSizeLimit` is 52,428,800 bytes — 50 MiB, the Free-plan maximum (the `recordings` bucket itself has no limit of its own). Recall's `audio_mixed` is 128 kbps = 16,000 bytes/s, so anything past ~54.6 minutes is rejected. Nothing was wrong with the recording; the damage was downstream. The splitter call was guarded by `!uploadError` because it signed the *Storage* copy, so the whole 57 MB went to Sarvam as ONE job — and every Whisper fallback (the chunk-wise retry in `sarvam-webhook`, the long-meeting and oversize branches in `process-meeting`) was keyed on `meeting.audio_url` and silently skipped. `process-meeting` then reported `noAudioDetected: true` about a second after being called, having never seen any audio. This is the same "no archive ⇒ no splitter" chain that was the second domino in `storage:bucket_full_blocks_pipeline`.
+
+**Fix shipped 2026-08-31:**
+1. `recall-pipeline` hands the splitter the archived copy when there is one and **Recall's own download URL** otherwise, so chunking no longer depends on Storage at all. `processing_config` records `split_source: storage|recall` and, when the archive failed, `archive_error`.
+2. `_shared/whisper-chunked.ts` gained `resolveSplitterSourceUrl` / `transcribeMeetingViaSplitAudio`: the chunk-wise Whisper fallbacks in `sarvam-webhook` and `process-meeting` read from the archive or straight from Recall (`recall_bot_id`), whichever exists.
+3. `process-meeting` says "No audio to transcribe: the recording was not archived and no Recall bot is attached" when it truly has nothing, instead of blaming silence.
+
+**What is NOT fixed:** long meetings still get no archived mp3 (`audio_url` stays NULL). Playback uses Recall's mp4 for 7 days and has no fallback after that, and `/tmp/recover_meeting.py` cannot be used for them — pull the audio from Recall instead. Raising the cap needs Supabase Pro.
+
+**Check it manually:** `GET https://api.supabase.com/v1/projects/lekkpfpojlspbuwrtmzt/config/storage` → `fileSizeLimit`.
 
 ---
 

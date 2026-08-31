@@ -15,7 +15,9 @@ import {
 } from "../_shared/insights.ts";
 import { afterInsightsSaved, meetingPatch, runPostTranscription } from "../_shared/post-transcription.ts";
 import {
+  hasSplitterSource,
   isLongMeeting,
+  transcribeMeetingViaSplitAudio,
   transcribeViaSplitAudio,
   WHISPER_WHOLE_FILE_MAX_BYTES,
   type ChunkedWhisperResult,
@@ -51,11 +53,22 @@ async function whisperTranscribe(
   let wordTimestamps: any[] = [];
   let sttProvider = "whisper";
 
-  if (meeting.audio_url) {
+  if (hasSplitterSource(meeting)) {
     try {
       const long = isLongMeeting(meeting.processing_config);
 
-      if (long) {
+      if (!meeting.audio_url) {
+        // Storage rejected the archive (>50 MiB — any call past ~55 minutes),
+        // so the only copy is Recall's. Chunk-wise from there; never pull it
+        // into this isolate.
+        console.warn(
+          `[whisper] No archived audio for ${meetingId} — chunk-wise Whisper straight from Recall`,
+        );
+        const w = await transcribeMeetingViaSplitAudio(supabase, meeting);
+        transcript = w.transcript;
+        speakerSegments = speakerSegmentsFromChunked(w);
+        sttProvider = "whisper-chunked";
+      } else if (long) {
         // Do not pull a 40–50 MB blob into this isolate — that is the OOM path.
         console.warn(
           `[whisper] Long meeting (${meeting.processing_config?.audio_duration_seconds || "?"}s) — using chunk-wise Whisper`,
@@ -235,8 +248,9 @@ Only include segments where you can make a reasonable attribution.`;
       .update({
         status: "failed",
         end_time: endTime.toISOString(),
-        error_message:
-          "No usable transcript could be produced from this recording. The audio may have been silent, or both Sarvam and Whisper failed to transcribe it.",
+        error_message: hasSplitterSource(meeting)
+          ? "No usable transcript could be produced from this recording. The audio may have been silent, or both Sarvam and Whisper failed to transcribe it."
+          : "No audio to transcribe: the recording was not archived and no Recall bot is attached to this meeting.",
       })
       .eq("id", meetingId);
 

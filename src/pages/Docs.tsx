@@ -424,8 +424,8 @@ export default function Docs() {
                         ['Recording', 'The bot is in the meeting and capturing audio.'],
                         ['Processing', 'The call ended. Audio is being transcribed and analysed.'],
                         ['Completed', 'Transcript, summary, and insights are ready.'],
-                        ['Cancelled', 'The bot never got into the meeting — usually not admitted, or removed from the waiting room. Nothing was recorded and nothing went wrong on our side.'],
-                        ['Failed', 'Something needs your attention — most often an invalid or expired meeting link. Open the meeting to see the reason.'],
+                        ['Cancelled', 'The bot never got into the meeting — usually not admitted, or removed from the waiting room. Nothing was recorded and nothing went wrong on our side. Dropped from the dashboard automatically.'],
+                        ['Failed', 'Something needs your attention — most often an invalid or expired meeting link. Dropped from the dashboard automatically; search for the title to open the meeting and see the reason.'],
                       ].map(([s, d]) => (
                         <tr key={s}>
                           <td className="whitespace-nowrap py-2.5 pr-4 align-top font-medium text-foreground">
@@ -732,9 +732,10 @@ export default function Docs() {
                 <SectionHeading id="history">Search &amp; history</SectionHeading>
                 <p>
                   The <strong className="text-foreground">Recordings</strong> page lists every
-                  meeting with global search and filtering. You can delete a single meeting, or
-                  bulk-clear all failed or all cancelled ones — completed meetings are never
-                  touched by a bulk clear.
+                  meeting with global search and filtering. Cancelled and failed meetings are
+                  removed from the dashboard automatically — only meetings that produced (or are
+                  about to produce) a transcript are listed. You can still delete a single meeting
+                  from its own page.
                 </p>
                 <Callout title="Audio is not kept forever">
                   Recorded audio is deleted after about 30 days. Transcripts, summaries, and

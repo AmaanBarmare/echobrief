@@ -45,7 +45,7 @@ sequenceDiagram
     RW->>R: GET transcript (media_shortcuts)
     Note over RW: build speaker timeline<br/>→ processing_config
     RW->>R: download audio_mixed mp3
-    RW->>SP: signed URL + callback
+    RW->>SP: audio URL (Storage, or Recall if >50 MiB) + callback
 
     SP->>SP: ffmpeg -f segment -c copy<br/>300 s chunks
     SP->>SV: ONE multi-file job (N chunks)
@@ -115,8 +115,15 @@ On `audio_mixed.done`, [`_shared/recall-pipeline.ts`](../supabase/functions/_sha
    (the old `/bot/{id}/transcript/` endpoint is deprecated) to get **real participant
    names** and build a speaker timeline of `{speaker, start, end}` entries, stored in
    `meetings.processing_config`.
-2. Downloads the `audio_mixed` mp3 and archives it to the `recordings` bucket.
-3. Hands the signed URL to `SPLIT_AUDIO_URL` with a bearer secret.
+2. Downloads the `audio_mixed` mp3 and archives it to the `recordings` bucket. The
+   project-wide Storage cap is **50 MiB** (Free plan), which a 128 kbps recording
+   crosses at ~55 minutes — longer calls are simply not archived (`audio_url` stays
+   NULL, `processing_config.archive_error` says why).
+3. Hands the splitter a URL to download from, with a bearer secret: a signed URL for
+   the archived copy when there is one, otherwise **Recall's own download URL**
+   (`processing_config.split_source` records which). Chunking never depends on the
+   archive — before 2026-08-31 it did, and every call past ~55 minutes went to Sarvam
+   whole-file and failed (see `storage:file_size_limit_skips_splitter` in `errors.md`).
 
 ### Why chunking exists
 
