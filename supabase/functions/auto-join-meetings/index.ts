@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { authenticate, json } from "../_shared/auth.ts"
 
 const RECALL_API_KEY = Deno.env.get('RECALL_API_KEY')
 const RECALL_API_BASE_URL =
@@ -15,6 +16,13 @@ const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 serve(async (req) => {
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
+
+    // Cron-only: pg_cron sends the Vault-sourced service key (see migration
+    // 20260831190000_cron_service_auth.sql). This sweep touches every
+    // auto-join profile, so nothing short of the service role may run it.
+    const caller = await authenticate(req, supabase)
+    if (!caller.ok) return caller.response
+    if (!caller.isService) return json({ error: 'Service only' }, 403)
 
     // Get all users with auto-join enabled from profiles table
     const { data: prefs, error: prefsError } = await supabase
@@ -234,7 +242,7 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('auto-join-meetings error:', error)
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     })

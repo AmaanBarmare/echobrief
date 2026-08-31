@@ -326,10 +326,16 @@ def get_email_deliveries(meeting_id: str) -> list[dict[str, Any]]:
 
 def call_monitor_stuck_meetings() -> tuple[int, str]:
     url = f"{SUPABASE_URL}/functions/v1/monitor-stuck-meetings"
+    # The monitor is service-role-only since the cron auth hardening
+    # (verify_jwt = true + authenticate()); prod's pg_cron sends the
+    # Vault-sourced key, the harness sends the .env service-role JWT.
     status, body = _request(
         "POST",
         url,
-        headers={"Content-Type": "application/json"},
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {SERVICE_KEY}",
+        },
         body=b"{}",
         timeout=120,
     )

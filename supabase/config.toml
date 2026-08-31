@@ -7,8 +7,9 @@ verify_jwt = true
 [functions.process-meeting]
 verify_jwt = true
 
+# Cron-only. pg_cron sends the Vault-sourced service key (20260831190000).
 [functions.prune-recordings]
-verify_jwt = false
+verify_jwt = true
 
 [functions.sync-google-calendar]
 verify_jwt = true
@@ -46,8 +47,9 @@ verify_jwt = true
 [functions.recall-webhook]
 verify_jwt = false
 
+# Cron-only. pg_cron sends the Vault-sourced service key (20260831190000).
 [functions.auto-join-meetings]
-verify_jwt = false
+verify_jwt = true
 
 [functions.fetch-google-calendars]
 verify_jwt = true
@@ -76,8 +78,9 @@ verify_jwt = true
 [functions.sync-calendars]
 verify_jwt = true
 
+# Cron-only. pg_cron sends the Vault-sourced service key (20260831190000).
 [functions.monitor-stuck-meetings]
-verify_jwt = false
+verify_jwt = true
 
 [functions.get-recording-media]
 verify_jwt = true

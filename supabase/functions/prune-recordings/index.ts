@@ -19,6 +19,7 @@
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { authenticate, json } from "../_shared/auth.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -68,6 +69,14 @@ async function bucketBytes(supabase: any): Promise<number> {
 serve(async (req) => {
   try {
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
+
+    // Cron-only: pg_cron sends the Vault-sourced service key (see migration
+    // 20260831190000_cron_service_auth.sql). This function deletes storage
+    // objects — nothing short of the service role may invoke it.
+    const caller = await authenticate(req, supabase);
+    if (!caller.ok) return caller.response;
+    if (!caller.isService) return json({ error: "Service only" }, 403);
+
     // ?dry_run=1 reports exactly what would be deleted without touching storage.
     const dryRun = new URL(req.url).searchParams.get("dry_run") === "1";
 

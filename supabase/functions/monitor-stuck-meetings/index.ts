@@ -15,6 +15,7 @@ import {
   downloadSarvamResults,
   getSarvamJobStatus,
 } from "../_shared/sarvam.ts";
+import { authenticate, json } from "../_shared/auth.ts";
 import { buildAlertHtml, buildAlertSubject } from "./alert-template.ts";
 import { KNOWN_PATTERNS, isKnown, RecoveryAction } from "./known-patterns.ts";
 import { isLongMeeting } from "../_shared/whisper-chunked.ts";
@@ -386,6 +387,14 @@ serve(async (req) => {
 
   try {
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
+
+    // Cron-only: pg_cron sends the Vault-sourced service key (see migration
+    // 20260831190000_cron_service_auth.sql); the harness calls with the .env
+    // service-role JWT. Anyone else could trigger recovery actions and alert
+    // mail at will.
+    const caller = await authenticate(req, supabase);
+    if (!caller.ok) return caller.response;
+    if (!caller.isService) return json({ error: "Service only" }, 403);
 
     // Find every non-terminal meeting older than the threshold
     const cutoff = new Date(Date.now() - STUCK_AFTER_MIN * 60 * 1000).toISOString();
