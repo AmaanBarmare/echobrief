@@ -20,6 +20,7 @@ if (!TOKEN) {
 const EXPECTED_TOOLS = [
   "list_meetings",
   "get_meeting",
+  "get_meeting_facts",
   "get_meeting_insights",
   "search_meetings",
   "get_transcript",
