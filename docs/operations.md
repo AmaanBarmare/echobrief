@@ -166,6 +166,104 @@ the frequency migrations re-declare jobs rather than unscheduling first.
 
 ---
 
+## Backups and restore
+
+Supabase Free has **no backups and no PITR**, so we run our own: a GitHub Actions
+job ([`.github/workflows/db-backup.yml`](../.github/workflows/db-backup.yml))
+takes a nightly `pg_dump` at **02:30 UTC** (chosen to stay clear of the prod
+pg_cron jobs at 21:45, 22:00 and 03:45 UTC), gzips it, encrypts it with
+AES-256-CBC (PBKDF2, 200k iterations), and uploads it as a **release asset** on
+the private repo `Oltaflock-AI/echobrief-backups`, tagged `backup-YYYY-MM-DD`.
+Releases older than 30 days are pruned by the same job. The main repo is
+**public**, so dumps must never be committed here or stored as Actions
+artifacts (public-repo artifacts are world-downloadable) — release assets on
+the private repo are the only sanctioned destination.
+
+### What the dump covers — and what it does not
+
+Covered (both files inside one encrypted `.tar.gz.enc`):
+
+- **`public` schema, schema + data** (`public.sql`) — meetings, transcripts,
+  meeting_insights, profiles, contacts, tokens, billing ledger, everything.
+- **`auth.users`, schema + data** (`auth_users.sql`) — user accounts. The
+  `postgres` role can read this table; the job **fails loudly** if that ever
+  stops being true, rather than silently shipping a backup with no users.
+
+NOT covered — be honest with yourself about this before you need a restore:
+
+- **Supabase-managed schemas** (`storage`, `vault`, `extensions`, `graphql`,
+  `realtime`, `supabase_functions`, the rest of `auth`): mostly not dumpable by
+  the `postgres` role and not restorable into another project anyway.
+  Consequences: users keep their accounts and profiles but **lose sessions,
+  refresh tokens, and MFA factors** (they sign in again; Google OAuth tokens
+  are ours and live in `public.user_oauth_tokens`, so calendar reconnects
+  survive), and **Vault secrets** (the cron `service_role_key`) must be
+  re-created per the section above.
+- **Storage objects** (the `recordings` bucket): deliberately out of scope.
+  Archived audio is transient by design — pruned at 30 days, and every meeting
+  that matters already has its transcript in `public`.
+- **Project configuration**: auth email templates (in `supabase/auth-emails/`,
+  re-push with `npm run emails:auth:push`), edge-function secrets (source of
+  truth is `.env` — see Environment variables), migrations (this repo).
+
+### Secrets
+
+Three GitHub Actions secrets on the **main** repo (Settings → Secrets and
+variables → Actions). Both workflows refuse to run with a clear error if any
+is missing:
+
+| Secret | What it is |
+|---|---|
+| `SUPABASE_DB_PASSWORD` | Password for the `postgres` role (Supabase dashboard → Settings → Database) |
+| `BACKUP_PASSPHRASE` | Symmetric passphrase for `openssl enc`. **If this is lost, every backup is unrecoverable** — keep a copy in the password manager |
+| `BACKUPS_REPO_TOKEN` | Fine-grained PAT with `contents: read/write` on `Oltaflock-AI/echobrief-backups` only |
+
+```bash
+gh secret set SUPABASE_DB_PASSWORD   # paste value at the prompt
+gh secret set BACKUP_PASSPHRASE
+gh secret set BACKUPS_REPO_TOKEN
+```
+
+### RPO / RTO in plain terms
+
+- **RPO ≈ 24 h**: nightly dump means up to a day of meetings/insights can be
+  lost. Acceptable while the dataset is ~23 MB and low-write.
+- **RTO ≈ 1–2 h**: create/reset a Supabase project, apply migrations, run
+  `scripts/backup/restore.sh`, re-point env vars, re-create the Vault secret,
+  users re-authenticate.
+
+### Restoring
+
+```bash
+# 1. Fetch the newest backup (any backup-YYYY-MM-DD tag)
+gh release download backup-2026-08-31 \
+  --repo Oltaflock-AI/echobrief-backups --pattern '*.enc'
+
+# 2. Restore (passphrase from the password manager)
+BACKUP_PASSPHRASE=... scripts/backup/restore.sh \
+  echobrief-db-2026-08-31.tar.gz.enc \
+  "postgresql://postgres:PW@HOST:5432/postgres"
+```
+
+The script decrypts, creates minimal `auth`/`extensions` stubs (skip with
+`--no-stubs` when the target is a real Supabase project), restores
+`auth.users` then `public`, and prints row counts at the end. It **refuses to
+run against the production host** unless `--i-really-mean-it` is passed.
+
+### Trusting it: the weekly restore drill
+
+[`.github/workflows/db-restore-drill.yml`](../.github/workflows/db-restore-drill.yml)
+runs every **Monday 05:30 UTC** (and on demand): downloads the newest release,
+decrypts it, restores into a throwaway `postgres:17` service container, and
+**fails unless** `meetings`, `transcripts`, `meeting_insights`, `profiles` and
+`auth.users` all exist with row counts > 0. Check it under Actions → “DB
+restore drill” — a green run is the proof the backups are actually
+restorable; a red run means the backups may be decoration, treat it with
+incident urgency. Some psql errors during the drill are expected (Supabase-only
+roles/grants against vanilla Postgres) and are printed in full for diagnosis.
+
+---
+
 ## Monitoring and alerts
 
 `monitor-stuck-meetings` is the safety net. Every detection writes a `monitor_events`
