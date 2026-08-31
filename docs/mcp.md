@@ -104,13 +104,14 @@ Check the deployed server with `npm run test:oauth:contract`.
 
 | Tool | Arguments | Returns |
 |---|---|---|
-| `list_meetings` | `status?`, `from?`, `to?`, `query?`, `limit` (≤100) | Metadata rows. No bodies. |
+| `list_meetings` | `status?`, `from?`, `to?`, `query?`, `limit` (≤100) | Metadata rows. No bodies. Cancelled meetings are excluded unless `status` is passed. |
 | `get_meeting` | `meeting_id` | Metadata, `summary_short`, counts |
 | `get_meeting_insights` | `meeting_id` | Full analysis and metrics |
 | `search_meetings` | `query`, `limit` (≤25) | Ranked snippets with `meeting_id` |
-| `get_transcript` | `meeting_id`, `format`, `speaker?`, `offset?`, `limit?` | Transcript text or segments, paged |
+| `get_transcript` | `meeting_id`, `format`, `include_internal?`, `speaker?`, `offset?`, `limit?` | `text` is `[m:ss] Speaker:` paragraphs; `segments` is structured. Both exclude internal pre/post-meeting zones unless `include_internal: true` (the response says how many were excluded). Paged. |
 | `get_action_items` | `meeting_id?`, `status`, `from?`, `to?`, `limit` | Items addressed `(meeting_id, index)` |
 | `complete_action_item` | `meeting_id`, `index`, `completed` | The new completion state |
+| `get_meeting_facts` | `meeting_id` | The verbatim-grounded `facts` object (numbers, commitments, objections, asks — each with quote + timestamp) and the `coaching` report. The structured source the summary is written from. |
 
 **No tool returns an unbounded blob.** `search_meetings` returns pointers and the agent
 fetches one document. `get_transcript` caps a response at 40,000 characters and reports

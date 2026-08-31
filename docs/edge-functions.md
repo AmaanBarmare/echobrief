@@ -53,7 +53,13 @@ The longest function in the codebase (554 lines) and the pipeline's real centre 
    never take that hop.
 4. Maps speakers per segment against Recall's timeline, retrying the timeline fetch
    once if it is missing.
-5. Generates insights, computes conversation metrics, saves, and delivers.
+5. Runs the post-transcription passes — language mix, leaked-Devanagari translation,
+   entity correction, privacy boundary zones (see
+   [pipeline.md](pipeline.md#post-transcription-passes-2026-08-31)) — then two-pass
+   insights, conversation metrics and the coaching report on the **meeting zone only**,
+   saves (`transcripts`, `meeting_insights` incl. `facts`/`coaching`, `meetings.languages`
+   / `boundaries`), and delivers. Expect ~60–90 s more per callback than before; the
+   in-flight claim absorbs Sarvam's retries meanwhile.
 
 ---
 
@@ -62,7 +68,9 @@ The longest function in the codebase (554 lines) and the pipeline's real centre 
 
 Orchestrates transcription and insight generation directly. Accepts `forceWhisper`
 and transcript-reuse flags. The Sarvam path here is **async webhook-based**, so this
-function cannot be used for a synchronous insight regeneration.
+function cannot be used for a synchronous insight regeneration. Runs the same
+post-transcription passes as `sarvam-webhook` (the transcript row is updated in place
+with the translated/corrected/zoned segments).
 
 > ⚠️ In-edge Whisper OOMs above ~15 MB of audio. See `whisper:oom` in
 > [`errors.md`](../errors.md).

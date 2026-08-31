@@ -208,6 +208,48 @@ on 2026-08-20, only 1 in N meetings resolved real names.
 - **Delivery** is gated on `profiles.email_summaries_enabled` (default true), and
   suppressed unconditionally for `[harness]`-titled meetings unless `HARNESS_EMAILS=true`.
 
+### Post-transcription passes (2026-08-31)
+
+Between speaker attribution and insight generation, both `sarvam-webhook` and
+`process-meeting` run the same sequence, all in `_shared/`:
+
+1. **Language** (`language.ts`) — script-ratio detection per segment; the meeting gets a
+   duration-weighted mix in `meetings.languages` (`{"en": 0.78, "hi": 0.22}`) instead of
+   Sarvam's single job-level label, which tagged a 78%-English call "hindi".
+2. **Leak translation** (`translate-leaks.ts`) — Sarvam's translate mode leaks untranslated
+   Devanagari on Hinglish audio. Segments tagged `hi`/`mixed` go through one batched
+   gpt-4o-mini call; the original text stays on `segment.original_text`. Non-fatal.
+3. **Entity correction** (`vocab.ts`) — vocabulary from calendar attendees (names, email
+   local parts, domain-root company names) plus `profiles.custom_vocabulary`; tight
+   Levenshtein budgets fix near-misses ("AltaFlock" → "Oltaflock") and every change is
+   logged to `processing_config.entity_corrections`. Never rewrites content.
+4. **Boundary zones** (`zones.ts`) — external attendee = email domain different from the
+   owner's. The window is estimated from when externals speak in Recall's timeline
+   (45 s pad before, 20 s after) and stored in `meetings.boundaries` with
+   `source: "speech_estimated"`; segments carry `zone: pre|meeting|post`. Internal-only
+   meetings trim nothing. **Everything downstream — insights, metrics (timestamps shifted
+   to the window), coaching, the email, the MCP surface — sees the meeting zone only.**
+   The full transcript is still stored; the UI shows the internal zones behind an
+   owner-only toggle.
+5. **Two-pass insights** (`facts.ts` + `insights.ts`) — extraction emits `facts`
+   (numbers, entities, pain points, objections, buying signals, explicit asks,
+   commitments, decisions, risks, topics, notable quotes — each with a verbatim `quote`
+   and `ts`, plus a `meeting_type`); synthesis writes prose from the facts object only;
+   validation checks each summary claim against the facts and records
+   `facts.validation.unverified`. Action items, decisions, timeline and highlights are
+   assembled deterministically from facts; spoken due dates resolve to IST calendar dates
+   (`dates.ts`: "Tuesday" said Fri Aug 28 → `due_date_resolved: 2026-09-01`). If any pass
+   fails the legacy single-shot prompt runs — a meeting never loses its summary to a new
+   stage.
+6. **Coaching** (`coaching.ts`) — benchmarked verdicts (rep talk ratio vs 45 %, monologue
+   vs 60 s, questions, hedge-word density) plus one LLM pass for moment flags
+   (`objection_ignored`, `numbers_mismatch`, `pitched_before_discovery_complete`,
+   `next_step_secured` + strength), a per-2-minute sentiment timeline for the external
+   participant, and a coach's summary. Skipped for internal-only meetings; non-fatal.
+
+The whole sequence adds roughly 60–90 s to the callback. The regression fixture is
+meeting `f09a4803` (`scripts/evals/dataset/case_live_f09a4803.json`).
+
 ---
 
 ## The fallback chain

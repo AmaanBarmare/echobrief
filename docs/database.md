@@ -85,12 +85,17 @@ transcript, insights, and delivery. Columns that carry pipeline semantics:
 | `sarvam_job_id` | The Sarvam batch job this meeting is waiting on. |
 | `sarvam_webhook_triggered_at` | Atomic recovery lock for `check-recall-status`. Deliberately **not** `status`. |
 | `sarvam_webhook_claimed_at` | Atomic in-flight claim taken by `sarvam-webhook` on a terminal callback, so Sarvam's ~8 s callback retries skip instead of re-running the pipeline. Claims older than 10 min are re-claimable, so a died-mid-way run never strands a meeting. |
-| `processing_config` | JSONB: `chunk_count`, `chunk_seconds`, `split_method`, `recall_speaker_timeline`, `recall_participants`. |
+| `processing_config` | JSONB: `chunk_count`, `chunk_seconds`, `split_method`, `recall_speaker_timeline`, `recall_participants`, `entity_corrections` (audit log of spelling fixes). |
+| `languages` | JSONB duration-weighted language mix, e.g. `{"en": 0.78, "hi": 0.22}`. Replaces trusting `transcripts.language_detected`. |
+| `boundaries` | JSONB privacy-trim window: `first_external_join_ts`, `last_external_leave_ts`, `source` (`speech_estimated` \| `none`), `internal_only`. Insights, email and MCP default to this window. |
 | `source` | How the meeting was captured / created. |
 
 ### `transcripts`
 One row per meeting: `content` (full text), `speakers` (JSONB segment array with
-`speaker`, `text`, `start`, `end`), `word_timestamps`, `language_detected`.
+`speaker`, `text`, `start`, `end`, plus `zone` (`pre` \| `meeting` \| `post`), `language`
+(`en` \| `hi` \| `mixed` \| `unknown`) and `original_text` when the segment was translated),
+`word_timestamps`, `language_detected`. Segments written before 2026-08-31 have no
+`zone`; readers treat missing as `meeting`.
 
 ### `meeting_insights`
 One row per meeting, insert-only in practice — `saveInsights` checks for an existing
@@ -101,10 +106,19 @@ row and no-ops. Regenerating insights means deleting the row first.
 `sentiment_score` from the model, merged by whitelist. See
 [Chat & analytics](chat-and-analytics.md#conversation-metrics).
 
+`facts` (JSONB) is the pass-1 extraction object — numbers, objections, commitments,
+explicit asks, decisions, topics, each with a verbatim `quote` and `ts`, plus
+`meeting_type` and `validation.unverified`. `coaching` (JSONB) is the per-meeting
+coaching report (metric verdicts, moment flags, `sentiment_timeline`, summary); null for
+internal-only meetings and for rows written before the pass existed. Action items in
+`action_items` may carry `due_date_resolved` (ISO date) or `due_date_range`.
+
 ### `profiles`
 User settings and integration flags: `auto_join_enabled`, `email_summaries_enabled`,
 `notetaker_name`, `bot_color`, `preferred_languages`, `onboarding_completed`,
-`pre_meeting_notification_minutes`, `google_calendar_connected`.
+`pre_meeting_notification_minutes`, `google_calendar_connected`, `custom_vocabulary`
+(`text[]` — canonical spellings enforced by the entity-correction pass; edited in
+Settings → Custom vocabulary).
 
 ### `action_item_completions`
 Per-user completion state for an action item, addressed by
@@ -192,6 +206,7 @@ in filename order. The ones that carry non-obvious history:
 | `20260820150000_autojoin_dedup_unique_index.sql` | Unique index that makes duplicate-bot dispatch impossible rather than merely unlikely |
 | `20260820160000_prune_recordings_cron.sql` | Daily audio prune after the storage cap incident |
 | `20260821180000_email_delivery_dedup.sql` | `email_deliveries` claim table + `meetings.sarvam_webhook_claimed_at`. Makes three identical summary emails for one meeting impossible rather than merely unlikely |
+| `20260831130000_production_quality.sql` | `meetings.languages` / `boundaries`, `meeting_insights.facts` / `coaching`, `profiles.custom_vocabulary` — the columns behind language mix, privacy trim, two-pass insights and coaching |
 
 `cron.schedule()` with an existing job name **updates that job in place** — that is
 why the frequency migrations re-declare the jobs rather than unscheduling first.

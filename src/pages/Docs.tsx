@@ -453,7 +453,19 @@ export default function Docs() {
                   <li><strong className="text-foreground">Decisions</strong> — only explicit agreement, not “we should” or “maybe”.</li>
                   <li><strong className="text-foreground">Open questions and risks</strong> — unresolved concerns, so silence is not mistaken for alignment.</li>
                   <li><strong className="text-foreground">Outline</strong> — chapter headings whose timestamps come from the transcript clock, not a guess.</li>
+                  <li><strong className="text-foreground">Numbers &amp; asks</strong> — every hard number spoken (revenue, volumes, rates), what the other party explicitly asked for, and each objection with whether it was addressed — each with the verbatim quote and a timestamp that jumps into the recording.</li>
+                  <li><strong className="text-foreground">Coaching</strong> — on external calls, a Coaching tab benchmarks your talk ratio, longest monologue, questions and hedge words against discovery-call guidelines, flags moments (an objection you talked past, a next step left vague) and charts the other side's engagement over the call.</li>
                 </ul>
+                <p>
+                  Every timestamp on the page — in the outline, the transcript, action items and
+                  coaching evidence — is a link into the recording at that moment.
+                </p>
+                <Callout title="Grounded in the transcript, twice over">
+                  The report is written in two passes: first the facts are extracted with the exact
+                  words that support them, then the summary is written from those facts alone. A
+                  third check flags any claim it cannot trace back — you will see a small note on
+                  the summary when that happens.
+                </Callout>
                 <Callout title="Accuracy over completeness">
                   The analysis is instructed not to invent detail, not to assign an owner unless it
                   was stated or strongly implied, and to prefer an open question over a guess. A
@@ -465,7 +477,9 @@ export default function Docs() {
                 <SectionHeading id="action-items">Action items</SectionHeading>
                 <p>
                   Each action item carries a task description, an owner (where one was named), a
-                  priority, a confidence level, and what success looks like.
+                  priority, a confidence level, and what success looks like. When a due date was
+                  spoken as a day (“Tuesday”, “next week”), it is resolved against the meeting's own
+                  date — so you see <em>Tue, Sep 1</em>, not a word that means nothing a week later.
                 </p>
                 <p>
                   The <strong className="text-foreground">Action Items</strong> page collects them
@@ -510,6 +524,21 @@ export default function Docs() {
                   </code>
                   . That means participant information was not available for that recording — the
                   transcript is still accurate, only the names are missing.
+                </p>
+                <Callout title="Your pre-call and post-call chatter stays private">
+                  The bot joins before your guests and keeps recording after they leave. EchoBrief
+                  works out when the first external participant arrived and when the last one left,
+                  and treats speech outside that window as internal. Internal segments are excluded
+                  from the summary, the email and anything an AI tool reads through the connector;
+                  you can reveal them on the transcript with <em>Show internal audio</em>, where
+                  they are marked <em>Internal — not shared</em>. Meetings with only your own team
+                  have no trimming.
+                </Callout>
+                <p>
+                  Company, product and client names the transcription keeps misspelling can be
+                  fixed for good under <strong className="text-foreground">Settings → Custom
+                  vocabulary</strong>: add the correct spelling once and it is enforced in every
+                  future transcript and summary.
                 </p>
               </section>
 
@@ -619,8 +648,11 @@ export default function Docs() {
                   Dogri · Manipuri · Urdu · Sanskrit · Sindhi · Kashmiri
                 </p>
                 <p className="text-sm">
-                  The spoken language is detected automatically. You can set preferred languages
-                  during onboarding to improve results.
+                  The spoken language is detected automatically, per segment — a meeting header
+                  shows the honest mix (“English 78% · Hindi 22%”) rather than a single label.
+                  Lines the transcription left untranslated are translated afterwards, so the
+                  transcript reads in English end to end. You can set preferred languages during
+                  onboarding to improve results.
                 </p>
               </section>
 
