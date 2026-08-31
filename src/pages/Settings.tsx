@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { BotCustomization } from '@/components/dashboard/BotCustomization';
 import { supabase } from '@/integrations/supabase/client';
+import { FunctionsHttpError } from '@supabase/supabase-js';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,6 +20,7 @@ interface Profile {
   full_name: string | null;
   email: string | null;
   google_calendar_connected: boolean;
+  google_needs_reconnect: boolean | null;
   email_summaries_enabled: boolean | null;
   recording_preference: 'audio_only' | 'audio_video';
   custom_vocabulary: string[] | null;
@@ -48,6 +51,7 @@ type SettingsTab = 'account' | 'bot' | 'integrations' | 'billing' | 'security' |
 export default function Settings() {
   const { user, session } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   
   // Get initial tab from URL params
   const getInitialTab = (): SettingsTab => {
@@ -366,8 +370,8 @@ export default function Settings() {
       toast({ title: 'Error', description: 'Passwords do not match.', variant: 'destructive' });
       return;
     }
-    if (newPassword.length < 6) {
-      toast({ title: 'Error', description: 'Password must be at least 6 characters.', variant: 'destructive' });
+    if (newPassword.length < 10) {
+      toast({ title: 'Error', description: 'Use at least 10 characters with letters and numbers.', variant: 'destructive' });
       return;
     }
     setChangingPassword(true);
@@ -401,13 +405,30 @@ export default function Settings() {
 
     setDeletingAccount(true);
     try {
-      // Delete user account
-      const { error } = await supabase.auth.admin.deleteUser(user?.id || '');
-      if (error) throw error;
+      // The delete-account edge function derives the user from the JWT and
+      // removes the account plus all of its data server-side. (The old
+      // supabase.auth.admin.deleteUser call could never work from the browser
+      // — admin methods need the service role key.)
+      const { data, error } = await supabase.functions.invoke('delete-account', {
+        body: { confirm: 'DELETE' },
+      });
+      if (error) {
+        let message = error.message || 'Failed to delete account';
+        if (error instanceof FunctionsHttpError) {
+          try {
+            const body = await error.context.json();
+            if (body?.error) message = body.error;
+          } catch {
+            // keep the generic message
+          }
+        }
+        throw new Error(message);
+      }
+      if (data?.error) throw new Error(data.error);
 
-      // Sign out
       await supabase.auth.signOut();
       toast({ title: 'Account deleted', description: 'Your account has been permanently deleted.' });
+      navigate('/');
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } finally {
@@ -496,7 +517,7 @@ export default function Settings() {
         }
       }, 500); // Small delay for DB write to complete
     }
-  }, [user]);
+  }, [user, toast]);
 
   // Backs deliverResults() in supabase/functions/_shared/insights.ts, which
   // treats a missing/true value as "send the summary".
@@ -872,9 +893,24 @@ export default function Settings() {
                   className="bg-orange-500 text-white hover:bg-orange-600"
                 >
                   {connectingGoogle ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  Add Calendar
+                  {profile?.google_needs_reconnect ? 'Reconnect' : 'Add Calendar'}
                 </Button>
               </div>
+
+              {profile?.google_needs_reconnect && (
+                <div
+                  role="alert"
+                  className="mb-4 rounded-md px-4 py-3 text-[13px]"
+                  style={{
+                    border: '1px solid color-mix(in oklch, hsl(var(--warning)) 35%, transparent)',
+                    background: 'color-mix(in oklch, hsl(var(--warning)) 8%, transparent)',
+                    color: 'var(--ink)',
+                  }}
+                >
+                  Google Calendar disconnected — reconnect to keep auto-join working. Your saved
+                  connection stopped refreshing; click Reconnect to sign in with Google again.
+                </div>
+              )}
 
               {googleCalendars.length > 0 ? (
                 <div className="flex flex-col gap-2">
@@ -950,8 +986,12 @@ export default function Settings() {
                     type="password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
+                    minLength={10}
                     className="border-border bg-background text-foreground"
                   />
+                  <p className="mt-1.5 text-[12px] text-muted-foreground">
+                    At least 10 characters with letters and numbers
+                  </p>
                 </div>
                 <div>
                   <label className="mb-2 block text-[13px] font-medium text-foreground">Confirm Password</label>

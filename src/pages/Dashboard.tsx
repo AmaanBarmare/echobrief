@@ -1,13 +1,15 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { formatIST } from '@/lib/time';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { RecordingButton } from '@/components/dashboard/RecordingButton';
+import { GoogleReconnectBanner } from '@/components/dashboard/GoogleReconnectBanner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 import { Meeting } from '@/types/meeting';
-import { ChevronRight, Mic, Clock, CheckCircle2, Sparkles } from 'lucide-react';
+import { ChevronRight, Mic, Clock, CheckCircle2, Sparkles, AlertTriangle, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 // Meetings that produced no content never reach the dashboard. Cancelled means
@@ -68,6 +70,7 @@ export default function Dashboard() {
   const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const prefillMeeting = (location.state as { prefillMeeting?: PrefillMeeting })?.prefillMeeting;
 
@@ -121,6 +124,53 @@ export default function Dashboard() {
     },
   });
 
+  // Failed/cancelled meetings from the last 7 days. They are hidden from the
+  // main list (see HIDDEN_STATUSES) but should not vanish silently — this
+  // section tells the user what went wrong and lets them clear it.
+  const { data: attentionMeetings = [] } = useQuery({
+    queryKey: ['meetings-attention', user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const { data, error } = await supabase
+        .from('meetings')
+        .select('*')
+        .eq('user_id', user!.id)
+        .in('status', ['failed', 'cancelled'])
+        .gte('start_time', since)
+        .order('start_time', { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as Meeting[];
+    },
+  });
+
+  const [dismissingId, setDismissingId] = useState<string | null>(null);
+
+  // Same delete path as the meeting page: children first, then the meeting
+  // row scoped to the owner. Failed/cancelled meetings rarely have children
+  // or audio, but the extra deletes are no-ops when they don't.
+  const handleDismissAttention = async (meeting: Meeting) => {
+    if (!user) return;
+    setDismissingId(meeting.id);
+    try {
+      await supabase.from('meeting_insights').delete().eq('meeting_id', meeting.id);
+      await supabase.from('transcripts').delete().eq('meeting_id', meeting.id);
+      if (meeting.audio_url) {
+        await supabase.storage.from('recordings').remove([meeting.audio_url]);
+      }
+      const { error } = await supabase.from('meetings').delete().eq('id', meeting.id).eq('user_id', user.id);
+      if (error) throw error;
+      queryClient.setQueryData<Meeting[]>(['meetings-attention', user.id], (prev = []) =>
+        prev.filter((m) => m.id !== meeting.id)
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to remove meeting';
+      toast({ title: 'Error', description: message, variant: 'destructive' });
+    } finally {
+      setDismissingId(null);
+    }
+  };
+
   // Realtime: patch the cached meetings list in place instead of refetching.
   useEffect(() => {
     if (!user) return;
@@ -140,6 +190,9 @@ export default function Dashboard() {
             // failed drops off the list instead of lingering with a red badge.
             return next.filter((m) => !HIDDEN_STATUSES.has(m.status));
           });
+          // A meeting flipping to failed/cancelled (or being deleted) belongs
+          // in / leaves the needs-attention list — refetch that small query.
+          queryClient.invalidateQueries({ queryKey: ['meetings-attention', user.id] });
         })
       .subscribe();
 
@@ -247,6 +300,8 @@ export default function Dashboard() {
           />
         </div>
 
+        <GoogleReconnectBanner />
+
         {fetchError && !loading && (
           <div
             role="alert"
@@ -296,6 +351,75 @@ export default function Dashboard() {
                 </p>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Needs attention — failed/cancelled meetings from the last 7 days.
+            Renders nothing when the list is empty. */}
+        {attentionMeetings.length > 0 && (
+          <div className="mb-8">
+            <div className="mb-3 flex items-center gap-2">
+              <AlertTriangle className="h-[15px] w-[15px]" strokeWidth={1.75} style={{ color: 'hsl(var(--destructive))' }} />
+              <h2 className="text-[15px] font-semibold" style={{ color: 'var(--ink)', letterSpacing: '-0.01em' }}>
+                Needs attention
+              </h2>
+            </div>
+            <div
+              className="overflow-hidden rounded-xl"
+              style={{ border: '1px solid color-mix(in oklch, hsl(var(--destructive)) 25%, var(--rule))', background: 'var(--paper-card)' }}
+            >
+              {attentionMeetings.map((meeting, idx) => {
+                const isCancelled = meeting.status === 'cancelled';
+                const reason =
+                  meeting.error_message ||
+                  (isCancelled ? 'The bot was not admitted to the meeting' : 'Processing failed');
+                return (
+                  <div
+                    key={meeting.id}
+                    className="flex items-center gap-3 px-5 py-3.5 md:px-6"
+                    style={{ borderTop: idx === 0 ? 'none' : '1px solid var(--rule-soft)' }}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Link
+                          to={`/meeting/${meeting.id}`}
+                          className="text-[13.5px] font-semibold no-underline hover:underline truncate"
+                          style={{ color: 'var(--ink)' }}
+                        >
+                          {meeting.title || 'Untitled meeting'}
+                        </Link>
+                        <span
+                          className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium"
+                          style={{
+                            background: 'color-mix(in oklch, hsl(var(--destructive)) 12%, transparent)',
+                            color: 'hsl(var(--destructive))',
+                          }}
+                        >
+                          {isCancelled ? 'Cancelled' : 'Failed'}
+                        </span>
+                        <span className="text-[12px]" style={{ color: 'var(--ink-soft)' }}>
+                          {formatIST(new Date(meeting.start_time), 'MMM d, h:mm a')}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 truncate text-[12.5px]" style={{ color: 'var(--ink-mid)' }} title={reason}>
+                        {reason}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleDismissAttention(meeting)}
+                      disabled={dismissingId === meeting.id}
+                      className="inline-flex shrink-0 items-center gap-1 rounded-md px-2.5 py-1 text-[12.5px] font-medium transition-colors disabled:opacity-50"
+                      style={{ border: '1px solid var(--rule)', background: 'transparent', color: 'var(--ink-mid)' }}
+                      title="Remove this meeting"
+                    >
+                      <X className="h-3 w-3" strokeWidth={2} />
+                      Dismiss
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 

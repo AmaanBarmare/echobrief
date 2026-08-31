@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import { formatIST } from '@/lib/time';
 import { Link } from 'react-router-dom';
 import { Check, User, ChevronDown, ChevronRight, ExternalLink, Pencil, CheckSquare, Calendar, Video, Filter } from 'lucide-react';
@@ -92,18 +92,15 @@ export default function ActionItems() {
   const [meetingFilter, setMeetingFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<SortOption>('date');
 
+  // Auto-expand all meetings on first load (functional update so the effect
+  // only depends on the fetched groups, not on the expansion state itself)
   useEffect(() => {
-    if (user) fetchActionItems();
-  }, [user]);
-
-  // Auto-expand all meetings on first load
-  useEffect(() => {
-    if (meetingGroups.length > 0 && expandedMeetings.size === 0) {
-      setExpandedMeetings(new Set(meetingGroups.map(g => g.id)));
+    if (meetingGroups.length > 0) {
+      setExpandedMeetings(prev => (prev.size === 0 ? new Set(meetingGroups.map(g => g.id)) : prev));
     }
   }, [meetingGroups]);
 
-  const fetchActionItems = async () => {
+  const fetchActionItems = useCallback(async () => {
     try {
       const { data: meetings } = await supabase
         .from('meetings')
@@ -169,7 +166,11 @@ export default function ActionItems() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (user) fetchActionItems();
+  }, [user, fetchActionItems]);
 
   const toggleComplete = async (itemId: string, meetingId: string, index: number) => {
     if (!user) return;

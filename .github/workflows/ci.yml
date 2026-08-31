@@ -1,0 +1,43 @@
+# Frontend + API CI. Deliberately does NOT run the pipeline harness or the
+# output-quality evals — both hit real production services and cost money;
+# they stay manual, pre-deploy steps (see docs/operations.md).
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  web:
+    name: Brand, lint, typecheck, build, MCP tests
+    runs-on: ubuntu-latest
+    env:
+      # vite build succeeds without these (import.meta.env just inlines
+      # undefined), but placeholders keep the built bundle shaped like a real
+      # one and guard against a future build-time env assertion.
+      VITE_SUPABASE_URL: https://placeholder.supabase.co
+      VITE_SUPABASE_PUBLISHABLE_KEY: ci-placeholder-anon-key
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run brand:check
+      - run: npm run lint
+      - run: npx tsc --noEmit -p tsconfig.app.json
+      - run: npm run build
+      - run: npm run test:mcp
+
+  unit:
+    name: Edge-function unit tests (Deno)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          # Matches the local toolchain (deno 2.9.1) and deno.lock.
+          deno-version: "2.9.1"
+      - run: npm run test:unit

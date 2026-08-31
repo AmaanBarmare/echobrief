@@ -8,8 +8,28 @@ export interface Meeting {
   start_time: string;
   end_time?: string;
   duration_seconds?: number;
-  status: 'scheduled' | 'recording' | 'processing' | 'completed' | 'failed' | 'cancelled';
+  /**
+   * Full pipeline state machine, as written by the edge functions:
+   * scheduled -> joining -> in_call -> recording -> processing ->
+   * (transcribing, Whisper-fallback path) -> completed, with failed and
+   * cancelled as the terminal error states (see recall-webhook,
+   * check-recall-status, sarvam-webhook, process-meeting).
+   */
+  status:
+    | 'scheduled'
+    | 'joining'
+    | 'in_call'
+    | 'recording'
+    | 'processing'
+    | 'transcribing'
+    | 'completed'
+    | 'failed'
+    | 'cancelled';
   audio_url?: string;
+  /** Recall.ai bot id, set once a bot was dispatched for this meeting. */
+  recall_bot_id?: string | null;
+  /** Human-readable failure reason written by the pipeline on failed/cancelled. */
+  error_message?: string | null;
   language?: string;
   /** Duration-weighted language mix, e.g. { en: 0.88, hi: 0.12 }. */
   languages?: Record<string, number> | null;
@@ -143,6 +163,8 @@ export interface Profile {
   email?: string;
   avatar_url?: string;
   google_calendar_connected: boolean;
+  /** True when the stored Google refresh token stopped working — the user must reconnect. */
+  google_needs_reconnect?: boolean | null;
   auto_join_enabled?: boolean;
   notetaker_name?: string;
   pre_meeting_notification_minutes?: number;

@@ -4,7 +4,7 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
 import { consumePostLoginRedirect } from '@/lib/postLoginRedirect';
 import { supabase } from '@/integrations/supabase/client';
-import { Mail, Lock, User, ArrowLeft, ArrowRight, Loader2, Check } from 'lucide-react';
+import { Mail, Lock, User, ArrowLeft, ArrowRight, Loader2, Check, type LucideIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Logo } from '@/components/ui/Logo';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -13,6 +13,12 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 // so flipping this back to `true` alone will NOT re-open registration — the
 // project's auth config has to be changed too.
 const SIGNUPS_ENABLED = false;
+
+// Google sign-in ships dark: the Supabase Google auth provider currently
+// points at a deleted OAuth client, so the button would fail today. Set
+// VITE_GOOGLE_SIGNIN=true only once the provider is repointed at a live
+// client (see docs/operations.md).
+const GOOGLE_SIGNIN_ENABLED = import.meta.env.VITE_GOOGLE_SIGNIN === 'true';
 
 const inputClass =
   'w-full rounded-md px-3 py-2.5 text-[14.5px] outline-none transition-colors placeholder:opacity-60';
@@ -33,6 +39,7 @@ export default function Auth() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const { user, signIn, signUp, isPasswordRecovery, clearPasswordRecovery } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -49,8 +56,8 @@ export default function Auth() {
       toast({ title: 'Passwords do not match', variant: 'destructive' });
       return;
     }
-    if (password.length < 6) {
-      toast({ title: 'Password too short', description: 'Use at least 6 characters.', variant: 'destructive' });
+    if (password.length < 10) {
+      toast({ title: 'Password too short', description: 'Use at least 10 characters with letters and numbers.', variant: 'destructive' });
       return;
     }
     setLoading(true);
@@ -65,6 +72,22 @@ export default function Auth() {
       toast({ title: 'Error', description: message, variant: 'destructive' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setGoogleLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.origin + '/dashboard' },
+      });
+      if (error) throw error;
+      // On success the browser navigates away to Google — no state reset needed.
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Something went wrong';
+      toast({ title: 'Error', description: message, variant: 'destructive' });
+      setGoogleLoading(false);
     }
   };
 
@@ -95,6 +118,10 @@ export default function Auth() {
     setLoading(true);
     try {
       if (isSignUp && SIGNUPS_ENABLED) {
+        if (password.length < 10) {
+          toast({ title: 'Password too short', description: 'Use at least 10 characters with letters and numbers.', variant: 'destructive' });
+          return;
+        }
         const { error } = await signUp(email, password, fullName);
         if (error) throw error;
         setEmailSent(true);
@@ -246,14 +273,17 @@ export default function Auth() {
                     <input
                       id="new-password"
                       type="password"
-                      placeholder="At least 6 characters"
+                      placeholder="At least 10 characters"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       className={inputClass}
                       style={{ ...inputStyle, paddingLeft: 36 }}
                       required
-                      minLength={6}
+                      minLength={10}
                     />
+                    <p className="mt-1.5 text-[12px]" style={{ color: 'var(--ink-soft)' }}>
+                      At least 10 characters with letters and numbers
+                    </p>
                   </Field>
                   <Field id="confirm-password" label="Confirm password" icon={Lock}>
                     <input
@@ -265,7 +295,7 @@ export default function Auth() {
                       className={inputClass}
                       style={{ ...inputStyle, paddingLeft: 36 }}
                       required
-                      minLength={6}
+                      minLength={10}
                     />
                   </Field>
                   <SubmitButton loading={loading}>Update password</SubmitButton>
@@ -297,6 +327,33 @@ export default function Auth() {
                 </form>
               ) : (
                 <>
+                  {GOOGLE_SIGNIN_ENABLED && (
+                    <div className="mb-6">
+                      <button
+                        type="button"
+                        onClick={handleGoogleSignIn}
+                        disabled={googleLoading}
+                        className="inline-flex w-full items-center justify-center gap-2.5 rounded-md px-5 py-2.5 text-[14.5px] font-medium transition-colors disabled:opacity-60"
+                        style={{
+                          border: '1px solid var(--rule)',
+                          background: 'var(--paper-card)',
+                          color: 'var(--ink)',
+                        }}
+                      >
+                        {googleLoading ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <GoogleGIcon />
+                        )}
+                        Continue with Google
+                      </button>
+                      <div className="mt-6 flex items-center gap-3" aria-hidden>
+                        <span className="h-px flex-1" style={{ background: 'var(--rule)' }} />
+                        <span className="text-[12px]" style={{ color: 'var(--ink-soft)' }}>or</span>
+                        <span className="h-px flex-1" style={{ background: 'var(--rule)' }} />
+                      </div>
+                    </div>
+                  )}
                   <form onSubmit={handleSubmit} className="space-y-4">
                     {isSignUp && (
                       <Field id="name" label="Full name" icon={User}>
@@ -357,9 +414,14 @@ export default function Auth() {
                           className={inputClass}
                           style={{ ...inputStyle, paddingLeft: 36 }}
                           required
-                          minLength={6}
+                          minLength={isSignUp ? 10 : 6}
                         />
                       </div>
+                      {isSignUp && (
+                        <p className="mt-1.5 text-[12px]" style={{ color: 'var(--ink-soft)' }}>
+                          At least 10 characters with letters and numbers
+                        </p>
+                      )}
                     </div>
 
                     <SubmitButton loading={loading}>
@@ -413,7 +475,7 @@ function Field({
 }: {
   id: string;
   label: string;
-  icon: React.ComponentType<{ className?: string; strokeWidth?: number; style?: React.CSSProperties }>;
+  icon: LucideIcon;
   children: React.ReactNode;
 }) {
   return (
@@ -450,5 +512,17 @@ function SubmitButton({ loading, children }: { loading: boolean; children: React
         </>
       )}
     </button>
+  );
+}
+
+/** Official multicolour Google "G" — third-party brand mark, colours fixed by Google. */
+function GoogleGIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+      <path fill="#4285F4" d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v8.51h11.84c-.51 2.75-2.06 5.08-4.39 6.64v5.52h7.11c4.16-3.83 6.56-9.47 6.56-16.17z" />
+      <path fill="#34A853" d="M24 46c5.94 0 10.92-1.97 14.56-5.33l-7.11-5.52c-1.97 1.32-4.49 2.1-7.45 2.1-5.73 0-10.58-3.87-12.31-9.07H4.34v5.7C7.96 41.07 15.4 46 24 46z" />{/* brand-check-ignore */}
+      <path fill="#FBBC05" d="M11.69 28.18C11.25 26.86 11 25.45 11 24s.25-2.86.69-4.18v-5.7H4.34C2.85 17.09 2 20.45 2 24s.85 6.91 2.34 9.88l7.35-5.7z" />{/* brand-check-ignore */}
+      <path fill="#EA4335" d="M24 10.75c3.23 0 6.13 1.11 8.41 3.29l6.31-6.31C34.91 4.18 29.93 2 24 2 15.4 2 7.96 6.93 4.34 14.12l7.35 5.7c1.73-5.2 6.58-9.07 12.31-9.07z" />{/* brand-check-ignore */}
+    </svg>
   );
 }

@@ -73,6 +73,7 @@ const GROUPS: Group[] = [
     items: [
       { id: 'troubleshooting', name: 'Troubleshooting' },
       { id: 'privacy', name: 'Privacy & data' },
+      { id: 'delete-account', name: 'Delete your account' },
       { id: 'dpdp', name: 'DPDP compliance' },
       { id: 'faq', name: 'FAQ' },
       { id: 'support', name: 'Contact support' },
@@ -301,7 +302,7 @@ export default function Docs() {
                 <SectionHeading id="setup">Account setup</SectionHeading>
                 <Steps
                   items={[
-                    <>Sign in at <strong className="text-foreground">echobrief.in</strong>. Access is currently invite-based — join the waitlist from the homepage if you do not have an account yet.</>,
+                    <>Sign in at <strong className="text-foreground">echobrief.in</strong> with your email and password — or with Google, when the <strong className="text-foreground">Continue with Google</strong> option is shown. Access is currently invite-based — join the waitlist from the homepage if you do not have an account yet.</>,
                     <>Complete onboarding: choose your preferred languages and, optionally, connect Google Calendar.</>,
                     <>Open <strong className="text-foreground">Settings</strong> to name your bot, pick its colour, and confirm email summaries are on.</>,
                     <>Record your first meeting.</>,
@@ -828,6 +829,20 @@ export default function Docs() {
                   </Link>
                   .
                 </p>
+              </section>
+
+              <section className="space-y-4">
+                <SectionHeading id="delete-account">Delete your account</SectionHeading>
+                <p>
+                  Go to <strong className="text-foreground">Settings → Security → Delete Account</strong>,
+                  type <strong className="text-foreground">DELETE</strong> to confirm, and your account is
+                  removed along with every meeting, transcript, insight and recording it owned. You are
+                  signed out immediately.
+                </p>
+                <Callout tone="warn" title="This cannot be undone">
+                  Deletion is permanent — there is no grace period and no recovery. Export anything you
+                  want to keep first.
+                </Callout>
               </section>
 
               <section className="space-y-4">
