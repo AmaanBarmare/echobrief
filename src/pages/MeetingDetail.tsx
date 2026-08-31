@@ -104,7 +104,7 @@ function SourceBadge({ source }: { source: string }) {
   );
 }
 
-function ShareButton({ icon: Icon, label, onClick }: { icon: React.ComponentType<{ className?: string; strokeWidth?: number; size?: number }>; label: string; onClick: () => void }) {
+function ShareButton({ icon: Icon, label, onClick }: { icon: React.ElementType; label: string; onClick: () => void }) {
   return (
     <button
       type="button"
