@@ -1,0 +1,165 @@
+# Nightly encrypted database backup.
+#
+# Supabase Free plan has NO backups and no PITR; this is the backup system.
+# Dumps the `public` schema (schema + data) and the `auth.users` table from
+# production, gzips, encrypts with AES-256-CBC (PBKDF2, 200k iterations), and
+# uploads the blob as a release asset on the PRIVATE repo
+# Oltaflock-AI/echobrief-backups. The main repo is PUBLIC, so the dump must
+# never be committed here or stored as an Actions artifact (artifacts on
+# public repos are world-downloadable).
+#
+# Schedule: 02:30 UTC — deliberately clear of the prod pg_cron jobs at
+# 21:45, 22:00 and 03:45 UTC, so the dump never races the prune jobs or adds
+# load during their ticks.
+#
+# What this backup does NOT cover (see docs/operations.md → Backups):
+# Supabase-managed schemas (storage, vault, extensions, graphql, realtime,
+# supabase_functions — not restorable and mostly not dumpable by the
+# `postgres` role), Storage objects (audio is transient by design, pruned at
+# 30 days), auth config, and edge-function secrets.
+#
+# Required repo secrets:
+#   SUPABASE_DB_PASSWORD  password for the `postgres` role on prod
+#   BACKUP_PASSPHRASE     openssl symmetric passphrase
+#   BACKUPS_REPO_TOKEN    PAT with `contents` write on Oltaflock-AI/echobrief-backups
+name: DB backup
+
+on:
+  schedule:
+    - cron: "30 2 * * *" # 02:30 UTC nightly; avoids pg_cron at 21:45/22:00/03:45
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    name: Dump, encrypt, upload
+    runs-on: ubuntu-latest
+    env:
+      DB_HOST: db.lekkpfpojlspbuwrtmzt.supabase.co
+      DB_PORT: "5432"
+      DB_NAME: postgres
+      DB_USER: postgres
+      BACKUPS_REPO: Oltaflock-AI/echobrief-backups
+      MIN_DUMP_BYTES: "204800" # 200 KiB — real data is ~23 MB uncompressed
+    steps:
+      - name: Check required secrets
+        env:
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+          BACKUPS_REPO_TOKEN: ${{ secrets.BACKUPS_REPO_TOKEN }}
+        run: |
+          missing=""
+          [ -n "$SUPABASE_DB_PASSWORD" ] || missing="$missing SUPABASE_DB_PASSWORD"
+          [ -n "$BACKUP_PASSPHRASE" ] || missing="$missing BACKUP_PASSPHRASE"
+          [ -n "$BACKUPS_REPO_TOKEN" ] || missing="$missing BACKUPS_REPO_TOKEN"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing required repo secret(s):$missing — backup CANNOT run. Set them in Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+
+      - name: Install PostgreSQL 17 client (server is 17.6 — older pg_dump refuses)
+        run: |
+          sudo install -d /usr/share/postgresql-common/pgdg
+          sudo curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc \
+            https://www.postgresql.org/media/keys/ACCC4CF8.asc
+          echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" \
+            | sudo tee /etc/apt/sources.list.d/pgdg.list
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17
+          /usr/lib/postgresql/17/bin/pg_dump --version
+          /usr/lib/postgresql/17/bin/pg_dump --version | grep -q ' 17\.' \
+            || { echo "::error::pg_dump is not major version 17 — a pre-17 client cannot dump a 17.6 server"; exit 1; }
+
+      - name: Dump public schema and auth.users
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          PGSSLMODE: require
+        run: |
+          set -euo pipefail
+          PG_DUMP=/usr/lib/postgresql/17/bin/pg_dump
+          STAMP="$(date -u +%F)"
+          echo "STAMP=$STAMP" >> "$GITHUB_ENV"
+          mkdir -p dump
+
+          # Everything we own: full schema + data of `public`.
+          "$PG_DUMP" -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" \
+            --schema=public --no-owner --no-privileges \
+            --file=dump/public.sql
+          echo "public.sql: $(wc -c < dump/public.sql) bytes"
+
+          # auth.users (schema + data for just that table). The `postgres`
+          # role has SELECT on it, so this works without superuser. If
+          # Supabase ever revokes that, we must know — fail loudly rather
+          # than ship a backup silently missing every user account.
+          "$PG_DUMP" -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" \
+            --table=auth.users --no-owner --no-privileges \
+            --file=dump/auth_users.sql \
+            || { echo "::error::Dumping auth.users failed — backup would be missing all user accounts. Investigate grants on auth.users for the postgres role."; exit 1; }
+          echo "auth_users.sql: $(wc -c < dump/auth_users.sql) bytes"
+
+      - name: Compress, sanity-check size, encrypt, verify round-trip
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          OUT="echobrief-db-$STAMP.tar.gz.enc"
+          echo "OUT=$OUT" >> "$GITHUB_ENV"
+
+          tar -czf backup.tar.gz -C dump public.sql auth_users.sql
+          size=$(wc -c < backup.tar.gz)
+          echo "backup.tar.gz: $size bytes"
+          if [ "$size" -lt "$MIN_DUMP_BYTES" ]; then
+            echo "::error::Compressed dump is only $size bytes (< $MIN_DUMP_BYTES). Real data is ~23 MB uncompressed — this dump is almost certainly empty or truncated. Refusing to upload it as a 'backup'."
+            exit 1
+          fi
+
+          openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt \
+            -pass env:BACKUP_PASSPHRASE -in backup.tar.gz -out "$OUT"
+
+          # Decrypt round-trip in the same job: prove the passphrase secret
+          # actually decrypts what we are about to store.
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 \
+            -pass env:BACKUP_PASSPHRASE -in "$OUT" -out roundtrip.tar.gz \
+            || { echo "::error::Decrypt round-trip FAILED — the uploaded blob would be unrecoverable."; exit 1; }
+          if ! cmp -s backup.tar.gz roundtrip.tar.gz; then
+            echo "::error::Decrypted round-trip does not match the original archive — refusing to upload."
+            exit 1
+          fi
+          rm -f backup.tar.gz roundtrip.tar.gz dump/*.sql
+          echo "Encrypted blob: $(wc -c < "$OUT") bytes, round-trip verified."
+
+      - name: Upload as release asset on private backups repo
+        env:
+          GH_TOKEN: ${{ secrets.BACKUPS_REPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="backup-$STAMP"
+          if ! gh release view "$TAG" --repo "$BACKUPS_REPO" > /dev/null 2>&1; then
+            gh release create "$TAG" --repo "$BACKUPS_REPO" \
+              --title "DB backup $STAMP" \
+              --notes "Encrypted nightly dump (public schema + auth.users). Decrypt with scripts/backup/restore.sh in the main repo."
+          fi
+          gh release upload "$TAG" "$OUT" --repo "$BACKUPS_REPO" --clobber
+          echo "Uploaded $OUT to $BACKUPS_REPO release $TAG"
+
+      - name: Prune releases older than 30 days
+        env:
+          GH_TOKEN: ${{ secrets.BACKUPS_REPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          cutoff=$(date -u -d '30 days ago' +%F)
+          gh release list --repo "$BACKUPS_REPO" --limit 200 \
+            --json tagName --jq '.[].tagName' | while read -r tag; do
+            case "$tag" in
+              backup-????-??-??)
+                day="${tag#backup-}"
+                if [ "$day" \< "$cutoff" ]; then
+                  echo "Pruning $tag (older than $cutoff)"
+                  gh release delete "$tag" --repo "$BACKUPS_REPO" --yes --cleanup-tag
+                fi
+                ;;
+              *) echo "Skipping non-backup tag: $tag" ;;
+            esac
+          done
