@@ -4,7 +4,7 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
 import { consumePostLoginRedirect } from '@/lib/postLoginRedirect';
 import { supabase } from '@/integrations/supabase/client';
-import { Mail, Lock, User, ArrowLeft, ArrowRight, Loader2, Check } from 'lucide-react';
+import { Mail, Lock, User, ArrowLeft, ArrowRight, Loader2, Check, type LucideIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Logo } from '@/components/ui/Logo';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -413,7 +413,7 @@ function Field({
 }: {
   id: string;
   label: string;
-  icon: React.ComponentType<{ className?: string; strokeWidth?: number; style?: React.CSSProperties }>;
+  icon: LucideIcon;
   children: React.ReactNode;
 }) {
   return (

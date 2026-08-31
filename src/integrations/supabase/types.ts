@@ -55,6 +55,45 @@ export type Database = {
           },
         ]
       }
+      email_messages: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          meeting_id: string
+          message_id: string | null
+          recipient_email: string
+          sent_at: string | null
+          status: string | null
+          subject: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          meeting_id: string
+          message_id?: string | null
+          recipient_email: string
+          sent_at?: string | null
+          status?: string | null
+          subject: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          meeting_id?: string
+          message_id?: string | null
+          recipient_email?: string
+          sent_at?: string | null
+          status?: string | null
+          subject?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       google_oauth_states: {
         Row: {
           created_at: string
@@ -196,8 +235,10 @@ export type Database = {
           created_at: string
           duration_seconds: number | null
           end_time: string | null
+          error_message: string | null
           id: string
           meeting_link: string | null
+          recall_bot_id: string | null
           source: string | null
           start_time: string
           status: string | null
@@ -212,8 +253,10 @@ export type Database = {
           created_at?: string
           duration_seconds?: number | null
           end_time?: string | null
+          error_message?: string | null
           id?: string
           meeting_link?: string | null
+          recall_bot_id?: string | null
           source?: string | null
           start_time?: string
           status?: string | null
@@ -228,8 +271,10 @@ export type Database = {
           created_at?: string
           duration_seconds?: number | null
           end_time?: string | null
+          error_message?: string | null
           id?: string
           meeting_link?: string | null
+          recall_bot_id?: string | null
           source?: string | null
           start_time?: string
           status?: string | null
@@ -361,6 +406,7 @@ export type Database = {
           email_summaries_enabled: boolean | null
           full_name: string | null
           google_calendar_connected: boolean | null
+          google_needs_reconnect: boolean | null
           id: string
           notetaker_name: string | null
           pre_meeting_notification_minutes: number | null
@@ -390,6 +436,7 @@ export type Database = {
           email_summaries_enabled?: boolean | null
           full_name?: string | null
           google_calendar_connected?: boolean | null
+          google_needs_reconnect?: boolean | null
           id?: string
           notetaker_name?: string | null
           pre_meeting_notification_minutes?: number | null
@@ -419,6 +466,7 @@ export type Database = {
           email_summaries_enabled?: boolean | null
           full_name?: string | null
           google_calendar_connected?: boolean | null
+          google_needs_reconnect?: boolean | null
           id?: string
           notetaker_name?: string | null
           pre_meeting_notification_minutes?: number | null
