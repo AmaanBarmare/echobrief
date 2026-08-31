@@ -67,6 +67,7 @@ the `transcribing` deadlock.
 | `VITE_SUPABASE_URL` | Supabase project URL |
 | `VITE_SUPABASE_PUBLISHABLE_KEY` | Anon key — public by design; RLS is the control |
 | `VITE_SUPABASE_PROJECT_ID` | Project identification |
+| `VITE_SENTRY_DSN` | Optional. Sentry DSN for frontend error reporting — unset means Sentry never initialises (build-time flag; `tracesSampleRate` 0.1, environment from the Vite mode) |
 
 ### Edge Functions (Supabase secrets)
 
