@@ -7,6 +7,7 @@ cleanup and human inspection are unambiguous.
 from __future__ import annotations
 
 import json
+import sys
 import os
 import time
 import urllib.error
@@ -201,33 +202,55 @@ def get_insights(meeting_id: str) -> dict[str, Any] | None:
     return rows[0] if rows else None
 
 
-def delete_meeting(meeting_id: str) -> None:
-    """Cascade-delete transcripts, insights, and meeting row."""
+def delete_meeting(meeting_id: str) -> bool:
+    """Cascade-delete transcripts, insights, and the meeting row.
+
+    Returns True when the meeting row itself was deleted. Never raises — this
+    runs in every scenario's `finally` — but a failed delete is printed rather
+    than swallowed: a [harness] row that survives sits on the real owner's
+    dashboard.
+    """
+    ok = True
     for table in ["transcripts", "meeting_insights", "meetings"]:
         key = "id" if table == "meetings" else "meeting_id"
         try:
-            _request(
+            status, body = _request(
                 "DELETE",
                 f"{SUPABASE_URL}/rest/v1/{table}?{key}=eq.{meeting_id}",
                 headers=_rest_headers(),
             )
-        except Exception:
-            pass
+            if status >= 300:
+                ok = False
+                print(
+                    f"    [cleanup] DELETE {table} for {meeting_id[:8]} returned {status}: {body[:200]!r}",
+                    file=sys.stderr,
+                )
+        except Exception as e:
+            ok = False
+            print(f"    [cleanup] DELETE {table} for {meeting_id[:8]} failed: {e}", file=sys.stderr)
+    return ok
 
 
-def cleanup_harness_rows() -> int:
-    """Delete every row with title starting with '[harness]'."""
-    status, body = _request(
-        "GET",
-        f"{SUPABASE_URL}/rest/v1/meetings?title=like.%5Bharness%5D*&select=id",
-        headers=_rest_headers(),
-    )
+def cleanup_harness_rows(*, older_than_minutes: int | None = None) -> int:
+    """Delete every meeting whose title starts with '[harness]'.
+
+    With `older_than_minutes`, only rows created before that cut-off go. The
+    start-of-run sweep uses it so a harness running concurrently in another
+    session keeps its live rows (scenarios back-date created_at by at most
+    20 minutes). Returns the number of meeting rows actually deleted.
+    """
+    url = f"{SUPABASE_URL}/rest/v1/meetings?title=like.%5Bharness%5D*&select=id"
+    if older_than_minutes is not None:
+        cutoff = time.strftime(
+            "%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - older_than_minutes * 60)
+        )
+        url += f"&created_at=lt.{cutoff}"
+    status, body = _request("GET", url, headers=_rest_headers())
     if status >= 300:
+        print(f"    [cleanup] could not list [harness] rows: {status}", file=sys.stderr)
         return 0
     rows = json.loads(body)
-    for row in rows:
-        delete_meeting(row["id"])
-    return len(rows)
+    return sum(1 for row in rows if delete_meeting(row["id"]))
 
 
 # ---------- Edge function invocations ----------

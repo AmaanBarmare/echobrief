@@ -706,6 +706,14 @@ ALL_SCENARIOS = [
 ]
 
 
+# A run that is killed mid-scenario (session closed, SIGTERM) never reaches its
+# `finally` cleanup, and its [harness] rows sit on the owner's real dashboard
+# until someone notices — two did, on 2026-08-31. Every run therefore starts by
+# sweeping rows older than this. Scenarios back-date created_at by at most
+# 20 minutes, so a run in progress in another session is never touched.
+STALE_HARNESS_ROW_MINUTES = 180
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--only", help="Run only the scenario matching this name")
@@ -726,6 +734,10 @@ def main() -> int:
         if not scenarios:
             print(f"No scenario named {args.only!r}. Available: {[s.__name__ for s in ALL_SCENARIOS]}")
             return 2
+
+    swept = client.cleanup_harness_rows(older_than_minutes=STALE_HARNESS_ROW_MINUTES)
+    if swept:
+        print(f"Swept {swept} stale [harness] meeting(s) left behind by an earlier run")
 
     print(f"Running {len(scenarios)} scenario(s) against {client.SUPABASE_URL}")
     print("=" * 80)
