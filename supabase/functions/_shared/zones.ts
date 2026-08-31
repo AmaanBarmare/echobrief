@@ -128,10 +128,13 @@ export function computeBoundaries(
     };
   }
 
+  const entries = Array.isArray(timeline) ? timeline : [];
+  const externalNames = externalSpeakerNames(attendees, entries.map((e) => e.speaker));
+
   let first = Infinity;
   let last = -Infinity;
-  for (const entry of Array.isArray(timeline) ? timeline : []) {
-    if (!externals.some((a) => speakerMatchesAttendee(entry.speaker, a))) continue;
+  for (const entry of entries) {
+    if (!externalNames.has(entry.speaker)) continue;
     if (Number.isFinite(entry.start)) first = Math.min(first, entry.start);
     if (Number.isFinite(entry.end)) last = Math.max(last, entry.end);
   }
@@ -184,4 +187,68 @@ export function meetingZone<T extends { zone?: Zone }>(segments: T[]): T[] {
   return (Array.isArray(segments) ? segments : []).filter(
     (s) => (s.zone ?? "meeting") === "meeting",
   );
+}
+
+/**
+ * Which timeline speaker names belong to guests. Direct name/email matching
+ * first; when no guest matched but the INTERNAL attendees did (gm@kananwas.com
+ * carries no name tokens to match "Devendra Singh"), every speaker that matched
+ * no internal attendee is external by elimination.
+ */
+export function externalSpeakerNames(
+  attendees: Attendee[] | null | undefined,
+  speakerNames: string[],
+): Set<string> {
+  const list = Array.isArray(attendees) ? attendees : [];
+  const internalDomain = ownerDomain(list);
+  const externals = externalAttendees(list, internalDomain);
+  const internals = list.filter((a) => !externals.includes(a));
+  const names = new Set(speakerNames.filter(Boolean));
+
+  const direct = new Set([...names].filter((n) => externals.some((a) => speakerMatchesAttendee(n, a))));
+  if (direct.size > 0 || externals.length === 0) return direct;
+
+  const internalMatched = new Set([...names].filter((n) => internals.some((a) => speakerMatchesAttendee(n, a))));
+  if (internalMatched.size === 0) return direct; // nothing to eliminate against
+  const byElimination = [...names].filter((n) => !internalMatched.has(n) && !/^SPEAKER_\d+$/i.test(n));
+  // Only trust elimination when it leaves at most as many guests as were invited.
+  return byElimination.length > 0 && byElimination.length <= externals.length
+    ? new Set(byElimination)
+    : direct;
+}
+
+/** Minimum share of speech an estimated window must keep to be believed. */
+const MIN_MEETING_SPEECH_SHARE = 0.5;
+/** Minimum absolute length (s) of an estimated window. */
+const MIN_MEETING_SECONDS = 60;
+
+/**
+ * Refuse an estimated window that would throw away most of the call. On
+ * 2026-08-31 an LLM estimate returned a confident 0–55 s window for a 35-min
+ * discovery call; 316 of 317 segments became "post" and the summary was
+ * written from one sentence. Estimates are heuristics — when one contradicts
+ * the shape of the recording, keeping everything is the safe failure.
+ */
+export function guardBoundaries(
+  boundaries: Boundaries,
+  segments: SpeakerSegment[],
+): Boundaries {
+  if (boundaries.internal_only || boundaries.first_external_join_ts === null || boundaries.last_external_leave_ts === null) {
+    return boundaries;
+  }
+  const speech = (seg: SpeakerSegment) => Math.max(0, (Number(seg.end) || 0) - (Number(seg.start) || 0));
+  const total = segments.reduce((a, s) => a + speech(s), 0);
+  const inside = segments
+    .filter((s) => zoneOf(Number(s.start ?? 0), boundaries) === "meeting")
+    .reduce((a, s) => a + speech(s), 0);
+  const windowSeconds = boundaries.last_external_leave_ts - boundaries.first_external_join_ts;
+  const tooShort = windowSeconds < MIN_MEETING_SECONDS && total > MIN_MEETING_SECONDS;
+  const tooLittle = total > 0 && inside / total < MIN_MEETING_SPEECH_SHARE;
+  if (tooShort || tooLittle) {
+    console.warn(
+      `[zones] Rejecting ${boundaries.source} window ${boundaries.first_external_join_ts}s–${boundaries.last_external_leave_ts}s: keeps ${Math.round((total ? inside / total : 0) * 100)}% of speech — not trimming`,
+    );
+    return { first_external_join_ts: null, last_external_leave_ts: null, source: "none", internal_only: false };
+  }
+  return boundaries;
 }
