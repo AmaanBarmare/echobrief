@@ -45,16 +45,10 @@ verify_jwt = false
 [functions.auto-join-meetings]
 verify_jwt = false
 
-[functions.fetch-calendar-events]
-verify_jwt = false
-
 [functions.fetch-google-calendars]
 verify_jwt = false
 
 [functions.generate-digest-report]
-verify_jwt = false
-
-[functions.generate-meeting-insights]
 verify_jwt = false
 
 [functions.get-user-calendars]
@@ -64,9 +58,6 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.send-email-report]
-verify_jwt = false
-
-[functions.send-meeting-summary-email]
 verify_jwt = false
 
 [functions.send-scheduled-emails]

@@ -188,15 +188,11 @@ token rather than the service-role key** so Postgres RLS — not an application-
   "context_meetings": 12, "context_tokens": 41230, "truncated": false }
 ```
 
-### `generate-meeting-insights`
-**Trigger:** manual / dashboard · **Auth:** none
-
-Insight generation entry point for a meeting that already has a transcript.
-
 ### `generate-digest-report`
-**Trigger:** scheduled and manual · **Auth:** none
+**Trigger:** parked (not scheduled) · **Auth:** service-role bearer only (`verify_jwt = true` + `authenticate()`)
 
-Builds weekly/monthly aggregate digests across a user's meetings.
+Builds weekly/monthly aggregate digests across a user's meetings. Parked — not
+deployed; hardened to service-only so an accidental deploy exposes nothing.
 
 ---
 
@@ -213,7 +209,6 @@ Builds weekly/monthly aggregate digests across a user's meetings.
 | `sync-calendars` | Discovers and syncs the user's calendar list |
 | `sync-calendar-events` | Event-level sync into `calendar_events` |
 | `fetch-google-calendars` | Lists calendars available on the Google account |
-| `fetch-calendar-events` | Reads events for the UI |
 | `get-user-calendars` | Reads the user's connected calendars from the DB |
 
 ---
@@ -223,7 +218,6 @@ Builds weekly/monthly aggregate digests across a user's meetings.
 | Function | Purpose |
 |---|---|
 | `send-meeting-email` | The real summary email (HTML). Called by `deliverResults` once for the owner, then once per allowlisted reviewer on the invite (`recipientEmail` in the body). Claims `email_deliveries` **before** calling Resend, so one recipient gets one summary per meeting no matter how many callers race; returns `{ success: true, skipped: true, reason: "already_sent" }` to a loser. |
-| `send-meeting-summary-email` | Thin summary-only variant |
 | `send-email-report` | Digest/report email rendering and send |
 | `send-scheduled-emails` | Drains scheduled sends |
 | `queue-onboarding-emails` | Enqueues the onboarding sequence |
@@ -304,3 +298,14 @@ upload concurrency 6, 270 s internal time budget against Vercel's 300 s ceiling.
 
 Deployed via **GitHub auto-deploy**. The Vercel account that owns `echobrief.in` is
 separate — do **not** use the local Vercel CLI for it.
+
+---
+
+## Changelog
+
+- **2026-08-31** — removed `send-meeting-summary-email`, `generate-meeting-insights`
+  and `fetch-calendar-events` (undeployed alongside this change). All three were
+  reachable with **no authentication** and had no remaining callers — the summary
+  email goes through `send-meeting-email`, insights through
+  `process-meeting`/`regenerate-insights`, and the UI reads calendar events from
+  the `calendar_events` table directly. Deleted rather than hardened.
