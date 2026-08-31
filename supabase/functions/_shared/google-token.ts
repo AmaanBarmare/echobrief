@@ -48,8 +48,25 @@ export async function getGoogleAccessToken(
       client_secret: clientSecret,
     }),
   });
-  const refreshed = await res.json().catch(() => ({}));
-  if (!refreshed.access_token) {
+  let refreshed: any = null;
+  try {
+    refreshed = await res.json();
+  } catch {
+    refreshed = null;
+  }
+  if (!refreshed?.access_token) {
+    // A parseable non-5xx answer with no access_token (typically
+    // `invalid_grant` after the user revoked access) means the grant is dead —
+    // flag the profile so the UI can ask for a reconnect. A 5xx or non-JSON
+    // body is a transient Google-side failure: report it, but leave the
+    // connection flags alone.
+    const isPermanent = refreshed !== null && res.status < 500;
+    if (isPermanent) {
+      await supabase
+        .from("profiles")
+        .update({ google_calendar_connected: false, google_needs_reconnect: true })
+        .eq("user_id", userId);
+    }
     return { ok: false, code: "TOKEN_REFRESH_FAILED", error: "Google token expired and refresh failed. Reconnect Google Calendar in Settings." };
   }
   const newExpiry = new Date(Date.now() + (Number(refreshed.expires_in) || 3600) * 1000);

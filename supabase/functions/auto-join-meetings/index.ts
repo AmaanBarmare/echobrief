@@ -54,7 +54,22 @@ serve(async (req) => {
         const googleClientId = Deno.env.get('GOOGLE_CLIENT_ID')
         const googleClientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET')
 
-        if (tokens.google_refresh_token && googleClientId && googleClientSecret) {
+        // Missing client creds is OUR configuration problem, not this user's
+        // grant — skip them this tick without touching their profile.
+        if (!googleClientId || !googleClientSecret) continue
+
+        if (!tokens.google_refresh_token) {
+          // Expired with nothing to refresh with: the grant can never recover
+          // on its own. Flag the profile so the UI asks for a reconnect
+          // instead of auto-join silently doing nothing forever.
+          await supabase
+            .from('profiles')
+            .update({ google_calendar_connected: false, google_needs_reconnect: true })
+            .eq('user_id', pref.user_id)
+          continue
+        }
+
+        try {
           const refreshResponse = await fetch('https://oauth2.googleapis.com/token', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -65,8 +80,13 @@ serve(async (req) => {
               grant_type: 'refresh_token',
             }),
           })
-          const refreshData = await refreshResponse.json()
-          if (refreshData.access_token) {
+          let refreshData: any = null
+          try {
+            refreshData = await refreshResponse.json()
+          } catch {
+            refreshData = null
+          }
+          if (refreshData?.access_token) {
             accessToken = refreshData.access_token
             const expiryDate = new Date()
             expiryDate.setSeconds(expiryDate.getSeconds() + (refreshData.expires_in || 3600))
@@ -77,7 +97,22 @@ serve(async (req) => {
                 google_token_expiry: expiryDate.toISOString()
               })
               .eq('user_id', pref.user_id)
+          } else {
+            // A parseable non-5xx answer with no access_token (typically
+            // invalid_grant) means the grant is dead — flag the profile. A 5xx
+            // or non-JSON body is transient: leave the flags alone.
+            if (refreshData !== null && refreshResponse.status < 500) {
+              await supabase
+                .from('profiles')
+                .update({ google_calendar_connected: false, google_needs_reconnect: true })
+                .eq('user_id', pref.user_id)
+            }
+            continue
           }
+        } catch (refreshErr) {
+          // Network error reaching Google: transient, never a profile flip.
+          console.warn(`[auto-join] Google token refresh failed for ${pref.user_id}:`, refreshErr)
+          continue
         }
       }
 

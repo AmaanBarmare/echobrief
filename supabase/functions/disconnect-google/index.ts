@@ -55,10 +55,11 @@ serve(async (req) => {
       );
     }
 
-    // Update profile to mark calendar as disconnected
+    // Update profile to mark calendar as disconnected. A deliberate
+    // disconnect is not a broken grant, so the reconnect flag clears too.
     const { error: profileError } = await supabase
       .from("profiles")
-      .update({ google_calendar_connected: false })
+      .update({ google_calendar_connected: false, google_needs_reconnect: false })
       .eq("user_id", user.id);
 
     if (profileError) {

@@ -100,10 +100,11 @@ serve(async (req) => {
       );
     }
 
-    // Update profile to mark calendar as connected (no tokens here)
+    // Update profile to mark calendar as connected (no tokens here).
+    // A fresh grant also clears any pending reconnect flag.
     const { error: updateError } = await supabase
       .from("profiles")
-      .update({ google_calendar_connected: true })
+      .update({ google_calendar_connected: true, google_needs_reconnect: false })
       .eq("user_id", user.id);
 
     if (updateError) {
