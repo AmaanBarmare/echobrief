@@ -55,6 +55,23 @@ serve(async (req) => {
       );
     }
 
+    // Deactivate the user's calendars too. Without this the Settings list
+    // (which reads calendars where is_active) keeps showing rows for a
+    // connection whose token we just deleted.
+    const { error: calendarError } = await supabase
+      .from("calendars")
+      .update({ is_active: false })
+      .eq("user_id", user.id)
+      .eq("provider", "google");
+
+    if (calendarError) {
+      console.error("Calendar deactivation error:", calendarError);
+      return new Response(
+        JSON.stringify({ error: "Failed to deactivate calendars" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Update profile to mark calendar as disconnected. A deliberate
     // disconnect is not a broken grant, so the reconnect flag clears too.
     const { error: profileError } = await supabase

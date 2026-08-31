@@ -568,7 +568,8 @@ export default function Settings() {
 
       const data = await response.json();
       if (data.error) throw new Error(data.error);
-      setProfile(prev => prev ? { ...prev, google_calendar_connected: false } : null);
+      setProfile(prev => prev ? { ...prev, google_calendar_connected: false, google_needs_reconnect: false } : null);
+      setGoogleCalendars([]);
       toast({ title: 'Disconnected', description: 'Google Calendar integration has been removed.' });
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -897,14 +898,25 @@ export default function Settings() {
                     </p>
                   </div>
                 </div>
-                <Button
-                  onClick={handleConnectGoogle}
-                  disabled={connectingGoogle}
-                  className="bg-orange-500 text-white hover:bg-orange-600"
-                >
-                  {connectingGoogle ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  {profile?.google_needs_reconnect ? 'Reconnect' : 'Add Calendar'}
-                </Button>
+                <div className="flex shrink-0 items-center gap-2">
+                  {profile?.google_calendar_connected && (
+                    <Button
+                      variant="outline"
+                      onClick={handleDisconnectGoogle}
+                      title="Revoke EchoBrief's access to your Google Calendar"
+                    >
+                      Disconnect
+                    </Button>
+                  )}
+                  <Button
+                    onClick={handleConnectGoogle}
+                    disabled={connectingGoogle}
+                    className="bg-orange-500 text-white hover:bg-orange-600"
+                  >
+                    {connectingGoogle ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    {profile?.google_needs_reconnect ? 'Reconnect' : 'Add Calendar'}
+                  </Button>
+                </div>
               </div>
 
               {profile?.google_needs_reconnect && (
