@@ -525,9 +525,8 @@ export default function MeetingDetail() {
       const response = await fetch(`${SUPABASE_URL}/functions/v1/send-email-report`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          meeting_id: meeting.id, 
-          user_id: user.id,
+        body: JSON.stringify({
+          meeting_id: meeting.id,
           recipient_email: emailAddress,
         }),
       });

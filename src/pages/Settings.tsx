@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { BotCustomization } from '@/components/dashboard/BotCustomization';
 import { supabase } from '@/integrations/supabase/client';
+import { FunctionsHttpError } from '@supabase/supabase-js';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,6 +50,7 @@ type SettingsTab = 'account' | 'bot' | 'integrations' | 'billing' | 'security' |
 export default function Settings() {
   const { user, session } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   
   // Get initial tab from URL params
   const getInitialTab = (): SettingsTab => {
@@ -401,13 +404,30 @@ export default function Settings() {
 
     setDeletingAccount(true);
     try {
-      // Delete user account
-      const { error } = await supabase.auth.admin.deleteUser(user?.id || '');
-      if (error) throw error;
+      // The delete-account edge function derives the user from the JWT and
+      // removes the account plus all of its data server-side. (The old
+      // supabase.auth.admin.deleteUser call could never work from the browser
+      // — admin methods need the service role key.)
+      const { data, error } = await supabase.functions.invoke('delete-account', {
+        body: { confirm: 'DELETE' },
+      });
+      if (error) {
+        let message = error.message || 'Failed to delete account';
+        if (error instanceof FunctionsHttpError) {
+          try {
+            const body = await error.context.json();
+            if (body?.error) message = body.error;
+          } catch {
+            // keep the generic message
+          }
+        }
+        throw new Error(message);
+      }
+      if (data?.error) throw new Error(data.error);
 
-      // Sign out
       await supabase.auth.signOut();
       toast({ title: 'Account deleted', description: 'Your account has been permanently deleted.' });
+      navigate('/');
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } finally {

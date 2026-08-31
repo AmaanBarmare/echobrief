@@ -139,7 +139,6 @@ export default function Calendar() {
       },
       body: JSON.stringify({
         meeting_url: event.meetingUrl,
-        user_id: user.id,
         calendar_event_id: event.id,
         title: event.title,
       }),

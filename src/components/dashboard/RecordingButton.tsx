@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Mic, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { FunctionsHttpError } from '@supabase/supabase-js';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
@@ -64,11 +65,30 @@ export function RecordingButton({
         throw new Error('Please enter a meeting URL');
       }
 
+      // The function derives the user from the JWT; user_id is no longer sent.
       const { data, error: botError } = await supabase.functions.invoke('start-recall-recording', {
-        body: { meeting_url: meetingUrl, user_id: user.id, title: title }
+        body: {
+          meeting_url: meetingUrl,
+          ...(calendarEventId ? { calendar_event_id: calendarEventId } : {}),
+          title: title,
+        },
       });
 
-      if (botError) throw botError;
+      if (botError) {
+        // Surface the function's own error text (429 "You already have 3
+        // recordings in progress", 400 for a non-Zoom/Meet/Teams URL, …)
+        // instead of the generic FunctionsHttpError message.
+        let message = botError.message || 'Failed to start recording';
+        if (botError instanceof FunctionsHttpError) {
+          try {
+            const body = await botError.context.json();
+            if (body?.error) message = body.error;
+          } catch {
+            // keep the generic message
+          }
+        }
+        throw new Error(message);
+      }
       if (data?.error) throw new Error(data.error);
 
       toast({ title: 'Bot started', description: `Bot is joining the meeting` });
