@@ -490,7 +490,9 @@ export default function Docs() {
                   date — so you see <em>Tue, Sep 1</em>, not a word that means nothing a week later.
                   Items with a resolved date get an <strong className="text-foreground">Add to
                   calendar</strong> button that creates the follow-up in your Google Calendar at the
-                  original meeting's time; attendees are invited only if you tick the box.
+                  original meeting's time; attendees are invited only if you tick the box. If you
+                  connected Google Calendar before September 2026 the connection is read-only —
+                  reconnect it once under Settings → Integrations to allow event creation.
                 </p>
                 <p>
                   The <strong className="text-foreground">Action Items</strong> page collects them

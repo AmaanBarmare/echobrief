@@ -7,7 +7,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { authenticate, CORS_HEADERS, json } from "../_shared/auth.ts";
-import { getGoogleAccessToken } from "../_shared/google-token.ts";
+import { getGoogleAccessToken, hasCalendarWriteScope, RECONNECT_MESSAGE } from "../_shared/google-token.ts";
 import { APP_TIMEZONE } from "../_shared/time.ts";
 
 /** "HH:MM:SS" of an instant in IST. */
@@ -44,6 +44,13 @@ serve(async (req) => {
     .eq("user_id", caller.userId)
     .maybeSingle();
   if (!meeting) return json({ error: "Meeting not found" }, 404);
+
+  // A grant made before 2026-08-31 is read-only; say so before calling Google.
+  const { data: grant } = await supabase
+    .from("user_oauth_tokens").select("google_scopes").eq("user_id", caller.userId).maybeSingle();
+  if (hasCalendarWriteScope(grant?.google_scopes) === false) {
+    return json({ error: RECONNECT_MESSAGE, code: "NEEDS_RECONNECT" }, 400);
+  }
 
   const token = await getGoogleAccessToken(supabase, caller.userId);
   if (!token.ok) return json({ error: token.error, code: token.code }, token.code === "SERVER_CONFIG" ? 500 : 400);
@@ -98,7 +105,12 @@ serve(async (req) => {
   const created = await res.json().catch(() => ({}));
   if (!res.ok) {
     console.error("[create-followup-event] Google error:", res.status, JSON.stringify(created).slice(0, 300));
-    return json({ error: created?.error?.message || `Google Calendar returned ${res.status}` }, 502);
+    const message = String(created?.error?.message || "");
+    // Tokens granted before scopes were recorded reach here with a 403.
+    if (res.status === 403 && /insufficient.*scope|insufficientPermissions/i.test(message + JSON.stringify(created?.error?.errors ?? ""))) {
+      return json({ error: RECONNECT_MESSAGE, code: "NEEDS_RECONNECT" }, 400);
+    }
+    return json({ error: message || `Google Calendar returned ${res.status}` }, 502);
   }
 
   // Remember the link on the action item so the button becomes "Open event".

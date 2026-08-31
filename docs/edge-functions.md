@@ -110,7 +110,10 @@ stored Recall timeline, and records `speaker_overrides` so regeneration preserve
 Google Calendar event on the resolved date at the original meeting's IST time of day
 (30 min default) via `_shared/google-token.ts` (refreshes the stored token). Attendees
 are invited **only** when `invite_attendees` is true — this is outward-facing mail.
-Stores `calendar_event_link` on the action item.
+Stores `calendar_event_link` on the action item. Needs the `calendar.events` scope:
+`google-oauth-start` requests it since 2026-08-31 and the callback records the granted
+scopes on `user_oauth_tokens.google_scopes`; a read-only grant (or Google's 403) returns
+`{ code: "NEEDS_RECONNECT" }` and the UI sends the user to Settings to reconnect.
 
 ### `draft-followup-email`
 **Trigger:** "Draft follow-up" on the meeting page · **Auth:** user JWT or service role

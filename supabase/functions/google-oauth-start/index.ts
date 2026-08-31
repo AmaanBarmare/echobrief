@@ -89,7 +89,11 @@ serve(async (req) => {
       client_id: googleClientId,
       redirect_uri: redirectUri,
       response_type: "code",
-      scope: "https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events.readonly",
+      // calendar.events (write) is needed by create-followup-event; the two
+      // readonly scopes stay for listing. Users connected before 2026-08-31
+      // hold a read-only grant and must reconnect once.
+      scope: "https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events.readonly https://www.googleapis.com/auth/calendar.events",
+      include_granted_scopes: "true",
       access_type: "offline",
       prompt: "consent",
       state,
