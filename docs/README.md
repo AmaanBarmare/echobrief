@@ -13,7 +13,7 @@ Start with [Architecture](architecture.md) if you are new to the codebase.
 | [Pipeline](pipeline.md) | Exactly what happens between "paste a meeting URL" and "summary in the inbox" — every hop, fallback and race |
 | [Chat & analytics](chat-and-analytics.md) | How Ask retrieves transcripts, and how conversation metrics are computed rather than estimated |
 | [Database](database.md) | Schema, RLS, the columns that carry pipeline semantics, migration history |
-| [Edge functions](edge-functions.md) | What each of the 28 functions does, how it is triggered, and how it authenticates |
+| [Edge functions](edge-functions.md) | What each of the 34 functions does, how it is triggered, and how it authenticates |
 | [MCP server](mcp.md) | How Claude and other LLM tools read the meeting data — tools, token auth, limits |
 
 ## Working on it
