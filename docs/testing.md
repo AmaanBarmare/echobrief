@@ -71,7 +71,7 @@ could be tested this way: pure, synchronous, no clock, no randomness.
 
 **11 scenarios against real infrastructure.**
 
-Nothing is mocked. Each scenario inserts a synthetic `[harness]`-prefixed meeting into the production database, fires real signed webhook payloads (captured from prod logs, templated in [`fixtures.py`](../scripts/pipeline-test/fixtures.py)) at the real deployed edge functions, polls for the expected end state, and always cleans up its rows — pass or fail.
+Nothing is mocked. Each scenario inserts a synthetic `[harness]`-prefixed meeting into the production database, fires real signed webhook payloads (captured from prod logs, templated in [`fixtures.py`](../scripts/pipeline-test/fixtures.py)) at the real deployed edge functions, polls for the expected end state, and always cleans up its rows — pass or fail. A run that is killed outright cannot, so every run starts by sweeping `[harness]` rows older than three hours left behind by an earlier one (`--cleanup-only` sweeps them all, at any age).
 
 ```bash
 python3 scripts/pipeline-test/harness.py                       # 12 default scenarios (~90 s)
