@@ -58,3 +58,4 @@ __pycache__/
 /*.png
 public/__tmp_session.json
 brand/src/.fonts/
+scripts/evals/compare-out/

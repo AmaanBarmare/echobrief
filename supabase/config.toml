@@ -86,3 +86,9 @@ verify_jwt = true
 
 [functions.manage-api-tokens]
 verify_jwt = true
+
+[functions.manage-billing]
+verify_jwt = true
+
+[functions.dodo-webhook]
+verify_jwt = false

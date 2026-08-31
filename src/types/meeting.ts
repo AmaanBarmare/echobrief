@@ -10,6 +10,10 @@ export interface Meeting {
   duration_seconds?: number;
   status: 'scheduled' | 'recording' | 'processing' | 'completed' | 'failed' | 'cancelled';
   audio_url?: string;
+  language?: string;
+  /** Duration-weighted language mix, e.g. { en: 0.88, hi: 0.12 }. */
+  languages?: Record<string, number> | null;
+  boundaries?: MeetingBoundaries | null;
   created_at: string;
   updated_at: string;
 }
@@ -55,6 +59,10 @@ export interface ActionItem {
   confidence?: 'low' | 'medium' | 'high';
   outcome?: string;
   source_timestamp?: number;
+  /** Deterministically resolved from due_date + the meeting date (IST). */
+  due_date_resolved?: string;
+  due_date_range?: { start: string; end: string };
+  done?: boolean;
 }
 
 export interface FollowUp {
@@ -123,6 +131,8 @@ export interface MeetingInsights {
   open_questions: string[];
   timeline_entries?: TimelineEntry[];
   meeting_metrics?: MeetingMetrics;
+  facts?: MeetingFacts | null;
+  coaching?: CoachingReport | null;
   created_at: string;
 }
 
@@ -143,4 +153,80 @@ export interface Profile {
 export interface MeetingWithDetails extends Meeting {
   transcript?: Transcript;
   insights?: MeetingInsights;
+}
+
+/** One extracted, verbatim-grounded fact rows (facts pipeline, 2026-08-31). */
+export interface FactNumber {
+  metric: string;
+  value: string;
+  speaker?: string | null;
+  quote?: string;
+  ts?: number;
+}
+
+export interface FactStatement {
+  statement: string;
+  speaker?: string | null;
+  quote?: string;
+  ts?: number;
+  addressed?: boolean;
+  how_addressed_ts?: number | null;
+}
+
+export interface FactCommitment {
+  who?: string | null;
+  what: string;
+  due?: string | null;
+  quote?: string;
+  ts?: number;
+}
+
+/** Mirrors MeetingFacts from supabase/functions/_shared/facts.ts. */
+export interface MeetingFacts {
+  meeting_type?: string;
+  topics?: { topic: string; ts?: number; notes?: string }[];
+  numbers?: FactNumber[];
+  entities?: { type?: string; name: string; context?: string; ts?: number }[];
+  pain_points?: FactStatement[];
+  objections?: FactStatement[];
+  buying_signals?: FactStatement[];
+  explicit_asks?: FactStatement[];
+  commitments?: FactCommitment[];
+  decisions?: { decision: string; owner?: string | null; ts?: number }[];
+  risks?: { statement: string; ts?: number }[];
+  open_questions?: string[];
+  notable_quotes?: { speaker: string; quote: string; ts?: number; why?: string }[];
+  validation?: { unverified: string[]; grounding_rate: number };
+}
+
+/** Mirrors CoachingReport from supabase/functions/_shared/coaching.ts. */
+export interface CoachingVerdict {
+  value: number;
+  target: number;
+  verdict: 'good' | 'ok' | 'high' | 'low';
+  note: string;
+}
+
+export interface CoachingFlag {
+  value: boolean;
+  note: string;
+  evidence_ts?: number | null;
+  strength?: 'date_locked' | 'vague' | 'none';
+}
+
+export interface CoachingReport {
+  rep?: string | null;
+  external_participant?: string | null;
+  metrics?: Record<string, CoachingVerdict>;
+  flags?: Record<string, CoachingFlag>;
+  sentiment_timeline?: { t: number; score: number; note?: string }[];
+  summary?: string;
+}
+
+/** Speech-estimated privacy-trim window (meetings.boundaries). */
+export interface MeetingBoundaries {
+  first_external_join_ts: number | null;
+  last_external_leave_ts: number | null;
+  source: 'speech_estimated' | 'none';
+  internal_only: boolean;
 }

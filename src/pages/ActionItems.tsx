@@ -15,10 +15,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 
 
+interface DueDateRange {
+  start?: string;
+  end?: string;
+}
+
 interface ActionItemData {
   task: string;
   owner?: string;
   priority?: 'low' | 'medium' | 'high';
+  /** Raw spoken due date, e.g. "Tuesday" */
+  due_date?: string;
+  /** ISO "YYYY-MM-DD" when the pipeline could resolve the spoken date */
+  due_date_resolved?: string;
+  /** ISO date range when only a window (e.g. "next week") was resolvable */
+  due_date_range?: DueDateRange;
 }
 
 interface ActionItem {
@@ -27,6 +38,9 @@ interface ActionItem {
   task: string;
   owner?: string;
   priority?: 'low' | 'medium' | 'high';
+  due_date?: string;
+  due_date_resolved?: string;
+  due_date_range?: DueDateRange;
   completed: boolean;
 }
 
@@ -40,9 +54,29 @@ interface MeetingGroup {
 }
 
 type FilterStatus = 'all' | 'open' | 'completed';
-type SortOption = 'date' | 'priority';
+type SortOption = 'date' | 'priority' | 'due';
 
 const priorityOrder = { high: 0, medium: 1, low: 2, undefined: 3 };
+
+/** Human label for an item's due info, or null when it carries none. */
+function dueChipLabel(item: ActionItem): string | null {
+  if (item.due_date_resolved) {
+    const d = new Date(item.due_date_resolved);
+    if (!Number.isNaN(d.getTime())) return `Due ${formatIST(d, 'EEE, MMM d')}`;
+  }
+  if (item.due_date_range?.start) {
+    const d = new Date(item.due_date_range.start);
+    if (!Number.isNaN(d.getTime())) return `Due week of ${formatIST(d, 'MMM d')}`;
+  }
+  if (item.due_date) return `Due ${item.due_date}`;
+  return null;
+}
+
+/** Overdue = resolved due date strictly before today (IST) on an open item. */
+function isOverdue(item: ActionItem, completed: boolean): boolean {
+  if (completed || !item.due_date_resolved) return false;
+  return item.due_date_resolved < formatIST(new Date(), 'yyyy-MM-dd');
+}
 
 export default function ActionItems() {
   const { user } = useAuth();
@@ -102,12 +136,16 @@ export default function ActionItems() {
           
           (insights.action_items as (string | ActionItemData)[]).forEach((item, index) => {
             const isObject = typeof item === 'object' && item !== null;
+            const data = isObject ? (item as ActionItemData) : undefined;
             items.push({
               id: `${meeting.id}-${index}`,
               index,
-              task: isObject ? (item as ActionItemData).task : item as string,
-              owner: isObject ? (item as ActionItemData).owner : undefined,
-              priority: isObject ? (item as ActionItemData).priority : undefined,
+              task: data ? data.task : item as string,
+              owner: data?.owner,
+              priority: data?.priority,
+              due_date: data?.due_date,
+              due_date_resolved: data?.due_date_resolved,
+              due_date_range: data?.due_date_range,
               completed: false,
             });
           });
@@ -310,9 +348,23 @@ export default function ActionItems() {
     if (sortBy === 'priority') {
       groups = groups.map(group => ({
         ...group,
-        actionItems: [...group.actionItems].sort((a, b) => 
+        actionItems: [...group.actionItems].sort((a, b) =>
           (priorityOrder[a.priority || 'undefined'] || 3) - (priorityOrder[b.priority || 'undefined'] || 3)
         )
+      }));
+    } else if (sortBy === 'due') {
+      // Items with a resolved due date first, soonest first; the rest keep
+      // their original order after them.
+      groups = groups.map(group => ({
+        ...group,
+        actionItems: [...group.actionItems].sort((a, b) => {
+          if (a.due_date_resolved && b.due_date_resolved) {
+            return a.due_date_resolved.localeCompare(b.due_date_resolved);
+          }
+          if (a.due_date_resolved) return -1;
+          if (b.due_date_resolved) return 1;
+          return 0;
+        })
       }));
     }
     
@@ -420,6 +472,7 @@ export default function ActionItems() {
                   <SelectContent>
                     <SelectItem value="date">By date</SelectItem>
                     <SelectItem value="priority">By priority</SelectItem>
+                    <SelectItem value="due">By due date</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -538,6 +591,17 @@ export default function ActionItems() {
                                         item.priority === 'low' && "bg-muted text-muted-foreground"
                                       )}>
                                         {item.priority}
+                                      </span>
+                                    )}
+                                    {dueChipLabel(item) && (
+                                      <span className={cn(
+                                        "inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded font-medium",
+                                        isOverdue(item, isCompleted)
+                                          ? "bg-destructive/10 text-destructive"
+                                          : "text-muted-foreground"
+                                      )}>
+                                        <Calendar className="w-3 h-3" />
+                                        {dueChipLabel(item)}
                                       </span>
                                     )}
                                   </div>

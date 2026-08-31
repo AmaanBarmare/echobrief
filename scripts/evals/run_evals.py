@@ -85,6 +85,8 @@ def fetch_meeting_case(env: dict[str, str], meeting_id: str) -> dict:
             "summary": ins.get("summary_detailed") or ins.get("summary_short") or "",
             "action_items": ins.get("action_items") or [],
             "decisions": ins.get("decisions") or [],
+            "key_points": ins.get("key_points") or [],
+            "facts": ins.get("facts") or {},
         },
         "gold": gold,
         "expect": {},

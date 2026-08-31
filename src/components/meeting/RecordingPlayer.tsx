@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Loader2, RefreshCw, Video } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -33,7 +34,15 @@ function Placeholder({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function RecordingPlayer({ meetingId }: { meetingId: string }) {
+export function RecordingPlayer({
+  meetingId,
+  seekSeconds,
+}: {
+  meetingId: string;
+  /** Jump the media here once it can seek — set by deep links (?t=) and timestamp clicks. */
+  seekSeconds?: number | null;
+}) {
+  const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement | null>(null);
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ['recording-media', meetingId],
     // Well inside the shortest link life the function hands out (1 h for the
@@ -52,6 +61,24 @@ export function RecordingPlayer({ meetingId }: { meetingId: string }) {
       return body as RecordingMedia;
     },
   });
+
+  // Apply the requested seek once the element exists and knows its duration.
+  useEffect(() => {
+    const el = mediaRef.current;
+    if (!el || seekSeconds == null) return;
+    const apply = () => {
+      try {
+        el.currentTime = seekSeconds;
+        void el.play()?.catch(() => {});
+      } catch {
+        // Not seekable (still loading, expired URL) — the timestamp is a
+        // convenience, never worth an error state.
+      }
+    };
+    if (el.readyState >= 1) apply();
+    else el.addEventListener('loadedmetadata', apply, { once: true });
+    return () => el.removeEventListener('loadedmetadata', apply);
+  }, [seekSeconds, data?.url]);
 
   if (isLoading) {
     return (
@@ -81,6 +108,7 @@ export function RecordingPlayer({ meetingId }: { meetingId: string }) {
     return (
       <video
         key={data.url}
+        ref={mediaRef as React.RefObject<HTMLVideoElement>}
         src={data.url}
         controls
         preload="metadata"
@@ -96,7 +124,14 @@ export function RecordingPlayer({ meetingId }: { meetingId: string }) {
         <p className="mb-3 text-[13px]" style={{ color: 'var(--ink-mid)' }}>
           No video for this meeting — playing the archived audio.
         </p>
-        <audio key={data.url} src={data.url} controls preload="metadata" className="w-full" />
+        <audio
+          key={data.url}
+          ref={mediaRef as React.RefObject<HTMLAudioElement>}
+          src={data.url}
+          controls
+          preload="metadata"
+          className="w-full"
+        />
       </div>
     );
   }

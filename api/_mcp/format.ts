@@ -56,3 +56,62 @@ export function wrapUntrusted(label: string, body: string): string {
     `<untrusted_meeting_content source="${safeLabel}">\n${safeBody}\n${CLOSING_TAG}`
   );
 }
+
+export interface LabeledSegment {
+  speaker?: string;
+  start?: number;
+  end?: number;
+  text?: string;
+  zone?: string;
+}
+
+/** Merge gap: consecutive same-speaker utterances closer than this join one paragraph. */
+const PARAGRAPH_MERGE_GAP_SECONDS = 3;
+
+function clock(seconds: number): string {
+  const total = Math.max(0, Math.floor(Number.isFinite(seconds) ? seconds : 0));
+  return `[${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}]`;
+}
+
+/**
+ * Speaker-attributed, timestamped transcript text:
+ *
+ *   [4:19] Mathew Ryan: Do you want the stone-cold honesty? I worked as ...
+ *
+ * Consecutive utterances from the same speaker merge into one paragraph when
+ * the gap is under 3 s; a speaker change or a >10 s silence starts a new one.
+ * This replaces the unattributed wall of text the "text" format used to be.
+ */
+export function labeledTranscriptText(segments: LabeledSegment[]): string {
+  const paragraphs: string[] = [];
+  let currentSpeaker: string | null = null;
+  let currentStart = 0;
+  let currentEnd = 0;
+  let currentText: string[] = [];
+
+  const flush = () => {
+    if (currentSpeaker !== null && currentText.length > 0) {
+      paragraphs.push(`${clock(currentStart)} ${currentSpeaker}: ${currentText.join(" ")}`);
+    }
+    currentText = [];
+  };
+
+  for (const seg of Array.isArray(segments) ? segments : []) {
+    const speaker = String(seg.speaker ?? "Unknown");
+    const text = String(seg.text ?? "").trim();
+    if (!text) continue;
+    const start = Number(seg.start ?? 0);
+    const gap = start - currentEnd;
+    const sameParagraph = speaker === currentSpeaker &&
+      gap <= PARAGRAPH_MERGE_GAP_SECONDS;
+    if (!sameParagraph) {
+      flush();
+      currentSpeaker = speaker;
+      currentStart = start;
+    }
+    currentText.push(text);
+    currentEnd = Number(seg.end ?? start);
+  }
+  flush();
+  return paragraphs.join("\n\n");
+}

@@ -356,6 +356,7 @@ export type Database = {
           avatar_url: string | null
           bot_color: string | null
           created_at: string
+          custom_vocabulary: string[]
           email: string | null
           email_summaries_enabled: boolean | null
           full_name: string | null
@@ -369,6 +370,11 @@ export type Database = {
           preferred_languages: string[] | null
           recording_preference: string | null
           auto_join_meetings: boolean | null
+          subscription_status: string
+          dodo_customer_id: string | null
+          dodo_subscription_id: string | null
+          subscription_product_id: string | null
+          subscription_renews_at: string | null
           updated_at: string
           user_id: string
         }
@@ -377,6 +383,7 @@ export type Database = {
           avatar_url?: string | null
           bot_color?: string | null
           created_at?: string
+          custom_vocabulary?: string[]
           email?: string | null
           email_summaries_enabled?: boolean | null
           full_name?: string | null
@@ -390,6 +397,11 @@ export type Database = {
           preferred_languages?: string[] | null
           recording_preference?: string | null
           auto_join_meetings?: boolean | null
+          subscription_status?: string
+          dodo_customer_id?: string | null
+          dodo_subscription_id?: string | null
+          subscription_product_id?: string | null
+          subscription_renews_at?: string | null
           updated_at?: string
           user_id: string
         }
@@ -398,6 +410,7 @@ export type Database = {
           avatar_url?: string | null
           bot_color?: string | null
           created_at?: string
+          custom_vocabulary?: string[]
           email?: string | null
           email_summaries_enabled?: boolean | null
           full_name?: string | null
@@ -411,6 +424,11 @@ export type Database = {
           preferred_languages?: string[] | null
           recording_preference?: string | null
           auto_join_meetings?: boolean | null
+          subscription_status?: string
+          dodo_customer_id?: string | null
+          dodo_subscription_id?: string | null
+          subscription_product_id?: string | null
+          subscription_renews_at?: string | null
           updated_at?: string
           user_id?: string
         }

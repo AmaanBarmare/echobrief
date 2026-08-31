@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { formatIST } from '@/lib/time';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { EmailReportSelector } from '@/components/dashboard/EmailReportSelector';
 import { MeetingMetrics } from '@/components/meeting/MeetingMetrics';
@@ -9,7 +9,7 @@ import { InsightSection, InsightItem } from '@/components/meeting/InsightSection
 import { RecordingPlayer } from '@/components/meeting/RecordingPlayer';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Meeting, Transcript, MeetingInsights, StrategicInsight, SpeakerHighlight, ActionItem, FollowUp, TimelineEntry } from '@/types/meeting';
+import { Meeting, Transcript, MeetingInsights, StrategicInsight, SpeakerHighlight, ActionItem, FollowUp, TimelineEntry, MeetingFacts, CoachingReport, CoachingVerdict, CoachingFlag } from '@/types/meeting';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -26,7 +26,7 @@ import {
 import { 
   ArrowLeft, Calendar, Clock, Loader2, ChevronRight, Trash2, Users, 
   Lightbulb, AlertTriangle, HelpCircle, RefreshCw, Zap, CheckCircle2, 
-  FileText, Globe, Mail, Languages, Bot, Video
+  FileText, Globe, Mail, Languages, Bot, Video, Target, EyeOff, Eye, Hash
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -38,6 +38,9 @@ interface SpeakerSegment {
   text: string;
   start?: number;
   end?: number;
+  /** Privacy zone: 'pre' | 'meeting' | 'post'. Untagged rows are 'meeting'. */
+  zone?: string;
+  language?: string;
 }
 
 interface Attendee {
@@ -125,6 +128,73 @@ function formatTimelineTime(seconds: number): string {
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
 }
 
+const LANGUAGE_LABELS: Record<string, string> = { en: 'English', hi: 'Hindi' };
+
+/** "English 88% · Hindi 12%" from meetings.languages. */
+function formatLanguageMix(mix: Record<string, number>): string {
+  return Object.entries(mix)
+    .sort((a, b) => b[1] - a[1])
+    .map(([lang, share]) => `${LANGUAGE_LABELS[lang] ?? lang} ${Math.round(share * 100)}%`)
+    .join(' · ');
+}
+
+/** "Tue, Sep 1" from a resolved ISO due date. */
+function formatDueDate(iso: string): string {
+  const d = new Date(`${iso}T12:00:00Z`);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
+}
+
+/** Clickable [m:ss] chip that jumps the recording tab to that moment. */
+function TsLink({ ts, onJump }: { ts?: number | null; onJump: (ts: number) => void }) {
+  if (typeof ts !== 'number' || !Number.isFinite(ts)) return null;
+  return (
+    <button
+      type="button"
+      onClick={() => onJump(ts)}
+      className="font-mono text-[11px] font-semibold transition-opacity hover:opacity-70"
+      style={{ color: 'var(--ember)' }}
+      title="Jump to this moment in the recording"
+    >
+      {formatTimelineTime(ts)}
+    </button>
+  );
+}
+
+/** Inline sentiment-over-time sparkline (prospect side), from the coaching pass. */
+function SentimentSparkline({ timeline }: { timeline: { t: number; score: number; note?: string }[] }) {
+  if (!timeline || timeline.length < 2) return null;
+  const w = 560;
+  const h = 96;
+  const pad = 8;
+  const maxT = Math.max(...timeline.map((p) => p.t)) || 1;
+  const x = (t: number) => pad + (t / maxT) * (w - pad * 2);
+  const y = (score: number) => pad + ((1 - score) / 2) * (h - pad * 2);
+  const points = timeline.map((p) => `${x(p.t).toFixed(1)},${y(p.score).toFixed(1)}`).join(' ');
+  const notes = timeline.filter((p) => p.note);
+  return (
+    <div>
+      <svg viewBox={`0 0 ${w} ${h}`} className="w-full" role="img" aria-label="Sentiment over time">
+        <line x1={pad} x2={w - pad} y1={y(0)} y2={y(0)} stroke="var(--rule)" strokeDasharray="3 3" />
+        <polyline points={points} fill="none" stroke="var(--ember)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+        {notes.map((p, i) => (
+          <circle key={i} cx={x(p.t)} cy={y(p.score)} r={3.5} fill="var(--ember)" />
+        ))}
+      </svg>
+      {notes.length > 0 && (
+        <ul className="mt-2 space-y-1">
+          {notes.map((p, i) => (
+            <li key={i} className="text-xs text-muted-foreground">
+              <span className="font-mono font-semibold" style={{ color: 'var(--ember)' }}>{formatTimelineTime(p.t)}</span>
+              {' — '}{p.note}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function ProtoCard({ children, style, className }: { children: React.ReactNode; style?: React.CSSProperties; className?: string }) {
   return (
     <div
@@ -153,8 +223,21 @@ export default function MeetingDetail() {
   const queryClient = useQueryClient();
   const [deleting, setDeleting] = useState(false);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState('summary');
+  const [searchParams] = useSearchParams();
+  const initialSeek = (() => {
+    const t = Number(searchParams.get('t'));
+    return Number.isFinite(t) && t >= 0 ? Math.floor(t) : null;
+  })();
+  const [activeTab, setActiveTab] = useState(initialSeek !== null ? 'recording' : 'summary');
   const [summaryLang, setSummaryLang] = useState('English');
+  const [seekSeconds, setSeekSeconds] = useState<number | null>(initialSeek);
+  const [showInternal, setShowInternal] = useState(false);
+
+  // Deep link target: every timestamp on this page jumps the recording here.
+  const jumpToRecording = (ts: number) => {
+    setSeekSeconds(Math.max(0, Math.floor(ts)));
+    setActiveTab('recording');
+  };
 
   const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 
@@ -419,6 +502,7 @@ export default function MeetingDetail() {
   const tabs = [
     { id: 'summary', label: 'Summary', icon: <Zap size={14} /> },
     { id: 'actions', label: `Actions (${actionItemCount})`, icon: <CheckCircle2 size={14} /> },
+    ...(insights?.coaching ? [{ id: 'coaching', label: 'Coaching', icon: <Target size={14} /> }] : []),
     { id: 'transcript', label: 'Transcript', icon: <FileText size={14} /> },
     { id: 'recording', label: 'Recording', icon: <Video size={14} /> },
     { id: 'delivery', label: 'Delivery', icon: <Mail size={14} /> },
@@ -459,12 +543,17 @@ export default function MeetingDetail() {
                     <span>{formatDuration(meeting.duration_seconds)}</span>
                   </>
                 )}
-                {meeting.language && (
+                {(meeting.languages && Object.keys(meeting.languages).length > 0) ? (
+                  <>
+                    <span aria-hidden>·</span>
+                    <span>{formatLanguageMix(meeting.languages)}</span>
+                  </>
+                ) : meeting.language ? (
                   <>
                     <span aria-hidden>·</span>
                     <span>{meeting.language}</span>
                   </>
-                )}
+                ) : null}
               </div>
               {(meeting.status === 'failed' || meeting.status === 'cancelled') && meeting.error_message && (
                 <p className="mt-2 text-[13px]" style={{ color: 'hsl(var(--destructive))' }}>
@@ -620,13 +709,67 @@ export default function MeetingDetail() {
                       {insights.summary_detailed}
                     </p>
                   )}
+                  {(insights.facts?.validation?.unverified?.length ?? 0) > 0 && (
+                    <p className="mt-3 flex items-center gap-1.5 text-xs" style={{ color: 'var(--ink-soft)' }}>
+                      <AlertTriangle size={12} strokeWidth={1.75} />
+                      {insights.facts!.validation!.unverified.length} claim{insights.facts!.validation!.unverified.length === 1 ? '' : 's'} could not be verified against the transcript.
+                    </p>
+                  )}
                 </ProtoCard>
+
+                {/* Numbers & asks — verbatim-grounded facts, each deep-linked
+                    into the recording. These are what the follow-up proposal
+                    is written from, so they are never summarized away. */}
+                {insights.facts && ((insights.facts.numbers?.length ?? 0) > 0 || (insights.facts.explicit_asks?.length ?? 0) > 0 || (insights.facts.objections?.length ?? 0) > 0) && (
+                  <InsightSection title="Numbers & asks">
+                    {(insights.facts.numbers ?? []).map((n, i) => (
+                      <InsightItem key={`num-${i}`} accent="var(--ember)">
+                        <span className="flex items-baseline gap-2">
+                          <Hash size={12} strokeWidth={1.75} className="translate-y-[1px] shrink-0" style={{ color: 'var(--ember)' }} />
+                          <span className="text-[15px] font-semibold text-foreground">{n.value}</span>
+                          <span className="text-sm text-muted-foreground">{n.metric}</span>
+                          <TsLink ts={n.ts} onJump={jumpToRecording} />
+                        </span>
+                        {n.quote && (
+                          <span className="mt-1 block text-xs italic text-muted-foreground">
+                            “{n.quote}”{n.speaker ? ` — ${n.speaker}` : ''}
+                          </span>
+                        )}
+                      </InsightItem>
+                    ))}
+                    {(insights.facts.explicit_asks ?? []).map((a, i) => (
+                      <InsightItem key={`ask-${i}`} accent="var(--ember)">
+                        <span className="text-sm font-medium text-foreground">They asked for: {a.statement}</span>{' '}
+                        <TsLink ts={a.ts} onJump={jumpToRecording} />
+                        {a.quote && <span className="mt-1 block text-xs italic text-muted-foreground">“{a.quote}”</span>}
+                      </InsightItem>
+                    ))}
+                    {(insights.facts.objections ?? []).map((o, i) => (
+                      <InsightItem key={`obj-${i}`} accent="var(--ember)">
+                        <span className="text-sm font-medium text-foreground">Objection: {o.statement}</span>{' '}
+                        <span
+                          className="rounded-full px-2 py-0.5 text-[10.5px] font-semibold uppercase"
+                          style={o.addressed
+                            ? { background: 'color-mix(in oklch, var(--ember) 12%, transparent)', color: 'var(--ember-deep)' }
+                            : { background: 'color-mix(in oklch, hsl(var(--destructive)) 10%, transparent)', color: 'hsl(var(--destructive))' }}
+                        >
+                          {o.addressed ? 'addressed' : 'unaddressed'}
+                        </span>{' '}
+                        <TsLink ts={o.ts} onJump={jumpToRecording} />
+                        {o.quote && <span className="mt-1 block text-xs italic text-muted-foreground">“{o.quote}”</span>}
+                      </InsightItem>
+                    ))}
+                  </InsightSection>
+                )}
 
                 {/* Conversation metrics — computed from transcript segments.
                     Hidden entirely for older rows that carry no metrics. */}
                 {insights.meeting_metrics &&
                   Object.keys(insights.meeting_metrics).length > 0 && (
-                    <MeetingMetrics metrics={insights.meeting_metrics} />
+                    <MeetingMetrics
+                      metrics={insights.meeting_metrics}
+                      hideSentiment={(insights.coaching?.sentiment_timeline?.length ?? 0) >= 2}
+                    />
                 )}
 
                 {/* Sections below mirror the summary email exactly — same set,
@@ -649,7 +792,12 @@ export default function MeetingDetail() {
                               <>Owner: <span className="font-medium" style={{ color: 'var(--ember)' }}>{item.owner}</span></>
                             )}
                             {item.owner && item.due_date && ' · '}
-                            {item.due_date && <>Due {item.due_date}</>}
+                            {item.due_date && (
+                              <>Due {item.due_date_resolved ? formatDueDate(item.due_date_resolved) : item.due_date}</>
+                            )}
+                            {typeof item.source_timestamp === 'number' && (
+                              <> · <TsLink ts={item.source_timestamp} onJump={jumpToRecording} /></>
+                            )}
                           </span>
                         )}
                         {item.outcome && (
@@ -741,9 +889,15 @@ export default function MeetingDetail() {
                     <div className="rounded-lg border border-border px-4 py-3" style={{ background: 'var(--paper-card)' }}>
                       {(insights.timeline_entries as TimelineEntry[]).slice(0, 8).map((e, i) => (
                         <div key={i} className="flex gap-3 py-1.5">
-                          <span className="w-11 shrink-0 text-xs font-semibold" style={{ color: 'var(--ember)' }}>
+                          <button
+                            type="button"
+                            onClick={() => jumpToRecording(e.timestamp)}
+                            className="w-11 shrink-0 text-left text-xs font-semibold transition-opacity hover:opacity-70"
+                            style={{ color: 'var(--ember)' }}
+                            title="Jump to this moment in the recording"
+                          >
                             {formatTimelineTime(e.timestamp)}
-                          </span>
+                          </button>
                           <span className="flex-1 text-sm leading-relaxed text-muted-foreground">
                             {e.speaker && <span className="font-medium text-foreground">{e.speaker}</span>}
                             {e.speaker && ' — '}
@@ -805,14 +959,122 @@ export default function MeetingDetail() {
               </div>
             )}
 
+            {/* ═══ COACHING TAB ═══ */}
+            {activeTab === 'coaching' && insights.coaching && (() => {
+              const coaching = insights.coaching as CoachingReport;
+              const verdictColor = (v: string) =>
+                v === 'good' ? 'var(--ember-deep)' : v === 'ok' ? 'var(--ink-mid)' : 'hsl(var(--destructive))';
+              const metricLabels: Record<string, string> = {
+                talk_ratio: 'Talk ratio',
+                longest_monologue: 'Longest monologue',
+                questions: 'Questions asked',
+                hedge_density: 'Hedge words / 100',
+              };
+              const flagLabels: Record<string, string> = {
+                pitched_before_discovery_complete: 'Pitched before discovery finished',
+                objection_ignored: 'Objection ignored',
+                numbers_mismatch: 'Used hypothetical numbers',
+              };
+              const metricEntries = Object.entries(coaching.metrics ?? {}) as [string, CoachingVerdict][];
+              const flagEntries = (Object.entries(coaching.flags ?? {}) as [string, CoachingFlag][])
+                .filter(([k]) => k !== 'next_step_secured');
+              const nextStep = coaching.flags?.next_step_secured;
+              return (
+                <div className="space-y-6">
+                  {coaching.summary && (
+                    <ProtoCard>
+                      <h3 className="mb-2 text-[15px] font-semibold text-foreground" style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.01em' }}>
+                        Coach's summary{coaching.rep ? ` — ${coaching.rep}` : ''}
+                      </h3>
+                      <p className="text-sm leading-relaxed text-muted-foreground">{coaching.summary}</p>
+                    </ProtoCard>
+                  )}
+
+                  {metricEntries.length > 0 && (
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                      {metricEntries.map(([key, m]) => (
+                        <div key={key} className="rounded-xl p-4" style={{ background: 'var(--paper-card)', border: '1px solid var(--rule)' }}>
+                          <p className="text-[12.5px]" style={{ color: 'var(--ink-mid)' }}>{metricLabels[key] ?? key}</p>
+                          <p className="mt-1 text-[22px] font-semibold leading-none" style={{ color: verdictColor(m.verdict), letterSpacing: '-0.02em' }}>
+                            {m.value}{key === 'talk_ratio' ? '%' : key === 'longest_monologue' ? 's' : ''}
+                          </p>
+                          <p className="mt-1.5 text-[11.5px] leading-snug" style={{ color: 'var(--ink-soft)' }}>{m.note}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {(flagEntries.some(([, f]) => f?.value) || nextStep) && (
+                    <InsightSection title="Moments">
+                      {flagEntries.filter(([, f]) => f?.value).map(([key, f]) => (
+                        <InsightItem key={key} accent="hsl(var(--destructive))">
+                          <span className="text-sm font-medium text-foreground">{flagLabels[key] ?? key}</span>{' '}
+                          <TsLink ts={f.evidence_ts ?? undefined} onJump={jumpToRecording} />
+                          {f.note && <span className="mt-1 block text-xs text-muted-foreground">{f.note}</span>}
+                        </InsightItem>
+                      ))}
+                      {nextStep && (
+                        <InsightItem accent={nextStep.value ? 'var(--ember)' : 'hsl(var(--destructive))'}>
+                          <span className="text-sm font-medium text-foreground">
+                            {nextStep.value
+                              ? `Next step secured${nextStep.strength === 'date_locked' ? ' — date locked' : nextStep.strength === 'vague' ? ' — but vague' : ''}`
+                              : 'No next step secured'}
+                          </span>{' '}
+                          <TsLink ts={nextStep.evidence_ts ?? undefined} onJump={jumpToRecording} />
+                          {nextStep.note && <span className="mt-1 block text-xs text-muted-foreground">{nextStep.note}</span>}
+                        </InsightItem>
+                      )}
+                    </InsightSection>
+                  )}
+
+                  {(coaching.sentiment_timeline?.length ?? 0) >= 2 && (
+                    <ProtoCard>
+                      <h3 className="mb-1 text-[15px] font-semibold text-foreground" style={{ fontFamily: 'var(--font-display)', letterSpacing: '-0.01em' }}>
+                        {coaching.external_participant ? `${coaching.external_participant}'s engagement` : 'Engagement over time'}
+                      </h3>
+                      <p className="mb-3 text-xs" style={{ color: 'var(--ink-soft)' }}>Sentiment of the other side across the call. Dots mark inflection points.</p>
+                      <SentimentSparkline timeline={coaching.sentiment_timeline!} />
+                    </ProtoCard>
+                  )}
+                </div>
+              );
+            })()}
+
             {/* ═══ TRANSCRIPT TAB ═══ */}
-            {activeTab === 'transcript' && (
+            {activeTab === 'transcript' && (() => {
+              const internalCount = speakerSegments.filter((s) => (s.zone ?? 'meeting') !== 'meeting').length;
+              const visibleSegments = showInternal
+                ? speakerSegments
+                : speakerSegments.filter((s) => (s.zone ?? 'meeting') === 'meeting');
+              return (
               <div>
-                {speakerSegments.length > 0 ? speakerSegments.map((seg, i) => {
-                  const prevSpeaker = i > 0 ? speakerSegments[i - 1].speaker : null;
-                  const isNewSpeaker = seg.speaker !== prevSpeaker;
+                {internalCount > 0 && (
+                  <div
+                    className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg px-4 py-2.5"
+                    style={{ background: 'var(--paper-card)', border: '1px solid var(--rule)' }}
+                  >
+                    <span className="text-[12.5px]" style={{ color: 'var(--ink-mid)' }}>
+                      {internalCount} internal segment{internalCount === 1 ? '' : 's'} (pre/post-meeting chatter) {showInternal ? 'shown below' : 'hidden'} — visible only to you, never included in summaries or shares.
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowInternal((v) => !v)}
+                      className="inline-flex items-center gap-1.5 text-[12.5px] font-medium"
+                      style={{ color: 'var(--ember-deep)' }}
+                    >
+                      {showInternal ? <EyeOff size={13} strokeWidth={1.75} /> : <Eye size={13} strokeWidth={1.75} />}
+                      {showInternal ? 'Hide internal audio' : 'Show internal audio'}
+                    </button>
+                  </div>
+                )}
+                {visibleSegments.length > 0 ? visibleSegments.map((seg, i) => {
+                  const prevSpeaker = i > 0 ? visibleSegments[i - 1].speaker : null;
+                  const prevZone = i > 0 ? (visibleSegments[i - 1].zone ?? 'meeting') : null;
+                  const zone = seg.zone ?? 'meeting';
+                  const isInternal = zone !== 'meeting';
+                  const isNewSpeaker = seg.speaker !== prevSpeaker || zone !== prevZone;
                   return (
-                    <div key={i} className="flex gap-3 border-b border-border py-3">
+                    <div key={i} className={cn('flex gap-3 border-b border-border py-3', isInternal && 'opacity-60')}>
                       {isNewSpeaker ? (
                         <div 
                           className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold text-white flex-shrink-0"
@@ -828,8 +1090,14 @@ export default function MeetingDetail() {
                           <div className="flex gap-2 items-center mb-1">
                             <span className="text-[13px] font-medium text-foreground">{seg.speaker}</span>
                             {seg.start !== undefined && (
-                              <span className="text-[11px] font-mono text-muted-foreground">
-                                {Math.floor((seg.start || 0) / 60)}:{String(Math.floor((seg.start || 0) % 60)).padStart(2, '0')}
+                              <TsLink ts={seg.start} onJump={jumpToRecording} />
+                            )}
+                            {isInternal && (
+                              <span
+                                className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+                                style={{ background: 'color-mix(in oklch, var(--ink) 8%, transparent)', color: 'var(--ink-soft)' }}
+                              >
+                                Internal — not shared
                               </span>
                             )}
                           </div>
@@ -849,9 +1117,10 @@ export default function MeetingDetail() {
                   </ProtoCard>
                 )}
               </div>
-            )}
+              );
+            })()}
 
-            {activeTab === 'recording' && <RecordingPlayer meetingId={meeting.id} />}
+            {activeTab === 'recording' && <RecordingPlayer meetingId={meeting.id} seekSeconds={seekSeconds} />}
 
             {/* ═══ DELIVERY TAB ═══ */}
             {activeTab === 'delivery' && (
