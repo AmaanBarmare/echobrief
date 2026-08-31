@@ -8,7 +8,7 @@ export default tseslint.config(
   // supabase/functions is Deno code (Deno globals, deno test toolchain) owned
   // by the edge-function workflow — the browser-targeted ESLint config here
   // produces false positives on it (e.g. prefer-const on Deno destructuring).
-  { ignores: ["dist", "supabase/functions"] },
+  { ignores: ["dist", "supabase/functions", ".claude"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],
