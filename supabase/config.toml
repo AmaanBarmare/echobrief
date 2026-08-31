@@ -60,7 +60,7 @@ verify_jwt = false
 verify_jwt = true
 
 [functions.send-email-report]
-verify_jwt = false
+verify_jwt = true
 
 # Parked (not deployed, cron unscheduled). Service-role-only in code.
 [functions.send-scheduled-emails]
