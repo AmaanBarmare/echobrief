@@ -53,6 +53,9 @@ export function BillingCard() {
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
   const [usage, setUsage] = useState<Usage | null>(null);
+  // The server's answer to "which plan am I on". planForProfile here is only a
+  // floor — it has no Dodo product map, so an annual Pro would read as Starter.
+  const [serverPlan, setServerPlan] = useState<PlanKey | null>(null);
   // A pricing-page CTA lands here as ?plan=pro&billing=annual; the toggle
   // starts on what the customer clicked, and they can still change it.
   const [period, setPeriod] = useState<BillingPeriod>(
@@ -76,6 +79,14 @@ export function BillingCard() {
         .gte('occurred_at', periodStart()),
     ]);
     if (profileResult.data) setProfile(profileResult.data as BillingProfile);
+    // Best-effort: if this fails the card falls back to the local floor rather
+    // than showing nothing.
+    supabase.functions
+      .invoke('manage-billing', { body: { action: 'plan' } })
+      .then(({ data }) => {
+        if (data?.plan) setServerPlan(data.plan as PlanKey);
+      })
+      .catch(() => undefined);
     const rows = (usageResult.data ?? []) as Array<{ kind: string; seconds: number }>;
     setUsage({
       meetings: rows.filter((r) => r.kind === 'meeting_started').length,
@@ -127,7 +138,8 @@ export function BillingCard() {
   const highlighted = SELLABLE_PLANS.includes(requested as PlanKey) ? requested : 'pro';
   const status = profile?.subscription_status ?? 'none';
   const isActive = status === 'active';
-  const limits = PLANS[planForProfile(profile)];
+  const currentPlan = serverPlan ?? planForProfile(profile);
+  const limits = PLANS[currentPlan];
   // Count-metered plans (only the no-subscription state today) vs hour-metered
   // paid plans. A zero allowance must not divide by zero.
   const usedFraction = limits.meetingsPerPeriod !== null
@@ -230,6 +242,152 @@ export function BillingCard() {
           </div>
         )}
       </div>
+
+      {!loading && (
+        <div className="rounded-2xl border border-border bg-card p-6 text-card-foreground shadow-sm">
+          <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold text-foreground">
+                {isActive ? 'Your plan' : 'Choose a plan'}
+              </h2>
+              <p className="mt-1 text-[13px]" style={{ color: 'var(--ink-mid)' }}>
+                {isActive
+                  ? 'Switch plans or cancel from Manage billing above.'
+                  : 'A plan is what lets the bot join and record. Prices include tax; cancel anytime.'}
+              </p>
+            </div>
+            <div
+              className="inline-flex shrink-0 rounded-md p-0.5"
+              style={{ background: 'var(--paper-deep)' }}
+              role="group"
+              aria-label="Billing period"
+            >
+              {(['monthly', 'annual'] as BillingPeriod[]).map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => setPeriod(option)}
+                  aria-pressed={period === option}
+                  className="rounded-[5px] px-3 py-1 text-[12.5px] font-medium capitalize transition-colors"
+                  style={
+                    period === option
+                      ? { background: 'var(--paper-card)', color: 'var(--ink)' }
+                      : { color: 'var(--ink-soft)' }
+                  }
+                >
+                  {option === 'annual' ? 'Yearly · 2 months free' : 'Monthly'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            {SELLABLE_PLANS.map((key) => {
+              const plan = key as 'starter' | 'pro';
+              const copy = PLAN_COPY[plan];
+              const price = PLAN_PRICES[plan][period];
+              const isCurrent = isActive && currentPlan === plan;
+              const isRecommended = !isActive && plan === highlighted;
+              return (
+                <div
+                  key={plan}
+                  className="flex flex-col rounded-xl border p-5"
+                  style={{
+                    borderColor: isCurrent || isRecommended ? 'var(--ember)' : 'var(--rule)',
+                    background: 'var(--paper-card)',
+                  }}
+                >
+                  <div className="flex items-baseline justify-between gap-2">
+                    <h3 className="text-[15px] font-semibold text-foreground">
+                      {PLANS[plan].label}
+                    </h3>
+                    {(isCurrent || isRecommended) && (
+                      <span
+                        className="rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide"
+                        style={{
+                          background: 'color-mix(in oklch, var(--ember) 14%, transparent)',
+                          color: 'var(--ember-deep)',
+                        }}
+                      >
+                        {isCurrent ? 'Current' : 'Recommended'}
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-0.5 text-[12.5px]" style={{ color: 'var(--ink-soft)' }}>
+                    {copy.tagline}
+                  </p>
+
+                  <p className="mt-3 text-[24px] font-semibold leading-none text-foreground">
+                    ₹{formatINR(price)}
+                    <span className="text-[13px] font-normal" style={{ color: 'var(--ink-soft)' }}>
+                      {period === 'annual' ? '/year' : '/month'}
+                    </span>
+                  </p>
+                  <p className="mt-1 text-[12px]" style={{ color: 'var(--ink-soft)' }}>
+                    {period === 'annual'
+                      ? `Works out to ₹${formatINR(Math.round(price / 12))}/month, billed yearly`
+                      : 'Billed monthly'}
+                  </p>
+
+                  <ul className="mt-4 flex-1 space-y-2">
+                    {[...copy.features, copy.overage].map((feature) => (
+                      <li
+                        key={feature}
+                        className="flex items-start gap-2 text-[13px] leading-[1.5]"
+                        style={{ color: 'var(--ink-mid)' }}
+                      >
+                        <Check
+                          className="mt-[3px] h-3.5 w-3.5 shrink-0"
+                          style={{ color: 'var(--ember)' }}
+                          strokeWidth={2.5}
+                        />
+                        {feature}
+                      </li>
+                    ))}
+                    <li
+                      className="flex items-start gap-2 text-[13px] leading-[1.5]"
+                      style={{ color: 'var(--ink-mid)' }}
+                    >
+                      <Check
+                        className="mt-[3px] h-3.5 w-3.5 shrink-0"
+                        style={{ color: 'var(--ember)' }}
+                        strokeWidth={2.5}
+                      />
+                      Up to {Math.round(PLANS[plan].maxMeetingSeconds / 3600)} hours per meeting
+                    </li>
+                  </ul>
+
+                  <Button
+                    className="mt-5 w-full"
+                    variant={isRecommended ? 'default' : 'outline'}
+                    disabled={working || isCurrent}
+                    onClick={() => invoke('checkout', plan)}
+                  >
+                    {working && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+                    {isCurrent
+                      ? 'Current plan'
+                      : isActive
+                      ? `Switch to ${PLANS[plan].label}`
+                      : `Choose ${PLANS[plan].label}`}
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+
+          <p className="mt-5 text-[12.5px]" style={{ color: 'var(--ink-soft)' }}>
+            Need a shared workspace, pooled hours or SSO?{' '}
+            <a
+              href="mailto:hello@echobrief.in?subject=EchoBrief%20for%20teams"
+              className="font-medium no-underline"
+              style={{ color: 'var(--ember-deep)' }}
+            >
+              Talk to us about Teams
+            </a>
+            .
+          </p>
+        </div>
+      )}
     </div>
   );
 }

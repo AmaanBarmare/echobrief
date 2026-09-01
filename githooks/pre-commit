@@ -1,5 +1,5 @@
 #!/bin/sh
-# Blocks any commit that takes the codebase off-brand.
+# Blocks any commit that takes the codebase off-brand or logs a credential.
 # Escape hatch for a genuine one-off: git commit --no-verify
 node scripts/brand-check.mjs || {
   echo ""
@@ -7,3 +7,4 @@ node scripts/brand-check.mjs || {
   echo "add a // brand-check-ignore comment if the exception is deliberate."
   exit 1
 }
+node scripts/secret-log-check.mjs || exit 1

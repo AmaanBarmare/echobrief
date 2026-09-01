@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { ChevronRight, Check, Calendar, Bell, Zap, Settings } from 'lucide-react';
@@ -11,6 +12,7 @@ type Step = 'welcome' | 'preferences' | 'calendar' | 'notifications' | 'complete
 export default function Onboarding() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [step, setStep] = useState<Step>('welcome');
   const [loading, setLoading] = useState(false);
 
@@ -40,7 +42,7 @@ export default function Onboarding() {
     if (!user) return;
     setLoading(true);
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('profiles')
         .update({
           onboarding_completed: true,
@@ -49,9 +51,17 @@ export default function Onboarding() {
           notification_frequency: notificationFreq,
           google_calendar_connected: calendarEnabled,
         })
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .select('user_id');
 
       if (error) throw error;
+      // An UPDATE that matches no row is not an error — without a profile row the
+      // flag never persists and the dashboard gate sends the user straight back here.
+      if (!data || data.length === 0) throw new Error('Your profile could not be found. Please sign out and back in.');
+
+      // The dashboard's onboarding gate reads this from the query cache (staleTime 60s).
+      // Without seeding it, the gate still sees the stale `false` and bounces us back.
+      queryClient.setQueryData(['profile-onboarding', user.id], { onboarding_completed: true });
       navigate('/dashboard');
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error';

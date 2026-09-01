@@ -1,6 +1,6 @@
 /**
- * Billing actions for the signed-in user: start a subscription checkout, or
- * open the Dodo customer portal.
+ * Billing actions for the signed-in user: report which plan they are on, start
+ * a subscription checkout, or open the Dodo customer portal.
  *
  * The client names a PLAN ("starter" | "pro") and a billing period ("monthly" |
  * "annual"), never a product or a price — the pair is resolved to a Dodo product
@@ -16,7 +16,12 @@ import {
   createCheckoutSession,
   createCustomerPortalSession,
 } from "../_shared/dodo.ts";
-import { BILLING_PERIODS, productForPlan, SELLABLE_PLANS } from "../_shared/entitlements.ts";
+import {
+  BILLING_PERIODS,
+  planForProfile,
+  productForPlan,
+  SELLABLE_PLANS,
+} from "../_shared/entitlements.ts";
 import type { BillingPeriod, PlanKey } from "../_shared/entitlements.ts";
 
 const APP_URL = Deno.env.get("APP_URL") ?? "https://www.echobrief.in";
@@ -54,9 +59,19 @@ serve(async (req) => {
 
     const { data: profile } = await admin
       .from("profiles")
-      .select("email, full_name, dodo_customer_id, subscription_status")
+      .select(
+        "email, full_name, dodo_customer_id, subscription_status, subscription_product_id, subscription_renews_at, plan_override",
+      )
       .eq("user_id", user.id)
       .maybeSingle();
+
+    // Which plan the caller is actually on. The client mirror in
+    // src/lib/plans.ts cannot answer this — it has no product map, so it floors
+    // every paid subscription to Starter. The billing page asks here instead,
+    // and marks the right card "Current".
+    if (action === "plan") {
+      return json({ plan: planForProfile(profile) });
+    }
 
     if (action === "checkout") {
       const plan = (body?.plan ?? SELLABLE_PLANS[0]) as PlanKey;
