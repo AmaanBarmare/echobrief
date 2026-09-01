@@ -2,9 +2,12 @@
  * Billing actions for the signed-in user: start a subscription checkout, or
  * open the Dodo customer portal.
  *
- * The product is fixed server-side (DODO_PRODUCT_ID secret) — the client never
- * chooses a product or price. metadata.user_id on the checkout session is what
- * lets dodo-webhook attach the resulting subscription to the right profile.
+ * The client names a PLAN ("starter" | "pro"), never a product or a price —
+ * the plan is resolved to a Dodo product server-side by `productForPlan`, off
+ * the same DODO_PLAN_PRODUCTS map that decides entitlements, so what a customer
+ * pays for and what they get can never drift apart. metadata.user_id on the
+ * checkout session is what lets dodo-webhook attach the subscription to the
+ * right profile.
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -13,6 +16,8 @@ import {
   createCheckoutSession,
   createCustomerPortalSession,
 } from "../_shared/dodo.ts";
+import { productForPlan, SELLABLE_PLANS } from "../_shared/entitlements.ts";
+import type { PlanKey } from "../_shared/entitlements.ts";
 
 const APP_URL = Deno.env.get("APP_URL") ?? "https://www.echobrief.in";
 
@@ -54,7 +59,11 @@ serve(async (req) => {
       .maybeSingle();
 
     if (action === "checkout") {
-      const productId = Deno.env.get("DODO_PRODUCT_ID");
+      const plan = (body?.plan ?? SELLABLE_PLANS[0]) as PlanKey;
+      if (!SELLABLE_PLANS.includes(plan)) {
+        return json({ error: `Unknown plan: ${plan}` }, 400);
+      }
+      const productId = productForPlan(plan);
       if (!productId) {
         return json({ error: "Billing is not configured yet" }, 503);
       }

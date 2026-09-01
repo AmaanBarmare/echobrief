@@ -6,7 +6,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { CreditCard, ExternalLink, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { formatHours, PLANS, periodStart, planForProfile } from '@/lib/plans';
+import { formatHours, PLANS, periodStart, planForProfile, SELLABLE_PLANS } from '@/lib/plans';
+import type { PlanKey } from '@/lib/plans';
 
 interface BillingProfile {
   subscription_status: string;
@@ -24,6 +25,15 @@ interface Usage {
 // src/integrations/supabase/types.ts. Same escape hatch Contacts.tsx uses for
 // `contacts`; regenerating the types is a separate chore.
 const db = supabase as unknown as SupabaseClient;
+
+// The rupee figures the pricing page prints, mirrored here so the buttons say
+// what the customer is about to be charged. They must match the live Dodo
+// products (EchoBrief Starter / EchoBrief Pro) and
+// src/components/landing/Pricing.tsx.
+const PLAN_PRICES: Record<'starter' | 'pro', string> = {
+  starter: '799',
+  pro: '1,999',
+};
 
 const STATUS_LABELS: Record<string, string> = {
   none: 'No subscription',
@@ -89,11 +99,11 @@ export function BillingCard() {
     }
   }, [searchParams, setSearchParams, toast, refresh]);
 
-  const invoke = useCallback(async (action: 'checkout' | 'portal') => {
+  const invoke = useCallback(async (action: 'checkout' | 'portal', plan?: PlanKey) => {
     setWorking(true);
     try {
       const { data, error } = await supabase.functions.invoke('manage-billing', {
-        body: { action },
+        body: { action, plan },
       });
       if (error) throw new Error(error.message);
       if (data?.error) throw new Error(data.error);
@@ -175,12 +185,18 @@ export function BillingCard() {
                   Manage billing
                 </Button>
               )}
-              {!isActive && (
-                <Button size="sm" disabled={working} onClick={() => invoke('checkout')}>
+              {!isActive && SELLABLE_PLANS.map((plan) => (
+                <Button
+                  key={plan}
+                  size="sm"
+                  variant={plan === 'pro' ? 'default' : 'outline'}
+                  disabled={working}
+                  onClick={() => invoke('checkout', plan)}
+                >
                   {working && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
-                  Subscribe
+                  {PLANS[plan].label} — ₹{PLAN_PRICES[plan]}/mo
                 </Button>
-              )}
+              ))}
             </div>
           </div>
         )}

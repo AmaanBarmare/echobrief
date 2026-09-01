@@ -94,10 +94,9 @@ export interface BillingProfile {
 /**
  * Resolve which plan a profile is on.
  *
- * Only one Dodo product is sold today, so a paid subscription maps to the plan
- * named by DODO_DEFAULT_PAID_PLAN. Once more products exist, set
- * DODO_PLAN_PRODUCTS to a JSON object of `{ "<dodo product id>": "pro" }` and
- * the product id on the profile decides.
+ * DODO_PLAN_PRODUCTS is a JSON object of `{ "<dodo product id>": "pro" }` and
+ * the product id on the profile decides. A subscription whose product is not
+ * in the map falls back to the plan named by DODO_DEFAULT_PAID_PLAN.
  */
 export function planForProfile(
   profile: BillingProfile | null | undefined,
@@ -136,6 +135,37 @@ export function planForProfile(
 
   const fallback = env("DODO_DEFAULT_PAID_PLAN") || "starter";
   return (fallback in PLANS ? fallback : "starter") as PlanKey;
+}
+
+/** The plans a customer can actually buy from checkout. */
+export const SELLABLE_PLANS: PlanKey[] = ["starter", "pro"];
+
+/**
+ * The Dodo product to sell for a plan — the inverse of the DODO_PLAN_PRODUCTS
+ * map that `planForProfile` reads, so one env var defines the mapping in both
+ * directions and the two can never disagree.
+ *
+ * DODO_PRODUCT_ID stays the fallback for the single-product setup: it answers
+ * for DODO_DEFAULT_PAID_PLAN (default "starter") when the map has no entry.
+ */
+export function productForPlan(
+  plan: PlanKey,
+  env: (key: string) => string | undefined = (k) => Deno.env.get(k),
+): string | null {
+  if (!SELLABLE_PLANS.includes(plan)) return null;
+
+  try {
+    const map = JSON.parse(env("DODO_PLAN_PRODUCTS") || "{}") as Record<string, string>;
+    for (const [productId, mapped] of Object.entries(map)) {
+      if (mapped === plan) return productId;
+    }
+  } catch {
+    // Malformed map: fall through to the single-product secret.
+  }
+
+  const fallbackPlan = env("DODO_DEFAULT_PAID_PLAN") || "starter";
+  if (plan === fallbackPlan) return env("DODO_PRODUCT_ID") || null;
+  return null;
 }
 
 /**

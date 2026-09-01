@@ -58,6 +58,9 @@ export const PLANS: Record<PlanKey, PlanLimits> = {
   },
 };
 
+/** Mirrors SELLABLE_PLANS in entitlements.ts — the plans checkout can sell. */
+export const SELLABLE_PLANS: PlanKey[] = ['starter', 'pro'];
+
 const ENTITLED_STATUSES = new Set(['active', 'cancelled']);
 
 /** Mirrors `planForProfile` in entitlements.ts, minus the Dodo product map. */

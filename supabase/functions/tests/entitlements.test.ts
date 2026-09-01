@@ -8,10 +8,57 @@ import {
   periodStart,
   PLANS,
   planForProfile,
+  productForPlan,
   readUsage,
+  SELLABLE_PLANS,
 } from "../_shared/entitlements.ts";
 
 const noEnv = () => undefined;
+
+Deno.test("productForPlan: reads the plan out of the DODO_PLAN_PRODUCTS map", () => {
+  const env = (k: string) =>
+    k === "DODO_PLAN_PRODUCTS"
+      ? JSON.stringify({ pdt_starter: "starter", pdt_pro: "pro" })
+      : undefined;
+  assertEquals(productForPlan("starter", env), "pdt_starter");
+  assertEquals(productForPlan("pro", env), "pdt_pro");
+});
+
+Deno.test("productForPlan: falls back to DODO_PRODUCT_ID for the default plan only", () => {
+  const env = (k: string) => (k === "DODO_PRODUCT_ID" ? "pdt_only" : undefined);
+  assertEquals(productForPlan("starter", env), "pdt_only");
+  assertEquals(productForPlan("pro", env), null);
+});
+
+Deno.test("productForPlan: a malformed map still yields the fallback product", () => {
+  const env = (k: string) =>
+    k === "DODO_PLAN_PRODUCTS" ? "{not json" : k === "DODO_PRODUCT_ID" ? "pdt_only" : undefined;
+  assertEquals(productForPlan("starter", env), "pdt_only");
+});
+
+Deno.test("productForPlan: refuses plans that are not for sale", () => {
+  const env = (k: string) =>
+    k === "DODO_PLAN_PRODUCTS"
+      ? JSON.stringify({ pdt_free: "free", pdt_teams: "teams" })
+      : undefined;
+  assertEquals(productForPlan("free", env), null);
+  assertEquals(productForPlan("teams", env), null);
+  assertEquals(SELLABLE_PLANS, ["starter", "pro"]);
+});
+
+Deno.test("productForPlan and planForProfile agree on one map", () => {
+  const env = (k: string) =>
+    k === "DODO_PLAN_PRODUCTS"
+      ? JSON.stringify({ pdt_starter: "starter", pdt_pro: "pro" })
+      : undefined;
+  for (const plan of SELLABLE_PLANS) {
+    const productId = productForPlan(plan, env)!;
+    assertEquals(
+      planForProfile({ subscription_status: "active", subscription_product_id: productId }, env),
+      plan,
+    );
+  }
+});
 
 Deno.test("planForProfile: no profile or no subscription is free", () => {
   assertEquals(planForProfile(null, noEnv), "free");
