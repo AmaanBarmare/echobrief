@@ -74,6 +74,43 @@ export const PLAN_PRICES: Record<'starter' | 'pro', Record<BillingPeriod, number
   pro: { monthly: 1999, annual: 19990 },
 };
 
+export interface PlanCopy {
+  tagline: string;
+  /** What the plan includes, in the customer's words. */
+  features: string[];
+  /** What a meeting-hour past the included allowance costs. */
+  overage: string;
+}
+
+/**
+ * The sales copy for each sellable plan. One source for the pricing page and
+ * the Settings → Billing plan chooser, so a customer comparing the two never
+ * reads two different promises.
+ */
+export const PLAN_COPY: Record<'starter' | 'pro', PlanCopy> = {
+  starter: {
+    tagline: 'For individuals',
+    features: [
+      '10 meeting-hours / month',
+      'Email delivery and Google Calendar follow-ups',
+      'Full AI insights',
+      'Speaker identification',
+      '30-day retention',
+    ],
+    overage: '₹129/hr overage, capped at +10 hrs',
+  },
+  pro: {
+    tagline: 'For power users',
+    features: [
+      '25 meeting-hours / month',
+      'Everything in Starter',
+      'Custom vocabulary and priority processing',
+      '90-day retention',
+    ],
+    overage: '₹99/hr after that',
+  },
+};
+
 export function formatINR(amount: number): string {
   return new Intl.NumberFormat('en-IN').format(amount);
 }

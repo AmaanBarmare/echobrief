@@ -15,6 +15,7 @@ import { formatIST } from '@/lib/time';
 import { checkPwnedPassword } from '@/lib/pwned';
 import { ApiTokensCard } from '@/components/settings/ApiTokensCard';
 import { BillingCard } from '@/components/settings/BillingCard';
+import { ExportDataCard } from '@/components/settings/ExportDataCard';
 
 interface Profile {
   id: string;
@@ -1044,6 +1045,9 @@ export default function Settings() {
                 Sign Out
               </Button>
             </div>
+
+            {/* Export — the DPDP portability right the privacy policy promises. */}
+            <ExportDataCard />
 
             {/* Delete Account */}
             <div className="rounded-2xl border border-border bg-card p-6 text-card-foreground shadow-sm">

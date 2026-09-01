@@ -4,11 +4,12 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { CreditCard, ExternalLink, Loader2 } from 'lucide-react';
+import { Check, CreditCard, ExternalLink, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   formatHours,
   formatINR,
+  PLAN_COPY,
   PLAN_PRICES,
   PLANS,
   periodStart,
@@ -180,31 +181,6 @@ export function BillingCard() {
               )}
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              {!isActive && (
-                <div
-                  className="mr-1 inline-flex rounded-md p-0.5"
-                  style={{ background: 'var(--paper-deep)' }}
-                  role="group"
-                  aria-label="Billing period"
-                >
-                  {(['monthly', 'annual'] as BillingPeriod[]).map((option) => (
-                    <button
-                      key={option}
-                      type="button"
-                      onClick={() => setPeriod(option)}
-                      aria-pressed={period === option}
-                      className="rounded-[5px] px-2.5 py-1 text-[12.5px] font-medium capitalize transition-colors"
-                      style={
-                        period === option
-                          ? { background: 'var(--paper-card)', color: 'var(--ink)' }
-                          : { color: 'var(--ink-soft)' }
-                      }
-                    >
-                      {option}
-                    </button>
-                  ))}
-                </div>
-              )}
               {profile?.dodo_customer_id && (
                 <Button
                   variant="outline"
@@ -216,20 +192,6 @@ export function BillingCard() {
                   Manage billing
                 </Button>
               )}
-              {!isActive && SELLABLE_PLANS.map((plan) => (
-                <Button
-                  key={plan}
-                  size="sm"
-                  variant={plan === highlighted ? 'default' : 'outline'}
-                  disabled={working}
-                  onClick={() => invoke('checkout', plan)}
-                >
-                  {working && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
-                  {PLANS[plan].label} — ₹
-                  {formatINR(PLAN_PRICES[plan as 'starter' | 'pro'][period])}
-                  {period === 'annual' ? '/yr' : '/mo'}
-                </Button>
-              ))}
             </div>
           </div>
         )}

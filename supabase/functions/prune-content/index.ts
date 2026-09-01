@@ -13,9 +13,14 @@
  * Deleting the meeting row outright would also silently destroy the usage
  * ledger's link and the calendar dedup guard.
  *
- * Cron-only (service role). Scheduled daily at 03:45 UTC by migration
- * 20260901120100 — deliberately clear of prune-job-logs (03:15) and
- * prune-recordings (03:30) so the three never contend for the same IO tick.
+ * Cron-only (service role). Daily at 04:15 UTC (20260901130000). The first
+ * slot picked, 03:45, sat on top of prune-oauth: it came from CLAUDE.md, which
+ * listed prune-job-logs at 03:15 and prune-recordings at 03:30 when the live
+ * schedule had long since been re-anchored to IST (21:45 and 22:00 UTC). Check
+ * `select jobname, schedule from cron.job` before moving it again.
+ *
+ * Meetings recorded before this policy existed carry `retention_exempt` and are
+ * skipped — see migration 20260901170000.
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -73,7 +78,10 @@ serve(async (req) => {
           .select("id, audio_url")
           .in("user_id", ids)
           .lt("created_at", cutoff)
-          .is("content_pruned_at", null);
+          .is("content_pruned_at", null)
+          // Meetings recorded before the retention policy existed are exempt —
+          // see migration 20260901170000. Nothing recorded after it is.
+          .eq("retention_exempt", false);
         if (error) throw new Error(`expired scan failed for ${plan}: ${error.message}`);
         expired.push(...(data ?? []));
       }

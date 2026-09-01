@@ -1,0 +1,100 @@
+import { useState } from 'react';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { Download, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+
+// `contacts` and `usage_events` post-date the generated types; same escape
+// hatch Contacts.tsx and BillingCard.tsx use.
+const db = supabase as unknown as SupabaseClient;
+
+/**
+ * Data export — the DPDP portability right, and the thing the privacy policy
+ * promises. Everything is read through the caller's own session, so RLS scopes
+ * it: there is no server endpoint to secure, and no way for this to return
+ * somebody else's rows even if the queries were wrong.
+ *
+ * The file is assembled and downloaded in the browser. For the meeting volumes
+ * this product produces that is far simpler than a job that emails a link, and
+ * it means the export never touches our servers as a stored artefact.
+ */
+export function ExportDataCard() {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [working, setWorking] = useState(false);
+
+  const handleExport = async () => {
+    if (!user) return;
+    setWorking(true);
+    try {
+      const [meetings, transcripts, insights, actionItems, contacts, profile] = await Promise.all([
+        db.from('meetings').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+        db.from('transcripts').select('*').eq('user_id', user.id),
+        db.from('meeting_insights').select('*'),
+        db.from('action_item_completions').select('*').eq('user_id', user.id),
+        db.from('contacts').select('*').eq('user_id', user.id),
+        db.from('profiles').select('*').eq('user_id', user.id).maybeSingle(),
+      ]);
+
+      const firstError = [meetings, transcripts, insights, actionItems, contacts, profile]
+        .map((r) => r.error)
+        .find(Boolean);
+      if (firstError) throw new Error(firstError.message);
+
+      const payload = {
+        exported_at: new Date().toISOString(),
+        account: { id: user.id, email: user.email },
+        profile: profile.data ?? null,
+        meetings: meetings.data ?? [],
+        transcripts: transcripts.data ?? [],
+        insights: insights.data ?? [],
+        action_item_completions: actionItems.data ?? [],
+        contacts: contacts.data ?? [],
+      };
+
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `echobrief-export-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: 'Export ready',
+        description: `${payload.meetings.length} meetings and ${payload.transcripts.length} transcripts downloaded.`,
+      });
+    } catch (err) {
+      toast({
+        title: 'Export failed',
+        description: err instanceof Error ? err.message : 'Could not build your export.',
+        variant: 'destructive',
+      });
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-6 text-card-foreground shadow-sm">
+      <h3 className="mb-2 text-[15px] font-semibold text-foreground">Export Your Data</h3>
+      <p className="mb-4 text-[13px] text-muted-foreground">
+        Download every meeting, transcript, summary and contact on your account as a single
+        JSON file. Nothing leaves your browser except the queries that fetch it.
+      </p>
+      <Button
+        variant="outline"
+        onClick={handleExport}
+        disabled={working || !user}
+        className="border-border text-foreground hover:bg-muted"
+      >
+        {working ? <Loader2 size={14} className="mr-2 animate-spin" /> : <Download size={14} className="mr-2" />}
+        {working ? 'Preparing…' : 'Download my data'}
+      </Button>
+    </div>
+  );
+}

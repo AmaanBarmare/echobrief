@@ -4,7 +4,7 @@ import { Check } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { openWaitlist } from '@/lib/waitlist';
 import { signupPath } from '@/lib/signupLink';
-import type { PlanKey } from '@/lib/plans';
+import { PLAN_COPY, PLAN_PRICES, type PlanKey } from '@/lib/plans';
 
 type Billing = 'monthly' | 'annual';
 
@@ -27,37 +27,26 @@ type Tier = {
 };
 
 const tiers: Tier[] = [
+  // Price and copy come from src/lib/plans.ts so this page and the Settings →
+  // Billing chooser cannot advertise different things.
   {
     name: 'Starter',
     plan: 'starter',
-    tagline: 'For individuals',
-    monthly: 799,
-    annualTotal: 7990,
+    tagline: PLAN_COPY.starter.tagline,
+    monthly: PLAN_PRICES.starter.monthly,
+    annualTotal: PLAN_PRICES.starter.annual,
     unit: '/month',
-    features: [
-      '10 meeting-hours / month',
-      '₹129/hr overage, capped at +10 hrs',
-      'Email delivery and Google Calendar follow-ups',
-      'Full AI insights',
-      'Speaker identification',
-      '30-day retention',
-    ],
+    features: [PLAN_COPY.starter.features[0], PLAN_COPY.starter.overage, ...PLAN_COPY.starter.features.slice(1)],
     cta: 'Get started',
   },
   {
     name: 'Pro',
     plan: 'pro',
-    tagline: 'For power users',
-    monthly: 1999,
-    annualTotal: 19990,
+    tagline: PLAN_COPY.pro.tagline,
+    monthly: PLAN_PRICES.pro.monthly,
+    annualTotal: PLAN_PRICES.pro.annual,
     unit: '/month',
-    features: [
-      '25 meeting-hours / month',
-      '₹99/hr after that',
-      'Everything in Starter',
-      'Custom vocabulary and priority processing',
-      '90-day retention',
-    ],
+    features: [PLAN_COPY.pro.features[0], PLAN_COPY.pro.overage, ...PLAN_COPY.pro.features.slice(1)],
     cta: 'Get started',
     featured: true,
   },
