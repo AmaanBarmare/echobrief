@@ -16,6 +16,7 @@ import { checkPwnedPassword } from '@/lib/pwned';
 import { ApiTokensCard } from '@/components/settings/ApiTokensCard';
 import { BillingCard } from '@/components/settings/BillingCard';
 import { ExportDataCard } from '@/components/settings/ExportDataCard';
+import { SecurityCard } from '@/components/settings/SecurityCard';
 
 interface Profile {
   id: string;
@@ -1045,6 +1046,8 @@ export default function Settings() {
                 Sign Out
               </Button>
             </div>
+
+            <SecurityCard />
 
             {/* Export — the DPDP portability right the privacy policy promises. */}
             <ExportDataCard />

@@ -122,10 +122,18 @@ export function planForProfile(profile: {
   subscription_status?: string | null;
   subscription_renews_at?: string | null;
   plan_override?: string | null;
+  plan_override_expires_at?: string | null;
 } | null): PlanKey {
   if (!profile) return 'free';
+  // Mirrors entitlements.ts: an override with an expiry in the past is spent.
+  // A NULL expiry is permanent, and an unparseable one is treated as permanent
+  // rather than as expired.
   const override = profile.plan_override;
-  if (override && override in PLANS) return override as PlanKey;
+  const overrideEnds = profile.plan_override_expires_at
+    ? Date.parse(profile.plan_override_expires_at)
+    : NaN;
+  const overrideExpired = Number.isFinite(overrideEnds) && overrideEnds <= Date.now();
+  if (override && override in PLANS && !overrideExpired) return override as PlanKey;
 
   const status = (profile.subscription_status || '').toLowerCase();
   if (!ENTITLED_STATUSES.has(status)) return 'free';

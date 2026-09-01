@@ -23,6 +23,7 @@ interface BillingProfile {
   subscription_renews_at: string | null;
   dodo_customer_id: string | null;
   plan_override: string | null;
+  plan_override_expires_at: string | null;
 }
 
 interface Usage {
@@ -68,7 +69,7 @@ export function BillingCard() {
     const [profileResult, usageResult] = await Promise.all([
       db
         .from('profiles')
-        .select('subscription_status, subscription_renews_at, dodo_customer_id, plan_override')
+        .select('subscription_status, subscription_renews_at, dodo_customer_id, plan_override, plan_override_expires_at')
         .eq('user_id', user.id)
         .maybeSingle(),
       // RLS scopes this to the caller; the ledger is service-write, user-read.
@@ -133,6 +134,57 @@ export function BillingCard() {
       setWorking(false);
     }
   }, [toast, period]);
+
+  const [code, setCode] = useState('');
+  const [redeeming, setRedeeming] = useState(false);
+
+  const redeem = useCallback(async () => {
+    const entered = code.trim().toUpperCase();
+    if (!entered) return;
+    setRedeeming(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('redeem-access-code', {
+        body: { code: entered },
+      });
+      // A refused code comes back as a non-2xx, which surfaces here as an
+      // error; the function's JSON body carries the human-readable reason.
+      if (error) {
+        const detail = await (error as { context?: Response }).context
+          ?.json()
+          .catch(() => null);
+        throw new Error(detail?.error ?? 'That code could not be redeemed.');
+      }
+      const until = data?.granted_until
+        ? new Date(data.granted_until).toLocaleDateString(undefined, {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+          })
+        : null;
+      toast({
+        title: data?.already_redeemed ? 'Code already active' : 'Code redeemed',
+        description: data?.superseded
+          ? 'Your account already has broader access, so nothing changed.'
+          : `${PLANS[data.plan as PlanKey]?.label ?? data.plan} access${until ? ` until ${until}` : ''}.`,
+      });
+      setCode('');
+      await load();
+    } catch (err) {
+      toast({
+        title: 'Could not redeem that code',
+        description: err instanceof Error ? err.message : 'Something went wrong',
+        variant: 'destructive',
+      });
+    } finally {
+      setRedeeming(false);
+    }
+  }, [code, toast, load]);
+
+  const overrideEndsAt = profile?.plan_override_expires_at
+    ? new Date(profile.plan_override_expires_at)
+    : null;
+  const onEarlyAccess =
+    !!profile?.plan_override && !!overrideEndsAt && overrideEndsAt.getTime() > Date.now();
 
   const requested = searchParams.get('plan');
   const highlighted = SELLABLE_PLANS.includes(requested as PlanKey) ? requested : 'pro';
@@ -373,6 +425,45 @@ export function BillingCard() {
                 </div>
               );
             })}
+          </div>
+
+          <div className="mt-6 rounded-xl border border-border p-4">
+            <p className="text-[13px] font-medium text-foreground">
+              Have an early-access code?
+            </p>
+            <p className="mt-0.5 text-[12.5px]" style={{ color: 'var(--ink-mid)' }}>
+              {onEarlyAccess
+                ? `Early access is active until ${overrideEndsAt!.toLocaleDateString(undefined, {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric',
+                  })}.`
+                : 'Redeem it here and your plan switches on straight away.'}
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Input
+                value={code}
+                onChange={(e) => setCode(e.target.value.toUpperCase())}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') redeem();
+                }}
+                placeholder="EB-XXXX-XXXX"
+                maxLength={32}
+                autoCapitalize="characters"
+                autoCorrect="off"
+                spellCheck={false}
+                className="h-9 w-full max-w-[220px] font-mono text-[13px] uppercase"
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={redeeming || !code.trim()}
+                onClick={redeem}
+              >
+                {redeeming && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+                Redeem
+              </Button>
+            </div>
           </div>
 
           <p className="mt-5 text-[12.5px]" style={{ color: 'var(--ink-soft)' }}>

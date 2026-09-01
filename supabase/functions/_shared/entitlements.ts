@@ -89,6 +89,8 @@ export interface BillingProfile {
   subscription_product_id?: string | null;
   subscription_renews_at?: string | null;
   plan_override?: string | null;
+  /** When `plan_override` stops applying. NULL = never (internal accounts). */
+  plan_override_expires_at?: string | null;
 }
 
 /**
@@ -99,6 +101,20 @@ export interface BillingProfile {
  * the two periods are merged because an annual Pro is still Pro. A subscription
  * whose product is in neither map falls back to DODO_DEFAULT_PAID_PLAN.
  */
+/**
+ * True when a `plan_override` carries an expiry that has passed. A NULL expiry
+ * is permanent by design — that is how internal accounts are provisioned — so
+ * absence of a date must never read as "expired".
+ */
+function overrideExpired(profile: BillingProfile, now: Date): boolean {
+  const raw = profile.plan_override_expires_at;
+  if (!raw) return false;
+  const at = Date.parse(raw);
+  // An unparseable date is treated as no expiry rather than as expired: a bad
+  // value must not silently revoke a partner's access.
+  return Number.isFinite(at) && at <= now.getTime();
+}
+
 export function planForProfile(
   profile: BillingProfile | null | undefined,
   env: (key: string) => string | undefined = (k) => Deno.env.get(k),
@@ -106,10 +122,14 @@ export function planForProfile(
 ): PlanKey {
   if (!profile) return "free";
 
-  // A manual override on the profile wins — how a design partner or an
-  // internal account gets a plan without going through checkout.
+  // A manual override on the profile wins — how an internal account gets a
+  // plan without checkout, and what an early-access code sets. An override with
+  // an expiry in the past is spent: fall through to the subscription, so a
+  // design partner whose code ran out lands on whatever they actually pay for.
   const override = profile.plan_override;
-  if (override && override in PLANS) return override as PlanKey;
+  if (override && override in PLANS && !overrideExpired(profile, now)) {
+    return override as PlanKey;
+  }
 
   const status = (profile.subscription_status || "").toLowerCase();
   if (!ENTITLED_STATUSES.has(status)) return "free";
@@ -261,7 +281,7 @@ export async function checkRecordingAllowed(
 ): Promise<EntitlementDecision> {
   const { data: profile } = await supabase
     .from("profiles")
-    .select("subscription_status, subscription_product_id, subscription_renews_at, plan_override")
+    .select("subscription_status, subscription_product_id, subscription_renews_at, plan_override, plan_override_expires_at")
     .eq("user_id", userId)
     .maybeSingle();
 
@@ -377,7 +397,7 @@ export async function recordRecordedSeconds(
   try {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("subscription_status, subscription_product_id, subscription_renews_at, plan_override")
+      .select("subscription_status, subscription_product_id, subscription_renews_at, plan_override, plan_override_expires_at")
       .eq("user_id", userId)
       .maybeSingle();
     const plan = planForProfile(profile as BillingProfile | null);
