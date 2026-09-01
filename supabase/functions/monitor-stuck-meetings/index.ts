@@ -16,6 +16,7 @@ import {
   getSarvamJobStatus,
 } from "../_shared/sarvam.ts";
 import { authenticate, json } from "../_shared/auth.ts";
+import { notifyRecentFailures } from "../_shared/failure-notice.ts";
 import { buildAlertHtml, buildAlertSubject } from "./alert-template.ts";
 import { KNOWN_PATTERNS, isKnown, RecoveryAction } from "./known-patterns.ts";
 import { isLongMeeting } from "../_shared/whisper-chunked.ts";
@@ -479,12 +480,21 @@ serve(async (req) => {
       });
     }
 
+    // Second pass: tell users about their own failed meetings. Until now the
+    // only failure email in the system went to ALERT_EMAIL_TO — us — and the
+    // person whose meeting failed was never told anything. Runs here rather
+    // than at the eight places that write status='failed', and is idempotent
+    // through the email_deliveries claim, so a 15-minute tick is harmless.
+    // Never throws; stuck-meeting detection above must not depend on it.
+    const failureNotices = await notifyRecentFailures(supabase);
+
     return new Response(
       JSON.stringify({
         ok: true,
         scanned: meetings?.length || 0,
         events: summary.length,
         summary,
+        failure_notices: failureNotices,
       }),
       { headers: { "Content-Type": "application/json" } },
     );
