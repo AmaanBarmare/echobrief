@@ -16,7 +16,7 @@ const steps = [
   },
   {
     title: 'Delivered where you work',
-    body: 'Summary lands on WhatsApp or email, in the language your team prefers.',
+    body: 'Summary lands in your inbox, in the language your team prefers, with follow-ups ready for your calendar.',
   },
 ];
 

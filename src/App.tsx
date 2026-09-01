@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -9,23 +10,29 @@ import { CalendarProvider } from "@/contexts/CalendarContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { PreMeetingNotification } from "@/components/dashboard/PreMeetingNotification";
+
+// Eager: the three routes a signed-out visitor can land on. Everything else is
+// lazy — previously every page was a static import, so a first-time visitor to
+// the marketing site downloaded the whole dashboard (Chat, Coaching, Contacts,
+// the meeting detail page and the charting library) before anything rendered.
 import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
-import Onboarding from "./pages/Onboarding";
-import Dashboard from "./pages/Dashboard";
-import Recordings from "./pages/Recordings";
-import MeetingDetail from "./pages/MeetingDetail";
-import Settings from "./pages/Settings";
-import Calendar from "./pages/Calendar";
-import ActionItems from "./pages/ActionItems";
-import Contacts from "./pages/Contacts";
-import Coaching from "./pages/Coaching";
-import Chat from "./pages/Chat";
-import PrivacyPolicy from "./pages/PrivacyPolicy";
-import Terms from "./pages/Terms";
-import Docs from "./pages/Docs";
-import OAuthConsent from "./pages/OAuthConsent";
 import NotFound from "./pages/NotFound";
+
+const Onboarding = lazy(() => import("./pages/Onboarding"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Recordings = lazy(() => import("./pages/Recordings"));
+const MeetingDetail = lazy(() => import("./pages/MeetingDetail"));
+const Settings = lazy(() => import("./pages/Settings"));
+const Calendar = lazy(() => import("./pages/Calendar"));
+const ActionItems = lazy(() => import("./pages/ActionItems"));
+const Contacts = lazy(() => import("./pages/Contacts"));
+const Coaching = lazy(() => import("./pages/Coaching"));
+const Chat = lazy(() => import("./pages/Chat"));
+const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
+const Terms = lazy(() => import("./pages/Terms"));
+const Docs = lazy(() => import("./pages/Docs"));
+const OAuthConsent = lazy(() => import("./pages/OAuthConsent"));
 
 // Cache server reads so revisiting a page renders instantly from cache and
 // revalidates in the background, instead of refetching from scratch every mount.
@@ -41,28 +48,33 @@ const queryClient = new QueryClient({
   },
 });
 
+function RouteFallback() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+}
+
 function AppRoutes() {
   const { user, loading, isPasswordRecovery } = useAuth();
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
+  if (loading) return <RouteFallback />;
 
   // If recovery flow, always show Auth page regardless of user state
   if (isPasswordRecovery) {
     return (
-      <Routes>
-        <Route path="*" element={<Auth />} />
-      </Routes>
+      <Suspense fallback={<RouteFallback />}>
+        <Routes>
+          <Route path="*" element={<Auth />} />
+        </Routes>
+      </Suspense>
     );
   }
 
   return (
     <>
+      <Suspense fallback={<RouteFallback />}>
       <Routes>
         <Route path="/" element={user ? <Navigate to="/dashboard" /> : <Landing />} />
         <Route path="/auth" element={<Auth />} />
@@ -153,6 +165,7 @@ function AppRoutes() {
         />
         <Route path="*" element={<NotFound />} />
       </Routes>
+      </Suspense>
       {/* Pre-meeting notifications */}
       {user && <PreMeetingNotification />}
     </>

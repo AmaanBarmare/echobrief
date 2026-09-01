@@ -1,12 +1,12 @@
-import { Calendar, Mail, MessageCircle, MonitorPlay, Video } from 'lucide-react';
+import { Calendar, Mail, MonitorPlay, Video, Webhook } from 'lucide-react';
 
 const items = [
   { Icon: Video, label: 'Google Meet' },
   { Icon: MonitorPlay, label: 'Zoom' },
   { Icon: MonitorPlay, label: 'Teams' },
   { Icon: Calendar, label: 'Google Calendar' },
-  { Icon: MessageCircle, label: 'WhatsApp' },
   { Icon: Mail, label: 'Email' },
+  { Icon: Webhook, label: 'Webhooks' },
 ];
 
 export function IntegrationStrip() {

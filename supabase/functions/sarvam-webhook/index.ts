@@ -542,7 +542,7 @@ serve(async (req) => {
         })
         .eq("id", meeting.id);
 
-      await afterInsightsSaved(supabase, meeting, insights);
+      await afterInsightsSaved(supabase, meeting, insights, "meeting.insights_ready", durationSeconds);
 
       await deliverResults(supabase, meeting, insights, {
         sendEmail: config.sendEmail,

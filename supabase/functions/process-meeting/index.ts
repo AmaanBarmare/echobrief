@@ -314,7 +314,7 @@ Only include segments where you can make a reasonable attribution.`;
     })
     .eq("id", meetingId);
 
-  await afterInsightsSaved(supabase, meeting, insights);
+  await afterInsightsSaved(supabase, meeting, insights, "meeting.insights_ready", durationSeconds);
 
   const { emailSent } = await deliverResults(
     supabase,

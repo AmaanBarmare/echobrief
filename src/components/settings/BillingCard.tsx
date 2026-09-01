@@ -1,16 +1,29 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { CreditCard, ExternalLink, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { formatHours, PLANS, periodStart, planForProfile } from '@/lib/plans';
 
 interface BillingProfile {
   subscription_status: string;
   subscription_renews_at: string | null;
   dodo_customer_id: string | null;
+  plan_override: string | null;
 }
+
+interface Usage {
+  meetings: number;
+  seconds: number;
+}
+
+// `usage_events` and `profiles.plan_override` post-date the generated types in
+// src/integrations/supabase/types.ts. Same escape hatch Contacts.tsx uses for
+// `contacts`; regenerating the types is a separate chore.
+const db = supabase as unknown as SupabaseClient;
 
 const STATUS_LABELS: Record<string, string> = {
   none: 'No subscription',
@@ -29,15 +42,32 @@ export function BillingCard() {
   const [profile, setProfile] = useState<BillingProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
+  const [usage, setUsage] = useState<Usage | null>(null);
 
   const refresh = useCallback(async () => {
     if (!user) return;
-    const { data } = await supabase
-      .from('profiles')
-      .select('subscription_status, subscription_renews_at, dodo_customer_id')
-      .eq('user_id', user.id)
-      .maybeSingle();
-    if (data) setProfile(data);
+    // Profile and usage in parallel — the meter should not delay the card.
+    const [profileResult, usageResult] = await Promise.all([
+      db
+        .from('profiles')
+        .select('subscription_status, subscription_renews_at, dodo_customer_id, plan_override')
+        .eq('user_id', user.id)
+        .maybeSingle(),
+      // RLS scopes this to the caller; the ledger is service-write, user-read.
+      db
+        .from('usage_events')
+        .select('kind, seconds')
+        .eq('user_id', user.id)
+        .gte('occurred_at', periodStart()),
+    ]);
+    if (profileResult.data) setProfile(profileResult.data as BillingProfile);
+    const rows = (usageResult.data ?? []) as Array<{ kind: string; seconds: number }>;
+    setUsage({
+      meetings: rows.filter((r) => r.kind === 'meeting_started').length,
+      seconds: rows
+        .filter((r) => r.kind === 'meeting_recorded')
+        .reduce((total, r) => total + (r.seconds || 0), 0),
+    });
     setLoading(false);
   }, [user]);
 
@@ -80,6 +110,14 @@ export function BillingCard() {
 
   const status = profile?.subscription_status ?? 'none';
   const isActive = status === 'active';
+  const limits = PLANS[planForProfile(profile)];
+  // Free plans are metered by meeting count, paid plans by recorded hours.
+  const usedFraction = limits.meetingsPerPeriod !== null
+    ? (usage?.meetings ?? 0) / limits.meetingsPerPeriod
+    : (usage?.seconds ?? 0) / (limits.includedSeconds || 1);
+  const allowanceLabel = limits.meetingsPerPeriod !== null
+    ? `${usage?.meetings ?? 0} of ${limits.meetingsPerPeriod} meetings`
+    : `${formatHours(usage?.seconds ?? 0)} of ${formatHours(limits.includedSeconds || 0)} hours`;
   const renewsAt = profile?.subscription_renews_at
     ? new Date(profile.subscription_renews_at).toLocaleDateString(undefined, {
         day: 'numeric',
@@ -96,7 +134,7 @@ export function BillingCard() {
           <h2 className="text-base font-semibold text-foreground">Subscription</h2>
         </div>
         <p className="mb-5 text-[13px]" style={{ color: 'var(--ink-mid)' }}>
-          EchoBrief Pro — unlimited meeting bots, transcription and AI summaries.
+          Meeting bots, transcription in 22 Indian languages, and AI summaries.
         </p>
 
         {loading ? (
@@ -139,6 +177,40 @@ export function BillingCard() {
                 </Button>
               )}
             </div>
+          </div>
+        )}
+
+        {!loading && usage && (
+          <div className="mt-5 border-t border-border pt-5">
+            <div className="mb-2 flex items-baseline justify-between gap-3">
+              <span className="text-[13px] font-medium text-foreground">
+                {limits.label} plan — this month
+              </span>
+              <span className="text-[12.5px]" style={{ color: 'var(--ink-soft)' }}>
+                {allowanceLabel}
+              </span>
+            </div>
+            <div
+              className="h-1.5 w-full overflow-hidden rounded-full"
+              style={{ background: 'var(--paper-deep)' }}
+              role="progressbar"
+              aria-valuenow={Math.round(usedFraction * 100)}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label="Plan usage this month"
+            >
+              <div
+                className="h-full rounded-full transition-[width]"
+                style={{
+                  width: `${Math.min(100, usedFraction * 100)}%`,
+                  background: usedFraction >= 1 ? 'var(--stop)' : 'var(--ember)',
+                }}
+              />
+            </div>
+            <p className="mt-2 text-[12.5px]" style={{ color: 'var(--ink-soft)' }}>
+              Meetings are capped at {Math.round(limits.maxMeetingSeconds / 60)} minutes each,
+              and content is kept for {limits.retentionDays} days.
+            </p>
           </div>
         )}
       </div>

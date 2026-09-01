@@ -132,7 +132,9 @@ serve(async (req) => {
     // If no calendar_ids provided, fetch from Google API
     if (!calendar_ids && googleAccessToken) {
       try {
-        console.log(`Fetching calendars for user ${user_id} using token: ${googleAccessToken.substring(0, 20)}...`)
+        // Never log the token, not even truncated — function logs are visible
+        // to everyone with dashboard access and this is live credential material.
+        console.log(`Fetching calendars for user ${user_id}`)
         
         const calendarResponse = await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList', {
           headers: {

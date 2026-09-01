@@ -34,12 +34,12 @@ const features = [
   {
     icon: MessageSquare,
     title: 'Delivered where you work',
-    body: 'Summaries arrive on WhatsApp or email, with per-language routing when you need it.',
+    body: 'Summaries arrive by email, follow-ups go straight to Google Calendar, and a signed webhook feeds anything else you run.',
   },
   {
     icon: Shield,
-    title: 'Data stays in India',
-    body: 'Processing aligned with Indian cloud posture. DPDP-aware handling and row-level security by default.',
+    title: 'Built for DPDP',
+    body: 'Every vendor that touches your audio is named in our sub-processor list. Row-level security by default, and deletion you can actually trigger.',
   },
 ];
 

@@ -177,7 +177,7 @@ export default function Auth() {
   const bullets = [
     '22 Indian languages',
     'Auto-join Meet, Zoom & Teams',
-    'Delivered to WhatsApp and email',
+    'Summaries delivered by email',
   ];
 
   return (
@@ -223,7 +223,7 @@ export default function Auth() {
             style={{ color: 'var(--ink-mid)' }}
           >
             Auto-join your calls, transcribe accurately in 22 Indian languages,
-            and deliver clear summaries to WhatsApp or email.
+            and deliver clear summaries straight to your inbox.
           </p>
 
           <ul className="mt-8 space-y-3">
@@ -242,7 +242,7 @@ export default function Auth() {
         </div>
 
         <p className="relative text-[12.5px]" style={{ color: 'var(--ink-soft)' }}>
-          Made in India · Data stays in India
+          Made in India · Transcription runs in India
         </p>
       </div>
 

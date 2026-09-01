@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsPrelight } from "../_shared/cors.ts";
 import { authenticate } from "../_shared/auth.ts";
 import { parseMeetingUrl } from "../_shared/validation.ts";
+import { checkRecordingAllowed, recordUsage } from "../_shared/entitlements.ts";
 
 const RECALL_API_KEY = Deno.env.get("RECALL_API_KEY")!;
 const RECALL_API_BASE_URL =
@@ -71,6 +72,27 @@ serve(async (req) => {
       );
     }
 
+    // Plan gate. Bots, transcription and the GPT chain all cost money per
+    // meeting, so entitlement is checked before Recall is ever called. Service
+    // callers (backfills, internal re-dispatch) are not gated — they are us.
+    const entitlement = caller.isService
+      ? null
+      : await checkRecordingAllowed(supabase, user_id);
+    if (entitlement && !entitlement.allowed) {
+      return new Response(
+        JSON.stringify({
+          error: entitlement.reason,
+          code: entitlement.code,
+          plan: entitlement.plan,
+          usage: entitlement.usage,
+        }),
+        // 402: the request is well-formed and authenticated; it needs a plan.
+        { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+    const plan = entitlement?.plan ?? 'teams';
+    const limits = entitlement?.limits ?? { maxMeetingSeconds: 6 * 3600 };
+
     // Use the name the user set in Settings -> Bot. auto-join-meetings reads the
     // same column, so a bot is named identically however it was dispatched.
     const { data: profile } = await supabase
@@ -92,6 +114,13 @@ serve(async (req) => {
       body: JSON.stringify({
         meeting_url: meeting_url,
         bot_name: botName,
+        // Hard per-meeting ceiling, enforced by Recall rather than by us: the
+        // bot leaves by itself at the plan's limit. Without this the "45
+        // minutes per meeting" on the pricing page is unenforceable, because
+        // nothing on our side can stop a call that is already running.
+        automatic_leave: {
+          in_call_recording_timeout: limits.maxMeetingSeconds,
+        },
         recording_config: {
           audio_mixed_mp3: {},
           // The mp4 is playback-only: it is never downloaded into Supabase
@@ -144,6 +173,16 @@ serve(async (req) => {
       console.error('Database error:', createError);
       throw createError;
     }
+
+    // Ledger the start. The recorded duration is appended separately once the
+    // pipeline knows it; this row is what the meeting-count cap reads.
+    await recordUsage(supabase, {
+      userId: user_id,
+      meetingId: meeting.id,
+      kind: 'meeting_started',
+      plan,
+      isOverage: entitlement?.allowed ? entitlement.isOverage : false,
+    });
 
     return new Response(JSON.stringify({
       success: true,

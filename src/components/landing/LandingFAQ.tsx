@@ -13,11 +13,11 @@ const faqs = [
   },
   {
     q: 'Where do the summaries go?',
-    a: 'WhatsApp numbers or email. You choose per workspace or per user in settings, with per-language routing when a Hindi team and an English team share the same meeting.',
+    a: 'Email, plus your dashboard. Follow-up events go to Google Calendar, a signed webhook can push every meeting into your own tools, and an MCP endpoint lets Claude, Claude Code and Cursor read your meetings directly.',
   },
   {
     q: 'What happens to my audio?',
-    a: 'Audio is processed for transcription and insight extraction, then retained according to your workspace policy. Processing follows Indian cloud posture where applicable, with row-level security across all data.',
+    a: 'Audio is transcribed, used to generate your insights, then deleted on your plan\u2019s retention schedule. Transcription runs on Sarvam AI in India; recording, insight generation and email delivery use Recall.ai, OpenAI and Resend. Every one of them is named in our sub-processor list, and row-level security isolates your data throughout.',
   },
   {
     q: 'Can teams outside India use this?',

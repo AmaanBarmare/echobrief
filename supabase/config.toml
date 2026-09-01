@@ -15,6 +15,11 @@ verify_jwt = true
 [functions.prune-recordings]
 verify_jwt = true
 
+# Cron-only. pg_cron sends the Vault-sourced service key (20260901120100).
+# Enforces the plan retention windows from _shared/entitlements.ts.
+[functions.prune-content]
+verify_jwt = true
+
 [functions.sync-google-calendar]
 verify_jwt = true
 

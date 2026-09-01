@@ -3,8 +3,8 @@ const phrases = [
   '22 Indian languages',
   'Accurate speaker names',
   'Clear action items',
-  'WhatsApp · Email · Calendar',
-  'Data stays in India',
+  'Email · Calendar · Webhooks',
+  'A quote behind every claim',
 ];
 
 export function LandingMarquee() {

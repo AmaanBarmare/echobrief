@@ -24,6 +24,7 @@ import { applySpeakerOverrides } from "./rename.ts";
 import { estimateBoundariesWithLLM } from "./boundary-llm.ts";
 import { upsertMeetingContacts } from "./contacts.ts";
 import { notifyInsightsReady } from "./webhooks.ts";
+import { recordRecordedSeconds } from "./entitlements.ts";
 import type { SpeakerTimelineEntry } from "./recall-pipeline.ts";
 
 export interface PostTranscriptionInput {
@@ -182,7 +183,16 @@ export async function afterInsightsSaved(
   meeting: Record<string, any>,
   insights: Record<string, any>,
   eventType = "meeting.insights_ready",
+  /**
+   * Recorded duration, for the usage ledger. Pass it from the completion path
+   * that just computed it; regeneration omits it because the meeting was
+   * already ledgered when it first completed.
+   */
+  durationSeconds?: number,
 ): Promise<void> {
   await upsertMeetingContacts(supabase, meeting);
   await notifyInsightsReady(supabase, meeting, insights, eventType);
+  if (durationSeconds !== undefined) {
+    await recordRecordedSeconds(supabase, meeting.user_id, meeting.id, durationSeconds);
+  }
 }

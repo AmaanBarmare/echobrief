@@ -31,7 +31,7 @@ export default function Terms() {
               <li>Records meetings (with user consent)</li>
               <li>Transcribes audio to text in 22 Indian languages</li>
               <li>Generates summaries, action items, and insights from the transcript</li>
-              <li>Delivers reports via email or WhatsApp</li>
+              <li>Delivers reports via email</li>
             </ul>
 
             <h2>3. User Responsibilities</h2>

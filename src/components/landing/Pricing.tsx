@@ -11,6 +11,10 @@ type Tier = {
   monthly: number;
   annualTotal: number | null;
   unit: string;
+  // Set on tiers that are not self-serve. Renders in place of the rupee figure,
+  // so a "talk to us" plan doesn't have to fake a price.
+  priceLabel?: string;
+  priceNote?: string;
   features: string[];
   cta: string;
   featured?: boolean;
@@ -25,8 +29,8 @@ const tiers: Tier[] = [
     annualTotal: null,
     unit: '',
     features: [
-      '10 meetings / month',
-      'Up to 60 minutes per meeting',
+      '5 meetings / month',
+      'Up to 45 minutes per meeting',
       'All 22 Indian languages',
       'AI summary and action items',
       'Email delivery',
@@ -43,7 +47,7 @@ const tiers: Tier[] = [
     features: [
       '10 meeting-hours / month',
       '₹129/hr overage, capped at +10 hrs',
-      'Email, WhatsApp, and Google Calendar',
+      'Email delivery and Google Calendar follow-ups',
       'Full AI insights',
       'Speaker identification',
       '30-day retention',
@@ -67,20 +71,21 @@ const tiers: Tier[] = [
     featured: true,
   },
   {
-    name: 'Team',
-    tagline: 'For teams of 5',
-    monthly: 7999,
-    annualTotal: 79990,
-    unit: '/month',
+    name: 'Teams',
+    tagline: 'For teams of five or more',
+    monthly: 0,
+    annualTotal: null,
+    unit: '',
+    priceLabel: 'Talk to us',
+    priceNote: 'Priced per team',
     features: [
-      '5 users included',
-      '100 pooled meeting-hours / month',
-      '₹85/hr after that',
-      'Team workspace and shared recordings',
+      'In build with design partners',
+      'Shared workspace and pooled meeting-hours',
       'Admin dashboard and usage analytics',
       'Priority support',
+      'Tell us what your team needs',
     ],
-    cta: 'Join waitlist',
+    cta: 'Start a conversation',
   },
 ];
 
@@ -250,6 +255,20 @@ export function Pricing() {
                 </div>
 
                 <div className="mt-6">
+                  {tier.priceLabel ? (
+                    <div className="flex items-baseline">
+                      <span
+                        className="text-[28px] leading-none tracking-tight"
+                        style={{
+                          color: 'var(--ink)',
+                          fontFamily: 'var(--font-brand-serif)',
+                          fontWeight: 400,
+                        }}
+                      >
+                        {tier.priceLabel}
+                      </span>
+                    </div>
+                  ) : (
                   <div className="flex items-baseline gap-1.5">
                     <span
                       className="text-[14px] font-medium"
@@ -276,15 +295,18 @@ export function Pricing() {
                       </span>
                     )}
                   </div>
+                  )}
                   <p
                     className="mt-1.5 min-h-[18px] text-[12.5px]"
                     style={{ color: 'var(--ink-mid)' }}
                   >
-                    {isFree
+                    {tier.priceNote
+                      ? tier.priceNote
+                      : isFree
                       ? 'Forever free'
                       : billing === 'annual' && tier.annualTotal
-                        ? `₹${formatINR(tier.annualTotal)} billed yearly`
-                        : 'Billed monthly'}
+                      ? `₹${formatINR(tier.annualTotal)} billed yearly`
+                      : 'Billed monthly'}
                   </p>
                 </div>
 

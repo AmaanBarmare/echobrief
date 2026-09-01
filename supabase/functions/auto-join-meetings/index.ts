@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { authenticate, json } from "../_shared/auth.ts"
+import { checkRecordingAllowed, recordUsage } from "../_shared/entitlements.ts"
 
 const RECALL_API_KEY = Deno.env.get('RECALL_API_KEY')
 const RECALL_API_BASE_URL =
@@ -180,6 +181,24 @@ serve(async (req) => {
         else if (meetingUrl.includes('zoom.us')) platform = 'zoom'
         else if (meetingUrl.includes('meet.google.com')) platform = 'google_meet'
 
+        // Plan gate — the same ceiling the manual path enforces, so a user
+        // cannot route around their quota by letting the calendar dispatch it.
+        // Checked per event, not per user: each claim consumes quota, and a
+        // user with two back-to-back meetings can cross the line between them.
+        const entitlement = await checkRecordingAllowed(supabase, pref.user_id)
+        if (!entitlement.allowed) {
+          console.log(
+            `[auto-join] Quota reached for ${pref.user_id} (${entitlement.code}), skipping event ${event.id}`,
+          )
+          results.push({
+            user_id: pref.user_id,
+            event: event.summary,
+            status: 'skipped_quota',
+            code: entitlement.code,
+          })
+          continue
+        }
+
         // Claim the calendar event BEFORE sending a bot. The unique index
         // meetings_autojoin_dedup (migration 20260820150000) makes the database
         // the arbiter: a concurrent invocation that lost the race gets 23505 here
@@ -223,6 +242,11 @@ serve(async (req) => {
           body: JSON.stringify({
             meeting_url: meetingUrl,
             bot_name: pref.notetaker_name || 'EchoBrief Notetaker',
+            // Hard per-meeting ceiling, enforced by Recall itself. Must stay in
+            // sync with start-recall-recording.
+            automatic_leave: {
+              in_call_recording_timeout: entitlement.limits.maxMeetingSeconds,
+            },
             recording_config: {
               audio_mixed_mp3: {},
               // Playback-only mp4, streamed from Recall at view time and never
@@ -261,6 +285,14 @@ serve(async (req) => {
           .from('meetings')
           .update({ status: 'recording', recall_bot_id: botData.id })
           .eq('id', claimed.id)
+
+        await recordUsage(supabase, {
+          userId: pref.user_id,
+          meetingId: claimed.id,
+          kind: 'meeting_started',
+          plan: entitlement.plan,
+          isOverage: entitlement.isOverage,
+        })
 
         results.push({
           user_id: pref.user_id,
