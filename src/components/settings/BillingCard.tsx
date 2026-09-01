@@ -4,6 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Check, CreditCard, ExternalLink, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -168,7 +169,7 @@ export function BillingCard() {
           : `${PLANS[data.plan as PlanKey]?.label ?? data.plan} access${until ? ` until ${until}` : ''}.`,
       });
       setCode('');
-      await load();
+      await refresh();
     } catch (err) {
       toast({
         title: 'Could not redeem that code',
@@ -178,7 +179,7 @@ export function BillingCard() {
     } finally {
       setRedeeming(false);
     }
-  }, [code, toast, load]);
+  }, [code, toast, refresh]);
 
   const overrideEndsAt = profile?.plan_override_expires_at
     ? new Date(profile.plan_override_expires_at)

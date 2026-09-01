@@ -143,6 +143,63 @@ Deno.test("planForProfile: cancelled keeps the plan until the period ends", () =
   assertEquals(planForProfile({ subscription_status: "cancelled" }, noEnv, now), "free");
 });
 
+Deno.test("planForProfile: an expired override is spent, a future one still applies", () => {
+  const now = new Date("2026-09-01T00:00:00Z");
+  // Code still running.
+  assertEquals(
+    planForProfile(
+      { plan_override: "pro", plan_override_expires_at: "2026-12-01T00:00:00Z" },
+      noEnv,
+      now,
+    ),
+    "pro",
+  );
+  // Code ran out and there is no subscription behind it.
+  assertEquals(
+    planForProfile(
+      { plan_override: "pro", plan_override_expires_at: "2026-08-01T00:00:00Z" },
+      noEnv,
+      now,
+    ),
+    "free",
+  );
+  // Ran out, but they since subscribed — they keep what they pay for.
+  assertEquals(
+    planForProfile(
+      {
+        plan_override: "pro",
+        plan_override_expires_at: "2026-08-01T00:00:00Z",
+        subscription_status: "active",
+      },
+      noEnv,
+      now,
+    ),
+    "starter",
+  );
+});
+
+Deno.test("planForProfile: no expiry means permanent, and junk never revokes", () => {
+  const now = new Date("2026-09-01T00:00:00Z");
+  assertEquals(planForProfile({ plan_override: "teams" }, noEnv, now), "teams");
+  assertEquals(
+    planForProfile(
+      { plan_override: "teams", plan_override_expires_at: null },
+      noEnv,
+      now,
+    ),
+    "teams",
+  );
+  // An unparseable date must not silently strip a partner's access.
+  assertEquals(
+    planForProfile(
+      { plan_override: "teams", plan_override_expires_at: "not-a-date" },
+      noEnv,
+      now,
+    ),
+    "teams",
+  );
+});
+
 Deno.test("planForProfile: plan_override beats everything", () => {
   assertEquals(planForProfile({ plan_override: "pro" }, noEnv), "pro");
   assertEquals(
@@ -230,6 +287,40 @@ Deno.test("plan_override still lets an internal account record", async () => {
   );
   assert(decision.allowed);
   assertEquals(decision.plan, "pro");
+});
+
+Deno.test("trial plan: 10 hours hard, with no overage band to fall into", async () => {
+  const included = PLANS.trial.includedSeconds!;
+  assertEquals(PLANS.trial.overageSeconds, 0);
+
+  const under = await checkRecordingAllowed(
+    stubSupabase({ plan_override: "trial" }, [
+      { kind: "meeting_recorded", seconds: included - 600 },
+    ]),
+    "u1",
+  );
+  assert(under.allowed);
+  assertEquals(under.isOverage, false);
+
+  const at = await checkRecordingAllowed(
+    stubSupabase({ plan_override: "trial" }, [
+      { kind: "meeting_recorded", seconds: included },
+    ]),
+    "u1",
+  );
+  assert(!at.allowed);
+  assertEquals(at.code, "hour_limit");
+});
+
+Deno.test("trial plan: one runaway bot cannot eat the whole allowance", () => {
+  // 2 h per meeting against a 10 h allowance — a bot left in an empty room
+  // costs a fifth of the trial, not half of it.
+  assert(PLANS.trial.maxMeetingSeconds < PLANS.starter.maxMeetingSeconds);
+  assertEquals(PLANS.trial.maxMeetingSeconds, 2 * 3600);
+});
+
+Deno.test("trial is never sellable — a code grants it, checkout cannot", () => {
+  assert(!SELLABLE_PLANS.includes("trial"));
 });
 
 Deno.test("paid plan: included hours allow, overage band allows and is flagged", async () => {

@@ -97,6 +97,15 @@ verify_jwt = true
 [functions.manage-api-tokens]
 verify_jwt = true
 
+[functions.manage-meeting-share]
+verify_jwt = true
+
+# Public by design: the reader of a shared link has no account. The token in
+# the URL is the credential, and the function returns only the meeting-zone
+# summary — never the transcript or the internal pre/post-call zones.
+[functions.get-shared-meeting]
+verify_jwt = false
+
 [functions.manage-billing]
 verify_jwt = true
 
@@ -119,4 +128,10 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.account-brief]
+verify_jwt = true
+
+[functions.redeem-access-code]
+verify_jwt = true
+
+[functions.send-feedback-prompts]
 verify_jwt = true

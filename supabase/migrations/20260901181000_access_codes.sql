@@ -23,8 +23,9 @@ CREATE TABLE IF NOT EXISTS public.access_codes (
   -- Stored upper-case; every lookup upper-cases the input, so the code is
   -- effectively case-insensitive without needing citext.
   code            text NOT NULL UNIQUE CHECK (code = upper(code) AND length(code) BETWEEN 6 AND 32),
-  -- The plan the code grants. 'free' is not a plan you can grant.
-  plan            text NOT NULL DEFAULT 'pro' CHECK (plan IN ('starter', 'pro', 'teams')),
+  -- The plan the code grants. 'free' is not a plan you can grant; 'trial' is
+  -- the hard-capped early-access plan and the sane default for a code.
+  plan            text NOT NULL DEFAULT 'trial' CHECK (plan IN ('trial', 'starter', 'pro', 'teams')),
   -- How long the grant lasts from the moment it is redeemed.
   duration_days   integer NOT NULL DEFAULT 90 CHECK (duration_days BETWEEN 1 AND 730),
   -- How many distinct users may redeem it. 1 = a personal code; higher = one

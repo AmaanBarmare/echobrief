@@ -13,7 +13,7 @@
  * sold, it is the no-subscription state, and it grants nothing.
  */
 
-export type PlanKey = "free" | "starter" | "pro" | "teams";
+export type PlanKey = "free" | "trial" | "starter" | "pro" | "teams";
 
 export interface PlanLimits {
   label: string;
@@ -48,6 +48,19 @@ export const PLANS: Record<PlanKey, PlanLimits> = {
     overageSeconds: 0,
     maxMeetingSeconds: 45 * 60,
     retentionDays: 14,
+  },
+  // Early access, granted by a code — never sold, never renewed. A hard 10
+  // hours with NO overage band: Starter's 10+10 would have quietly doubled the
+  // exposure of every code handed out. The 2 h per-meeting ceiling is lower
+  // than Starter's 4 h on purpose — one bot left in an empty room must not be
+  // able to eat 40% of somebody's trial.
+  trial: {
+    label: "Early access",
+    meetingsPerPeriod: null,
+    includedSeconds: 10 * HOUR,
+    overageSeconds: 0,
+    maxMeetingSeconds: 2 * HOUR,
+    retentionDays: 30,
   },
   starter: {
     label: "Starter",

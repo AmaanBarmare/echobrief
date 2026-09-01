@@ -8,7 +8,7 @@
  * together or none of them do.
  */
 
-export type PlanKey = 'free' | 'starter' | 'pro' | 'teams';
+export type PlanKey = 'free' | 'trial' | 'starter' | 'pro' | 'teams';
 
 export interface PlanLimits {
   label: string;
@@ -31,6 +31,16 @@ export const PLANS: Record<PlanKey, PlanLimits> = {
     overageSeconds: 0,
     maxMeetingSeconds: 45 * 60,
     retentionDays: 14,
+  },
+  // Mirrors entitlements.ts: granted by an early-access code, hard-capped at
+  // 10 hours with no overage band.
+  trial: {
+    label: 'Early access',
+    meetingsPerPeriod: null,
+    includedSeconds: 10 * HOUR,
+    overageSeconds: 0,
+    maxMeetingSeconds: 2 * HOUR,
+    retentionDays: 30,
   },
   starter: {
     label: 'Starter',
