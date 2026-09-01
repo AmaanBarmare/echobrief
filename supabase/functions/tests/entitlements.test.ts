@@ -223,19 +223,58 @@ Deno.test("periodStart: the IST calendar month, expressed in UTC", () => {
   );
 });
 
-/** Minimal supabase stub: profiles.maybeSingle() and a usage_events select. */
-function stubSupabase(profile: unknown, usageRows: Array<{ kind: string; seconds: number }>) {
+/**
+ * Minimal supabase stub: profiles, usage_events and org_members.
+ *
+ * `orgMembers` is null for the common case of somebody who is not in a
+ * workspace; pass rows to exercise pooled billing, where the plan comes from
+ * the owner's profile and usage is summed across every member.
+ */
+function stubSupabase(
+  profile: unknown,
+  usageRows: Array<{ kind: string; seconds: number }>,
+  orgMembers: Array<{ user_id: string; role: string }> | null = null,
+  ownerProfile: unknown = undefined,
+) {
+  const usageQuery = () => Promise.resolve({ data: usageRows, error: null });
   return {
     from(table: string) {
       if (table === "profiles") {
         return {
-          select: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: profile }) }) }),
+          select: () => ({
+            eq: (_col: string, value: string) => ({
+              maybeSingle: () =>
+                Promise.resolve({
+                  // When a workspace exists the gate reads the OWNER's profile.
+                  data: ownerProfile !== undefined && value === "owner-user"
+                    ? ownerProfile
+                    : profile,
+                }),
+            }),
+          }),
         };
       }
       if (table === "usage_events") {
+        // readUsageFor uses .in(); the old single-user path used .eq().
         return {
           select: () => ({
-            eq: () => ({ gte: () => Promise.resolve({ data: usageRows, error: null }) }),
+            in: () => ({ gte: usageQuery }),
+            eq: () => ({ gte: usageQuery }),
+          }),
+        };
+      }
+      if (table === "org_members") {
+        // Two shapes are used against this table: `.eq().maybeSingle()` asks
+        // "which org am I in", and `.eq()` awaited directly returns the member
+        // list. The returned object is therefore both thenable and chainable.
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: () =>
+                Promise.resolve({ data: orgMembers ? { org_id: "org-1" } : null }),
+              then: (resolve: (v: unknown) => unknown) =>
+                resolve({ data: orgMembers ?? [], error: null }),
+            }),
           }),
         };
       }
@@ -382,4 +421,70 @@ Deno.test("every plan has a per-meeting ceiling Recall can enforce", () => {
     assert(limits.maxMeetingSeconds > 0, `${key} has no per-meeting cap`);
     assert(limits.retentionDays > 0, `${key} has no retention window`);
   }
+});
+
+
+Deno.test("a workspace bills on the owner's plan, not the member's", async () => {
+  // Bob has no subscription of his own. Without pooled billing he could never
+  // record, even though his workspace owner pays.
+  const members = [
+    { user_id: "owner-user", role: "owner" },
+    { user_id: "bob", role: "member" },
+  ];
+  const decision = await checkRecordingAllowed(
+    stubSupabase(
+      null, // bob's own profile: nothing
+      [],
+      members,
+      { subscription_status: "active", plan_override: "teams" }, // the owner's
+    ),
+    "bob",
+  );
+  assert(decision.allowed);
+  assertEquals(decision.plan, "teams");
+});
+
+Deno.test("workspace hours are pooled, not per head", async () => {
+  const members = [
+    { user_id: "owner-user", role: "owner" },
+    { user_id: "bob", role: "member" },
+  ];
+  const ceiling = PLANS.teams.includedSeconds! + PLANS.teams.overageSeconds;
+  // One colleague has already burned the whole workspace allowance. The next
+  // member must be refused — counting per user would hand them a fresh 100 hrs.
+  const decision = await checkRecordingAllowed(
+    stubSupabase(
+      null,
+      [{ kind: "meeting_recorded", seconds: ceiling }],
+      members,
+      { plan_override: "teams" },
+    ),
+    "bob",
+  );
+  assert(!decision.allowed);
+  assertEquals(decision.code, "hour_limit");
+});
+
+Deno.test("a workspace lookup failure bills the caller as an individual", async () => {
+  // org_members is unreachable; a solo user must still be able to record.
+  const sb = {
+    from(table: string) {
+      if (table === "org_members") throw new Error("boom");
+      if (table === "profiles") {
+        return {
+          select: () => ({
+            eq: () => ({ maybeSingle: () => Promise.resolve({ data: { plan_override: "pro" } }) }),
+          }),
+        };
+      }
+      return {
+        select: () => ({
+          in: () => ({ gte: () => Promise.resolve({ data: [], error: null }) }),
+        }),
+      };
+    },
+  };
+  const decision = await checkRecordingAllowed(sb, "solo");
+  assert(decision.allowed);
+  assertEquals(decision.plan, "pro");
 });

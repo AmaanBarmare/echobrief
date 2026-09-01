@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { Check, Copy, Link2, Loader2, Trash2 } from 'lucide-react';
+import { Building2, Check, Copy, Link2, Loader2, Trash2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -45,6 +45,8 @@ export function ShareLinkDialog({
 }) {
   const { toast } = useToast();
   const [shares, setShares] = useState<Share[]>([]);
+  const [inWorkspace, setInWorkspace] = useState(false);
+  const [sharedToOrg, setSharedToOrg] = useState(false);
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
   const [expiryDays, setExpiryDays] = useState<number | null>(7);
@@ -69,6 +71,8 @@ export function ShareLinkDialog({
     try {
       const data = await call({ action: 'list' });
       setShares(data?.shares ?? []);
+      setInWorkspace(Boolean(data?.in_workspace));
+      setSharedToOrg(Boolean(data?.shared_to_org));
     } catch {
       // A listing failure should not blank the dialog the user just opened.
       setShares([]);
@@ -160,6 +164,48 @@ export function ShareLinkDialog({
                 {copied ? <Check size={14} /> : <Copy size={14} />}
               </Button>
             </div>
+          </div>
+        )}
+
+        {inWorkspace && (
+          <div
+            className="flex items-center justify-between gap-3 rounded-lg px-4 py-3"
+            style={{ border: '1px solid var(--rule)', background: 'var(--paper-raised)' }}
+          >
+            <div className="flex min-w-0 items-center gap-2">
+              <Building2 size={15} style={{ color: 'var(--ink-mid)' }} />
+              <div className="min-w-0">
+                <p className="m-0 text-[13px] font-medium" style={{ color: 'var(--ink)' }}>
+                  Share with your workspace
+                </p>
+                <p className="m-0 text-[12px]" style={{ color: 'var(--ink-soft)' }}>
+                  Colleagues see the summary, not the transcript.
+                </p>
+              </div>
+            </div>
+            <Button
+              size="sm"
+              variant={sharedToOrg ? 'outline' : 'default'}
+              disabled={working}
+              onClick={async () => {
+                setWorking(true);
+                try {
+                  await call({ action: sharedToOrg ? 'unshare_from_org' : 'share_to_org' });
+                  await refresh();
+                  toast({ title: sharedToOrg ? 'Removed from workspace' : 'Shared with workspace' });
+                } catch (err) {
+                  toast({
+                    title: 'That did not work',
+                    description: err instanceof Error ? err.message : 'Something went wrong.',
+                    variant: 'destructive',
+                  });
+                } finally {
+                  setWorking(false);
+                }
+              }}
+            >
+              {sharedToOrg ? 'Shared' : 'Share'}
+            </Button>
           </div>
         )}
 

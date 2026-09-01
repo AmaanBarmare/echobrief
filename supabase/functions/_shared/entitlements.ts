@@ -242,11 +242,26 @@ export async function readUsage(
   userId: string,
   now: Date = new Date(),
 ): Promise<UsageSnapshot> {
+  return readUsageFor(supabase, [userId], now);
+}
+
+/**
+ * Usage across a set of users — one person, or a whole workspace.
+ *
+ * The Teams plan sells 100 *pooled* meeting-hours. Counting each member
+ * separately would quietly sell 100 hours per head instead of per workspace.
+ */
+export async function readUsageFor(
+  supabase: any,
+  userIds: string[],
+  now: Date = new Date(),
+): Promise<UsageSnapshot> {
+  if (userIds.length === 0) return { meetingsStarted: 0, recordedSeconds: 0 };
   const since = periodStart(now);
   const { data, error } = await supabase
     .from("usage_events")
     .select("kind, seconds")
-    .eq("user_id", userId)
+    .in("user_id", userIds)
     .gte("occurred_at", since);
   if (error) throw error;
 
@@ -287,15 +302,51 @@ export type EntitlementDecision =
  * open for an account with a zero allowance: no subscription means no bot,
  * and a read error must not become a way to record for free.
  */
+/**
+ * The workspace a user records against, if any.
+ *
+ * A workspace's plan is its OWNER's plan and its allowance is pooled across
+ * every member. Billing each member on their own profile would mean a member
+ * who never bought anything could not record at all, and a five-person team
+ * would receive five separate allowances.
+ */
+async function resolveBillingGroup(
+  supabase: any,
+  userId: string,
+): Promise<{ billingUserId: string; memberIds: string[] }> {
+  const solo = { billingUserId: userId, memberIds: [userId] };
+  try {
+    const { data: membership } = await supabase
+      .from("org_members").select("org_id").eq("user_id", userId).maybeSingle();
+    if (!membership) return solo;
+
+    const { data: members } = await supabase
+      .from("org_members").select("user_id, role").eq("org_id", membership.org_id);
+    if (!members || members.length === 0) return solo;
+
+    const owner = members.find((m: { role: string }) => m.role === "owner");
+    return {
+      billingUserId: owner?.user_id ?? userId,
+      memberIds: members.map((m: { user_id: string }) => m.user_id),
+    };
+  } catch (err) {
+    // A workspace lookup failure must not stop an individual recording.
+    console.error("[entitlements] org lookup failed, billing as an individual:", err);
+    return solo;
+  }
+}
+
 export async function checkRecordingAllowed(
   supabase: any,
   userId: string,
   now: Date = new Date(),
 ): Promise<EntitlementDecision> {
+  const { billingUserId, memberIds } = await resolveBillingGroup(supabase, userId);
+
   const { data: profile } = await supabase
     .from("profiles")
     .select("subscription_status, subscription_product_id, subscription_renews_at, plan_override, plan_override_expires_at")
-    .eq("user_id", userId)
+    .eq("user_id", billingUserId)
     .maybeSingle();
 
   const plan = planForProfile(profile as BillingProfile | null);
@@ -303,7 +354,7 @@ export async function checkRecordingAllowed(
 
   let usage: UsageSnapshot;
   try {
-    usage = await readUsage(supabase, userId, now);
+    usage = await readUsageFor(supabase, memberIds, now);
   } catch (err) {
     const empty = { meetingsStarted: 0, recordedSeconds: 0 };
     if (limits.meetingsPerPeriod === 0) {

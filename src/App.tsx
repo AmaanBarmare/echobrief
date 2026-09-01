@@ -34,6 +34,8 @@ const Terms = lazy(() => import("./pages/Terms"));
 const Docs = lazy(() => import("./pages/Docs"));
 const OAuthConsent = lazy(() => import("./pages/OAuthConsent"));
 const SharedMeeting = lazy(() => import("./pages/SharedMeeting"));
+const Workspace = lazy(() => import("./pages/Workspace"));
+const AcceptInvite = lazy(() => import("./pages/AcceptInvite"));
 
 // Cache server reads so revisiting a page renders instantly from cache and
 // revalidates in the background, instead of refetching from scratch every mount.
@@ -87,6 +89,9 @@ function AppRoutes() {
         {/* Public: the reader has no account, and the token in the URL is the
             credential. Must stay outside ProtectedRoute. */}
         <Route path="/share/:token" element={<SharedMeeting />} />
+        {/* Needs a session — the invite names an email, the membership row
+            names a user id — so the page itself redirects to /auth. */}
+        <Route path="/invite/:token" element={<AcceptInvite />} />
         <Route
           path="/onboarding"
           element={
@@ -164,6 +169,14 @@ function AppRoutes() {
           element={
             <ProtectedRoute>
               <Chat />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/workspace"
+          element={
+            <ProtectedRoute>
+              <Workspace />
             </ProtectedRoute>
           }
         />

@@ -61,12 +61,23 @@ serve(async (req) => {
     if (action === "list") {
       const { data, error } = await supabase
         .from("meeting_shares")
-        .select("id, scope, token_prefix, expires_at, revoked_at, view_count, last_viewed_at, created_at")
+        .select("id, scope, org_id, token_prefix, expires_at, revoked_at, view_count, last_viewed_at, created_at")
         .eq("meeting_id", meetingId)
         .eq("created_by", userId)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return json({ shares: data ?? [] });
+
+      const { data: membership } = await supabase
+        .from("org_members").select("org_id").eq("user_id", userId).maybeSingle();
+
+      return json({
+        shares: (data ?? []).filter((row: Record<string, unknown>) => row.scope === "link"),
+        in_workspace: Boolean(membership),
+        shared_to_org: (data ?? []).some(
+          (row: Record<string, unknown>) =>
+            row.scope === "org" && row.org_id === membership?.org_id && !row.revoked_at,
+        ),
+      });
     }
 
     if (action === "create") {
@@ -99,6 +110,37 @@ serve(async (req) => {
         share: data,
         url: `${APP_URL}/share/${token}`,
       });
+    }
+
+    // ---- share to / unshare from the caller's workspace --------------------
+    // Same table, scope='org'. Grants colleagues the same surface a public link
+    // does — summary, decisions, action items — and nothing more; the RLS
+    // policies added in 20260901200000 deliberately stop short of transcripts.
+    if (action === "share_to_org" || action === "unshare_from_org") {
+      const { data: membership } = await supabase
+        .from("org_members").select("org_id").eq("user_id", userId).maybeSingle();
+      if (!membership) return json({ error: "You are not in a workspace." }, 409);
+
+      if (action === "unshare_from_org") {
+        const { error } = await supabase
+          .from("meeting_shares")
+          .delete()
+          .eq("meeting_id", meetingId)
+          .eq("org_id", membership.org_id)
+          .eq("scope", "org");
+        if (error) throw error;
+        return json({ shared_to_org: false });
+      }
+
+      const { error } = await supabase.from("meeting_shares").insert({
+        meeting_id: meetingId,
+        created_by: userId,
+        scope: "org",
+        org_id: membership.org_id,
+      });
+      // 23505 = already shared to this workspace, which is the desired state.
+      if (error && error.code !== "23505") throw error;
+      return json({ shared_to_org: true });
     }
 
     if (action === "revoke") {
