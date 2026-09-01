@@ -137,19 +137,39 @@ Deno.test("readUsage sums meetings and seconds separately", async () => {
   assertEquals(await readUsage(sb, "u1"), { meetingsStarted: 2, recordedSeconds: 2700 });
 });
 
-Deno.test("free plan: refuses the sixth meeting of the month", async () => {
-  const rows = Array.from({ length: 5 }, () => ({ kind: "meeting_started", seconds: 0 }));
-  const decision = await checkRecordingAllowed(stubSupabase(null, rows), "u1");
+Deno.test("no subscription: refuses the first meeting — there is no free tier", async () => {
+  const decision = await checkRecordingAllowed(stubSupabase(null, []), "u1");
   assert(!decision.allowed);
   assertEquals(decision.plan, "free");
   assertEquals(decision.code, "meeting_limit");
+  assert(decision.reason.includes("no active subscription"));
 });
 
-Deno.test("free plan: allows the fifth meeting", async () => {
-  const rows = Array.from({ length: 4 }, () => ({ kind: "meeting_started", seconds: 0 }));
-  const decision = await checkRecordingAllowed(stubSupabase(null, rows), "u1");
+Deno.test("no subscription: a usage read error still refuses, it does not fail open", async () => {
+  const sb = {
+    from(table: string) {
+      if (table === "profiles") {
+        return { select: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: null }) }) }) };
+      }
+      return {
+        select: () => ({
+          eq: () => ({ gte: () => Promise.resolve({ data: null, error: { message: "boom" } }) }),
+        }),
+      };
+    },
+  };
+  const decision = await checkRecordingAllowed(sb, "u1");
+  assert(!decision.allowed);
+  assertEquals(decision.code, "meeting_limit");
+});
+
+Deno.test("plan_override still lets an internal account record", async () => {
+  const decision = await checkRecordingAllowed(
+    stubSupabase({ plan_override: "pro" }, []),
+    "u1",
+  );
   assert(decision.allowed);
-  assertEquals(decision.limits.maxMeetingSeconds, 45 * 60);
+  assertEquals(decision.plan, "pro");
 });
 
 Deno.test("paid plan: included hours allow, overage band allows and is flagged", async () => {
@@ -183,11 +203,17 @@ Deno.test("paid plan: refuses past included + overage ceiling", async () => {
   assertEquals(decision.code, "hour_limit");
 });
 
-Deno.test("a usage read failure fails OPEN — a DB blip must not stop recording", async () => {
+Deno.test("a usage read failure fails OPEN for a subscriber — a DB blip must not stop recording", async () => {
   const sb = {
     from(table: string) {
       if (table === "profiles") {
-        return { select: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: null }) }) }) };
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: () => Promise.resolve({ data: { subscription_status: "active" } }),
+            }),
+          }),
+        };
       }
       return {
         select: () => ({

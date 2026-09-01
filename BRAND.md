@@ -67,7 +67,7 @@ Motion: UI 150–200ms, brand loops 1.2–2.8s, always with a reduced-motion fal
 ## Voice
 
 Conversational, not corporate. Outcome first. Confident without superlatives.
-India-aware — name the languages, say WhatsApp, price in ₹.
+India-aware — name the languages, price in ₹.
 
 Never write "AI-powered", "cutting-edge", "next-gen", "revolutionary",
 "seamless", "unlock". No exclamation marks.

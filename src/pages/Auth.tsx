@@ -171,7 +171,7 @@ export default function Auth() {
     : isForgotPassword
     ? "We'll email you a reset link."
     : isSignUp
-    ? '3 meetings free. No credit card required.'
+    ? 'Create your account to get started.'
     : 'Sign in to continue to your dashboard.';
 
   const bullets = [

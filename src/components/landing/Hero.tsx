@@ -121,7 +121,7 @@ export function Hero() {
             className="mt-5 text-[13px]"
             style={{ color: 'var(--ink-soft)' }}
           >
-            Free for your first 3 meetings · No Chrome extension · Connect your calendar in 30 seconds
+            No Chrome extension · Connect your calendar in 30 seconds · Cancel anytime
           </motion.p>
 
           <motion.dl

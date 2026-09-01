@@ -22,9 +22,11 @@ export interface PlanLimits {
 const HOUR = 3600;
 
 export const PLANS: Record<PlanKey, PlanLimits> = {
+  // Mirrors entitlements.ts: `free` is "no live subscription", not a tier we
+  // sell. Zero meetings included.
   free: {
-    label: 'Free',
-    meetingsPerPeriod: 5,
+    label: 'No plan',
+    meetingsPerPeriod: 0,
     includedSeconds: null,
     overageSeconds: 0,
     maxMeetingSeconds: 45 * 60,

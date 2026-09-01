@@ -9,7 +9,8 @@
  * before creating a bot are `start-recall-recording` and `auto-join-meetings`.
  *
  * The numbers here are the contract shown to customers on the pricing page.
- * Change them in both places or not at all.
+ * Change them in both places or not at all. `free` is the exception: it is not
+ * sold, it is the no-subscription state, and it grants nothing.
  */
 
 export type PlanKey = "free" | "starter" | "pro" | "teams";
@@ -36,9 +37,13 @@ export interface PlanLimits {
 const HOUR = 3600;
 
 export const PLANS: Record<PlanKey, PlanLimits> = {
+  // Not a plan you can buy — the state an account is in with no live
+  // subscription. There is no free tier: the pricing page sells Starter, Pro
+  // and Teams only, so an unsubscribed account records nothing. Design
+  // partners and internal accounts get in via `profiles.plan_override`.
   free: {
-    label: "Free",
-    meetingsPerPeriod: 5,
+    label: "No plan",
+    meetingsPerPeriod: 0,
     includedSeconds: null,
     overageSeconds: 0,
     maxMeetingSeconds: 45 * 60,
@@ -196,9 +201,11 @@ export type EntitlementDecision =
 /**
  * The gate. Call before creating a Recall bot; refuse with 402 when it says no.
  *
- * Deliberately fails OPEN on a read error: a transient Postgres blip should not
- * silently stop every customer's meetings from being recorded. Losing a small
- * amount of quota accounting is the cheaper failure.
+ * Fails OPEN on a usage read error for accounts that have an allowance — a
+ * transient Postgres blip should not stop a paying customer recording, and
+ * losing a little quota accounting is the cheaper failure. It does NOT fail
+ * open for an account with a zero allowance: no subscription means no bot,
+ * and a read error must not become a way to record for free.
  */
 export async function checkRecordingAllowed(
   supabase: any,
@@ -218,8 +225,20 @@ export async function checkRecordingAllowed(
   try {
     usage = await readUsage(supabase, userId, now);
   } catch (err) {
+    const empty = { meetingsStarted: 0, recordedSeconds: 0 };
+    if (limits.meetingsPerPeriod === 0) {
+      console.error("[entitlements] usage read failed on a zero-allowance account, refusing:", err);
+      return {
+        allowed: false,
+        plan,
+        limits,
+        usage: empty,
+        code: "meeting_limit",
+        reason: "This account has no active subscription. Choose a plan to start recording.",
+      };
+    }
     console.error("[entitlements] usage read failed, allowing:", err);
-    return { allowed: true, plan, limits, usage: { meetingsStarted: 0, recordedSeconds: 0 }, isOverage: false };
+    return { allowed: true, plan, limits, usage: empty, isOverage: false };
   }
 
   if (limits.meetingsPerPeriod !== null && usage.meetingsStarted >= limits.meetingsPerPeriod) {
@@ -229,9 +248,10 @@ export async function checkRecordingAllowed(
       limits,
       usage,
       code: "meeting_limit",
-      reason:
-        `Your ${limits.label} plan includes ${limits.meetingsPerPeriod} meetings a month ` +
-        `and you have used all of them. Upgrade to keep recording.`,
+      reason: limits.meetingsPerPeriod === 0
+        ? "This account has no active subscription. Choose a plan to start recording."
+        : `Your ${limits.label} plan includes ${limits.meetingsPerPeriod} meetings a month ` +
+          `and you have used all of them. Upgrade to keep recording.`,
     };
   }
 

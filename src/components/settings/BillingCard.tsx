@@ -111,12 +111,17 @@ export function BillingCard() {
   const status = profile?.subscription_status ?? 'none';
   const isActive = status === 'active';
   const limits = PLANS[planForProfile(profile)];
-  // Free plans are metered by meeting count, paid plans by recorded hours.
+  // Count-metered plans (only the no-subscription state today) vs hour-metered
+  // paid plans. A zero allowance must not divide by zero.
   const usedFraction = limits.meetingsPerPeriod !== null
-    ? (usage?.meetings ?? 0) / limits.meetingsPerPeriod
+    ? (limits.meetingsPerPeriod > 0
+        ? (usage?.meetings ?? 0) / limits.meetingsPerPeriod
+        : 1)
     : (usage?.seconds ?? 0) / (limits.includedSeconds || 1);
   const allowanceLabel = limits.meetingsPerPeriod !== null
-    ? `${usage?.meetings ?? 0} of ${limits.meetingsPerPeriod} meetings`
+    ? (limits.meetingsPerPeriod > 0
+        ? `${usage?.meetings ?? 0} of ${limits.meetingsPerPeriod} meetings`
+        : 'No meetings included — choose a plan to start recording')
     : `${formatHours(usage?.seconds ?? 0)} of ${formatHours(limits.includedSeconds || 0)} hours`;
   const renewsAt = profile?.subscription_renews_at
     ? new Date(profile.subscription_renews_at).toLocaleDateString(undefined, {

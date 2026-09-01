@@ -149,7 +149,7 @@ not *look at me*. Everything animated has a `prefers-reduced-motion` off-switch.
 
 Conversational, not corporate. Outcome first — lead with what the user gets,
 not what the system does. Confident without superlatives. Specific about India:
-name the languages, say WhatsApp, price in ₹.
+name the languages, price in ₹.
 
 **Write**
 > Every meeting, *briefed.* Bot joins, records, and files the notes before you're

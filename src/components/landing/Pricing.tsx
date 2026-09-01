@@ -23,22 +23,6 @@ type Tier = {
 
 const tiers: Tier[] = [
   {
-    name: 'Free',
-    tagline: 'For trying it out',
-    monthly: 0,
-    annualTotal: null,
-    unit: '',
-    features: [
-      '5 meetings / month',
-      'Up to 45 minutes per meeting',
-      'All 22 Indian languages',
-      'AI summary and action items',
-      'Email delivery',
-      '14-day retention',
-    ],
-    cta: 'Join waitlist',
-  },
-  {
     name: 'Starter',
     tagline: 'For individuals',
     monthly: 799,
@@ -200,9 +184,8 @@ export function Pricing() {
           </div>
         </motion.div>
 
-        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {tiers.map((tier, i) => {
-            const isFree = tier.monthly === 0;
             const displayPrice =
               billing === 'annual' && tier.annualTotal
                 ? Math.round(tier.annualTotal / 12)
@@ -286,14 +269,12 @@ export function Pricing() {
                     >
                       {formatINR(displayPrice)}
                     </span>
-                    {!isFree && (
-                      <span
-                        className="text-[13.5px]"
-                        style={{ color: 'var(--ink-mid)' }}
-                      >
-                        {tier.unit}
-                      </span>
-                    )}
+                    <span
+                      className="text-[13.5px]"
+                      style={{ color: 'var(--ink-mid)' }}
+                    >
+                      {tier.unit}
+                    </span>
                   </div>
                   )}
                   <p
@@ -302,8 +283,6 @@ export function Pricing() {
                   >
                     {tier.priceNote
                       ? tier.priceNote
-                      : isFree
-                      ? 'Forever free'
                       : billing === 'annual' && tier.annualTotal
                       ? `₹${formatINR(tier.annualTotal)} billed yearly`
                       : 'Billed monthly'}
