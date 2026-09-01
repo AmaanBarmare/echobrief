@@ -1,7 +1,8 @@
 import { motion } from 'framer-motion';
 import { HeroShowcase } from '@/components/landing/HeroShowcase';
 import { ArrowRight } from 'lucide-react';
-import { openWaitlist } from '@/lib/waitlist';
+import { Link } from 'react-router-dom';
+import { signupPath } from '@/lib/signupLink';
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
@@ -88,18 +89,17 @@ export function Hero() {
             variants={fade}
             className="mt-9 flex flex-wrap items-center gap-3"
           >
-            <button
-              type="button"
-              onClick={() => openWaitlist('hero')}
-              className="group inline-flex items-center gap-2 rounded-full px-6 py-3.5 text-[14.5px] font-bold text-white transition-all hover:-translate-y-0.5"
+            <Link
+              to={signupPath()}
+              className="group inline-flex items-center gap-2 rounded-full px-6 py-3.5 text-[14.5px] font-bold text-white no-underline transition-all hover:-translate-y-0.5"
               style={{
                 background: 'var(--ember)',
                 boxShadow: '0 6px 24px color-mix(in oklch, var(--ember) 28%, transparent)',
               }}
             >
-              Join the waitlist
+              Get started
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" strokeWidth={2.25} />
-            </button>
+            </Link>
             <a
               href="#how-it-works"
               className="inline-flex items-center rounded-full px-6 py-3 text-[14.5px] font-semibold no-underline transition-colors"

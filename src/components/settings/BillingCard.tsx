@@ -6,8 +6,16 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { CreditCard, ExternalLink, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { formatHours, PLANS, periodStart, planForProfile, SELLABLE_PLANS } from '@/lib/plans';
-import type { PlanKey } from '@/lib/plans';
+import {
+  formatHours,
+  formatINR,
+  PLAN_PRICES,
+  PLANS,
+  periodStart,
+  planForProfile,
+  SELLABLE_PLANS,
+} from '@/lib/plans';
+import type { BillingPeriod, PlanKey } from '@/lib/plans';
 
 interface BillingProfile {
   subscription_status: string;
@@ -25,15 +33,6 @@ interface Usage {
 // src/integrations/supabase/types.ts. Same escape hatch Contacts.tsx uses for
 // `contacts`; regenerating the types is a separate chore.
 const db = supabase as unknown as SupabaseClient;
-
-// The rupee figures the pricing page prints, mirrored here so the buttons say
-// what the customer is about to be charged. They must match the live Dodo
-// products (EchoBrief Starter / EchoBrief Pro) and
-// src/components/landing/Pricing.tsx.
-const PLAN_PRICES: Record<'starter' | 'pro', string> = {
-  starter: '799',
-  pro: '1,999',
-};
 
 const STATUS_LABELS: Record<string, string> = {
   none: 'No subscription',
@@ -53,6 +52,11 @@ export function BillingCard() {
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
   const [usage, setUsage] = useState<Usage | null>(null);
+  // A pricing-page CTA lands here as ?plan=pro&billing=annual; the toggle
+  // starts on what the customer clicked, and they can still change it.
+  const [period, setPeriod] = useState<BillingPeriod>(
+    searchParams.get('billing') === 'annual' ? 'annual' : 'monthly',
+  );
 
   const refresh = useCallback(async () => {
     if (!user) return;
@@ -103,7 +107,7 @@ export function BillingCard() {
     setWorking(true);
     try {
       const { data, error } = await supabase.functions.invoke('manage-billing', {
-        body: { action, plan },
+        body: { action, plan, billing: period },
       });
       if (error) throw new Error(error.message);
       if (data?.error) throw new Error(data.error);
@@ -116,8 +120,10 @@ export function BillingCard() {
       });
       setWorking(false);
     }
-  }, [toast]);
+  }, [toast, period]);
 
+  const requested = searchParams.get('plan');
+  const highlighted = SELLABLE_PLANS.includes(requested as PlanKey) ? requested : 'pro';
   const status = profile?.subscription_status ?? 'none';
   const isActive = status === 'active';
   const limits = PLANS[planForProfile(profile)];
@@ -173,7 +179,32 @@ export function BillingCard() {
                 </p>
               )}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              {!isActive && (
+                <div
+                  className="mr-1 inline-flex rounded-md p-0.5"
+                  style={{ background: 'var(--paper-deep)' }}
+                  role="group"
+                  aria-label="Billing period"
+                >
+                  {(['monthly', 'annual'] as BillingPeriod[]).map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => setPeriod(option)}
+                      aria-pressed={period === option}
+                      className="rounded-[5px] px-2.5 py-1 text-[12.5px] font-medium capitalize transition-colors"
+                      style={
+                        period === option
+                          ? { background: 'var(--paper-card)', color: 'var(--ink)' }
+                          : { color: 'var(--ink-soft)' }
+                      }
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
+              )}
               {profile?.dodo_customer_id && (
                 <Button
                   variant="outline"
@@ -189,12 +220,14 @@ export function BillingCard() {
                 <Button
                   key={plan}
                   size="sm"
-                  variant={plan === 'pro' ? 'default' : 'outline'}
+                  variant={plan === highlighted ? 'default' : 'outline'}
                   disabled={working}
                   onClick={() => invoke('checkout', plan)}
                 >
                   {working && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
-                  {PLANS[plan].label} — ₹{PLAN_PRICES[plan]}/mo
+                  {PLANS[plan].label} — ₹
+                  {formatINR(PLAN_PRICES[plan as 'starter' | 'pro'][period])}
+                  {period === 'annual' ? '/yr' : '/mo'}
                 </Button>
               ))}
             </div>

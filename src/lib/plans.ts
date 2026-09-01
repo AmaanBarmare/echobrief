@@ -61,6 +61,23 @@ export const PLANS: Record<PlanKey, PlanLimits> = {
 /** Mirrors SELLABLE_PLANS in entitlements.ts — the plans checkout can sell. */
 export const SELLABLE_PLANS: PlanKey[] = ['starter', 'pro'];
 
+/** Mirrors BillingPeriod in entitlements.ts. */
+export type BillingPeriod = 'monthly' | 'annual';
+
+/**
+ * What each sellable plan costs, as the pricing page prints it. Mirrors
+ * src/components/landing/Pricing.tsx and the live Dodo products; the server
+ * still decides which product a checkout actually uses.
+ */
+export const PLAN_PRICES: Record<'starter' | 'pro', Record<BillingPeriod, number>> = {
+  starter: { monthly: 799, annual: 7990 },
+  pro: { monthly: 1999, annual: 19990 },
+};
+
+export function formatINR(amount: number): string {
+  return new Intl.NumberFormat('en-IN').format(amount);
+}
+
 const ENTITLED_STATUSES = new Set(['active', 'cancelled']);
 
 /** Mirrors `planForProfile` in entitlements.ts, minus the Dodo product map. */

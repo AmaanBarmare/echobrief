@@ -5,7 +5,7 @@ import { checkRateLimit, getClientIdentifier, RATE_LIMITS } from "../_shared/rat
 serve(async (req) => {
   // Rate limiting for OAuth redirect (stricter - this is the callback)
   const clientId = getClientIdentifier(req);
-  const rateLimitResult = checkRateLimit(`oauth-redirect:${clientId}`, RATE_LIMITS.AUTH);
+  const rateLimitResult = await checkRateLimit(`oauth-redirect:${clientId}`, RATE_LIMITS.AUTH);
   if (!rateLimitResult.allowed) {
     return new Response(
       `Too many requests. Please wait ${rateLimitResult.resetIn} seconds and try again.`,

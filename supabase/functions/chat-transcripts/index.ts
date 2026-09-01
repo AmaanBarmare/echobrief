@@ -16,6 +16,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import OpenAI from "https://esm.sh/openai@4.20.1";
 import { getCorsHeaders, handleCorsPrelight } from "../_shared/cors.ts";
+import { checkRateLimit, createRateLimitResponse, RATE_LIMITS } from "../_shared/rate-limit.ts";
 
 const MAX_CONTEXT_TOKENS = 100_000;
 
@@ -138,6 +139,15 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_ANON_KEY")!,
       { global: { headers: { Authorization: authHeader } } },
     );
+
+    // Every question here is an OpenAI call over the caller's whole transcript
+    // history — the most expensive request in the product. Rate limit it on the
+    // user id, which is also the only identifier that survives an IP change.
+    // A bad token is an auth failure, not a free pass, so refuse outright.
+    const { data: authData } = await supabase.auth.getUser();
+    if (!authData?.user) return json({ error: "Invalid or expired session" }, 401);
+    const limit = await checkRateLimit(`chat:${authData.user.id}`, RATE_LIMITS.LLM);
+    if (!limit.allowed) return createRateLimitResponse(limit, corsHeaders);
 
     const { items, truncated, tokens, skipped } = await buildContext(supabase);
     console.log(

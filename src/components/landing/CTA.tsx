@@ -3,6 +3,8 @@ import { motion, useInView } from 'framer-motion';
 import { useRef } from 'react';
 import { WaitlistForm } from './WaitlistForm';
 import { WAITLIST_ANCHOR } from '@/lib/waitlist';
+import { signupPath } from '@/lib/signupLink';
+import { ArrowRight } from 'lucide-react';
 
 export function CTA() {
   const ref = useRef(null);
@@ -39,7 +41,7 @@ export function CTA() {
             style={{ background: 'color-mix(in oklch, var(--gold) 10%, transparent)' }}
           />
 
-          <span className="eyebrow relative" style={{ justifyContent: 'center' }}>Early access</span>
+          <span className="eyebrow relative" style={{ justifyContent: 'center' }}>Get started</span>
 
           <h2
             className="relative mt-5 leading-[1.06]"
@@ -60,13 +62,25 @@ export function CTA() {
             className="relative mx-auto mt-5 max-w-[46ch] text-[16px] leading-[1.65]"
             style={{ color: 'var(--ink-mid)' }}
           >
-            We're onboarding in small batches while we tune quality. Leave your
-            details and we'll email you the moment a seat opens up.
+            Create an account, connect your calendar, and the bot joins your next
+            meeting. Starter and Pro are self-serve; cancel whenever you like.
           </p>
 
-          <WaitlistForm />
-
-          <div className="relative mt-6 flex flex-wrap items-center justify-center gap-3">
+          <div className="relative mt-8 flex flex-wrap items-center justify-center gap-3">
+            <Link
+              to={signupPath()}
+              className="group inline-flex items-center gap-2 rounded-full px-7 py-3.5 text-[15px] font-bold text-white no-underline transition-all hover:-translate-y-0.5"
+              style={{
+                background: 'var(--ember)',
+                boxShadow: '0 8px 28px color-mix(in oklch, var(--ember) 30%, transparent)',
+              }}
+            >
+              Create your account
+              <ArrowRight
+                className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
+                strokeWidth={2.25}
+              />
+            </Link>
             <Link
               to="/docs"
               className="inline-flex items-center rounded-full px-6 py-3 text-[14.5px] font-semibold no-underline"
@@ -87,8 +101,31 @@ export function CTA() {
               letterSpacing: '0.06em',
             }}
           >
-            NO CARD · WE ONLY EMAIL YOU ABOUT YOUR SEAT
+            PAY MONTHLY OR YEARLY · CANCEL ANYTIME
           </p>
+
+          {/* Teams is not self-serve — the shared-workspace schema does not
+              exist yet — so the Teams tier and the navbar's team enquiries
+              land on this form rather than on checkout. */}
+          <div
+            className="relative mx-auto mt-14 max-w-[520px] border-t pt-10"
+            style={{ borderColor: 'var(--rule)' }}
+          >
+            <h3
+              className="text-[19px]"
+              style={{ fontFamily: 'var(--font-brand-serif)', color: 'var(--ink)' }}
+            >
+              Rolling this out to a team?
+            </h3>
+            <p
+              className="mx-auto mt-2 max-w-[42ch] text-[14px] leading-[1.6]"
+              style={{ color: 'var(--ink-mid)' }}
+            >
+              Pooled meeting-hours, a shared workspace and admin controls are in
+              build with design partners. Tell us what your team needs.
+            </p>
+            <WaitlistForm />
+          </div>
         </motion.div>
       </div>
     </section>

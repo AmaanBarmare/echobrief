@@ -9,6 +9,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import OpenAI from "https://esm.sh/openai@4.20.1";
 import { authenticate, CORS_HEADERS, json } from "../_shared/auth.ts";
+import { checkRateLimit, createRateLimitResponse, RATE_LIMITS } from "../_shared/rate-limit.ts";
 import { formatISTDate } from "../_shared/time.ts";
 
 function str(v: unknown): string { return String(v ?? "").trim(); }
@@ -23,6 +24,15 @@ serve(async (req) => {
   const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   const caller = await authenticate(req, supabase);
   if (!caller.ok) return caller.response;
+
+  // This endpoint calls OpenAI on every request. Service callers are us
+  // (backfills, other functions) and are not limited; users are, keyed on the
+  // user id rather than the IP — an office shares an IP and an attacker rotates
+  // one, but the account is the thing actually spending our money.
+  if (!caller.isService) {
+    const limit = await checkRateLimit(`account-brief:${caller.userId}`, RATE_LIMITS.LLM_HEAVY);
+    if (!limit.allowed) return createRateLimitResponse(limit, CORS_HEADERS);
+  }
 
   const body = await req.json().catch(() => ({}));
   const contactId = String(body.contact_id ?? "");

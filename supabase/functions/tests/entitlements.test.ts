@@ -4,6 +4,7 @@
  */
 import { assert, assertEquals } from "https://deno.land/std@0.208.0/assert/mod.ts";
 import {
+  BILLING_PERIODS,
   checkRecordingAllowed,
   periodStart,
   PLANS,
@@ -15,25 +16,34 @@ import {
 
 const noEnv = () => undefined;
 
-Deno.test("productForPlan: reads the plan out of the DODO_PLAN_PRODUCTS map", () => {
-  const env = (k: string) =>
-    k === "DODO_PLAN_PRODUCTS"
-      ? JSON.stringify({ pdt_starter: "starter", pdt_pro: "pro" })
-      : undefined;
-  assertEquals(productForPlan("starter", env), "pdt_starter");
-  assertEquals(productForPlan("pro", env), "pdt_pro");
+const billingEnv = (k: string) =>
+  k === "DODO_PLAN_PRODUCTS"
+    ? JSON.stringify({ pdt_starter: "starter", pdt_pro: "pro" })
+    : k === "DODO_PLAN_PRODUCTS_ANNUAL"
+    ? JSON.stringify({ pdt_starter_yr: "starter", pdt_pro_yr: "pro" })
+    : undefined;
+
+Deno.test("productForPlan: picks the product for the plan and billing period", () => {
+  assertEquals(productForPlan("starter", "monthly", billingEnv), "pdt_starter");
+  assertEquals(productForPlan("pro", "monthly", billingEnv), "pdt_pro");
+  assertEquals(productForPlan("starter", "annual", billingEnv), "pdt_starter_yr");
+  assertEquals(productForPlan("pro", "annual", billingEnv), "pdt_pro_yr");
+  // Monthly is the default so an old caller that names no period is unchanged.
+  assertEquals(productForPlan("pro", undefined, billingEnv), "pdt_pro");
 });
 
-Deno.test("productForPlan: falls back to DODO_PRODUCT_ID for the default plan only", () => {
+Deno.test("productForPlan: falls back to DODO_PRODUCT_ID for the default plan, monthly only", () => {
   const env = (k: string) => (k === "DODO_PRODUCT_ID" ? "pdt_only" : undefined);
-  assertEquals(productForPlan("starter", env), "pdt_only");
-  assertEquals(productForPlan("pro", env), null);
+  assertEquals(productForPlan("starter", "monthly", env), "pdt_only");
+  assertEquals(productForPlan("pro", "monthly", env), null);
+  // No annual product configured must not silently sell the monthly one.
+  assertEquals(productForPlan("starter", "annual", env), null);
 });
 
 Deno.test("productForPlan: a malformed map still yields the fallback product", () => {
   const env = (k: string) =>
     k === "DODO_PLAN_PRODUCTS" ? "{not json" : k === "DODO_PRODUCT_ID" ? "pdt_only" : undefined;
-  assertEquals(productForPlan("starter", env), "pdt_only");
+  assertEquals(productForPlan("starter", "monthly", env), "pdt_only");
 });
 
 Deno.test("productForPlan: refuses plans that are not for sale", () => {
@@ -41,22 +51,25 @@ Deno.test("productForPlan: refuses plans that are not for sale", () => {
     k === "DODO_PLAN_PRODUCTS"
       ? JSON.stringify({ pdt_free: "free", pdt_teams: "teams" })
       : undefined;
-  assertEquals(productForPlan("free", env), null);
-  assertEquals(productForPlan("teams", env), null);
+  assertEquals(productForPlan("free", "monthly", env), null);
+  assertEquals(productForPlan("teams", "monthly", env), null);
   assertEquals(SELLABLE_PLANS, ["starter", "pro"]);
 });
 
-Deno.test("productForPlan and planForProfile agree on one map", () => {
-  const env = (k: string) =>
-    k === "DODO_PLAN_PRODUCTS"
-      ? JSON.stringify({ pdt_starter: "starter", pdt_pro: "pro" })
-      : undefined;
-  for (const plan of SELLABLE_PLANS) {
-    const productId = productForPlan(plan, env)!;
-    assertEquals(
-      planForProfile({ subscription_status: "active", subscription_product_id: productId }, env),
-      plan,
-    );
+Deno.test("productForPlan and planForProfile agree, on both billing periods", () => {
+  for (const period of BILLING_PERIODS) {
+    for (const plan of SELLABLE_PLANS) {
+      const productId = productForPlan(plan, period, billingEnv)!;
+      assert(productId, `${plan}/${period} has no product`);
+      assertEquals(
+        planForProfile(
+          { subscription_status: "active", subscription_product_id: productId },
+          billingEnv,
+        ),
+        plan,
+        `${plan}/${period}`,
+      );
+    }
   }
 });
 

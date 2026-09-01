@@ -1,12 +1,17 @@
 import { motion, useInView } from 'framer-motion';
 import { useRef, useState } from 'react';
 import { Check } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { openWaitlist } from '@/lib/waitlist';
+import { signupPath } from '@/lib/signupLink';
+import type { PlanKey } from '@/lib/plans';
 
 type Billing = 'monthly' | 'annual';
 
 type Tier = {
   name: string;
+  /** Set on tiers that can be bought; the rest route to the contact form. */
+  plan?: Extract<PlanKey, 'starter' | 'pro'>;
   tagline: string;
   monthly: number;
   annualTotal: number | null;
@@ -24,6 +29,7 @@ type Tier = {
 const tiers: Tier[] = [
   {
     name: 'Starter',
+    plan: 'starter',
     tagline: 'For individuals',
     monthly: 799,
     annualTotal: 7990,
@@ -36,10 +42,11 @@ const tiers: Tier[] = [
       'Speaker identification',
       '30-day retention',
     ],
-    cta: 'Join waitlist',
+    cta: 'Get started',
   },
   {
     name: 'Pro',
+    plan: 'pro',
     tagline: 'For power users',
     monthly: 1999,
     annualTotal: 19990,
@@ -51,7 +58,7 @@ const tiers: Tier[] = [
       'Custom vocabulary and priority processing',
       '90-day retention',
     ],
-    cta: 'Join waitlist',
+    cta: 'Get started',
     featured: true,
   },
   {
@@ -289,6 +296,23 @@ export function Pricing() {
                   </p>
                 </div>
 
+                {tier.plan ? (
+                  <Link
+                    to={`${signupPath(tier.plan)}&billing=${billing}`}
+                    className="mt-6 inline-flex w-full items-center justify-center rounded-md px-4 py-2.5 text-[14px] font-semibold no-underline transition-opacity hover:opacity-90"
+                    style={
+                      isFeatured
+                        ? { background: 'var(--ember)', color: 'white' }
+                        : {
+                            background: 'var(--paper-card)',
+                            color: 'var(--ink)',
+                            border: '1px solid var(--rule)',
+                          }
+                    }
+                  >
+                    {tier.cta}
+                  </Link>
+                ) : (
                 <button
                   type="button"
                   onClick={() => openWaitlist(`pricing:${tier.name}`)}
@@ -305,6 +329,7 @@ export function Pricing() {
                 >
                   {tier.cta}
                 </button>
+                )}
 
                 <ul className="mt-7 space-y-3">
                   {tier.features.map((f) => (

@@ -302,7 +302,7 @@ export default function Docs() {
                 <SectionHeading id="setup">Account setup</SectionHeading>
                 <Steps
                   items={[
-                    <>Sign in at <strong className="text-foreground">echobrief.in</strong> with your email and password — or with Google, when the <strong className="text-foreground">Continue with Google</strong> option is shown. Access is currently invite-based — join the waitlist from the homepage if you do not have an account yet.</>,
+                    <>Sign in at <strong className="text-foreground">echobrief.in</strong> with your email and password — or with Google, when the <strong className="text-foreground">Continue with Google</strong> option is shown. Do not have an account yet? Create one from the homepage — Starter and Pro are self-serve, and you pick a plan in Settings → Billing.</>,
                     <>Complete onboarding: choose your preferred languages and, optionally, connect Google Calendar.</>,
                     <>Open <strong className="text-foreground">Settings</strong> to name your bot, pick its colour, and confirm email summaries are on.</>,
                     <>Record your first meeting.</>,

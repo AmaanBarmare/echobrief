@@ -11,7 +11,7 @@ serve(async (req) => {
 
   // Rate limiting for public endpoint
   const clientId = getClientIdentifier(req);
-  const rateLimitResult = checkRateLimit(`get-client-id:${clientId}`, RATE_LIMITS.PUBLIC);
+  const rateLimitResult = await checkRateLimit(`get-client-id:${clientId}`, RATE_LIMITS.PUBLIC);
   if (!rateLimitResult.allowed) {
     return createRateLimitResponse(rateLimitResult, corsHeaders);
   }

@@ -9,10 +9,23 @@ const ALLOWED_ORIGINS = [
   "http://localhost:8080",
 ];
 
+// Vercel preview deployments for THIS project only.
+//
+// This used to be `origin.endsWith(".vercel.app")`, which trusts a namespace we
+// do not own: anyone can deploy to vercel.app and be handed a permissive
+// Access-Control-Allow-Origin. Not directly exploitable — a cross-origin call
+// still needs the user's bearer token — but it is a defence layer given away
+// for convenience an exact pattern provides just as well.
+//
+// Vercel preview hosts are `<project>-<hash>-<scope>.vercel.app` and
+// `<project>-git-<branch>-<scope>.vercel.app`, so anchoring on the project
+// name plus a separator is enough to exclude everyone else's deployments.
+const VERCEL_PREVIEW = /^https:\/\/echobrief-[a-z0-9-]+\.vercel\.app$/;
+
 export function getCorsHeaders(origin: string | null): Record<string, string> {
   const isAllowed = origin && (
     ALLOWED_ORIGINS.includes(origin) ||
-    origin.endsWith(".vercel.app")
+    VERCEL_PREVIEW.test(origin)
   );
   const allowedOrigin = isAllowed ? origin : ALLOWED_ORIGINS[0];
   

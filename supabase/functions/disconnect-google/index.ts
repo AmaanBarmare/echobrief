@@ -12,7 +12,7 @@ serve(async (req) => {
 
   // Rate limiting for disconnect endpoint
   const clientId = getClientIdentifier(req);
-  const rateLimitResult = checkRateLimit(`disconnect:${clientId}`, RATE_LIMITS.AUTH);
+  const rateLimitResult = await checkRateLimit(`disconnect:${clientId}`, RATE_LIMITS.AUTH);
   if (!rateLimitResult.allowed) {
     return createRateLimitResponse(rateLimitResult, corsHeaders);
   }

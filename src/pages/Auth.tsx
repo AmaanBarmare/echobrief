@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
-import { consumePostLoginRedirect } from '@/lib/postLoginRedirect';
+import { consumePostLoginRedirect, rememberPostLoginRedirect } from '@/lib/postLoginRedirect';
+import { billingPath } from '@/lib/signupLink';
+import { SELLABLE_PLANS, type BillingPeriod, type PlanKey } from '@/lib/plans';
 import { checkPwnedPassword } from '@/lib/pwned';
 import { supabase } from '@/integrations/supabase/client';
 import { Mail, Lock, User, ArrowLeft, ArrowRight, Loader2, Check, type LucideIcon } from 'lucide-react';
@@ -10,10 +12,10 @@ import { useToast } from '@/hooks/use-toast';
 import { Logo } from '@/components/ui/Logo';
 import { ThemeToggle } from '@/components/ThemeToggle';
 
-// Signups are closed. The Supabase auth server also has `disable_signup: true`,
-// so flipping this back to `true` alone will NOT re-open registration — the
-// project's auth config has to be changed too.
-const SIGNUPS_ENABLED = false;
+// Registration is open (2026-09-01). The Supabase auth server's
+// `disable_signup` was flipped to false at the same time — flipping this
+// constant alone would only re-open the form, not the auth server.
+const SIGNUPS_ENABLED = true;
 
 // Google sign-in is live: the Supabase Auth Google provider was repointed at
 // a fresh OAuth client on 2026-08-31 (the previous one had been deleted and
@@ -32,7 +34,13 @@ const inputStyle = {
 } as const;
 
 export default function Auth() {
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [searchParams] = useSearchParams();
+  // A pricing-page CTA arrives as /auth?signup=1&plan=pro&billing=annual. The
+  // plan is only a hint about where to land after sign-up — entitlements come
+  // from the subscription Dodo confirms, never from this link.
+  const [isSignUp, setIsSignUp] = useState(
+    SIGNUPS_ENABLED && searchParams.get('signup') === '1',
+  );
   const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [email, setEmail] = useState('');
@@ -46,6 +54,14 @@ export default function Auth() {
   const { toast } = useToast();
 
   const isResetPassword = isPasswordRecovery;
+
+  useEffect(() => {
+    const plan = searchParams.get('plan');
+    if (!plan || !SELLABLE_PLANS.includes(plan as PlanKey)) return;
+    const billing = searchParams.get('billing');
+    const period: BillingPeriod = billing === 'annual' ? 'annual' : 'monthly';
+    rememberPostLoginRedirect(`${billingPath(plan as PlanKey)}&billing=${period}`);
+  }, [searchParams]);
 
   useEffect(() => {
     if (user && !isResetPassword) navigate(consumePostLoginRedirect() ?? '/dashboard');
@@ -468,7 +484,7 @@ export default function Auth() {
                         className="no-underline"
                         style={{ color: 'var(--ember-deep)', fontWeight: 600 }}
                       >
-                        Join the waitlist
+                        Talk to us
                       </Link>
                     </p>
                   )}

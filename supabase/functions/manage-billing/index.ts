@@ -2,10 +2,10 @@
  * Billing actions for the signed-in user: start a subscription checkout, or
  * open the Dodo customer portal.
  *
- * The client names a PLAN ("starter" | "pro"), never a product or a price —
- * the plan is resolved to a Dodo product server-side by `productForPlan`, off
- * the same DODO_PLAN_PRODUCTS map that decides entitlements, so what a customer
- * pays for and what they get can never drift apart. metadata.user_id on the
+ * The client names a PLAN ("starter" | "pro") and a billing period ("monthly" |
+ * "annual"), never a product or a price — the pair is resolved to a Dodo product
+ * server-side by `productForPlan`, off the same maps that decide entitlements,
+ * so what a customer pays for and what they get can never drift apart. metadata.user_id on the
  * checkout session is what lets dodo-webhook attach the subscription to the
  * right profile.
  */
@@ -16,8 +16,8 @@ import {
   createCheckoutSession,
   createCustomerPortalSession,
 } from "../_shared/dodo.ts";
-import { productForPlan, SELLABLE_PLANS } from "../_shared/entitlements.ts";
-import type { PlanKey } from "../_shared/entitlements.ts";
+import { BILLING_PERIODS, productForPlan, SELLABLE_PLANS } from "../_shared/entitlements.ts";
+import type { BillingPeriod, PlanKey } from "../_shared/entitlements.ts";
 
 const APP_URL = Deno.env.get("APP_URL") ?? "https://www.echobrief.in";
 
@@ -63,7 +63,11 @@ serve(async (req) => {
       if (!SELLABLE_PLANS.includes(plan)) {
         return json({ error: `Unknown plan: ${plan}` }, 400);
       }
-      const productId = productForPlan(plan);
+      const period = (body?.billing ?? "monthly") as BillingPeriod;
+      if (!BILLING_PERIODS.includes(period)) {
+        return json({ error: `Unknown billing period: ${period}` }, 400);
+      }
+      const productId = productForPlan(plan, period);
       if (!productId) {
         return json({ error: "Billing is not configured yet" }, 503);
       }

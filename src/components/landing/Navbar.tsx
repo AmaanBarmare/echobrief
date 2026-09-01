@@ -3,7 +3,7 @@ import { Logo } from '@/components/ui/Logo';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { useState, useEffect } from 'react';
 import { Menu, X } from 'lucide-react';
-import { openWaitlist } from '@/lib/waitlist';
+import { signupPath } from '@/lib/signupLink';
 
 const links = [
   { label: 'Features', href: '#features' },
@@ -72,14 +72,13 @@ export function Navbar() {
           >
             Sign in
           </Link>
-          <button
-            type="button"
-            onClick={() => openWaitlist('navbar')}
-            className="hidden items-center rounded-md px-4 py-2 text-[14px] font-semibold text-white transition-opacity hover:opacity-90 sm:inline-flex"
+          <Link
+            to={signupPath()}
+            className="hidden items-center rounded-md px-4 py-2 text-[14px] font-semibold text-white no-underline transition-opacity hover:opacity-90 sm:inline-flex"
             style={{ background: 'var(--ember)' }}
           >
-            Join waitlist
-          </button>
+            Get started
+          </Link>
 
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
@@ -117,17 +116,14 @@ export function Navbar() {
               >
                 Sign in
               </Link>
-              <button
-                type="button"
-                onClick={() => {
-                  setMobileOpen(false);
-                  openWaitlist('navbar-mobile');
-                }}
-                className="flex-1 rounded-md px-4 py-2.5 text-center text-[14px] font-semibold text-white"
+              <Link
+                to={signupPath()}
+                onClick={() => setMobileOpen(false)}
+                className="flex-1 rounded-md px-4 py-2.5 text-center text-[14px] font-semibold text-white no-underline"
                 style={{ background: 'var(--ember)' }}
               >
-                Join waitlist
-              </button>
+                Get started
+              </Link>
             </div>
           </div>
         </div>

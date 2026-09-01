@@ -12,7 +12,7 @@ serve(async (req) => {
 
   // Rate limiting for OAuth start endpoint
   const clientId = getClientIdentifier(req);
-  const rateLimitResult = checkRateLimit(`oauth-start:${clientId}`, RATE_LIMITS.OAUTH);
+  const rateLimitResult = await checkRateLimit(`oauth-start:${clientId}`, RATE_LIMITS.OAUTH);
   if (!rateLimitResult.allowed) {
     return createRateLimitResponse(rateLimitResult, corsHeaders);
   }

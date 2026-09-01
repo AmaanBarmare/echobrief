@@ -84,11 +84,11 @@ export function WaitlistForm() {
           className="text-[17px]"
           style={{ fontFamily: 'var(--font-brand-serif)', color: 'var(--ink)' }}
         >
-          {status === 'already' ? "You're already on the list." : "You're on the list."}
+          {status === 'already' ? "We already have your details." : 'Thanks — got it.'}
         </p>
         <p className="text-center text-[13.5px] leading-[1.6]" style={{ color: 'var(--ink-mid)' }}>
-          We're onboarding in small batches. We'll email {email.trim() || 'you'} the moment
-          there's a seat.
+          We'll email {email.trim() || 'you'} about a team plan. If you just want to start
+          on your own, Starter and Pro are self-serve above.
         </p>
       </div>
     );
@@ -154,11 +154,11 @@ export function WaitlistForm() {
           {status === 'saving' ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.25} />
-              Joining
+              Sending
             </>
           ) : (
             <>
-              Join the waitlist
+              Send
               <ArrowRight
                 className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
                 strokeWidth={2.25}

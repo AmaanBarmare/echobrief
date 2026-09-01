@@ -94,9 +94,10 @@ export interface BillingProfile {
 /**
  * Resolve which plan a profile is on.
  *
- * DODO_PLAN_PRODUCTS is a JSON object of `{ "<dodo product id>": "pro" }` and
- * the product id on the profile decides. A subscription whose product is not
- * in the map falls back to the plan named by DODO_DEFAULT_PAID_PLAN.
+ * DODO_PLAN_PRODUCTS and DODO_PLAN_PRODUCTS_ANNUAL are JSON objects of
+ * `{ "<dodo product id>": "pro" }` and the product id on the profile decides;
+ * the two periods are merged because an annual Pro is still Pro. A subscription
+ * whose product is in neither map falls back to DODO_DEFAULT_PAID_PLAN.
  */
 export function planForProfile(
   profile: BillingProfile | null | undefined,
@@ -124,13 +125,10 @@ export function planForProfile(
 
   const productId = profile.subscription_product_id;
   if (productId) {
-    try {
-      const map = JSON.parse(env("DODO_PLAN_PRODUCTS") || "{}") as Record<string, string>;
-      const mapped = map[productId];
-      if (mapped && mapped in PLANS) return mapped as PlanKey;
-    } catch {
-      // A malformed env var must not knock every paying customer down to free.
-    }
+    // Both billing periods resolve to the same entitlement — an annual Pro
+    // subscription is a Pro subscription.
+    const mapped = { ...productMap("monthly", env), ...productMap("annual", env) }[productId];
+    if (mapped && mapped in PLANS) return mapped as PlanKey;
   }
 
   const fallback = env("DODO_DEFAULT_PAID_PLAN") || "starter";
@@ -140,31 +138,50 @@ export function planForProfile(
 /** The plans a customer can actually buy from checkout. */
 export const SELLABLE_PLANS: PlanKey[] = ["starter", "pro"];
 
+/** Billing periods a plan can be bought on. Same entitlement, different cadence. */
+export type BillingPeriod = "monthly" | "annual";
+export const BILLING_PERIODS: BillingPeriod[] = ["monthly", "annual"];
+
+const PRODUCT_MAP_ENV: Record<BillingPeriod, string> = {
+  monthly: "DODO_PLAN_PRODUCTS",
+  annual: "DODO_PLAN_PRODUCTS_ANNUAL",
+};
+
+/** `{ "<dodo product id>": "starter" | "pro" }` for one billing period. */
+function productMap(
+  period: BillingPeriod,
+  env: (key: string) => string | undefined,
+): Record<string, string> {
+  try {
+    return JSON.parse(env(PRODUCT_MAP_ENV[period]) || "{}") as Record<string, string>;
+  } catch {
+    // A malformed env var must not knock every paying customer down to free.
+    return {};
+  }
+}
+
 /**
- * The Dodo product to sell for a plan — the inverse of the DODO_PLAN_PRODUCTS
- * map that `planForProfile` reads, so one env var defines the mapping in both
- * directions and the two can never disagree.
+ * The Dodo product to sell for a plan on a billing period — the inverse of the
+ * product maps `planForProfile` reads, so the same env vars define the mapping
+ * in both directions and the two can never disagree.
  *
  * DODO_PRODUCT_ID stays the fallback for the single-product setup: it answers
  * for DODO_DEFAULT_PAID_PLAN (default "starter") when the map has no entry.
  */
 export function productForPlan(
   plan: PlanKey,
+  period: BillingPeriod = "monthly",
   env: (key: string) => string | undefined = (k) => Deno.env.get(k),
 ): string | null {
   if (!SELLABLE_PLANS.includes(plan)) return null;
 
-  try {
-    const map = JSON.parse(env("DODO_PLAN_PRODUCTS") || "{}") as Record<string, string>;
-    for (const [productId, mapped] of Object.entries(map)) {
-      if (mapped === plan) return productId;
-    }
-  } catch {
-    // Malformed map: fall through to the single-product secret.
+  for (const [productId, mapped] of Object.entries(productMap(period, env))) {
+    if (mapped === plan) return productId;
   }
 
+  // Single-product setup: DODO_PRODUCT_ID answers for the default plan, monthly.
   const fallbackPlan = env("DODO_DEFAULT_PAID_PLAN") || "starter";
-  if (plan === fallbackPlan) return env("DODO_PRODUCT_ID") || null;
+  if (period === "monthly" && plan === fallbackPlan) return env("DODO_PRODUCT_ID") || null;
   return null;
 }
 
