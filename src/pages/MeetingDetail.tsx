@@ -5,6 +5,7 @@ import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { EmailReportSelector } from '@/components/dashboard/EmailReportSelector';
 import { MeetingMetrics } from '@/components/meeting/MeetingMetrics';
+import { ShareLinkDialog } from '@/components/meeting/ShareLinkDialog';
 import { InsightSection, InsightItem } from '@/components/meeting/InsightSection';
 import { RecordingPlayer } from '@/components/meeting/RecordingPlayer';
 import { supabase } from '@/integrations/supabase/client';
@@ -27,7 +28,7 @@ import {
   ArrowLeft, Calendar, Clock, Loader2, ChevronRight, Trash2, Users, 
   Lightbulb, AlertTriangle, HelpCircle, RefreshCw, Zap, CheckCircle2, 
   FileText, Globe, Mail, Languages, Bot, Video, Target, EyeOff, Eye, Hash,
-  CalendarPlus, PenLine, Copy, ExternalLink, Pencil
+  CalendarPlus, PenLine, Copy, ExternalLink, Pencil, Link2
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -226,6 +227,7 @@ export default function MeetingDetail() {
   const queryClient = useQueryClient();
   const [deleting, setDeleting] = useState(false);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [searchParams] = useSearchParams();
   const initialSeek = (() => {
     const t = Number(searchParams.get('t'));
@@ -668,6 +670,7 @@ export default function MeetingDetail() {
               {insights && (
                 <>
                   <ShareButton icon={Mail} label="Email" onClick={() => setEmailDialogOpen(true)} />
+                  <ShareButton icon={Link2} label="Share link" onClick={() => setShareDialogOpen(true)} />
                   {insights.facts && (
                     <ShareButton icon={PenLine} label="Draft follow-up" onClick={() => handleDraft(false)} />
                   )}
@@ -797,6 +800,11 @@ export default function MeetingDetail() {
           onSend={handleSendEmail}
         />
 
+        <ShareLinkDialog
+          meetingId={meeting.id}
+          open={shareDialogOpen}
+          onOpenChange={setShareDialogOpen}
+        />
         {insights && (
           <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[

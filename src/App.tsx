@@ -33,6 +33,7 @@ const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const Terms = lazy(() => import("./pages/Terms"));
 const Docs = lazy(() => import("./pages/Docs"));
 const OAuthConsent = lazy(() => import("./pages/OAuthConsent"));
+const SharedMeeting = lazy(() => import("./pages/SharedMeeting"));
 
 // Cache server reads so revisiting a page renders instantly from cache and
 // revalidates in the background, instead of refetching from scratch every mount.
@@ -83,6 +84,9 @@ function AppRoutes() {
         <Route path="/terms" element={<Terms />} />
         <Route path="/docs" element={<Docs />} />
         <Route path="/oauth/consent" element={<OAuthConsent />} />
+        {/* Public: the reader has no account, and the token in the URL is the
+            credential. Must stay outside ProtectedRoute. */}
+        <Route path="/share/:token" element={<SharedMeeting />} />
         <Route
           path="/onboarding"
           element={
