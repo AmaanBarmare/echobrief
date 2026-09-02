@@ -2,6 +2,16 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { authenticate, json } from "../_shared/auth.ts"
 import { checkRecordingAllowed, recordUsage } from "../_shared/entitlements.ts"
+import {
+  fetchUpcomingEvents,
+  getFreshAccessToken,
+  listConnections,
+  markNeedsReconnect,
+  shouldJoin,
+  upsertCalendarEvents,
+  type NormalizedEvent,
+} from "../_shared/calendar-connections.ts"
+import { parseMeetingUrl } from "../_shared/validation.ts"
 import { BOT_AVATAR_OUTPUT } from "../_shared/bot-avatar.ts"
 
 const RECALL_API_KEY = Deno.env.get('RECALL_API_KEY')
@@ -41,146 +51,97 @@ serve(async (req) => {
     const results = []
 
     for (const pref of prefs) {
-      // Get user's OAuth tokens
-      const { data: tokens } = await supabase
-        .from('user_oauth_tokens')
-        .select('google_access_token, google_refresh_token, google_token_expiry')
-        .eq('user_id', pref.user_id)
-        .single()
-
-      if (!tokens?.google_access_token) continue
-
-      // Check if token needs refresh
-      let accessToken = tokens.google_access_token
-      if (tokens.google_token_expiry && new Date(tokens.google_token_expiry) < new Date()) {
-        const googleClientId = Deno.env.get('GOOGLE_CLIENT_ID')
-        const googleClientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET')
-
-        // Missing client creds is OUR configuration problem, not this user's
-        // grant — skip them this tick without touching their profile.
-        if (!googleClientId || !googleClientSecret) continue
-
-        if (!tokens.google_refresh_token) {
-          // Expired with nothing to refresh with: the grant can never recover
-          // on its own. Flag the profile so the UI asks for a reconnect
-          // instead of auto-join silently doing nothing forever.
-          await supabase
-            .from('profiles')
-            .update({ google_calendar_connected: false, google_needs_reconnect: true })
-            .eq('user_id', pref.user_id)
-          continue
-        }
-
-        try {
-          const refreshResponse = await fetch('https://oauth2.googleapis.com/token', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({
-              refresh_token: tokens.google_refresh_token,
-              client_id: googleClientId,
-              client_secret: googleClientSecret,
-              grant_type: 'refresh_token',
-            }),
-          })
-          let refreshData: any = null
-          try {
-            refreshData = await refreshResponse.json()
-          } catch {
-            refreshData = null
-          }
-          if (refreshData?.access_token) {
-            accessToken = refreshData.access_token
-            const expiryDate = new Date()
-            expiryDate.setSeconds(expiryDate.getSeconds() + (refreshData.expires_in || 3600))
-            await supabase
-              .from('user_oauth_tokens')
-              .update({
-                google_access_token: accessToken,
-                google_token_expiry: expiryDate.toISOString()
-              })
-              .eq('user_id', pref.user_id)
-          } else {
-            // A parseable non-5xx answer with no access_token (typically
-            // invalid_grant) means the grant is dead — flag the profile. A 5xx
-            // or non-JSON body is transient: leave the flags alone.
-            if (refreshData !== null && refreshResponse.status < 500) {
-              await supabase
-                .from('profiles')
-                .update({ google_calendar_connected: false, google_needs_reconnect: true })
-                .eq('user_id', pref.user_id)
-            }
-            continue
-          }
-        } catch (refreshErr) {
-          // Network error reaching Google: transient, never a profile flip.
-          console.warn(`[auto-join] Google token refresh failed for ${pref.user_id}:`, refreshErr)
-          continue
-        }
+      // Every calendar this user has connected, whichever provider it is.
+      // This is what lets a Teams meeting on an Outlook calendar be auto-joined
+      // — previously auto-join could only ever see Google.
+      let connections
+      try {
+        connections = await listConnections(supabase, pref.user_id)
+      } catch (err) {
+        console.error(`[auto-join] Could not read connections for ${pref.user_id}:`, err)
+        continue
       }
+      if (connections.length === 0) continue
 
       // Look for calendar events starting within the next 7 minutes.
       // Window is > the 5-min cron cadence so every meeting is caught at least
       // one poll before it starts; dedup (below) stops repeat bots.
       const now = new Date()
       const joinMinutes = 7
-      const checkWindow = new Date(now.getTime() + (joinMinutes + 1) * 60 * 1000)
+      // Two different windows on purpose.
+      //
+      // Dispatch only cares about the next `joinMinutes`. The FETCH reaches a
+      // day ahead so `calendar_events` is actually kept fresh server-side —
+      // previously that table was written only when a browser hit
+      // sync-google-calendar, so for anyone not sitting on the dashboard it was
+      // stale, and everything reading it (the Calendar page, the reviewer
+      // lookup in _shared/summary-recipients.ts) was reading history.
+      //
+      // It costs no extra HTTP call, and the version diff in
+      // upsertCalendarEvents means unchanged events are not rewritten — which
+      // is what keeps this off the Disk IO Budget.
+      const syncWindow = new Date(now.getTime() + 24 * 60 * 60 * 1000)
 
-      const calendarResponse = await fetch(
-        `https://www.googleapis.com/calendar/v3/calendars/primary/events?` +
-        `timeMin=${now.toISOString()}&timeMax=${checkWindow.toISOString()}&singleEvents=true&orderBy=startTime`,
-        {
-          headers: { 'Authorization': `Bearer ${accessToken}` }
+      const events: NormalizedEvent[] = []
+      for (const conn of connections) {
+        const token = await getFreshAccessToken(supabase, conn)
+        if (!token.ok) {
+          // Only a grant the user must repair gets flagged. A missing client
+          // secret or a provider 5xx is our problem and must not switch off a
+          // healthy integration for everyone.
+          if (token.needsReconnect) await markNeedsReconnect(supabase, conn)
+          else console.warn(`[auto-join] ${conn.provider} token for ${pref.user_id}: ${token.reason}`)
+          continue
         }
-      )
 
-      if (!calendarResponse.ok) continue
+        const fetched = await fetchUpcomingEvents(conn.provider, token.accessToken, now, syncWindow)
+        if (!fetched.ok) {
+          console.warn(`[auto-join] ${conn.provider} events for ${pref.user_id}: ${fetched.reason}`)
+          continue
+        }
+        events.push(...fetched.events)
 
-      const calendarData = await calendarResponse.json()
-      const events = calendarData.items || []
+        // Keep calendar_events fresh from the server. It used to be written
+        // only when a browser hit sync-google-calendar, so for anyone not
+        // actively using the dashboard it was stale — which is why auto-join
+        // called the provider directly instead of trusting the table.
+        // Folded into this tick deliberately: a separate cron would add
+        // another pg_net job, and that write churn is the binding constraint
+        // on this instance's Disk IO Budget.
+        const synced = await upsertCalendarEvents(supabase, pref.user_id, fetched.events)
+        console.log(
+          `[auto-join] ${conn.provider}: ${fetched.events.length} event(s) in the next 24h, ` +
+          `${synced.written} written, ${synced.skipped} unchanged`,
+        )
+      }
 
       for (const event of events) {
-        // Skip events cancelled/deleted on the calendar.
-        if (event.status === 'cancelled') continue
-
-        // Only process events with a video meeting link
-        const meetingUrl = event.hangoutLink ||
-          event.conferenceData?.entryPoints?.find((e: any) => e.entryPointType === 'video')?.uri
-
+        // Only process events with a link we are actually willing to join.
+        const meetingUrl = event.meetingLink
         if (!meetingUrl) continue
 
-        // Only join meetings this user actually intends to attend. Without this
-        // filter the bot fired on ANY calendar event carrying a video link —
-        // dead recurring series, declined invites, invitations never answered —
-        // which is where the bulk of the "no audio captured" results and
-        // waiting-room timeouts came from (prod analysis 2026-08-20).
-        // Join when the user accepted, or when they own the event and have not
-        // declined it (organizers commonly show responseStatus 'accepted', but
-        // self-created events sometimes carry no attendee entry at all).
-        const selfAttendee = (event.attendees || []).find((a: any) => a.self)
-        const responseStatus = selfAttendee?.responseStatus
-        const isOwner = event.organizer?.self === true || event.creator?.self === true
-        const shouldJoin =
-          responseStatus === 'accepted' ||
-          (isOwner && responseStatus !== 'declined')
+        // Validated with the same parser start-recall-recording uses, so a
+        // lookalike host pasted into a calendar description (evilzoom.us) can
+        // never be handed to Recall. The old code matched a bare substring.
+        const parsedUrl = parseMeetingUrl(meetingUrl)
+        if (!parsedUrl.ok) {
+          console.log(`[auto-join] Ignoring unjoinable link on "${event.title}": ${parsedUrl.error}`)
+          continue
+        }
+        const platform = parsedUrl.platform
 
-        if (!shouldJoin) {
+        if (!shouldJoin(event)) {
           console.log(
-            `[auto-join] Skipping "${event.summary}" — responseStatus=${responseStatus ?? 'none'}, owner=${isOwner}`,
+            `[auto-join] Skipping "${event.title}" — responseStatus=${event.responseStatus}, owner=${event.isOwner}`,
           )
           continue
         }
 
         // Only join if the meeting starts within the join window
-        const eventStart = new Date(event.start?.dateTime || event.start?.date)
+        const eventStart = new Date(event.startTime)
         const minutesUntilStart = (eventStart.getTime() - now.getTime()) / 60000
 
         if (minutesUntilStart > joinMinutes) continue
-
-        // Determine platform
-        let platform = 'unknown'
-        if (meetingUrl.includes('teams.microsoft.com')) platform = 'teams'
-        else if (meetingUrl.includes('zoom.us')) platform = 'zoom'
-        else if (meetingUrl.includes('meet.google.com')) platform = 'google_meet'
 
         // Plan gate — the same ceiling the manual path enforces, so a user
         // cannot route around their quota by letting the calendar dispatch it.
@@ -189,11 +150,11 @@ serve(async (req) => {
         const entitlement = await checkRecordingAllowed(supabase, pref.user_id)
         if (!entitlement.allowed) {
           console.log(
-            `[auto-join] Quota reached for ${pref.user_id} (${entitlement.code}), skipping event ${event.id}`,
+            `[auto-join] Quota reached for ${pref.user_id} (${entitlement.code}), skipping event ${event.providerEventId}`,
           )
           results.push({
             user_id: pref.user_id,
-            event: event.summary,
+            event: event.title,
             status: 'skipped_quota',
             code: entitlement.code,
           })
@@ -209,9 +170,9 @@ serve(async (req) => {
           .from('meetings')
           .insert({
             user_id: pref.user_id,
-            title: event.summary || 'Untitled Meeting',
+            title: event.title || 'Untitled Meeting',
             source: 'auto-join',
-            calendar_event_id: event.id,
+            calendar_event_id: event.providerEventId,
             meeting_link: meetingUrl,
             platform,
             status: 'joining',
@@ -227,7 +188,7 @@ serve(async (req) => {
         if (claimError || !claimed) {
           // 23505 = unique_violation: another invocation already claimed it.
           if (claimError?.code !== '23505') {
-            console.error(`[auto-join] Could not claim event ${event.id}:`, claimError)
+            console.error(`[auto-join] Could not claim event ${event.providerEventId}:`, claimError)
           }
           continue
         }
@@ -278,7 +239,7 @@ serve(async (req) => {
         if (!botResponse.ok || !botData.id) {
           // Release the claim so a later poll can retry this event.
           console.error(
-            `[auto-join] Recall bot creation failed for event ${event.id} (HTTP ${botResponse.status}):`,
+            `[auto-join] Recall bot creation failed for event ${event.providerEventId} (HTTP ${botResponse.status}):`,
             JSON.stringify(botData).substring(0, 300),
           )
           await supabase.from('meetings').delete().eq('id', claimed.id)
@@ -300,7 +261,7 @@ serve(async (req) => {
 
         results.push({
           user_id: pref.user_id,
-          event: event.summary,
+          event: event.title,
           bot_id: botData.id,
           status: 'joined'
         })
