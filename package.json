@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "brand:check": "node scripts/brand-check.mjs",
     "brand:build": "python3 brand/src/build-lockups.py && bash brand/src/build-pngs.sh && node brand/src/build-pdf.mjs",
+    "brand:avatar": "node scripts/build-bot-avatar.mjs",
     "preview": "vite preview",
     "functions:serve": "supabase functions serve --env-file ./supabase/.env.local",
     "test:unit": "deno test -A supabase/functions/tests/",

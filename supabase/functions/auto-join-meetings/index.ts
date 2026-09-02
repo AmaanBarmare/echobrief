@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 import { authenticate, json } from "../_shared/auth.ts"
 import { checkRecordingAllowed, recordUsage } from "../_shared/entitlements.ts"
+import { BOT_AVATAR_OUTPUT } from "../_shared/bot-avatar.ts"
 
 const RECALL_API_KEY = Deno.env.get('RECALL_API_KEY')
 const RECALL_API_BASE_URL =
@@ -247,6 +248,9 @@ serve(async (req) => {
             automatic_leave: {
               in_call_recording_timeout: entitlement.limits.maxMeetingSeconds,
             },
+            // Brand lockup as the bot's camera feed. Must stay in sync with
+            // start-recall-recording; regenerate with `npm run brand:avatar`.
+            automatic_video_output: BOT_AVATAR_OUTPUT,
             recording_config: {
               audio_mixed_mp3: {},
               // Playback-only mp4, streamed from Recall at view time and never

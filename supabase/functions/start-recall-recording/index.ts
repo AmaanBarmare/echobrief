@@ -4,6 +4,7 @@ import { getCorsHeaders, handleCorsPrelight } from "../_shared/cors.ts";
 import { authenticate } from "../_shared/auth.ts";
 import { parseMeetingUrl } from "../_shared/validation.ts";
 import { checkRecordingAllowed, recordUsage } from "../_shared/entitlements.ts";
+import { BOT_AVATAR_OUTPUT } from "../_shared/bot-avatar.ts";
 
 const RECALL_API_KEY = Deno.env.get("RECALL_API_KEY")!;
 const RECALL_API_BASE_URL =
@@ -121,6 +122,11 @@ serve(async (req) => {
         automatic_leave: {
           in_call_recording_timeout: limits.maxMeetingSeconds,
         },
+        // The bot's camera feed once it is admitted: the EchoBrief lockup
+        // instead of a blank tile, so participants can see what is in the call.
+        // Regenerate the image with `npm run brand:avatar`. Must stay in sync
+        // with auto-join-meetings.
+        automatic_video_output: BOT_AVATAR_OUTPUT,
         recording_config: {
           audio_mixed_mp3: {},
           // The mp4 is playback-only: it is never downloaded into Supabase
