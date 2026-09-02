@@ -4,7 +4,7 @@ import { useRef } from 'react';
 const steps = [
   {
     title: 'Connect your calendar',
-    body: 'Link Google Calendar or Outlook in about thirty seconds.',
+    body: 'Link Google Calendar in about thirty seconds. Meet, Zoom and Teams links on your events are all picked up.',
   },
   {
     title: 'Bot joins automatically',

@@ -214,7 +214,7 @@ The local Vercel CLI has access to this project, so `vercel env ls/add/pull` and
 
 ## Conventions
 
-- TypeScript strict mode
+- TypeScript — but **`tsconfig.app.json` sets `"strict": false`**, so `strictNullChecks` is OFF for the frontend. The practical consequence: TypeScript will **not narrow a discriminated union** (`{ok: true} | {ok: false}`), which type-checks at the definition and then fails at every call site. Return one flat shape with nullable fields instead — see `src/lib/meetingUrl.ts`. Turning strict on is a real change, not a cleanup.
 - Tailwind for all styling (no CSS modules)
 - React Router v6 with `ProtectedRoute` wrapper for auth-gated pages
 - TanStack Query for server state, React Context for client state (auth, recording, theme)

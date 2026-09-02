@@ -10,7 +10,8 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Mic, Loader2 } from 'lucide-react';
+import { Mic, Loader2, Check } from 'lucide-react';
+import { parseMeetingUrl, PLATFORM_LABELS } from '@/lib/meetingUrl';
 import { supabase } from '@/integrations/supabase/client';
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { useAuth } from '@/contexts/AuthContext';
@@ -61,8 +62,9 @@ export function RecordingButton({
     try {
       const title = meetingTitle || `Meeting ${formatIST(new Date(), 'MMM d, yyyy')}`;
 
-      if (!meetingUrl) {
-        throw new Error('Please enter a meeting URL');
+      const parsed = parseMeetingUrl(meetingUrl);
+      if (!parsed.ok) {
+        throw new Error(parsed.error || 'Enter a valid meeting link.');
       }
 
       // The function derives the user from the JWT; user_id is no longer sent.
@@ -105,6 +107,11 @@ export function RecordingButton({
     }
   };
 
+  // Named as you type, so it is obvious before pressing Start that a Zoom or
+  // Teams link is accepted.
+  const urlCheck = parseMeetingUrl(meetingUrl);
+  const detected = urlCheck.platform;
+
   return (
     <>
       <Button
@@ -137,13 +144,24 @@ export function RecordingButton({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="meeting-url">Meeting URL</Label>
+              <Label htmlFor="meeting-url">Meeting link</Label>
               <Input
                 id="meeting-url"
-                placeholder="https://meet.google.com/..."
+                placeholder="Paste a Google Meet, Zoom or Teams link"
                 value={meetingUrl}
                 onChange={(e) => setMeetingUrl(e.target.value)}
+                aria-describedby="meeting-url-hint"
               />
+              <p id="meeting-url-hint" className="text-xs text-muted-foreground">
+                {detected ? (
+                  <span className="inline-flex items-center gap-1.5 text-foreground">
+                    <Check className="h-3.5 w-3.5" style={{ color: 'var(--ok)' }} />
+                    {PLATFORM_LABELS[detected]} link recognised
+                  </span>
+                ) : (
+                  'Works with Google Meet, Zoom and Microsoft Teams.'
+                )}
+              </p>
             </div>
 
             {error && (
