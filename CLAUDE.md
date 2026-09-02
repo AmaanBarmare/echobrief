@@ -159,6 +159,7 @@ System name **Warm Dispatch**: ember `#D93F0B` (light) / `#E8430A` (dark) on war
 - `VITE_SUPABASE_PUBLISHABLE_KEY` -- Supabase anon key
 
 **Edge Functions (Supabase secrets):**
+- `AZURE_CLIENT_ID` / `AZURE_CLIENT_SECRET` -- Microsoft Entra app registration (multitenant + personal accounts) behind the Outlook calendar integration. Named `AZURE_*` because that is what the portal calls them. Redirect URI is `https://lekkpfpojlspbuwrtmzt.supabase.co/functions/v1/microsoft-oauth-redirect`, delegated Graph scopes `offline_access User.Read Calendars.Read`. **The client secret expires — 24 months from 2026-09-02**; when it lapses every Outlook sync stops at once.
 - `OPENAI_API_KEY` -- Required for Whisper + GPT
 - `SARVAM_API_KEY` -- Required for Sarvam STT
 - `RESEND_API_KEY` -- Required for email delivery via Resend

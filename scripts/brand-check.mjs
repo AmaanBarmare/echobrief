@@ -42,6 +42,7 @@ const THIRD_PARTY_HEX = new Map([
   ['#0B57D0', 'Google brand blue (dark)'],
   ['#2D8CFF', 'Zoom brand blue'],
   ['#6264A7', 'Microsoft Teams purple'],
+  ['#0078D4', 'Microsoft Outlook blue'],
   ['#25D366', 'WhatsApp green'],
 ]);
 

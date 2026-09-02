@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { BotCustomization } from '@/components/dashboard/BotCustomization';
 import { supabase } from '@/integrations/supabase/client';
-import { FunctionsHttpError } from '@supabase/supabase-js';
+import { FunctionsHttpError, type SupabaseClient } from '@supabase/supabase-js';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -93,6 +93,8 @@ export default function Settings() {
 
   // Integrations
   const [connectingGoogle, setConnectingGoogle] = useState(false);
+  const [connectingMicrosoft, setConnectingMicrosoft] = useState(false);
+  const [microsoft, setMicrosoft] = useState<{ connected: boolean; needsReconnect: boolean } | null>(null);
   const [savingEmailPref, setSavingEmailPref] = useState(false);
   const [googleCalendars, setGoogleCalendars] = useState<GoogleCalendar[]>([]);
 
@@ -467,6 +469,58 @@ export default function Settings() {
   };
 
   // Integration handlers
+  const loadMicrosoft = useCallback(async () => {
+    if (!user) return;
+    // RLS scopes this to the caller; tokens are never selected.
+    const { data } = await (supabase as unknown as SupabaseClient)
+      .from('calendar_connections')
+      .select('provider, needs_reconnect')
+      .eq('user_id', user.id)
+      .eq('provider', 'microsoft')
+      .maybeSingle();
+    setMicrosoft(data ? { connected: true, needsReconnect: !!data.needs_reconnect } : null);
+  }, [user]);
+
+  useEffect(() => { loadMicrosoft(); }, [loadMicrosoft]);
+
+  const handleConnectMicrosoft = async () => {
+    if (!session?.access_token) {
+      toast({ title: 'Sign in first', description: 'Please sign in to connect Outlook.', variant: 'destructive' });
+      return;
+    }
+    setConnectingMicrosoft(true);
+    try {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/microsoft-oauth-start`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ returnTo: '/settings?tab=integrations', origin: window.location.origin }),
+      });
+      const data = await response.json();
+      if (data.error) throw new Error(data.error);
+      if (data.authUrl) window.location.href = data.authUrl;
+    } catch (error: any) {
+      toast({ title: 'Could not connect Outlook', description: error.message, variant: 'destructive' });
+      setConnectingMicrosoft(false);
+    }
+  };
+
+  const handleDisconnectMicrosoft = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('disconnect-calendar', {
+        body: { provider: 'microsoft' },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+      await loadMicrosoft();
+      toast({ title: 'Outlook disconnected' });
+    } catch (error: any) {
+      toast({ title: 'Could not disconnect', description: error.message, variant: 'destructive' });
+    }
+  };
+
   const handleConnectGoogle = async () => {
     if (!session?.access_token) {
       toast({ title: 'Error', description: 'Please sign in to connect Google Calendar', variant: 'destructive' });
@@ -966,6 +1020,69 @@ export default function Settings() {
               ) : (
                 <p className="p-3 text-center text-xs text-muted-foreground">
                   No calendars connected. Click &quot;Add Calendar&quot; to get started.
+                </p>
+              )}
+            </div>
+
+            {/* Outlook / Microsoft 365 */}
+            <div className="rounded-2xl border border-border bg-card p-6 text-card-foreground shadow-sm">
+              <div className="mb-4 flex items-center justify-between gap-4">
+                <div className="flex flex-1 items-center gap-3">
+                  <Calendar size={32} className="shrink-0 text-[#0078D4]" />
+                  <div>
+                    <h3 className="mb-1 text-[15px] font-semibold text-foreground">Outlook Calendar</h3>
+                    <p className="text-[13px] text-muted-foreground">
+                      Auto-join Teams, Zoom and Meet calls from your Microsoft 365 or Outlook.com calendar
+                    </p>
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  {microsoft?.connected && (
+                    <Button
+                      variant="outline"
+                      onClick={handleDisconnectMicrosoft}
+                      title="Remove EchoBrief's access to your Outlook calendar"
+                    >
+                      Disconnect
+                    </Button>
+                  )}
+                  <Button
+                    onClick={handleConnectMicrosoft}
+                    disabled={connectingMicrosoft}
+                    className="bg-orange-500 text-white hover:bg-orange-600"
+                  >
+                    {connectingMicrosoft ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    {microsoft?.connected ? 'Reconnect' : 'Connect Outlook'}
+                  </Button>
+                </div>
+              </div>
+
+              {microsoft?.needsReconnect && (
+                <div
+                  role="alert"
+                  className="mb-4 rounded-md px-4 py-3 text-[13px]"
+                  style={{
+                    border: '1px solid color-mix(in oklch, hsl(var(--warning)) 35%, transparent)',
+                    background: 'color-mix(in oklch, hsl(var(--warning)) 8%, transparent)',
+                    color: 'var(--ink)',
+                  }}
+                >
+                  Outlook disconnected — reconnect to keep auto-join working.
+                </div>
+              )}
+
+              {microsoft?.connected ? (
+                <div className="flex items-center justify-between rounded-lg border border-green-500/40 bg-muted/30 px-4 py-3">
+                  <p className="m-0 text-[13px] font-medium text-foreground">
+                    Outlook connected
+                    <span className="ml-2 rounded px-2 py-0.5 text-[10px] font-semibold text-green-600 dark:text-green-400 bg-green-500/15">
+                      ✓ Connected
+                    </span>
+                  </p>
+                </div>
+              ) : (
+                <p className="p-3 text-center text-xs text-muted-foreground">
+                  Not connected. Click &quot;Connect Outlook&quot; to auto-join meetings from your Outlook calendar.
                 </p>
               )}
             </div>

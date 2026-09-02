@@ -112,7 +112,8 @@ const REFRESH_ENDPOINTS: Record<CalendarProvider, string> = {
 function clientCredentials(provider: CalendarProvider): { id?: string; secret?: string } {
   return provider === "google"
     ? { id: Deno.env.get("GOOGLE_CLIENT_ID"), secret: Deno.env.get("GOOGLE_CLIENT_SECRET") }
-    : { id: Deno.env.get("MICROSOFT_CLIENT_ID"), secret: Deno.env.get("MICROSOFT_CLIENT_SECRET") };
+    // Named AZURE_* because that is what the Azure portal calls them.
+    : { id: Deno.env.get("AZURE_CLIENT_ID"), secret: Deno.env.get("AZURE_CLIENT_SECRET") };
 }
 
 /**
