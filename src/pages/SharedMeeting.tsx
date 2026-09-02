@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { CalendarDays, CheckCircle2, Clock, GitBranch, Loader2 } from 'lucide-react';
+import { CalendarDays, CheckCircle2, Clock, GitBranch, Loader2, MessageSquare, Video } from 'lucide-react';
 import { Logo } from '@/components/ui/Logo';
+import { RecordingPlayer } from '@/components/meeting/RecordingPlayer';
 import { formatIST } from '@/lib/time';
 
 /**
@@ -10,8 +11,11 @@ import { formatIST } from '@/lib/time';
  * Deliberately not wrapped in DashboardLayout: this page is a public surface
  * and the most common way a stranger meets the product, so it carries the brand
  * and a way in, not the app chrome. It renders exactly what
- * `get-shared-meeting` returns — the meeting-zone summary, decisions and action
- * items — and has no code path that could request a transcript.
+ * `get-shared-meeting` returns and asks for nothing the payload has not already
+ * offered: the summary, decisions and action items always; the transcript and
+ * the recording only when the link that was sent carries them. The transcript
+ * arrives already filtered to the meeting zone — the page has no way to widen
+ * what it was given, which is where that guarantee belongs.
  */
 
 interface ActionItem {
@@ -29,6 +33,12 @@ interface Decision {
   context?: string;
 }
 
+interface TranscriptSegment {
+  speaker: string;
+  text: string;
+  start: number | null;
+}
+
 interface SharedPayload {
   meeting: {
     title: string;
@@ -43,6 +53,15 @@ interface SharedPayload {
     action_items: ActionItem[];
     decisions: Decision[];
   };
+  /** Null when this link does not carry the transcript. */
+  transcript: TranscriptSegment[] | null;
+  has_recording: boolean;
+}
+
+function timestamp(seconds: number | null): string {
+  if (seconds == null || !Number.isFinite(seconds)) return '';
+  const total = Math.max(0, Math.round(seconds));
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
 }
 
 const FUNCTIONS_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-shared-meeting`;
@@ -224,6 +243,53 @@ export default function SharedMeeting() {
                     );
                   })}
                 </ul>
+              </section>
+            )}
+
+            {data.has_recording && (
+              <section className="mb-10">
+                <h2 className="mb-3 flex items-center gap-2 text-[15px] font-semibold" style={{ color: 'var(--ink)' }}>
+                  <Video className="h-[15px] w-[15px]" style={{ color: 'var(--ember)' }} />
+                  Recording
+                </h2>
+                <RecordingPlayer meetingId="shared" shareToken={token} />
+              </section>
+            )}
+
+            {data.transcript && data.transcript.length > 0 && (
+              <section className="mb-10">
+                <h2 className="mb-3 flex items-center gap-2 text-[15px] font-semibold" style={{ color: 'var(--ink)' }}>
+                  <MessageSquare className="h-[15px] w-[15px]" style={{ color: 'var(--ember)' }} />
+                  Transcript
+                </h2>
+                <div
+                  className="rounded-xl p-5"
+                  style={{ border: '1px solid var(--rule)', background: 'var(--paper-card)' }}
+                >
+                  {data.transcript.map((seg, i) => {
+                    const sameSpeaker = i > 0 && data.transcript![i - 1].speaker === seg.speaker;
+                    return (
+                      <div key={i} className={sameSpeaker ? 'mt-1.5' : 'mt-5 first:mt-0'}>
+                        {!sameSpeaker && (
+                          <p className="m-0 mb-1 text-[12.5px] font-semibold" style={{ color: 'var(--ember-deep)' }}>
+                            {seg.speaker}
+                            {seg.start != null && (
+                              <span className="ml-2 font-normal" style={{ color: 'var(--ink-soft)' }}>
+                                {timestamp(seg.start)}
+                              </span>
+                            )}
+                          </p>
+                        )}
+                        <p className="m-0 text-[14px] leading-[1.7]" style={{ color: 'var(--ink-mid)' }}>
+                          {seg.text}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="mt-2 text-[12px]" style={{ color: 'var(--ink-soft)' }}>
+                  Anything said before the meeting started or after it ended is left out.
+                </p>
               </section>
             )}
 

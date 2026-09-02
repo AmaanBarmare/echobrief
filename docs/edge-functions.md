@@ -161,9 +161,51 @@ persisted); if there is no video it signs the archived mp3 in the `recordings` b
 instead. The meeting is read scoped to the caller's `user_id`, so a playback URL can
 only ever be minted for one's own meeting.
 
+The resolution itself lives in `_shared/recording-media.ts`, because
+`get-shared-meeting` serves the same media to anonymous readers of a share link that
+carries the recording. Only the authorisation differs between the two call sites.
+
 > The mp4 is never downloaded into Supabase Storage — 720p costs ~750 MB–1 GB per
 > hour against a 1 GB bucket cap. See `storage:bucket_full_blocks_pipeline` in
 > [`errors.md`](../errors.md) for what a full bucket does to the pipeline.
+
+### `manage-meeting-share`
+**Trigger:** meeting page, Share dialog · **Auth:** user JWT (`verify_jwt = true`)
+
+`create` mints a share link (`ebs_live_` token, stored as a sha256 digest, returned in
+plaintext exactly once), `list` lists the caller's links for that meeting, `update`
+changes what an existing link carries without invalidating it, `revoke` stamps
+`revoked_at`, and `share_to_org` / `unshare_from_org` add or remove the `scope='org'`
+row for the caller's workspace. Ownership is established from the JWT and never from
+the body. `meeting_shares` has no INSERT policy — only this function (service role) can
+write a valid token hash.
+
+`create` and `update` take `include_transcript` and `include_recording`. Both columns
+default to `false`, so an omitted flag narrows a link rather than widening it, and no
+link minted before 2026-09-02 gained reach when the columns were added.
+
+### `get-shared-meeting`
+**Trigger:** the public `/share/:token` page · **Auth:** none (`verify_jwt = false`) — the
+token in the URL is the entire credential; rate-limited per IP (`RATE_LIMITS.PUBLIC`)
+
+Returns the meeting title/time, the summary, decisions and action items. Two things
+are served only when the share row asks for them:
+
+| Opt-in | What is served | What still cannot leak |
+|---|---|---|
+| `include_transcript` | `zone = 'meeting'` segments, via `_shared/share-view.ts` | pre/post zones, `original_text`, any field not whitelisted |
+| `include_recording` | `?resource=recording` → `_shared/recording-media.ts` | — the mp4 is the **whole call**, waiting-room audio included |
+
+That asymmetry is the point: a transcript can be trimmed to the meeting zone segment by
+segment, and a recording cannot be trimmed at all. The recording is therefore a separate
+switch, defaulting off, warned about where it is turned on. Requesting the recording on a
+link that does not carry it is a 403, not a redirect to the summary.
+
+Nothing else is reachable through this endpoint at any setting: no attendee emails, no
+coaching, no facts, and nothing about the owner's other meetings. Expired, revoked and
+never-existed links share one 404 message, so the endpoint is not an oracle for whether
+a link was ever real. A meeting whose content retention has passed says so plainly
+rather than rendering an empty page.
 
 ### `auto-join-meetings`
 **Trigger:** pg_cron, every 5 min · **Auth:** service-role bearer only (`verify_jwt = true`; the cron job sends the Vault-sourced key — see [Operations § scheduled jobs](operations.md#scheduled-jobs))

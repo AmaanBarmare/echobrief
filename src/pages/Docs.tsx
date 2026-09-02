@@ -63,6 +63,7 @@ const GROUPS: Group[] = [
     icon: <Mail size={18} />,
     items: [
       { id: 'delivery', name: 'Email summaries' },
+      { id: 'sharing', name: 'Sharing a meeting' },
       { id: 'digests', name: 'Scheduled digests' },
       { id: 'history', name: 'Search & history' },
     ],
@@ -720,6 +721,44 @@ export default function Docs() {
                   be turned off in <strong className="text-foreground">Settings → Email summaries</strong>.
                 </p>
                 <p>Reports are always available in the dashboard, whether or not email is enabled.</p>
+              </section>
+
+              <section className="space-y-4">
+                <SectionHeading id="sharing">Sharing a meeting</SectionHeading>
+                <p>
+                  Open a meeting and press <strong className="text-foreground">Share</strong> to
+                  create a link anyone can open — no EchoBrief account, no sign-in. The link shows
+                  the summary, the decisions and the action items, and you choose how long it
+                  lives: 24 hours, 7 days, 30 days, or never expiring. The link is shown once when
+                  you create it and is copied to your clipboard; you can revoke it at any time,
+                  after which it shows an expired page.
+                </p>
+                <p>
+                  Two switches decide how much of the meeting travels with the link:
+                </p>
+                <ul className="ml-5 list-disc space-y-2">
+                  <li>
+                    <strong className="text-foreground">Include the transcript</strong> — the
+                    reader gets the full transcript of the meeting itself. Your pre-call and
+                    post-call chatter is left out exactly as it is in the summary.
+                  </li>
+                  <li>
+                    <strong className="text-foreground">Include the recording</strong> — the
+                    reader can play the recording back in their browser for as long as it exists
+                    (recordings expire after 7 days).
+                  </li>
+                </ul>
+                <Callout tone="warn" title="The recording is the whole call">
+                  Unlike the transcript, a recording cannot be trimmed. It contains everything the
+                  notetaker captured, including anything said before your guests joined or after
+                  they left. Turn it on when you mean to share the room, not just the notes.
+                </Callout>
+                <p>
+                  Both switches are off unless you turn them on, and you can change them later on
+                  a link you have already sent. Everything else stays inside your account: attendee
+                  email addresses, the coaching scorecard, the quoted facts, and every other
+                  meeting you own.
+                </p>
               </section>
 
               <section className="space-y-4">

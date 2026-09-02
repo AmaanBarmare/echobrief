@@ -12,18 +12,16 @@
  *      meetings have no video artifact at all, and prune-recordings clears
  *      this audio a few days after transcription — hence `kind: "none"`.
  *
- * Auth: the caller's JWT is required and the meeting is read scoped to that
- * user, so one user can never mint a playback URL for another user's meeting.
+ * The resolution itself lives in `_shared/recording-media.ts`, because share
+ * links serve the same media to anonymous readers. What stays here is the only
+ * part that differs: the caller's JWT is required and the meeting is read scoped
+ * to that user, so one user can never mint a playback URL for another user's
+ * meeting.
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsPrelight } from "../_shared/cors.ts";
-import { getRecallBot, getVideoDownloadUrl } from "../_shared/recall-pipeline.ts";
-
-// Recall's signed URLs last ~5 h. Report a shorter life so the client refreshes
-// well before the link dies mid-playback.
-const VIDEO_URL_TTL_SECONDS = 4 * 60 * 60;
-const AUDIO_URL_TTL_SECONDS = 60 * 60;
+import { resolveRecordingMedia } from "../_shared/recording-media.ts";
 
 serve(async (req) => {
   const corsResponse = handleCorsPrelight(req);
@@ -76,61 +74,8 @@ serve(async (req) => {
       });
     }
 
-    // 1. Video from Recall.
-    let videoStatus: string = "missing";
-    if (meeting.recall_bot_id) {
-      try {
-        const botData = await getRecallBot(meeting.recall_bot_id);
-        const video = await getVideoDownloadUrl(botData);
-        videoStatus = video.status;
-        if (video.url) {
-          return new Response(
-            JSON.stringify({
-              kind: "video",
-              url: video.url,
-              content_type: "video/mp4",
-              expires_at: new Date(Date.now() + VIDEO_URL_TTL_SECONDS * 1000).toISOString(),
-            }),
-            { headers: jsonHeaders },
-          );
-        }
-      } catch (err) {
-        // A Recall outage must not cost the user their audio fallback.
-        console.warn("[get-recording-media] Recall lookup failed:", err);
-        videoStatus = "unknown";
-      }
-    }
-
-    // 2. Archived audio from Storage.
-    if (meeting.audio_url) {
-      const path = String(meeting.audio_url).replace(/^recordings\//, "");
-      const { data: signed, error: signError } = await supabase.storage
-        .from("recordings")
-        .createSignedUrl(path, AUDIO_URL_TTL_SECONDS);
-      if (!signError && signed?.signedUrl) {
-        return new Response(
-          JSON.stringify({
-            kind: "audio",
-            url: signed.signedUrl,
-            content_type: "audio/mpeg",
-            video_status: videoStatus,
-            expires_at: new Date(Date.now() + AUDIO_URL_TTL_SECONDS * 1000).toISOString(),
-          }),
-          { headers: jsonHeaders },
-        );
-      }
-      console.warn("[get-recording-media] Signing archived audio failed:", signError);
-    }
-
-    return new Response(
-      JSON.stringify({
-        kind: "none",
-        // "processing" means the mp4 is still rendering and a retry will work;
-        // anything else means there is nothing left to play.
-        video_status: videoStatus,
-      }),
-      { headers: jsonHeaders },
-    );
+    const media = await resolveRecordingMedia(supabase, meeting);
+    return new Response(JSON.stringify(media), { headers: jsonHeaders });
   } catch (error) {
     console.error("[get-recording-media] error:", error);
     return new Response(

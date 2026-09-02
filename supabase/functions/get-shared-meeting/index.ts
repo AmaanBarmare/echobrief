@@ -5,18 +5,26 @@
  * URL is the entire credential, which is why this function is deliberately
  * narrow about what it returns.
  *
- * What a share link shows: the meeting-zone summary, decisions and action
- * items. What it never shows, whatever the URL says: the transcript, the
- * pre/post-meeting chatter that `zones.ts` works to exclude, attendee email
- * addresses, coaching notes, facts, or anything about the owner's other
- * meetings. A forwarded link cannot leak more than the sender could see on the
- * card they shared.
+ * What a share link always shows: the meeting-zone summary, decisions and
+ * action items. What it shows only when the owner ticked that box on this
+ * particular link: the meeting-zone transcript, and a short-lived playback URL
+ * for the recording. What it never shows, whatever the URL says: the pre/post
+ * meeting chatter that `zones.ts` works to exclude, attendee email addresses,
+ * coaching notes, facts, or anything about the owner's other meetings.
+ *
+ * The two opt-ins are not the same risk and are not treated as such. The
+ * transcript is filtered to `zone = 'meeting'` here, segment by segment, so the
+ * text a stranger reads is the same text the summary was written from. The
+ * recording cannot be filtered — Recall's mp4 is the whole call — so it is a
+ * separate switch, warned about where it is turned on.
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsPrelight } from "../_shared/cors.ts";
 import { checkRateLimit, createRateLimitResponse, getClientIdentifier, RATE_LIMITS } from "../_shared/rate-limit.ts";
 import { hashShareToken, looksLikeShareToken } from "../_shared/share-token.ts";
+import { resolveRecordingMedia } from "../_shared/recording-media.ts";
+import { publicSegments, type PublicSegment } from "../_shared/share-view.ts";
 
 serve(async (req) => {
   const corsResponse = handleCorsPrelight(req);
@@ -34,8 +42,12 @@ serve(async (req) => {
 
   try {
     const url = new URL(req.url);
-    const token = url.searchParams.get("token")
-      || (await req.json().catch(() => ({})))?.token;
+    const body = await req.json().catch(() => ({}));
+    const token = url.searchParams.get("token") || body?.token;
+    // "meeting" (default) is the page; "recording" mints the playback URL, which
+    // is a separate request because Recall's signed links expire in hours and
+    // the page itself should stay cacheable-cheap.
+    const resource = url.searchParams.get("resource") || body?.resource || "meeting";
 
     // Rejected before hashing: a Supabase JWT or an eb_live_ PAT pasted here
     // must not be put through a lookup built for a different credential.
@@ -50,7 +62,7 @@ serve(async (req) => {
 
     const { data: share } = await supabase
       .from("meeting_shares")
-      .select("id, meeting_id, expires_at, revoked_at, view_count")
+      .select("id, meeting_id, expires_at, revoked_at, view_count, include_transcript, include_recording")
       .eq("token_hash", await hashShareToken(token))
       .eq("scope", "link")
       .maybeSingle();
@@ -67,7 +79,7 @@ serve(async (req) => {
 
     const { data: meeting } = await supabase
       .from("meetings")
-      .select("id, title, start_time, duration_seconds, languages, content_pruned_at")
+      .select("id, title, start_time, duration_seconds, languages, content_pruned_at, recall_bot_id, audio_url")
       .eq("id", share.meeting_id)
       .maybeSingle();
     if (!meeting) return json({ error: "This meeting is no longer available." }, 404);
@@ -78,11 +90,32 @@ serve(async (req) => {
       return json({ error: "This meeting's content has passed its retention window." }, 404);
     }
 
+    // ---- the recording ----------------------------------------------------
+    if (resource === "recording") {
+      if (!share.include_recording) {
+        return json({ error: "The recording is not part of this link." }, 403);
+      }
+      const media = await resolveRecordingMedia(supabase, meeting);
+      return json(media);
+    }
+
     const { data: insights } = await supabase
       .from("meeting_insights")
       .select("summary_short, summary_detailed, key_points, action_items, decisions")
       .eq("meeting_id", share.meeting_id)
       .maybeSingle();
+
+    // Only read the transcript when this link carries it — an unticked box
+    // should not put the text in a service-role result set at all.
+    let transcript: PublicSegment[] | null = null;
+    if (share.include_transcript) {
+      const { data: row } = await supabase
+        .from("transcripts")
+        .select("speakers")
+        .eq("meeting_id", share.meeting_id)
+        .maybeSingle();
+      transcript = publicSegments(row?.speakers);
+    }
 
     // Best-effort view accounting; a failure here must not cost the reader the
     // page they came for.
@@ -108,6 +141,9 @@ serve(async (req) => {
         action_items: insights?.action_items ?? [],
         decisions: insights?.decisions ?? [],
       },
+      transcript,
+      // The page asks for the media separately; this only says whether it may.
+      has_recording: Boolean(share.include_recording),
     });
   } catch (err) {
     console.error("[get-shared-meeting]", err);

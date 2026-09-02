@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { Building2, Check, Copy, Link2, Loader2, Trash2 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import {
   Dialog,
   DialogContent,
@@ -25,6 +26,8 @@ interface Share {
   view_count: number;
   last_viewed_at: string | null;
   created_at: string;
+  include_transcript: boolean;
+  include_recording: boolean;
 }
 
 const EXPIRY_CHOICES: Array<{ label: string; days: number | null }> = [
@@ -50,6 +53,11 @@ export function ShareLinkDialog({
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
   const [expiryDays, setExpiryDays] = useState<number | null>(7);
+  // What the next link will carry. Off by default in both cases: the summary is
+  // what a forwarded link is usually for, and the two extras are each somebody's
+  // words verbatim.
+  const [includeTranscript, setIncludeTranscript] = useState(false);
+  const [includeRecording, setIncludeRecording] = useState(false);
   // The plaintext token exists only in this response. Held in state so the user
   // can copy it, and gone the moment the dialog closes.
   const [freshUrl, setFreshUrl] = useState<string | null>(null);
@@ -94,7 +102,12 @@ export function ShareLinkDialog({
   const createLink = async () => {
     setWorking(true);
     try {
-      const data = await call({ action: 'create', expires_in_days: expiryDays });
+      const data = await call({
+        action: 'create',
+        expires_in_days: expiryDays,
+        include_transcript: includeTranscript,
+        include_recording: includeRecording,
+      });
       setFreshUrl(data.url);
       await navigator.clipboard.writeText(data.url).catch(() => {});
       setCopied(true);
@@ -128,6 +141,23 @@ export function ShareLinkDialog({
     }
   };
 
+  /** Change what an existing link carries. The URL keeps working either way. */
+  const setCarries = async (share: Share, patch: Partial<Pick<Share, 'include_transcript' | 'include_recording'>>) => {
+    setWorking(true);
+    try {
+      await call({ action: 'update', share_id: share.id, ...patch });
+      await refresh();
+    } catch (err) {
+      toast({
+        title: 'Could not change that link',
+        description: err instanceof Error ? err.message : 'Something went wrong.',
+        variant: 'destructive',
+      });
+    } finally {
+      setWorking(false);
+    }
+  };
+
   const live = shares.filter(
     (s) => !s.revoked_at && (!s.expires_at || Date.parse(s.expires_at) > Date.now()),
   );
@@ -138,8 +168,8 @@ export function ShareLinkDialog({
         <DialogHeader>
           <DialogTitle>Share this meeting</DialogTitle>
           <DialogDescription>
-            Anyone with the link sees the summary, decisions and action items. The transcript and
-            the pre/post-meeting chatter are never included.
+            Anyone with the link sees the summary, decisions and action items. Add the transcript
+            and the recording per link if this meeting should travel in full.
           </DialogDescription>
         </DialogHeader>
 
@@ -228,6 +258,30 @@ export function ShareLinkDialog({
               </button>
             ))}
           </div>
+          <div className="space-y-2 rounded-lg px-3 py-2.5" style={{ border: '1px solid var(--rule)' }}>
+            <label className="flex cursor-pointer items-center justify-between gap-3">
+              <span className="min-w-0">
+                <span className="block text-[13px] font-medium" style={{ color: 'var(--ink)' }}>
+                  Include the transcript
+                </span>
+                <span className="block text-[12px]" style={{ color: 'var(--ink-soft)' }}>
+                  Meeting only — anything said before it started or after it ended stays out.
+                </span>
+              </span>
+              <Switch checked={includeTranscript} onCheckedChange={setIncludeTranscript} />
+            </label>
+            <label className="flex cursor-pointer items-center justify-between gap-3">
+              <span className="min-w-0">
+                <span className="block text-[13px] font-medium" style={{ color: 'var(--ink)' }}>
+                  Include the recording
+                </span>
+                <span className="block text-[12px]" style={{ color: 'var(--ink-soft)' }}>
+                  The full, unedited call — including anything said while the bot was waiting.
+                </span>
+              </span>
+              <Switch checked={includeRecording} onCheckedChange={setIncludeRecording} />
+            </label>
+          </div>
           <Button onClick={createLink} disabled={working} className="w-full">
             {working ? <Loader2 size={14} className="mr-2 animate-spin" /> : <Link2 size={14} className="mr-2" />}
             Create share link
@@ -259,6 +313,26 @@ export function ShareLinkDialog({
                     {share.expires_at
                       ? `expires ${formatIST(new Date(share.expires_at), 'd MMM')}`
                       : 'no expiry'}
+                  </p>
+                  <p className="m-0 mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px]" style={{ color: 'var(--ink-soft)' }}>
+                    <span className="inline-flex items-center gap-1.5">
+                      <Switch
+                        checked={share.include_transcript}
+                        disabled={working}
+                        onCheckedChange={(v) => setCarries(share, { include_transcript: v })}
+                        aria-label="Include the transcript on this link"
+                      />
+                      Transcript
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <Switch
+                        checked={share.include_recording}
+                        disabled={working}
+                        onCheckedChange={(v) => setCarries(share, { include_recording: v })}
+                        aria-label="Include the recording on this link"
+                      />
+                      Recording
+                    </span>
                   </p>
                 </div>
                 <button

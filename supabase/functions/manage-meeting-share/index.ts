@@ -1,5 +1,5 @@
 /**
- * Create, list and revoke share links for a meeting.
+ * Create, list, update and revoke share links for a meeting.
  *
  * Service-role client behind a user JWT: only this function can mint a valid
  * token hash, which is why `meeting_shares` has no INSERT policy. Every read
@@ -61,7 +61,7 @@ serve(async (req) => {
     if (action === "list") {
       const { data, error } = await supabase
         .from("meeting_shares")
-        .select("id, scope, org_id, token_prefix, expires_at, revoked_at, view_count, last_viewed_at, created_at")
+        .select("id, scope, org_id, token_prefix, expires_at, revoked_at, view_count, last_viewed_at, created_at, include_transcript, include_recording")
         .eq("meeting_id", meetingId)
         .eq("created_by", userId)
         .order("created_at", { ascending: false });
@@ -99,8 +99,13 @@ serve(async (req) => {
           token_hash: hash,
           token_prefix: prefix,
           expires_at: expiresAt,
+          // What this particular link carries, decided when it is minted. Both
+          // default to false, so an omitted flag narrows the link rather than
+          // widening it.
+          include_transcript: body.include_transcript === true,
+          include_recording: body.include_recording === true,
         })
-        .select("id, expires_at, created_at")
+        .select("id, expires_at, created_at, include_transcript, include_recording")
         .single();
       if (error) throw error;
 
@@ -141,6 +146,34 @@ serve(async (req) => {
       // 23505 = already shared to this workspace, which is the desired state.
       if (error && error.code !== "23505") throw error;
       return json({ shared_to_org: true });
+    }
+
+    // Change what an existing link carries, without invalidating it. Narrowing
+    // takes effect on the next page view; widening one already in a stranger's
+    // inbox is a real decision, which is why the dialog states it plainly.
+    if (action === "update") {
+      const shareId = body.share_id;
+      if (typeof shareId !== "string" || !shareId) {
+        return json({ error: "share_id is required" }, 400);
+      }
+      const patch: Record<string, boolean> = {};
+      if (typeof body.include_transcript === "boolean") patch.include_transcript = body.include_transcript;
+      if (typeof body.include_recording === "boolean") patch.include_recording = body.include_recording;
+      if (Object.keys(patch).length === 0) {
+        return json({ error: "Nothing to update" }, 400);
+      }
+      const { data, error } = await supabase
+        .from("meeting_shares")
+        .update(patch)
+        .eq("id", shareId)
+        .eq("meeting_id", meetingId)
+        .eq("created_by", userId)
+        .eq("scope", "link")
+        .select("id, include_transcript, include_recording")
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) return json({ error: "Link not found" }, 404);
+      return json({ share: data });
     }
 
     if (action === "revoke") {

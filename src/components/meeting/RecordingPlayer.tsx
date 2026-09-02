@@ -37,25 +37,45 @@ function Placeholder({ children }: { children: React.ReactNode }) {
 export function RecordingPlayer({
   meetingId,
   seekSeconds,
+  shareToken,
 }: {
   meetingId: string;
   /** Jump the media here once it can seek — set by deep links (?t=) and timestamp clicks. */
   seekSeconds?: number | null;
+  /**
+   * Set on the public share page, where there is no session to read. The share
+   * token authorises the request instead, and `get-shared-meeting` refuses it
+   * unless that particular link was created carrying the recording.
+   */
+  shareToken?: string;
 }) {
   const mediaRef = useRef<HTMLVideoElement | HTMLAudioElement | null>(null);
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
-    queryKey: ['recording-media', meetingId],
+    queryKey: ['recording-media', shareToken ? `share:${shareToken}` : meetingId],
     // Well inside the shortest link life the function hands out (1 h for the
     // signed audio URL), so a revisit reuses the link instead of re-signing.
     staleTime: 30 * 60 * 1000,
     queryFn: async (): Promise<RecordingMedia> => {
-      const token = (await supabase.auth.getSession()).data.session?.access_token;
-      if (!token) throw new Error('Not signed in');
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/get-recording-media`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ meeting_id: meetingId }),
-      });
+      const response = shareToken
+        ? await fetch(`${SUPABASE_URL}/functions/v1/get-shared-meeting`, {
+            method: 'POST',
+            headers: {
+              // The anon key is a public value; the share token is what
+              // actually authorises this read.
+              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ token: shareToken, resource: 'recording' }),
+          })
+        : await (async () => {
+            const token = (await supabase.auth.getSession()).data.session?.access_token;
+            if (!token) throw new Error('Not signed in');
+            return fetch(`${SUPABASE_URL}/functions/v1/get-recording-media`, {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ meeting_id: meetingId }),
+            });
+          })();
       const body = await response.json();
       if (!response.ok) throw new Error(body?.error || 'Failed to load recording');
       return body as RecordingMedia;
