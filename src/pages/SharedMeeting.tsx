@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { CalendarDays, CheckCircle2, Clock, GitBranch, Loader2, MessageSquare, Video } from 'lucide-react';
+import { CalendarDays, CheckCircle2, ChevronDown, Clock, FileText, GitBranch, Loader2, MessageSquare, Video } from 'lucide-react';
 import { Logo } from '@/components/ui/Logo';
 import { RecordingPlayer } from '@/components/meeting/RecordingPlayer';
 import { formatIST } from '@/lib/time';
@@ -62,6 +62,53 @@ function timestamp(seconds: number | null): string {
   if (seconds == null || !Number.isFinite(seconds)) return '';
   const total = Math.max(0, Math.round(seconds));
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
+}
+
+/**
+ * One collapsible block of the shared page.
+ *
+ * Everything is foldable rather than only the transcript, so the page has one
+ * behaviour instead of two — and so a reader who was sent the link for the
+ * action items can fold the rest away. The transcript is the section that
+ * arrives closed: a real meeting is hundreds of lines, and leaving it open
+ * buries the summary the link was mostly sent for.
+ */
+function Section({
+  title,
+  icon,
+  meta,
+  defaultOpen = true,
+  children,
+}: {
+  title: string;
+  icon?: React.ReactNode;
+  /** Small count or hint shown beside the title, e.g. "142 lines". */
+  meta?: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <section className="mb-2" style={{ borderTop: '1px solid var(--rule)' }}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex w-full cursor-pointer items-center gap-2 border-none bg-transparent px-0 py-2 text-left"
+      >
+        {icon}
+        <span className="text-[15px] font-semibold" style={{ color: 'var(--ink)' }}>{title}</span>
+        {meta && (
+          <span className="text-[12.5px]" style={{ color: 'var(--ink-soft)' }}>{meta}</span>
+        )}
+        <ChevronDown
+          className="ml-auto h-[16px] w-[16px] transition-transform"
+          style={{ color: 'var(--ink-soft)', transform: open ? 'rotate(0deg)' : 'rotate(-90deg)' }}
+        />
+      </button>
+      {open && <div className="pt-2">{children}</div>}
+    </section>
+  );
 }
 
 const FUNCTIONS_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-shared-meeting`;
@@ -180,20 +227,19 @@ export default function SharedMeeting() {
             </div>
 
             {(data.insights.summary_detailed || data.insights.summary_short) && (
-              <section className="mb-10">
-                <h2 className="mb-3 text-[15px] font-semibold" style={{ color: 'var(--ink)' }}>Summary</h2>
+              <Section title="Summary" icon={<FileText className="h-[15px] w-[15px]" style={{ color: 'var(--ember)' }} />}>
                 <p className="whitespace-pre-line text-[15px] leading-[1.7]" style={{ color: 'var(--ink-mid)' }}>
                   {data.insights.summary_detailed || data.insights.summary_short}
                 </p>
-              </section>
+              </Section>
             )}
 
             {data.insights.decisions?.length > 0 && (
-              <section className="mb-10">
-                <h2 className="mb-3 flex items-center gap-2 text-[15px] font-semibold" style={{ color: 'var(--ink)' }}>
-                  <GitBranch className="h-[15px] w-[15px]" style={{ color: 'var(--ember)' }} />
-                  Decisions
-                </h2>
+              <Section
+                title="Decisions"
+                icon={<GitBranch className="h-[15px] w-[15px]" style={{ color: 'var(--ember)' }} />}
+                meta={String(data.insights.decisions.length)}
+              >
                 <ul className="space-y-3 p-0" style={{ listStyle: 'none' }}>
                   {data.insights.decisions.map((decision, i) => (
                     <li
@@ -210,15 +256,15 @@ export default function SharedMeeting() {
                     </li>
                   ))}
                 </ul>
-              </section>
+              </Section>
             )}
 
             {data.insights.action_items?.length > 0 && (
-              <section className="mb-10">
-                <h2 className="mb-3 flex items-center gap-2 text-[15px] font-semibold" style={{ color: 'var(--ink)' }}>
-                  <CheckCircle2 className="h-[15px] w-[15px]" style={{ color: 'var(--ember)' }} />
-                  Action items
-                </h2>
+              <Section
+                title="Action items"
+                icon={<CheckCircle2 className="h-[15px] w-[15px]" style={{ color: 'var(--ember)' }} />}
+                meta={String(data.insights.action_items.length)}
+              >
                 <ul className="space-y-3 p-0" style={{ listStyle: 'none' }}>
                   {data.insights.action_items.map((item, i) => {
                     const owner = asText(item.owner) || asText(item.assignee);
@@ -243,27 +289,31 @@ export default function SharedMeeting() {
                     );
                   })}
                 </ul>
-              </section>
+              </Section>
             )}
 
             {data.has_recording && (
-              <section className="mb-10">
-                <h2 className="mb-3 flex items-center gap-2 text-[15px] font-semibold" style={{ color: 'var(--ink)' }}>
-                  <Video className="h-[15px] w-[15px]" style={{ color: 'var(--ember)' }} />
-                  Recording
-                </h2>
+              <Section
+                title="Recording"
+                icon={<Video className="h-[15px] w-[15px]" style={{ color: 'var(--ember)' }} />}
+                // Closed by default: opening it asks the edge function for a
+                // signed URL and starts the browser fetching metadata, which a
+                // reader who came for the summary never asked for.
+                defaultOpen={false}
+              >
                 <RecordingPlayer meetingId="shared" shareToken={token} />
-              </section>
+              </Section>
             )}
 
             {data.transcript && data.transcript.length > 0 && (
-              <section className="mb-10">
-                <h2 className="mb-3 flex items-center gap-2 text-[15px] font-semibold" style={{ color: 'var(--ink)' }}>
-                  <MessageSquare className="h-[15px] w-[15px]" style={{ color: 'var(--ember)' }} />
-                  Transcript
-                </h2>
+              <Section
+                title="Transcript"
+                icon={<MessageSquare className="h-[15px] w-[15px]" style={{ color: 'var(--ember)' }} />}
+                meta={`${data.transcript.length} line${data.transcript.length === 1 ? '' : 's'}`}
+                defaultOpen={false}
+              >
                 <div
-                  className="rounded-xl p-5"
+                  className="max-h-[70vh] overflow-y-auto rounded-xl p-5"
                   style={{ border: '1px solid var(--rule)', background: 'var(--paper-card)' }}
                 >
                   {data.transcript.map((seg, i) => {
@@ -290,7 +340,7 @@ export default function SharedMeeting() {
                 <p className="mt-2 text-[12px]" style={{ color: 'var(--ink-soft)' }}>
                   Anything said before the meeting started or after it ended is left out.
                 </p>
-              </section>
+              </Section>
             )}
 
             <footer
