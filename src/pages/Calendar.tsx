@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { formatIST } from '@/lib/time';
 import { Link } from 'react-router-dom';
+import { ListSkeleton } from '@/components/dashboard/ListSkeleton';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Calendar as CalendarIcon, RefreshCw, ChevronDown, ChevronRight, CheckCircle2 } from 'lucide-react';
@@ -192,7 +193,7 @@ export default function Calendar() {
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') openModal(event);
         }}
-        className="flex cursor-pointer items-center justify-between rounded-xl border border-border bg-card p-4 text-card-foreground shadow-sm transition-all hover:-translate-y-px hover:border-orange-500/35 hover:bg-secondary/60 hover:shadow-md"
+        className="flex cursor-pointer items-center justify-between rounded-xl border border-border bg-card p-4 text-card-foreground shadow-sm transition-all hover:-translate-y-px hover:border-ember/35 hover:bg-secondary/60 hover:shadow-md"
         style={{ borderLeftWidth: 3, borderLeftColor: borderColor }}
       >
         <div className="min-w-0 flex-1">
@@ -221,7 +222,7 @@ export default function Calendar() {
     <h2
       className={
         tone === 'accent'
-          ? 'mb-4 mt-8 text-[11px] font-semibold uppercase tracking-[0.12em] text-orange-600 first:mt-0 dark:text-orange-400'
+          ? 'mb-4 mt-8 text-[11px] font-semibold uppercase tracking-[0.12em] text-ember-deep first:mt-0 dark:text-ember-light'
           : 'mb-4 mt-8 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground first:mt-0'
       }
     >
@@ -231,7 +232,7 @@ export default function Calendar() {
 
   return (
     <DashboardLayout>
-      <div className="mx-auto max-w-4xl px-6 py-8 md:px-10 md:py-10">
+      <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6 md:px-10 md:py-10">
         {/* Header */}
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -243,7 +244,7 @@ export default function Calendar() {
 
           <div className="flex flex-wrap items-center gap-3">
             {syncMessage.visible && (
-              <div className="flex items-center gap-2 text-[13px] text-green-600 dark:text-green-400">
+              <div className="flex items-center gap-2 text-[13px] text-success dark:text-success">
                 <CheckCircle2 size={16} />
                 <span>Synced · {syncMessage.count} events</span>
               </div>
@@ -251,7 +252,7 @@ export default function Calendar() {
             <Button
               onClick={handleSync}
               disabled={syncing}
-              className="gap-2 bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-70"
+              className="gap-2 bg-ember text-white hover:bg-ember-deep disabled:opacity-70"
             >
               <RefreshCw size={16} className={syncing ? 'animate-spin' : ''} />
               Sync Now
@@ -261,14 +262,16 @@ export default function Calendar() {
 
         <GoogleReconnectBanner />
 
-        {/* Events or Empty State */}
-        {events.length === 0 ? (
+        {/* Events, loading, or empty state */}
+        {events.length === 0 && !autoFetched && !!session?.access_token ? (
+          <ListSkeleton rows={4} boxed={false} />
+        ) : events.length === 0 ? (
           <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-muted/20 px-6 py-16 text-center">
             <CalendarIcon className="mb-4 h-10 w-10 text-muted-foreground" strokeWidth={1.5} />
             <h3 className="mb-2 text-base font-semibold text-foreground">No upcoming meetings found</h3>
             <p className="max-w-[360px] text-[13px] leading-relaxed text-muted-foreground">
               Add Calendar in{' '}
-              <Link to="/settings?tab=integrations" className="font-medium text-orange-600 underline underline-offset-2 hover:text-orange-700 dark:text-orange-400">
+              <Link to="/settings?tab=integrations" className="font-medium text-ember-deep underline underline-offset-2 hover:text-ember-deep dark:text-ember-light">
                 Settings → Integrations
               </Link>{' '}
               to run Google OAuth for this EchoBrief account. Project secrets alone do not connect your calendar.

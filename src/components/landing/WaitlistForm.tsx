@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { onWaitlistOpen } from '@/lib/waitlist';
 
 const fieldClass =
-  'w-full rounded-lg px-3.5 py-3 text-[14.5px] outline-none transition-colors placeholder:opacity-55';
+  'w-full rounded-lg px-3.5 py-3 text-[16px] outline-none transition-colors placeholder:opacity-55 md:text-[14.5px]';
 
 const fieldStyle = {
   background: 'var(--paper)',

@@ -134,7 +134,7 @@ export function Pricing() {
               role="tab"
               aria-selected={billing === 'monthly'}
               onClick={() => setBilling('monthly')}
-              className="rounded-full px-4 py-1.5 text-[13px] font-medium transition-colors"
+              className="rounded-full px-4 py-2.5 text-[13px] font-medium transition-colors md:py-1.5"
               style={{
                 background:
                   billing === 'monthly' ? 'var(--paper-card)' : 'transparent',
@@ -152,7 +152,7 @@ export function Pricing() {
               role="tab"
               aria-selected={billing === 'annual'}
               onClick={() => setBilling('annual')}
-              className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-[13px] font-medium transition-colors"
+              className="inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-[13px] font-medium transition-colors md:py-1.5"
               style={{
                 background:
                   billing === 'annual' ? 'var(--paper-card)' : 'transparent',

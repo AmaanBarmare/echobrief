@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { formatIST } from '@/lib/time';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { SectionTabs } from '@/components/ui/SectionTabs';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { EmailReportSelector } from '@/components/dashboard/EmailReportSelector';
 import { MeetingMetrics } from '@/components/meeting/MeetingMetrics';
@@ -112,14 +113,12 @@ function ShareButton({ icon: Icon, label, onClick }: { icon: React.ElementType; 
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors"
+      className="rule-hover inline-flex h-11 items-center gap-1.5 rounded-md px-3 text-[13px] font-medium md:h-auto md:py-1.5"
       style={{
         border: '1px solid var(--rule)',
         background: 'var(--paper-card)',
         color: 'var(--ink)',
       }}
-      onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'color-mix(in oklch, var(--ink) 20%, transparent)'; }}
-      onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--rule)'; }}
     >
       <Icon size={13} strokeWidth={1.75} />
       {label}
@@ -558,7 +557,7 @@ export default function MeetingDetail() {
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="mx-auto max-w-[960px] px-6 py-10 md:px-10 md:py-14">
+        <div className="mx-auto max-w-[960px] px-4 py-8 sm:px-6 md:px-10 md:py-14">
           <Skeleton className="mb-6 h-4 w-32" />
           <Skeleton className="mb-3 h-4 w-64" />
           <Skeleton className="mb-6 h-12 w-[80%]" />
@@ -576,7 +575,7 @@ export default function MeetingDetail() {
   if (!meeting) {
     return (
       <DashboardLayout>
-        <div className="mx-auto max-w-[960px] px-6 py-20 md:px-8">
+        <div className="mx-auto max-w-[960px] px-4 py-16 sm:px-6 md:px-8">
           <h1 className="text-[24px] font-semibold" style={{ color: 'var(--ink)', letterSpacing: '-0.01em' }}>
             Meeting not found
           </h1>
@@ -608,7 +607,7 @@ export default function MeetingDetail() {
 
   return (
     <DashboardLayout>
-      <div className="mx-auto max-w-[960px] px-6 py-8 md:px-8 md:py-10">
+      <div className="mx-auto max-w-[960px] px-4 py-6 sm:px-6 md:px-8 md:py-10">
         <div className="mb-8">
           <Link
             to="/dashboard"
@@ -706,10 +705,8 @@ export default function MeetingDetail() {
                 <AlertDialogTrigger asChild>
                   <button
                     type="button"
-                    className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] font-medium transition-colors"
+                    className="danger-hover inline-flex h-11 items-center gap-1.5 rounded-md px-3 text-[13px] font-medium md:h-auto md:py-1.5"
                     style={{ color: 'var(--ink-soft)' }}
-                    onMouseEnter={(e) => { e.currentTarget.style.background = 'color-mix(in oklch, hsl(var(--destructive)) 8%, transparent)'; e.currentTarget.style.color = 'hsl(var(--destructive))'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--ink-soft)'; }}
                   >
                     <Trash2 size={13} strokeWidth={1.75} /> Delete
                   </button>
@@ -834,59 +831,38 @@ export default function MeetingDetail() {
         {insights ? (
           <div>
             {/* Tabs — editorial section tabs with underline, not pills */}
-            <div
-              className="mb-8 flex w-full flex-wrap items-end gap-5"
-              style={{ borderBottom: '1px solid var(--rule)' }}
-            >
-              {tabs.map((tab) => {
-                const active = activeTab === tab.id;
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setActiveTab(tab.id)}
-                    className="relative flex items-center gap-2 pb-3 pt-1 text-[13px] transition-colors"
-                    style={{
-                      fontFamily: 'var(--font-body)',
-                      color: active ? 'var(--ink)' : 'var(--ink-soft)',
-                      background: 'transparent',
-                      fontWeight: active ? 600 : 500,
-                      letterSpacing: '-0.005em',
-                    }}
-                  >
-                    {tab.icon} {tab.label}
-                    {active && (
-                      <span
-                        aria-hidden
-                        className="absolute -bottom-px left-0 right-0 h-[2px]"
-                        style={{ background: 'var(--ember)' }}
-                      />
-                    )}
-                  </button>
-                );
-              })}
-
-              {activeTab === 'summary' && (
-                <div className="ml-auto flex items-center gap-2 pb-2">
-                  <Languages size={13} strokeWidth={1.5} style={{ color: 'var(--ink-soft)' }} />
-                  <select
-                    value={summaryLang}
-                    onChange={(e) => setSummaryLang(e.target.value)}
-                    className="rounded-full px-3 py-1.5 text-[12px] outline-none"
-                    style={{
-                      fontFamily: 'var(--font-body)',
-                      border: '1px solid var(--rule)',
-                      background: 'var(--paper-card)',
-                      color: 'var(--ink)',
-                    }}
-                  >
-                    {['English', 'Hindi', 'Tamil', 'Telugu', 'Bengali', 'Kannada', 'Marathi', 'Malayalam', 'Gujarati', 'Punjabi'].map((l) => (
-                      <option key={l} value={l}>{l}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-            </div>
+            <SectionTabs
+              label="Meeting sections"
+              tabs={tabs}
+              value={activeTab}
+              onChange={setActiveTab}
+              trailing={
+                activeTab === 'summary' ? (
+                  <div className="flex items-center gap-2">
+                    <Languages size={13} strokeWidth={1.5} style={{ color: 'var(--ink-soft)' }} />
+                    <label htmlFor="summary-language" className="sr-only">
+                      Summary language
+                    </label>
+                    <select
+                      id="summary-language"
+                      value={summaryLang}
+                      onChange={(e) => setSummaryLang(e.target.value)}
+                      className="rounded-full px-3 py-1.5 text-[12px] outline-none"
+                      style={{
+                        fontFamily: 'var(--font-body)',
+                        border: '1px solid var(--rule)',
+                        background: 'var(--paper-card)',
+                        color: 'var(--ink)',
+                      }}
+                    >
+                      {['English', 'Hindi', 'Tamil', 'Telugu', 'Bengali', 'Kannada', 'Marathi', 'Malayalam', 'Gujarati', 'Punjabi'].map((l) => (
+                        <option key={l} value={l}>{l}</option>
+                      ))}
+                    </select>
+                  </div>
+                ) : null
+              }
+            />
 
             {/* ═══ SUMMARY TAB ═══ */}
             {activeTab === 'summary' && (
@@ -1122,7 +1098,7 @@ export default function MeetingDetail() {
                       <div
                         className={cn(
                           'flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md border-2',
-                          item.done ? 'border-green-500 bg-green-500' : 'border-border bg-transparent'
+                          item.done ? 'border-success bg-success' : 'border-border bg-transparent'
                         )}
                       >
                         {item.done && <CheckCircle2 size={12} className="text-white" />}
@@ -1323,8 +1299,8 @@ export default function MeetingDetail() {
                                   value={renameTarget.value}
                                   onChange={(e) => setRenameTarget({ from: seg.speaker, value: e.target.value })}
                                   onKeyDown={(e) => { if (e.key === 'Enter') handleRename(); if (e.key === 'Escape') setRenameTarget(null); }}
-                                  className="rounded-md px-2 py-0.5 text-[13px] outline-none"
-                                  style={{ border: '1px solid var(--rule)', background: 'var(--paper-card)', color: 'var(--ink)', width: 180 }}
+                                  className="w-[min(180px,60vw)] rounded-md px-2 py-1.5 text-[16px] outline-none md:py-0.5 md:text-[13px]"
+                                  style={{ border: '1px solid var(--rule)', background: 'var(--paper-card)', color: 'var(--ink)' }}
                                   aria-label="New speaker name"
                                 />
                                 <button type="button" onClick={handleRename} disabled={renaming} className="text-[12px] font-medium" style={{ color: 'var(--ember-deep)' }}>
@@ -1402,7 +1378,7 @@ export default function MeetingDetail() {
                           <span
                             className={cn(
                               'rounded-full px-2.5 py-1 text-[11px] font-semibold',
-                              msg.status === 'sent' ? 'bg-green-500/15 text-green-600 dark:text-green-400' : 'bg-muted text-muted-foreground'
+                              msg.status === 'sent' ? 'bg-success/15 text-success dark:text-success' : 'bg-muted text-muted-foreground'
                             )}
                           >
                             {msg.status === 'sent' ? '✓ Sent' : msg.status === 'failed' ? '✗ Failed' : 'Pending'}

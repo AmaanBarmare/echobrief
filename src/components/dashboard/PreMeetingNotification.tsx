@@ -215,17 +215,19 @@ export function PreMeetingNotification() {
   if (!upcomingMeeting) return null;
 
   return (
-    <div className="fixed top-4 right-4 z-50 animate-in">
-      <div className="bg-card border border-accent/30 rounded-lg shadow-lg p-4 max-w-sm">
+    <div className="pt-safe animate-in fixed left-4 right-4 top-4 z-50 sm:left-auto sm:w-[360px]">
+      <div className="bg-card border-accent/30 rounded-lg border p-4 shadow-lg">
         {/* Header */}
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-2 text-accent">
             <Calendar className="w-4 h-4" />
             <span className="text-xs font-medium uppercase tracking-wide">Upcoming Meeting</span>
           </div>
-          <button 
+          <button
+            type="button"
             onClick={handleDismiss}
-            className="text-muted-foreground hover:text-foreground transition-colors"
+            aria-label="Dismiss upcoming meeting notice"
+            className="surface-hover -mr-2 -mt-2 inline-flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground md:h-8 md:w-8"
           >
             <X className="w-4 h-4" />
           </button>

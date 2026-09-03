@@ -61,6 +61,18 @@ const RETIRED = new Map([
   ['#A855F7', 'violet (--violet / #8A5FC9)'],
 ]);
 
+// Stock Tailwind palette families. Every one of these has a Warm Dispatch
+// equivalent, so any use in a component is unbranded drift.
+const TAILWIND_PALETTE_FAMILIES = [
+  'slate', 'gray', 'zinc', 'neutral', 'stone', 'red', 'orange', 'amber', 'yellow',
+  'lime', 'green', 'emerald', 'teal', 'cyan', 'sky', 'blue', 'indigo', 'violet',
+  'purple', 'fuchsia', 'pink', 'rose',
+];
+const TAILWIND_PALETTE_RE = new RegExp(
+  `(?<![\\w-])(?:bg|text|border|ring|from|via|to|decoration|outline|shadow|fill|stroke|divide|accent|caret|placeholder)-(?:${TAILWIND_PALETTE_FAMILIES.join('|')})-(?:50|[1-9]00|950)(?![\\w-])`,
+  'g',
+);
+
 const BANNED_FONTS = ['Outfit', 'DM Sans', 'Inter', 'Roboto', 'Poppins', 'Lato', 'Montserrat', 'Open Sans'];
 const APPROVED_FONTS = 'Switzer, DM Serif Display, Manrope, IBM Plex Mono, JetBrains Mono, Noto Sans *';
 
@@ -110,6 +122,18 @@ for (const file of files) {
       } else if (!isTokenSource(r) && !ALLOWED_HEX.has(hex) && !THIRD_PARTY_HEX.has(hex)) {
         add('off-palette-hex', r, n, `${m[0]} is not in the brand palette`,
           'use a var(--token), or add the colour to brand/tokens/colors.json + src/index.css');
+      }
+    }
+
+    // 2b — off-palette Tailwind colour utilities.
+    // The hex scan above never saw these: `bg-orange-500` carries no hex, so
+    // 72 of them had accumulated across 9 files by the 2026-09-03 UI audit.
+    // Warm Dispatch has tokens for all of it — ember/gold/success/warning/
+    // destructive — so a stock palette name is always drift.
+    if (/\.(tsx|jsx|html)$/.test(r) && !isTokenSource(r)) {
+      for (const m of line.matchAll(TAILWIND_PALETTE_RE)) {
+        add('off-palette-utility', r, n, `"${m[0]}" is a stock Tailwind colour, not a brand token`,
+          'use ember / gold / success / warning / destructive — see tailwind.config.ts');
       }
     }
 

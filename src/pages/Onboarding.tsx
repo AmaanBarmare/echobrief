@@ -85,7 +85,7 @@ export default function Onboarding() {
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--paper)' }}>
-      <div className="mx-auto flex min-h-screen max-w-[520px] flex-col justify-center px-6 py-12">
+      <div className="mx-auto flex min-h-screen max-w-[520px] flex-col justify-center px-4 py-8 sm:px-6 sm:py-12">
         <div className="mb-8">
           <h1
             className="text-[28px] font-semibold leading-tight"
@@ -167,8 +167,8 @@ export default function Onboarding() {
                       className={cn(
                         'rounded-lg border px-3 py-3 text-[13px] font-medium transition-all',
                         languages.includes(lang)
-                          ? 'border-orange-500 bg-orange-500/10 text-orange-700 dark:text-orange-400'
-                          : 'border-border bg-transparent text-muted-foreground hover:border-orange-500/40 hover:bg-muted/60'
+                          ? 'border-ember bg-ember/10 text-ember-deep dark:text-ember-light'
+                          : 'border-border bg-transparent text-muted-foreground hover:border-ember/40 hover:bg-muted/60'
                       )}
                     >
                       {languages.includes(lang) && '✓ '}
@@ -204,14 +204,14 @@ export default function Onboarding() {
                   className={cn(
                     'flex w-full items-center gap-3 rounded-xl border p-4 text-left transition-all',
                     calendarEnabled
-                      ? 'border-orange-500/60 bg-orange-500/10'
-                      : 'border-border bg-transparent hover:border-orange-500/30 hover:bg-muted/40'
+                      ? 'border-ember/60 bg-ember/10'
+                      : 'border-border bg-transparent hover:border-ember/30 hover:bg-muted/40'
                   )}
                 >
                   <div
                     className={cn(
                       'flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors',
-                      calendarEnabled ? 'border-orange-500 bg-orange-500' : 'border-border bg-transparent'
+                      calendarEnabled ? 'border-ember bg-ember' : 'border-border bg-transparent'
                     )}
                   >
                     {calendarEnabled && <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />}
@@ -255,14 +255,14 @@ export default function Onboarding() {
                     className={cn(
                       'flex items-center gap-3 rounded-xl border p-4 text-left text-[13px] font-medium transition-all',
                       notificationFreq === freq
-                        ? 'border-orange-500 bg-orange-500/10 text-orange-800 dark:text-orange-300'
-                        : 'border-border text-muted-foreground hover:border-orange-500/30 hover:bg-muted/40'
+                        ? 'border-ember bg-ember/10 text-ember-dark dark:text-ember-hi'
+                        : 'border-border text-muted-foreground hover:border-ember/30 hover:bg-muted/40'
                     )}
                   >
                     <div
                       className={cn(
                         'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors',
-                        notificationFreq === freq ? 'border-orange-500 bg-orange-500' : 'border-border bg-transparent'
+                        notificationFreq === freq ? 'border-ember bg-ember' : 'border-border bg-transparent'
                       )}
                     >
                       {notificationFreq === freq && <Check className="h-3 w-3 text-white" strokeWidth={3} />}
@@ -297,8 +297,8 @@ export default function Onboarding() {
           {/* ═══ COMPLETE STEP ═══ */}
           {step === 'complete' && (
             <div className="flex flex-1 flex-col items-center justify-center text-center">
-              <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-orange-500/15 ring-8 ring-orange-500/5">
-                <Check className="h-10 w-10 text-orange-500" strokeWidth={2.5} />
+              <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-ember/15 ring-8 ring-ember/5">
+                <Check className="h-10 w-10 text-ember" strokeWidth={2.5} />
               </div>
               <h2 className="mb-2 text-2xl font-semibold text-foreground" style={{ fontFamily: 'var(--font-display)' }}>
                 You&apos;re all set

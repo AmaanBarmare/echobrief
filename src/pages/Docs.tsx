@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Link } from 'react-router-dom';
 import { Navbar } from '@/components/landing/Navbar';
 import { Footer } from '@/components/landing/Footer';
 import {
   Bot,
   CalendarClock,
+  ChevronDown,
   HelpCircle,
   Languages,
   LifeBuoy,
@@ -103,7 +105,7 @@ function Callout({
 }) {
   const styles =
     tone === 'warn'
-      ? 'border-amber-500/30 bg-amber-500/5'
+      ? 'border-warning/30 bg-warning/5'
       : 'border-border bg-muted/40';
   return (
     <div className={`my-6 rounded-lg border p-4 ${styles}`}>
@@ -133,6 +135,11 @@ function Steps({ items }: { items: React.ReactNode[] }) {
 
 export default function Docs() {
   const [query, setQuery] = useState('');
+  // The nav column only stacks above the article below `lg`; keep it open on
+  // wider screens where it sits beside the content.
+  const isNarrow = useIsMobile(1024);
+  const [navCollapsed, setNavCollapsed] = useState(isNarrow);
+  useEffect(() => { setNavCollapsed(isNarrow); }, [isNarrow]);
   const [active, setActive] = useState<string>(ALL_SECTIONS[0].id);
 
   const filtered = useMemo(() => {
@@ -166,11 +173,11 @@ export default function Docs() {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      <main className="pt-24 pb-20">
-        <div className="container mx-auto px-6">
+      <main className="pb-20 pt-20 sm:pt-24">
+        <div className="container mx-auto px-4 sm:px-6">
           <Link
             to="/"
-            className="mb-8 inline-flex items-center text-sm text-muted-foreground transition-colors hover:text-foreground"
+            className="surface-hover -ml-2 mb-6 inline-flex min-h-[40px] items-center rounded px-2 text-sm text-muted-foreground hover:text-foreground"
           >
             ← Back to home
           </Link>
@@ -195,7 +202,20 @@ export default function Docs() {
 
           <div className="grid gap-12 lg:grid-cols-[240px_minmax(0,1fr)]">
             {/* Sidebar */}
-            <aside className="lg:sticky lg:top-24 lg:h-[calc(100vh-8rem)] lg:overflow-y-auto">
+            <aside className="lg:sticky lg:top-24 lg:h-[calc(100dvh-8rem)] lg:overflow-y-auto">
+              {/* Below lg the nav is a single stacked column, so leaving it
+                  expanded put ~30 links between the reader and the first word
+                  of documentation. Collapsed by default on small screens. */}
+              <details
+                open={!navCollapsed}
+                onToggle={(e) => setNavCollapsed(!(e.currentTarget as HTMLDetailsElement).open)}
+                className="rounded-xl border border-border lg:rounded-none lg:border-0"
+              >
+                <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-3 text-sm font-semibold text-foreground lg:hidden">
+                  Browse topics
+                  <ChevronDown size={16} className="transition-transform" />
+                </summary>
+                <div className="px-4 pb-4 lg:px-0 lg:pb-0">
               <div className="relative mb-5">
                 <Search
                   size={15}
@@ -206,7 +226,7 @@ export default function Docs() {
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Filter topics"
                   aria-label="Filter documentation topics"
-                  className="w-full rounded-md border border-border bg-card py-2 pl-9 pr-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-foreground/30"
+                  className="w-full rounded-md border border-border bg-card py-2.5 pl-9 pr-3 text-[16px] text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-foreground/30 md:py-2 md:text-sm"
                 />
               </div>
 
@@ -225,7 +245,7 @@ export default function Docs() {
                           <a
                             href={`#${item.id}`}
                             aria-current={active === item.id ? 'true' : undefined}
-                            className={`-ml-px block border-l py-1.5 pl-3 text-sm transition-colors ${
+                            className={`-ml-px block border-l py-2.5 pl-3 text-sm transition-colors md:py-1.5 ${
                               active === item.id
                                 ? 'border-l-2 font-medium text-foreground'
                                 : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -243,6 +263,8 @@ export default function Docs() {
                   <p className="text-sm text-muted-foreground">No topics match “{query}”.</p>
                 )}
               </nav>
+                </div>
+              </details>
             </aside>
 
             {/* Content */}
@@ -339,7 +361,7 @@ export default function Docs() {
               <section className="space-y-4">
                 <SectionHeading id="recording">Recording a meeting</SectionHeading>
                 <p>There are two ways to get a bot into a meeting:</p>
-                <div className="my-4 overflow-x-auto">
+                <div className="scroll-x my-4">
                   <table className="w-full text-left text-sm">
                     <thead>
                       <tr className="border-b border-border">
@@ -416,7 +438,7 @@ export default function Docs() {
               <section className="space-y-4">
                 <SectionHeading id="statuses">Meeting statuses</SectionHeading>
                 <p>Every meeting on your dashboard carries a status. What each one means:</p>
-                <div className="my-4 overflow-x-auto">
+                <div className="scroll-x my-4">
                   <table className="w-full text-left text-sm">
                     <thead>
                       <tr className="border-b border-border">

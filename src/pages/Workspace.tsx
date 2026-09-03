@@ -93,7 +93,7 @@ export default function Workspace() {
 
   return (
     <DashboardLayout>
-      <div className="mx-auto max-w-3xl space-y-6 p-6">
+      <div className="mx-auto max-w-3xl space-y-6 p-4 sm:p-6">
         <header>
           <h1 className="mb-1 text-2xl font-semibold text-foreground">Workspace</h1>
           <p className="text-[13.5px] text-muted-foreground">

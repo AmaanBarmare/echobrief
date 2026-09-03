@@ -34,7 +34,7 @@ export function Footer() {
         background: 'var(--paper)',
       }}
     >
-      <div className="mx-auto max-w-[1200px] px-6 py-14 md:px-8 md:py-16">
+      <div className="px-safe mx-auto max-w-[1200px] px-4 py-12 sm:px-6 md:px-8 md:py-16">
         <div className="grid gap-10 md:grid-cols-[1.4fr_1fr_1fr]">
           <div>
             <Logo size="md" linkTo="/" />
@@ -48,7 +48,7 @@ export function Footer() {
             <div className="mt-5 flex items-center gap-2">
               <a
                 href={`mailto:${CONTACT_EMAIL}`}
-                className="flex h-9 w-9 items-center justify-center rounded-md transition-colors"
+                className="surface-hover flex h-11 w-11 items-center justify-center rounded-md md:h-9 md:w-9"
                 style={{
                   border: '1px solid var(--rule)',
                   color: 'var(--ink-mid)',
@@ -60,7 +60,7 @@ export function Footer() {
               </a>
               <Link
                 to="/docs"
-                className="flex h-9 w-9 items-center justify-center rounded-md transition-colors"
+                className="surface-hover flex h-11 w-11 items-center justify-center rounded-md md:h-9 md:w-9"
                 style={{
                   border: '1px solid var(--rule)',
                   color: 'var(--ink-mid)',
@@ -71,7 +71,7 @@ export function Footer() {
                 <BookOpen className="h-4 w-4" strokeWidth={1.75} />
               </Link>
               <span
-                className="flex h-9 w-9 items-center justify-center rounded-md opacity-50"
+                className="flex h-11 w-11 items-center justify-center rounded-md opacity-50 md:h-9 md:w-9"
                 style={{ border: '1px solid var(--rule)', color: 'var(--ink-soft)', background: 'var(--paper-card)' }}
                 title="GitHub (coming soon)"
               >
@@ -88,13 +88,13 @@ export function Footer() {
               >
                 {group.title}
               </h3>
-              <ul className="mt-4 space-y-2.5">
+              <ul className="mt-3 space-y-0.5">
                 {group.links.map((l) => (
                   <li key={l.to + l.label}>
                     {l.to.startsWith('mailto:') ? (
                       <a
                         href={l.to}
-                        className="text-[14px] no-underline"
+                        className="surface-hover -mx-2 inline-flex min-h-[40px] items-center rounded px-2 text-[14px] no-underline"
                         style={{ color: 'var(--ink-mid)' }}
                       >
                         {l.label}
@@ -102,7 +102,7 @@ export function Footer() {
                     ) : (
                       <Link
                         to={l.to}
-                        className="text-[14px] no-underline"
+                        className="surface-hover -mx-2 inline-flex min-h-[40px] items-center rounded px-2 text-[14px] no-underline"
                         style={{ color: 'var(--ink-mid)' }}
                       >
                         {l.label}

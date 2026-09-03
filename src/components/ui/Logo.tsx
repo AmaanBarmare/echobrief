@@ -84,7 +84,7 @@ export function Logo({
 
   if (linkTo) {
     return (
-      <Link to={linkTo} className="inline-flex">
+      <Link to={linkTo} className="-my-1.5 inline-flex items-center py-1.5">
         {content}
       </Link>
     );

@@ -158,7 +158,7 @@ export default function PrivacyPolicy() {
               EchoBrief, under contract, and none of them may use it for their own purposes.
               We will update this list before adding anyone new.
             </p>
-            <div className="overflow-x-auto">
+            <div className="scroll-x">
               <table>
                 <thead>
                   <tr>
@@ -188,7 +188,7 @@ export default function PrivacyPolicy() {
             </p>
 
             <h2>5. How long we keep things</h2>
-            <div className="overflow-x-auto">
+            <div className="scroll-x">
               <table>
                 <thead>
                   <tr>

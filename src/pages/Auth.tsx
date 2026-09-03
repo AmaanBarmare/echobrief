@@ -24,7 +24,7 @@ const SIGNUPS_ENABLED = true;
 const GOOGLE_SIGNIN_ENABLED = import.meta.env.VITE_GOOGLE_SIGNIN === 'true';
 
 const inputClass =
-  'w-full rounded-md px-3 py-2.5 text-[14.5px] outline-none transition-colors placeholder:opacity-60';
+  'w-full rounded-md px-3 py-2.5 text-[16px] outline-none transition-colors placeholder:opacity-60 md:text-[14.5px]';
 
 const inputStyle = {
   background: 'var(--paper-card)',
@@ -198,17 +198,17 @@ export default function Auth() {
 
   return (
     <div className="relative flex min-h-screen" style={{ background: 'var(--paper)' }}>
-      <div className="absolute left-6 top-5 z-20 md:left-8">
+      <div className="pt-safe absolute left-4 top-4 z-20 sm:left-6 sm:top-5 md:left-8">
         <Link
           to="/"
-          className="inline-flex items-center gap-1.5 text-[13px] no-underline"
+          className="surface-hover -ml-2 inline-flex min-h-[40px] items-center gap-1.5 rounded px-2 text-[13px] no-underline"
           style={{ color: 'var(--ink-mid)' }}
         >
           <ArrowLeft className="h-[14px] w-[14px]" strokeWidth={1.75} />
           Back to home
         </Link>
       </div>
-      <div className="absolute right-6 top-5 z-20 md:right-8">
+      <div className="pt-safe absolute right-4 top-4 z-20 sm:right-6 sm:top-5 md:right-8">
         <ThemeToggle />
       </div>
 
@@ -431,7 +431,7 @@ export default function Auth() {
                           <button
                             type="button"
                             onClick={() => setIsForgotPassword(true)}
-                            className="text-[12.5px] font-medium"
+                            className="-my-1.5 -mr-1 rounded px-1 py-1.5 text-[12.5px] font-medium"
                             style={{ color: 'var(--ember-deep)' }}
                           >
                             Forgot?
@@ -470,7 +470,7 @@ export default function Auth() {
                       <button
                         type="button"
                         onClick={() => setIsSignUp(!isSignUp)}
-                        className="no-underline"
+                        className="-my-1.5 rounded px-1 py-1.5 no-underline"
                         style={{ color: 'var(--ember-deep)', fontWeight: 600 }}
                       >
                         {isSignUp ? 'Sign in' : 'Sign up'}

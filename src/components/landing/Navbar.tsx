@@ -41,22 +41,14 @@ export function Navbar() {
 
         <div className="hidden flex-1 items-center justify-center gap-1 md:flex">
           {links.map(({ label, href }) => {
-            const cls = 'rounded-md px-3 py-1.5 text-[14px] font-medium no-underline transition-colors';
+            const cls = 'surface-hover rounded-md px-3 py-1.5 text-[14px] font-medium no-underline';
             const style = { color: 'var(--ink-mid)' };
-            const onEnter = (e: React.MouseEvent<HTMLElement>) => {
-              e.currentTarget.style.color = 'var(--ink)';
-              e.currentTarget.style.background = 'color-mix(in oklch, var(--ink) 5%, transparent)';
-            };
-            const onLeave = (e: React.MouseEvent<HTMLElement>) => {
-              e.currentTarget.style.color = 'var(--ink-mid)';
-              e.currentTarget.style.background = 'transparent';
-            };
             return href.startsWith('#') ? (
-              <a key={label} href={href} className={cls} style={style} onMouseEnter={onEnter} onMouseLeave={onLeave}>
+              <a key={label} href={href} className={cls} style={style}>
                 {label}
               </a>
             ) : (
-              <Link key={label} to={href} className={cls} style={style} onMouseEnter={onEnter} onMouseLeave={onLeave}>
+              <Link key={label} to={href} className={cls} style={style}>
                 {label}
               </Link>
             );
@@ -82,9 +74,10 @@ export function Navbar() {
 
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-md transition-colors md:hidden"
+            className="surface-hover -mr-2 inline-flex h-11 w-11 items-center justify-center rounded-md md:hidden"
             style={{ color: 'var(--ink-mid)' }}
-            aria-label="Toggle menu"
+            aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={mobileOpen}
           >
             {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>

@@ -174,7 +174,7 @@ export default function SharedMeeting() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-[820px] px-6 py-12">
+      <main className="mx-auto max-w-[820px] px-4 py-8 sm:px-6 sm:py-12">
         {loading ? (
           <div className="flex items-center gap-2 text-[14px]" style={{ color: 'var(--ink-mid)' }}>
             <Loader2 className="h-4 w-4 animate-spin" /> Loading meeting…
@@ -313,7 +313,7 @@ export default function SharedMeeting() {
                 defaultOpen={false}
               >
                 <div
-                  className="max-h-[70vh] overflow-y-auto rounded-xl p-5"
+                  className="max-h-[70dvh] overflow-y-auto rounded-xl p-5"
                   style={{ border: '1px solid var(--rule)', background: 'var(--paper-card)' }}
                 >
                   {data.transcript.map((seg, i) => {

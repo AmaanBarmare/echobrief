@@ -166,7 +166,7 @@ export default function Contacts() {
 
   return (
     <DashboardLayout>
-      <div className="mx-auto max-w-[1100px] px-6 py-8 md:px-8 md:py-10">
+      <div className="mx-auto max-w-[1100px] px-4 py-6 sm:px-6 md:px-8 md:py-10">
         {/* Header */}
         <div className="mb-8">
           <h1
@@ -244,16 +244,11 @@ export default function Contacts() {
                         key={c.id}
                         type="button"
                         onClick={() => select(c.id)}
-                        className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors"
+                        className="nav-item flex w-full items-center gap-3 px-4 py-3 text-left"
+                        data-active={active}
+                        aria-current={active ? 'true' : undefined}
                         style={{
                           borderTop: i === 0 ? 'none' : '1px solid var(--rule)',
-                          background: active ? 'color-mix(in oklch, var(--ember) 8%, transparent)' : 'transparent',
-                        }}
-                        onMouseEnter={(e) => {
-                          if (!active) e.currentTarget.style.background = 'color-mix(in oklch, var(--ink) 4%, transparent)';
-                        }}
-                        onMouseLeave={(e) => {
-                          if (!active) e.currentTarget.style.background = 'transparent';
                         }}
                       >
                         <span

@@ -64,7 +64,7 @@ export default function Chat() {
 
   return (
     <DashboardLayout>
-      <div className="flex flex-col h-[calc(100vh-8rem)] max-w-3xl mx-auto">
+      <div className="flex flex-col h-[calc(100dvh-8rem)] max-w-3xl mx-auto">
         <div className="mb-4">
           <h1 className="text-2xl font-semibold">Ask your meetings</h1>
           <p className="text-sm text-muted-foreground">

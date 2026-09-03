@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { SectionTabs } from '@/components/ui/SectionTabs';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { BotCustomization } from '@/components/dashboard/BotCustomization';
 import { supabase } from '@/integrations/supabase/client';
@@ -683,7 +684,7 @@ export default function Settings() {
 
   return (
     <DashboardLayout>
-      <div className="mx-auto max-w-[960px] px-6 py-8 md:px-8 md:py-10">
+      <div className="mx-auto max-w-[960px] px-4 py-6 sm:px-6 md:px-8 md:py-10">
         <div className="mb-8">
           <h1
             className="text-[28px] font-semibold leading-tight"
@@ -696,37 +697,12 @@ export default function Settings() {
           </p>
         </div>
 
-        {/* Tabs */}
-        <div
-          className="mb-8 flex flex-wrap items-end gap-5"
-          style={{ borderBottom: '1px solid var(--rule)' }}
-        >
-          {tabs.map((tab) => {
-            const active = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => handleTabChange(tab.id)}
-                className="relative pb-3 text-[13.5px] transition-colors"
-                style={{
-                  color: active ? 'var(--ink)' : 'var(--ink-soft)',
-                  background: 'transparent',
-                  fontWeight: active ? 600 : 500,
-                }}
-              >
-                {tab.label}
-                {active && (
-                  <span
-                    aria-hidden
-                    className="absolute -bottom-px left-0 right-0 h-[2px]"
-                    style={{ background: 'var(--ember)' }}
-                  />
-                )}
-              </button>
-            );
-          })}
-        </div>
+        <SectionTabs
+          label="Settings sections"
+          tabs={tabs}
+          value={activeTab}
+          onChange={handleTabChange}
+        />
 
         {/* Account Tab */}
         {activeTab === 'account' && (
@@ -750,7 +726,7 @@ export default function Settings() {
                   className="border-border bg-muted/50 text-muted-foreground"
                 />
               </div>
-              <Button onClick={handleSaveProfile} disabled={saving} className="bg-orange-500 text-white hover:bg-orange-600">
+              <Button onClick={handleSaveProfile} disabled={saving} className="bg-ember text-white hover:bg-ember-deep">
                 {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                 Save Changes
               </Button>
@@ -779,7 +755,7 @@ export default function Settings() {
                 <Button
                   onClick={handleAddVocabularyTerm}
                   disabled={savingVocab}
-                  className="bg-orange-500 text-white hover:bg-orange-600"
+                  className="bg-ember text-white hover:bg-ember-deep"
                 >
                   {savingVocab ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   Add
@@ -843,7 +819,7 @@ export default function Settings() {
                   <Button
                     onClick={handleSaveWebhookUrl}
                     disabled={savingWebhook}
-                    className="bg-orange-500 text-white hover:bg-orange-600"
+                    className="bg-ember text-white hover:bg-ember-deep"
                   >
                     {savingWebhook ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     Save
@@ -916,7 +892,7 @@ export default function Settings() {
                           className={
                             ev.error
                               ? 'shrink-0 rounded bg-destructive/10 px-2 py-0.5 text-[10px] font-semibold text-destructive'
-                              : 'shrink-0 rounded bg-green-500/15 px-2 py-0.5 text-[10px] font-semibold text-green-600 dark:text-green-400'
+                              : 'shrink-0 rounded bg-success/15 px-2 py-0.5 text-[10px] font-semibold text-success dark:text-success'
                           }
                         >
                           {ev.status_code ? `HTTP ${ev.status_code}` : ev.error ? 'Failed' : 'Delivered'}
@@ -967,7 +943,7 @@ export default function Settings() {
                   <Button
                     onClick={handleConnectGoogle}
                     disabled={connectingGoogle}
-                    className="bg-orange-500 text-white hover:bg-orange-600"
+                    className="bg-ember text-white hover:bg-ember-deep"
                   >
                     {connectingGoogle ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     {profile?.google_needs_reconnect ? 'Reconnect' : 'Add Calendar'}
@@ -995,12 +971,12 @@ export default function Settings() {
                   {googleCalendars.map(cal => (
                     <div
                       key={cal.id}
-                      className="flex items-center justify-between rounded-lg border border-green-500/40 bg-muted/30 px-4 py-3"
+                      className="flex items-center justify-between rounded-lg border border-success/40 bg-muted/30 px-4 py-3"
                     >
                       <div className="flex-1">
                         <div className="mb-1 flex items-center gap-2">
                           <p className="m-0 text-[13px] font-medium text-foreground">{cal.name}</p>
-                          <span className="rounded px-2 py-0.5 text-[10px] font-semibold text-green-600 dark:text-green-400 bg-green-500/15">
+                          <span className="rounded px-2 py-0.5 text-[10px] font-semibold text-success dark:text-success bg-success/15">
                             ✓ Connected
                           </span>
                         </div>
@@ -1049,7 +1025,7 @@ export default function Settings() {
                   <Button
                     onClick={handleConnectMicrosoft}
                     disabled={connectingMicrosoft}
-                    className="bg-orange-500 text-white hover:bg-orange-600"
+                    className="bg-ember text-white hover:bg-ember-deep"
                   >
                     {connectingMicrosoft ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                     {microsoft?.connected ? 'Reconnect' : 'Connect Outlook'}
@@ -1072,10 +1048,10 @@ export default function Settings() {
               )}
 
               {microsoft?.connected ? (
-                <div className="flex items-center justify-between rounded-lg border border-green-500/40 bg-muted/30 px-4 py-3">
+                <div className="flex items-center justify-between rounded-lg border border-success/40 bg-muted/30 px-4 py-3">
                   <p className="m-0 text-[13px] font-medium text-foreground">
                     Outlook connected
-                    <span className="ml-2 rounded px-2 py-0.5 text-[10px] font-semibold text-green-600 dark:text-green-400 bg-green-500/15">
+                    <span className="ml-2 rounded px-2 py-0.5 text-[10px] font-semibold text-success dark:text-success bg-success/15">
                       ✓ Connected
                     </span>
                   </p>
@@ -1091,7 +1067,7 @@ export default function Settings() {
             <div className="rounded-2xl border border-border bg-card p-6 text-card-foreground shadow-sm">
               <div className="flex items-center justify-between gap-4">
                 <div className="flex flex-1 items-center gap-3">
-                  <Mail size={32} className="shrink-0 text-orange-500" />
+                  <Mail size={32} className="shrink-0 text-ember" />
                   <div>
                     <h3 className="mb-1 text-[15px] font-semibold text-foreground">Email summaries</h3>
                     <p className="text-[13px] text-muted-foreground">
@@ -1146,7 +1122,7 @@ export default function Settings() {
                 <Button
                   onClick={handleChangePassword}
                   disabled={changingPassword}
-                  className="bg-orange-500 text-white hover:bg-orange-600"
+                  className="bg-ember text-white hover:bg-ember-deep"
                 >
                   {changingPassword ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   Update Password

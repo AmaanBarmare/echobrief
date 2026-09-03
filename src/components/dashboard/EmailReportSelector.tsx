@@ -61,7 +61,7 @@ export function EmailReportSelector({
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Mail size={20} className="text-orange-500" />
+            <Mail size={20} className="text-ember" />
             Email Report
           </DialogTitle>
           <DialogDescription>
@@ -93,7 +93,7 @@ export function EmailReportSelector({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={sending} className="text-muted-foreground">
             Cancel
           </Button>
-          <Button onClick={handleSend} disabled={sending} className="bg-orange-500 text-white hover:bg-orange-600">
+          <Button onClick={handleSend} disabled={sending} className="bg-ember text-white hover:bg-ember-deep">
             {sending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
             Send Report
           </Button>

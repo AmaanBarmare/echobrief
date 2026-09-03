@@ -25,7 +25,7 @@ const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 function Placeholder({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="rounded-xl px-6 py-12 text-center"
+      className="rounded-xl px-4 py-8 sm:px-6 sm:py-12 text-center"
       style={{ background: 'var(--paper-card)', border: '1px solid var(--rule)' }}
     >
       <Video size={32} className="mx-auto mb-3" style={{ color: 'var(--ink-soft)' }} strokeWidth={1.5} />

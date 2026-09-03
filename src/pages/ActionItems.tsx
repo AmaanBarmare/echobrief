@@ -378,7 +378,7 @@ export default function ActionItems() {
 
   return (
     <DashboardLayout>
-      <div className="mx-auto max-w-[960px] px-6 py-8 md:px-8 md:py-10">
+      <div className="mx-auto max-w-[960px] px-4 py-6 sm:px-6 md:px-8 md:py-10">
         {/* Header */}
         <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
           <div>
@@ -536,16 +536,14 @@ export default function ActionItems() {
                             {/* Checkbox */}
                             <button
                               onClick={() => toggleComplete(item.id, group.id, item.index)}
-                              className="w-5 h-5 rounded-[4px] border-[1.5px] flex-shrink-0 mt-0.5 flex items-center justify-center transition-all"
+                              role="checkbox"
+                              aria-checked={isCompleted}
+                              aria-label={isCompleted ? 'Mark as not done' : 'Mark as done'}
+                              className="check-box relative mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-[4px] border-[1.5px] transition-all before:absolute before:left-1/2 before:top-1/2 before:h-11 before:w-11 before:-translate-x-1/2 before:-translate-y-1/2 before:content-[''] md:before:hidden"
+                              data-checked={isCompleted}
                               style={{
                                 background: isCompleted ? 'var(--ember)' : 'transparent',
                                 borderColor: isCompleted ? 'var(--ember)' : 'var(--rule)',
-                              }}
-                              onMouseEnter={(e) => {
-                                if (!isCompleted) e.currentTarget.style.borderColor = 'var(--ember)';
-                              }}
-                              onMouseLeave={(e) => {
-                                if (!isCompleted) e.currentTarget.style.borderColor = 'var(--rule)';
                               }}
                             >
                               {isCompleted && <Check className="w-3 h-3 text-white" strokeWidth={2.5} />}

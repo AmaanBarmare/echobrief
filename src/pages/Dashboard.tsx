@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { formatIST } from '@/lib/time';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { ListSkeleton } from '@/components/dashboard/ListSkeleton';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { RecordingButton } from '@/components/dashboard/RecordingButton';
 import { GoogleReconnectBanner } from '@/components/dashboard/GoogleReconnectBanner';
@@ -217,12 +218,10 @@ export default function Dashboard() {
       <Link
         key={meeting.id}
         to={`/meeting/${meeting.id}`}
-        className="group flex items-center gap-4 px-5 py-4 no-underline transition-colors md:px-6"
+        className="row-hover group flex items-center gap-3 px-4 py-4 no-underline sm:gap-4 sm:px-5 md:px-6"
         style={{
           borderTop: first ? 'none' : '1px solid var(--rule-soft)',
         }}
-        onMouseEnter={(e) => { e.currentTarget.style.background = 'color-mix(in oklch, var(--ink) 3%, transparent)'; }}
-        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
       >
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
@@ -278,7 +277,7 @@ export default function Dashboard() {
 
   return (
     <DashboardLayout>
-      <div className="mx-auto max-w-[1200px] px-6 py-8 md:px-8 md:py-10">
+      <div className="mx-auto max-w-[1200px] px-4 py-6 sm:px-6 md:px-8 md:py-10">
         {/* Header */}
         <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
           <div>
@@ -442,16 +441,7 @@ export default function Dashboard() {
 
         {/* List */}
         {loading ? (
-          <div
-            className="flex min-h-[240px] flex-col items-center justify-center gap-3 rounded-xl"
-            style={{ border: '1px solid var(--rule)', background: 'var(--paper-card)' }}
-          >
-            <div
-              className="h-6 w-6 animate-spin rounded-full"
-              style={{ border: '2px solid var(--rule)', borderTopColor: 'var(--ember)' }}
-            />
-            <p className="text-[13px]" style={{ color: 'var(--ink-soft)' }}>Loading meetings…</p>
-          </div>
+          <ListSkeleton rows={5} />
         ) : meetings.length === 0 ? (
           <div
             className="flex flex-col items-center justify-center gap-4 rounded-xl px-6 py-16 text-center"

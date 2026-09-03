@@ -861,3 +861,176 @@
   ::selection { background: var(--ember-tint-20); color: var(--ink); }
   .dark ::selection { background: var(--ember-tint-20); color: var(--bone); }
 }
+
+/* ---------------------------------------------------------------------------
+   Mobile-first / accessibility base.
+   Added by the 2026-09-03 UI audit. Everything here is global and unscoped —
+   keep it small and keep it boring.
+   --------------------------------------------------------------------------- */
+@layer base {
+  html {
+    /* iOS: stop the address bar from cropping 100vh layouts that still use vh. */
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    /* Prevents the grey flash box on tap in iOS Safari / Android Chrome.
+       Real press feedback comes from `active:` variants on the control itself. */
+    -webkit-tap-highlight-color: transparent;
+    /* A horizontal scrollbar on a phone is always a layout bug, never a feature. */
+    overflow-x: hidden;
+  }
+
+  /* Keyboard focus must be visible on EVERY interactive element, including the
+     ~47 hand-rolled `<button style={...}>` controls that carry no utility
+     classes. `:focus-visible` never fires on pointer input, so this costs the
+     mouse user nothing. */
+  a:focus-visible,
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible,
+  summary:focus-visible,
+  [tabindex]:not([tabindex="-1"]):focus-visible {
+    outline: 2px solid var(--ember);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* Skip link for keyboard users — visually hidden until focused. */
+  .skip-to-content {
+    position: absolute;
+    left: 0.75rem;
+    top: -3rem;
+    z-index: 100;
+    padding: 0.5rem 0.875rem;
+    border-radius: 0.5rem;
+    background: var(--paper-card);
+    border: 1px solid var(--rule);
+    color: var(--ink);
+    font-size: 13px;
+    font-weight: 600;
+    transition: top 0.16s ease;
+  }
+  .skip-to-content:focus { top: 0.75rem; }
+
+  /* Notch / home-indicator insets. */
+  .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .pl-safe { padding-left: env(safe-area-inset-left, 0px); }
+  .pr-safe { padding-right: env(safe-area-inset-right, 0px); }
+  .px-safe {
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+  /* For fixed chrome that already has its own padding. */
+  .mb-safe { margin-bottom: env(safe-area-inset-bottom, 0px); }
+
+  /* Headings scale down on small screens — the fixed 1.875rem h1 was set for
+     desktop and crowds a 390px viewport. */
+  @media (max-width: 640px) {
+    h1 { font-size: 1.5rem; }
+    h2 { font-size: 1.25rem; }
+    h3 { font-size: 1.0625rem; }
+  }
+
+  /* Horizontal scrollers (tab bars, wide tables) should not fight the page. */
+  .scroll-x {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .scroll-x::-webkit-scrollbar { display: none; }
+
+  /* Global honouring of the OS reduced-motion setting. The individual
+     animations already opt out; this catches everything else, including
+     Tailwind/Framer transitions. */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Touch-safe interaction surfaces.
+
+   These replace the inline onMouseEnter/onMouseLeave handlers that used to
+   drive hover state across the sidebar, header, list rows and tab bars.
+   Two things the JS version could not do:
+     - `@media (hover: hover)` means a tap never leaves sticky hover behind.
+     - `:active` gives touch users real press feedback, which they had none of.
+   --------------------------------------------------------------------------- */
+@layer components {
+  .surface-hover {
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .surface-hover:hover {
+      background: color-mix(in oklch, var(--ink) 5%, transparent);
+      color: var(--ink);
+    }
+  }
+  .surface-hover:active {
+    background: color-mix(in oklch, var(--ink) 9%, transparent);
+  }
+
+  /* Lighter variant for full-width list rows (meetings, contacts, action items). */
+  .row-hover {
+    transition: background-color 0.15s ease;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .row-hover:hover { background: color-mix(in oklch, var(--ink) 3%, transparent); }
+  }
+  .row-hover:active { background: color-mix(in oklch, var(--ink) 6%, transparent); }
+
+  /* Bordered controls that brighten their rule on hover. */
+  .rule-hover { transition: border-color 0.15s ease; }
+  @media (hover: hover) and (pointer: fine) {
+    .rule-hover:hover { border-color: color-mix(in oklch, var(--ink) 18%, transparent); }
+  }
+  .rule-hover:active { border-color: color-mix(in oklch, var(--ink) 26%, transparent); }
+
+  /* Destructive menu row (sign out). */
+  .danger-hover { transition: background-color 0.15s ease; }
+  @media (hover: hover) and (pointer: fine) {
+    .danger-hover:hover { background: color-mix(in oklch, hsl(var(--destructive)) 8%, transparent); }
+  }
+  .danger-hover:active { background: color-mix(in oklch, hsl(var(--destructive)) 14%, transparent); }
+
+  /* Nav item — active state is data-driven so it survives hover styling. */
+  .nav-item {
+    color: var(--ink-mid);
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .nav-item:hover {
+      background: color-mix(in oklch, var(--ink) 5%, transparent);
+      color: var(--ink);
+    }
+  }
+  .nav-item:active { background: color-mix(in oklch, var(--ink) 9%, transparent); }
+  .nav-item[data-active="true"] {
+    background: color-mix(in oklch, var(--ember) 10%, transparent);
+    color: var(--ember-deep);
+    font-weight: 600;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .nav-item[data-active="true"]:hover {
+      background: color-mix(in oklch, var(--ember) 14%, transparent);
+      color: var(--ember-deep);
+    }
+  }
+}
+
+@layer components {
+  /* Action-item checkbox: 20px visual, 44px hit area (the ::before above). */
+  @media (hover: hover) and (pointer: fine) {
+    .check-box[data-checked="false"]:hover { border-color: var(--ember) !important; }
+  }
+  .check-box[data-checked="false"]:active { border-color: var(--ember) !important; }
+}

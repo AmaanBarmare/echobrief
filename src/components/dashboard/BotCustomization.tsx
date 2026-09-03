@@ -163,7 +163,7 @@ export function BotCustomization({ user_id, onSave }: BotCustomizationProps) {
               type="checkbox"
               checked={autoJoin}
               onChange={(e) => setAutoJoin(e.target.checked)}
-              className="h-[18px] w-[18px] cursor-pointer accent-orange-500"
+              className="h-[18px] w-[18px] shrink-0 cursor-pointer accent-ember"
             />
             <span className="text-[13px] font-medium text-foreground">
               Auto-join meetings from calendar
@@ -179,7 +179,7 @@ export function BotCustomization({ user_id, onSave }: BotCustomizationProps) {
           <Button
             onClick={handleSave}
             disabled={saving}
-            className="flex-1 bg-orange-500 text-white hover:bg-orange-600"
+            className="flex-1 bg-ember text-white hover:bg-ember-deep"
           >
             {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save size={14} className="mr-2" />}
             Save Changes

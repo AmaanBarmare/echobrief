@@ -244,7 +244,7 @@ export default function Coaching() {
 
   return (
     <DashboardLayout>
-      <div className="mx-auto max-w-[960px] px-6 py-8 md:px-8 md:py-10">
+      <div className="mx-auto max-w-[960px] px-4 py-6 sm:px-6 md:px-8 md:py-10">
         {/* Header */}
         <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
           <div>
@@ -349,7 +349,7 @@ export default function Coaching() {
               Week by week
             </h2>
             <div
-              className="mb-8 overflow-x-auto rounded-xl"
+              className="scroll-x mb-8 rounded-xl"
               style={{ border: '1px solid var(--rule)', background: 'var(--paper-card)' }}
             >
               <table className="w-full min-w-[640px] text-left text-[13.5px]">

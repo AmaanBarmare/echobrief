@@ -260,11 +260,13 @@ export function MeetingDetailModal({ event, onClose, onRecordWithBot }: MeetingD
 
   return (
     <div
-      className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm dark:bg-black/60"
+      className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 p-3 backdrop-blur-sm sm:p-4 dark:bg-black/60"
       onClick={onClose}
     >
       <div
-        className="relative max-h-[90vh] w-full max-w-[480px] overflow-y-auto rounded-[20px] border border-border bg-card p-7 text-card-foreground shadow-2xl animate-in fade-in-0 zoom-in-95"
+        role="dialog"
+        aria-modal="true"
+        className="relative max-h-[85dvh] w-full max-w-[480px] overflow-y-auto overscroll-contain rounded-[20px] border border-border bg-card p-5 text-card-foreground shadow-2xl animate-in fade-in-0 zoom-in-95 sm:p-7"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Gradient bar */}
@@ -292,7 +294,7 @@ export function MeetingDetailModal({ event, onClose, onRecordWithBot }: MeetingD
               </span>
             )}
           </div>
-          <button type="button" onClick={onClose} className="rounded-lg p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground">
+          <button type="button" onClick={onClose} aria-label="Close" className="surface-hover -mr-2 -mt-2 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted-foreground md:h-8 md:w-8">
             <X size={20} />
           </button>
         </div>
@@ -324,7 +326,7 @@ export function MeetingDetailModal({ event, onClose, onRecordWithBot }: MeetingD
                   href={event.meetingUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="cursor-pointer text-[13px] text-orange-600 no-underline dark:text-orange-400"
+                  className="cursor-pointer text-[13px] text-ember-deep no-underline dark:text-ember-light"
                 >
                   {truncateUrl(event.meetingUrl)}
                 </a>
@@ -426,7 +428,7 @@ export function MeetingDetailModal({ event, onClose, onRecordWithBot }: MeetingD
 
           {/* Bot Option */}
           <div
-            className="cursor-pointer rounded-xl border border-orange-500/25 bg-orange-500/[0.06] p-4 dark:bg-orange-500/[0.08]"
+            className="cursor-pointer rounded-xl border border-ember/25 bg-ember/[0.06] p-4 dark:bg-ember/[0.08]"
             style={{
               cursor: event.hasMeetingLink ? 'pointer' : 'not-allowed',
               opacity: event.hasMeetingLink ? 1 : 0.4,
