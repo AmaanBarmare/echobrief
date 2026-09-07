@@ -47,6 +47,55 @@ the browser by design — **RLS is the actual access control**, not a second lay
 
 `monitor_events` is service-role only, with no user-facing policy.
 
+Tables that hang off a meeting rather than carrying a `user_id` — `transcripts`,
+`meeting_insights`, `meeting_costs`, `meeting_shares`, `email_deliveries` — are scoped
+through the owning meeting instead. That distinction matters when reasoning about a
+policy: for those tables, "who owns this row" is a join, not a column.
+
+### Tenant isolation suite
+
+Every policy here is correct today because somebody read it. That is a memory, not a
+control. [`scripts/rls-test/harness.py`](../scripts/rls-test/harness.py) — `npm run
+test:rls` — turns it into an exit code: two real users on the deployed project, each
+seeded with a meeting, transcript, insight, contact and webhook event, then an
+assertion across **every table PostgREST exposes** that neither can read, update,
+delete or forge ownership of the other's rows. It also checks anonymous reads, a
+random share token, and a Supabase JWT pasted into the share URL.
+
+It enumerates the schema rather than listing tables, so a table added next week is
+either covered by a declared rule or reported as *"no tenancy rule defined"* — never
+quietly skipped. Adding one means classifying it in `VIA_MEETING` or
+`NOT_TENANT_SCOPED`, and the latter requires writing down *why* sharing it is fine.
+
+**The suite carries two controls, and they are the reason it is worth running.** A
+green isolation run proves nothing on its own: *"user A saw none of user B's rows"* is
+equally true when the policy is airtight and when the table is empty. The first
+version of this file was exactly that — it seeded `transcripts` with a
+`speaker_segments` column that does not exist (the column is `speakers`), the insert
+returned 400, nothing checked the status, and the most sensitive table in the product
+reported PASS over zero rows. `webhook_events` failed the same way on a missing
+`payload`. So:
+
+- **Positive control** — the victim's own token must *see* each seeded row. If the
+  owner cannot read it, the attacker's inability to read it is meaningless, and the
+  table's assertion is vacuous. Vacuous fails here rather than passing.
+- **Detection control** — the same scan re-runs with the service-role key, which
+  bypasses RLS by definition and therefore *must* report a leak on every seeded table.
+  If it reports none, the detector is broken and every PASS above it is noise.
+
+The detection control is how "prove it fails when a policy is widened" is satisfied
+without widening a real policy on a production database. Verified 2026-09-07:
+a clean run exits 0 at 69/69, and a run with the leak check deliberately broken exits
+1 naming the offending table.
+
+Every insert in the seed is status-checked and fatal on failure, because a silent seed
+failure is indistinguishable from a passing test.
+
+**Run it for any migration, any new table, any RLS policy edit, and any change to
+sharing, organisations or the public API.** It is not in CI — it creates and deletes
+real auth users against production, so it stays a manual pre-deploy step alongside the
+pipeline harness and the evals.
+
 ---
 
 ## Edge Function authentication

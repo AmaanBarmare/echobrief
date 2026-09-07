@@ -102,9 +102,19 @@ project once already.
 npm run lint
 npm run build
 npm run test:unit
+npm run test:rls                             # if you touched a policy, a table, or a share path
 python3 scripts/pipeline-test/harness.py     # if you touched a function or migration
 python3 scripts/evals/run_evals.py           # if you touched transcription or prompts
 ```
+
+`npm run test:rls` is the tenant-isolation suite
+([`scripts/rls-test/harness.py`](../scripts/rls-test/harness.py)). It creates two real
+users on the deployed project, gives each of them a meeting, transcript, insight,
+contact and webhook event, and then asserts across every table PostgREST exposes that
+neither can see, change or delete the other's rows. Run it for **any migration, any
+new table, any RLS policy edit, and any change to sharing, orgs or the public API** —
+those are the changes that break tenancy. Details, including why it carries its own
+controls, are in [Security § tenant isolation](security.md#tenant-isolation-suite).
 
 ## CI
 
@@ -112,8 +122,9 @@ Every pull request and push to `main` runs `.github/workflows/ci.yml`: brand
 check, ESLint, `tsc --noEmit` on the app config, the production build, the MCP
 tests (`npm run test:mcp`), and the Deno unit harness (`npm run test:unit`) in
 a second job. All of it must pass before merging. CI deliberately does **not**
-run the pipeline harness or the evals — those hit real production services and
-remain manual pre-deploy steps.
+run the pipeline harness, the evals or the RLS suite — those hit real production
+services (the RLS suite creates and deletes real auth users) and remain manual
+pre-deploy steps.
 
 ---
 
