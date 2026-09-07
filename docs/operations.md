@@ -294,6 +294,47 @@ row (deduped per meeting + signature + hour). Email goes to `ALERT_EMAIL_TO` fro
 > Resend returning 403 with `"error code: 1010"` is **Cloudflare, not auth** — it bans
 > Python's default `urllib` User-Agent. Set a real UA before concluding the key is bad.
 
+### Backend error visibility
+
+`monitor-stuck-meetings` only sees *meetings*, so a failure in billing, share links or
+calendar sync is invisible to it. [`_shared/observability.ts`](../supabase/functions/_shared/observability.ts)
+is the layer that covers those, with three sinks: `console.error` (always, free,
+survives a broken database), the `function_errors` table (queryable history), and Sentry
+if `SENTRY_DSN` is set — **it is not set today, on either side**, so Sentry is currently
+a no-op and `function_errors` is the record.
+
+Query it. Note the column is `function_name`, not `fn`:
+
+```sql
+select created_at, function_name, message
+from function_errors
+order by created_at desc
+limit 50;
+```
+
+**What is captured is exactly what is *thrown*.** `captureError` is called from each
+function's outer catch, so a handled early return never appears — asking
+`process-meeting` for a meeting that does not exist returns a clean 404 and writes
+nothing, which is correct but worth knowing before concluding from an empty table that
+nothing has gone wrong.
+
+**Verified 2026-09-07.** The table had zero rows, and an empty table is
+indistinguishable from a capture path that does not work — so the wiring was proven
+rather than assumed: a malformed JSON body to `process-meeting` (service bearer) throws
+inside the handler, and the row landed with the right `function_name`, message and
+stack. The test row was then deleted. Repeat it the same way if the table's silence ever
+needs to be trusted:
+
+```bash
+curl -sS -X POST "$SUPABASE_URL/functions/v1/process-meeting" \
+  -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+  -H 'Content-Type: application/json' --data '{ not json '
+```
+
+Errors only, never requests — the Disk IO budget is the binding constraint on this
+instance and write churn is what depletes it (see
+[engineering-notes #22](engineering-notes.md)).
+
 ### Auth mail (password reset, invites)
 
 The templates live in project config too, not in this repo. Regenerate and push

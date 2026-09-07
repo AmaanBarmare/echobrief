@@ -246,10 +246,16 @@ local value and matching the digest — `sha256`, no salt.
 
 | Finding | Where | Why it matters |
 |---|---|---|
-| **13 unused credentials in Vercel production**, all dating from the original scaffold | 7 × `POSTGRES_*` (including `POSTGRES_PASSWORD`), `SUPABASE_SECRET_KEY`, `SUPABASE_PUBLISHABLE_KEY`, 3 × `NEXT_PUBLIC_*`, `VITE_SUPABASE_PROJECT_ID` | `POSTGRES_PASSWORD` is direct database access that bypasses RLS entirely. The `NEXT_PUBLIC_*` set is inert — **there is no Next.js in this repo**. A credential nothing reads is pure blast radius: it can still leak, but nothing breaks when it goes |
+| ~~13 unused credentials in Vercel production~~ — **removed 2026-09-07** | 7 × `POSTGRES_*` (including `POSTGRES_PASSWORD`), `SUPABASE_SECRET_KEY`, `SUPABASE_PUBLISHABLE_KEY`, 3 × `NEXT_PUBLIC_*`, `VITE_SUPABASE_PROJECT_ID` | `POSTGRES_PASSWORD` was direct database access that bypasses RLS entirely. The `NEXT_PUBLIC_*` set was inert — **there is no Next.js in this repo**. A credential nothing reads is pure blast radius: it can still leak, but nothing breaks when it goes. 11 variables remain, all of them read by something. `RECALL_API_KEY` is the one open question — `api/` does not reference it (Recall is called from the Edge Functions, which hold their own copy) |
 | **Two live service-role JWTs** | the legacy JWT in `.env` (issued 2026-03-26, expires 2036) and the runtime-injected key — different values, both valid | Two credentials that each bypass all RLS, one of them valid for ten years. This is why `authenticate()` reads the `role` claim and never string-compares a bearer |
-| **`DODO_PLAN_PRODUCTS` deployed ≠ `.env`** | Supabase | The monthly product→plan map. The annual map matches byte-exact, so this is content drift, not formatting. `.env` matches the four documented live product IDs, so the deployed value is the stale one. Latent, not active: no profile currently carries a `subscription_product_id` |
-| **Sentry is a no-op on both sides** | `SENTRY_DSN` absent from Supabase secrets, `VITE_SENTRY_DSN` absent from Vercel | Both integrations are deliberately opt-in and silently disabled without a DSN. Backend errors still reach `function_errors` and `console.error`; frontend errors reach nobody |
+| **`DODO_PLAN_PRODUCTS` deployed ≠ `.env`** — still open, see below | Supabase | The monthly product→plan map. The annual map matches byte-exact, so this is content drift, not formatting. `.env` matches the four documented live product IDs, so the deployed value is the stale one. Latent, not active: no profile currently carries a `subscription_product_id` |
+| **Sentry is a no-op on both sides** | `SENTRY_DSN` absent from Supabase secrets, `VITE_SENTRY_DSN` absent from Vercel | Both integrations are deliberately opt-in and silently disabled without a DSN. Backend errors still reach `function_errors` and `console.error` — **verified end-to-end 2026-09-07**, see [Operations § backend error visibility](operations.md#backend-error-visibility); frontend errors reach nobody |
+
+**Blocked on a credential, not on a decision:** the Supabase CLI token in use can *list*
+secrets but not *set* them — `supabase secrets set` returns "Your account does not have
+the necessary privileges to access this endpoint". Two follow-ups therefore need either a
+PAT with write scope or the dashboard: correcting `DODO_PLAN_PRODUCTS`, and setting
+`TOKEN_PLAINTEXT_READS=deny` to close out the encryption rollout.
 
 What the api/ functions on Vercel actually read is a short list, and it is worth
 checking against the variable list before adding another: `SPLIT_AUDIO_SECRET`,
