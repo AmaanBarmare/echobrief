@@ -29,6 +29,14 @@ import { isSealed, open, seal } from "../supabase/functions/_shared/crypto.ts";
 
 const DRY = Deno.args.includes("--dry-run");
 const VERIFY = Deno.args.includes("--verify");
+/**
+ * Scope the sweep to one table and/or one row. Used to seal a single canary
+ * account first: ten credentials is a small blast radius, but one is smaller,
+ * and a decrypt that Google rejects is much easier to diagnose on one row.
+ *   --table=user_oauth_tokens --key=<user_id>
+ */
+const ONLY_TABLE = Deno.args.find((a) => a.startsWith("--table="))?.split("=")[1] ?? null;
+const ONLY_KEY = Deno.args.find((a) => a.startsWith("--key="))?.split("=")[1] ?? null;
 
 const url = Deno.env.get("SUPABASE_URL");
 const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -70,9 +78,9 @@ interface Counts {
 
 async function sweep(target: Target): Promise<Counts> {
   const counts: Counts = { rows: 0, alreadySealed: 0, sealed: 0, empty: 0, failed: 0 };
-  const { data, error } = await db
-    .from(target.table)
-    .select([target.key, ...target.columns].join(", "));
+  let query = db.from(target.table).select([target.key, ...target.columns].join(", "));
+  if (ONLY_KEY) query = query.eq(target.key, ONLY_KEY);
+  const { data, error } = await query;
   if (error) throw new Error(`${target.table}: ${error.message}`);
 
   for (const row of (data ?? []) as unknown as Record<string, string | null>[]) {
@@ -153,6 +161,7 @@ if (VERIFY) {
 
 console.log(DRY ? "DRY RUN — nothing will be written.\n" : "Sealing plaintext credentials…\n");
 for (const target of TARGETS) {
+  if (ONLY_TABLE && target.table !== ONLY_TABLE) continue;
   const c = await sweep(target);
   console.log(
     `  ${target.table}: ${c.rows} rows · ${c.sealed} ${DRY ? "would be sealed" : "sealed"} · ` +
