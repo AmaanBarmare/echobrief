@@ -4,6 +4,7 @@
 > wrong would leak another user's meeting content.
 
 - [Threat model in one paragraph](#threat-model-in-one-paragraph)
+- [Threat model in detail](#threat-model-in-detail)
 - [Authentication](#authentication)
 - [Row Level Security](#row-level-security)
 - [Edge Function authentication](#edge-function-authentication)
@@ -21,6 +22,43 @@ order: (1) one authenticated user reading another user's meetings, (2) an unauth
 caller reaching an Edge Function that assumes it was called by the platform, (3) a
 forged webhook injecting a fake transcript or status, and (4) credential leakage
 between the two hosting accounts. Everything below exists for one of those four.
+
+---
+
+## Threat model in detail
+
+The paragraph above is the summary. This is the working version: what is worth stealing,
+who could reach it, what stops them, and — the column that matters — **what would fail if
+the control regressed**. A control with no test beside it is a control nobody will notice
+losing.
+
+**Assets, roughly in order of how much damage losing one does:** OAuth refresh tokens
+(live calendar access until the customer revokes it, and they will not know to);
+transcripts and insights (the full text of private conversations); recordings (the mp4 is
+the *whole* call, including waiting-room audio); personal access tokens (full read of one
+account's meetings); attendee names and emails; billing state.
+
+**Trust boundaries.** The anon key is shipped to the browser deliberately, so the browser
+is *outside* the boundary and **RLS is the access control, not a second layer**. The
+service role is inside it and bypasses RLS entirely. A share link holder has no account at
+all. Third parties (Recall, Sarvam, OpenAI, Resend, Dodo, Google, Microsoft) each see some
+slice of content. The repository itself is **public**, so anything committed is published.
+
+| # | Threat | Control | Proven by | Residual gap |
+|---|---|---|---|---|
+| T1 | One authenticated user reads another's meetings | RLS on every user-scoped table; meeting-scoped tables joined through the owning meeting | `npm run test:rls` — 69 assertions, with a positive and a detection control so a green run cannot be vacuous | RLS is only as good as the newest policy. The suite is not in CI (it creates real users), so it depends on someone running it |
+| T2 | An unauthenticated caller reaches a function that assumes the platform called it | `verify_jwt = true` by default; `authenticate()` reads the `role` claim rather than comparing bearers | The seven `verify_jwt = false` functions are enumerable from `config.toml` and each has its own verification | Enumerated by hand until 2026-09-07, when the list turned out to be missing two entries |
+| T3 | A forged webhook injects a fake transcript, status or subscription | Recall signature over the **raw body**; Sarvam callback `auth_token`; Dodo Standard-Webhooks HMAC | Pipeline harness scenarios for replay and concurrency; `dodo-webhook` answering 401 to a bogus signature proves the secret is loaded | A webhook secret that silently goes missing degrades to a 503, not a 401 — the difference is the health check |
+| T4 | A leaked service-role key or database dump reads every transcript | OAuth tokens are sealed with AES-256-GCM before they reach Postgres | `crypto_test.ts` (13 tests); `scripts/backfill-token-encryption.ts --verify` | **Transcripts and insights are not column-encrypted.** Anyone holding the service-role key reads them. Deliberate, and revisitable |
+| T5 | Two live service-role credentials widen the blast radius | Code never string-compares a bearer, so either key authenticates correctly | `two-service-role-jwts` is the reason `authenticate()` exists in its current shape | Both keys remain valid; the legacy one does not expire until 2036 |
+| T6 | A share link leaks more than the sharer intended | `include_transcript` / `include_recording` both default `false`; the transcript is whitelisted field-by-field and trimmed to the meeting zone | `share_view_test.ts`, `share_token_test.ts`; the RLS suite rejects a random token and a JWT pasted into the share URL | **Zones cannot protect the recording** — the mp4 is the whole call, which is why it is a separate switch with its own warning |
+| T7 | A stolen personal access token reads an account's meetings | Tokens are stored as a sha256 digest and shown once; the MCP endpoint mints a 60-second user JWT so **RLS** does the scoping, never a service client with a `user_id` filter | `api_tokens_test.ts`; the MCP contract test | Revoking a PAT does not kill an already-issued OAuth refresh token |
+| T8 | A credential is committed to a public repository | `githooks/pre-commit` blocks credential-shaped values in `console.*`; history scanned clean, two dead historical keys | `scripts/secret-log-check.mjs` | The hook covers logging, not every possible commit of a secret |
+| T9 | Unused credentials sitting in a hosting account | — | The inventory below | 13 unused variables in Vercel production, including `POSTGRES_PASSWORD`, which is direct database access that bypasses RLS |
+
+**Explicitly out of scope**, so that it is a decision rather than an omission: a malicious
+Supabase or Vercel employee; a compromised third-party provider replaying content it was
+legitimately given; and a user who chooses to share their own meeting.
 
 ---
 
@@ -189,6 +227,40 @@ deployed secret can be checked against `.env` without overwriting it.
 `SPLIT_AUDIO_SECRET` must be byte-identical on both sides or the splitter 401s and the
 pipeline silently degrades to the empty-transcript path.
 
+### Inventory
+
+Regenerate this rather than trusting it — the whole point of an inventory is that it is
+re-derived, not remembered:
+
+```bash
+supabase secrets list                 # names + sha256 digests, never values
+vercel env ls production              # names only; Sensitive values cannot be read back
+grep -oE '^[A-Z_]+=' .env | sort      # names only
+```
+
+Compare a deployed Supabase secret to `.env` **without overwriting it** by hashing the
+local value and matching the digest — `sha256`, no salt.
+
+**Audited 2026-09-07.** 29 Supabase secrets, 24 Vercel production variables, 22 in
+`.env`. What the audit turned up, in descending order of blast radius:
+
+| Finding | Where | Why it matters |
+|---|---|---|
+| **13 unused credentials in Vercel production**, all dating from the original scaffold | 7 × `POSTGRES_*` (including `POSTGRES_PASSWORD`), `SUPABASE_SECRET_KEY`, `SUPABASE_PUBLISHABLE_KEY`, 3 × `NEXT_PUBLIC_*`, `VITE_SUPABASE_PROJECT_ID` | `POSTGRES_PASSWORD` is direct database access that bypasses RLS entirely. The `NEXT_PUBLIC_*` set is inert — **there is no Next.js in this repo**. A credential nothing reads is pure blast radius: it can still leak, but nothing breaks when it goes |
+| **Two live service-role JWTs** | the legacy JWT in `.env` (issued 2026-03-26, expires 2036) and the runtime-injected key — different values, both valid | Two credentials that each bypass all RLS, one of them valid for ten years. This is why `authenticate()` reads the `role` claim and never string-compares a bearer |
+| **`DODO_PLAN_PRODUCTS` deployed ≠ `.env`** | Supabase | The monthly product→plan map. The annual map matches byte-exact, so this is content drift, not formatting. `.env` matches the four documented live product IDs, so the deployed value is the stale one. Latent, not active: no profile currently carries a `subscription_product_id` |
+| **Sentry is a no-op on both sides** | `SENTRY_DSN` absent from Supabase secrets, `VITE_SENTRY_DSN` absent from Vercel | Both integrations are deliberately opt-in and silently disabled without a DSN. Backend errors still reach `function_errors` and `console.error`; frontend errors reach nobody |
+
+What the api/ functions on Vercel actually read is a short list, and it is worth
+checking against the variable list before adding another: `SPLIT_AUDIO_SECRET`,
+`SARVAM_API_KEY`, `OPENAI_API_KEY` (split-audio), plus `SUPABASE_URL`,
+`SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET` and `SUPABASE_ANON_KEY` (MCP and
+OAuth, which mint a short-lived user JWT so RLS does the scoping).
+
+```bash
+grep -rn "process\.env" api/ | grep -v /tests/     # what Vercel actually needs
+```
+
 **Credentials at rest.** Google and Microsoft OAuth access and refresh tokens are
 sealed with AES-256-GCM before they reach Postgres
 ([`_shared/crypto.ts`](../supabase/functions/_shared/crypto.ts)); the key is a Supabase
@@ -213,13 +285,21 @@ choice rather than an oversight.
 [`_shared/cors.ts`](../supabase/functions/_shared/cors.ts) enforces an **origin
 allowlist** rather than `*`, and handles preflight centrally.
 
-[`_shared/rate-limit.ts`](../supabase/functions/_shared/rate-limit.ts) provides an
-in-memory sliding-window limiter with per-endpoint configs in `RATE_LIMITS`.
+[`_shared/rate-limit.ts`](../supabase/functions/_shared/rate-limit.ts) is a
+sliding-window limiter with per-endpoint configs in `RATE_LIMITS`. The counter is **one
+Postgres row per key**, consumed atomically by `public.consume_rate_limit`
+(migration `20260901150000`), so every edge isolate counts against the same number.
 
-> **Limitation worth stating plainly:** the limiter is per-isolate and in-memory. It
-> throttles a single caller hitting a warm instance; it is not a distributed rate
-> limit and will not stop a determined distributed abuser. Treat it as a guard rail,
-> not a control.
+It used to be a module-level `Map`, which meant the real limit was the configured one
+multiplied by however many isolates happened to be warm — a limit that loosens under
+exactly the load it exists to handle. `checkRateLimit` is therefore **async**, and falls
+back to the in-memory map only when the database call itself fails.
+
+Presets: AUTH 10/min, OAUTH 20/min, API 60/min, PUBLIC 100/min, **LLM 20/min**,
+**LLM_HEAVY 6/min**. Every function that calls OpenAI on demand (`chat-transcripts`,
+`regenerate-insights`, `account-brief`, `draft-followup-email`) is keyed on the **user
+id**, not the IP — an IP key is free to rotate and the cost being defended is per
+account. Stale keys are swept by the `prune-job-logs` tick.
 
 ---
 
