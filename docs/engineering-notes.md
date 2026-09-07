@@ -37,6 +37,7 @@ it does. Challenges 5, 7, and 9-24 apply to the system as it runs today.
 22. [Recurring "Disk IO Budget" alerts were caused by cron write-churn — not the slow reads everyone assumes](#22-recurring-disk-io-budget-alerts-were-caused-by-cron-write-churn--not-the-slow-reads-everyone-assumes)
 23. [Kicked-out bots looked identical to real failures — split into `cancelled` vs `failed`](#23-kicked-out-bots-looked-identical-to-real-failures--split-into-cancelled-vs-failed)
 24. [One meeting, three identical summary emails — a slow webhook and a read-then-check guard](#24-one-meeting-three-identical-summary-emails--a-slow-webhook-and-a-read-then-check-guard)
+25. [The Disk IO alert came back, and this time the database was innocent — it was swap on the root volume](#25-the-disk-io-alert-came-back-and-this-time-the-database-was-innocent--it-was-swap-on-the-root-volume)
 
 ---
 
@@ -361,6 +362,8 @@ it does. Challenges 5, 7, and 9-24 apply to the system as it runs today.
 - A daily `prune-job-logs` cron that trims `cron.job_run_details` and `net._http_response`, which `pg_cron`/`pg_net` accumulate indefinitely.
 - Documented the escalation if alerts persist: move scheduling **off** the database to a free external scheduler (cron-job.org / GitHub Actions) calling the edge functions directly — explicitly *not* Vercel Cron (its free tier caps cron jobs at once-per-day) and *not* a paid compute upgrade.
 
+> **Superseded as the binding constraint (2026-09-07).** The alert returned, and re-measuring showed cron/`pg_net` was no longer the cost — the whole `pgdata` volume was idle. See [#25](#25-the-disk-io-alert-came-back-and-this-time-the-database-was-innocent--it-was-swap-on-the-root-volume). The cadences below are still correct and should not be raised; they are simply no longer what dominates.
+
 **Why this matters:** measure before you fix. The intuitive "add caching" remedy would have done nothing here, because the bottleneck was writes the database inflicted on itself as a scheduler — not reads. The root cause was confirmed with `supabase inspect db` and `pg_stat_statements`, not assumed; the same "it's probably caching" instinct that was *right* for the dashboard (#21) was *wrong* for the disk IO, and only data told them apart.
 
 ### 23. Kicked-out bots looked identical to real failures — split into `cancelled` vs `failed`
@@ -400,3 +403,37 @@ All three invocations read `status: 'processing'` *before* any of them wrote `co
 - **Tests that would have caught it.** `concurrent_sarvam_webhooks` now asserts that exactly one of two simultaneous callbacks processes and the other is skipped; a new `summary_email_deduped_per_recipient` scenario proves the email guard without sending any mail. Six unit tests cover the claim helper, including the fail-open path.
 
 **Why this matters:** the same mistake shows up all over this codebase's history — the duplicate-bot dispatch (#11, fixed with a unique index), and now duplicate emails. Any "check, then act" guard is only as good as the gap between the two steps, and under a retrying webhook that gap is where every duplicate lives. The fix isn't a better check; it's making the database refuse the second write. Note also that the *retries themselves* are a symptom worth remembering: a webhook handler that does 21 seconds of work before answering is telling its caller to try again.
+
+### 25. The Disk IO alert came back, and this time the database was innocent — it was swap on the root volume
+
+**Problem:** Supabase emailed "your project is depleting its Disk IO Budget" again. [#22](#22-recurring-disk-io-budget-alerts-were-caused-by-cron-write-churn--not-the-slow-reads-everyone-assumes) had already answered this question once — cron write-churn — so the obvious move was to cut cron frequency further. That would have been wrong, and the cadences are already tuned as low as the product tolerates.
+
+**Why it happened (every Postgres-side hypothesis was disproved):**
+
+- The whole database is **~14 MB**. `cron.job_run_details` (4.4 MB) and `net._http_response` (2.6 MB) were being pruned correctly — 3,055 and 96 live rows.
+- Cron was running at exactly its tuned cadence: 288 `auto-join-meetings` + 96 `monitor-stuck-meetings` runs in 24 h, zero failures.
+- Postgres cache hit ratio was **effectively 1.00** (`blks_hit` 2.1e9 vs `blks_read` 3,344).
+- A `pg_stat_statements` delta over a 114 s window showed the entire database doing **1.9% of one core and 2 blocks written**. The top consumer was Realtime's WAL decoder, at 1.2 s of exec time.
+
+The database was idle while the budget drained. The reason no Postgres view could see the cost is that **the IO was not on the Postgres volume.** The instance has two block devices, and the project's Prometheus endpoint (`/customer/v1/privileged/metrics`) splits them:
+
+```
+device            read        write     IOPS    busy
+nvme0n1       10.54MB/s      0.85MB/s      422    8.1%   <- root/OS volume
+nvme1n1        0.24MB/s      0.22MB/s        5    0.1%   <- pgdata
+```
+
+`pgdata` was **4% of the traffic.** The root volume was doing the rest, continuously, with an idle database — because the instance is **swapping**: 1.06 MB/s in, 0.86 MB/s out, sustained. It is a free-tier **Nano: 431 MB of RAM against 1,392 MB of committed address space, a 3.2x oversubscription**, with 4.5 MB free. Cumulatively the numbers line up exactly: 7.5 TB swapped out against 7.79 TB written to the root volume over 165 days of uptime — the root volume's write traffic *is* swap.
+
+Against Nano's baseline of **5 MB/s and 250 IOPS**, the measured **11.85 MB/s and 427 IOPS** is 2.4x throughput and 1.7x IOPS — sustained, at idle. The budget cannot do anything but deplete.
+
+**Two false starts worth recording, because both looked like findings:**
+
+1. A first `pg_stat_statements` diff reported a runaway — 992 inserts/sec into `net._http_response`, 1,188% of one core. `pg_stat_statements` returns the **same `queryid` more than once** (one row per `userid`/`dbid`/`toplevel`), and keying the snapshot dict on `queryid` alone diffed one row against a *different* row. The real delta was **1 call in 120 s**. The key must be `(userid, dbid, toplevel, queryid)`.
+2. Sampling the metrics endpoint every 30 s produced a clean alternating pattern of zero and double-rate samples. The endpoint is scraped about every 60 s, so any window shorter than ~75 s aliases. The rate looked like it was oscillating; it was constant.
+
+**What I changed:** added [`scripts/disk-io-probe.sh`](../scripts/disk-io-probe.sh), which takes a two-point delta off the metrics endpoint and prints per-device throughput and IOPS, swap rate, memory oversubscription, and the tier baselines to compare against. It encodes both traps above — the 75 s minimum window, and the fact that the per-device split is the whole point.
+
+**What I did *not* change:** anything about cron, queries, or indexes. There is no query-side fix for this, and cutting cron further would have cost product behaviour for a rounding error. The real options are to reduce the memory footprint or to move off Nano — and compute add-ons require the Pro plan, so this is a **billing** decision, not an engineering one, and it belongs to whoever owns the budget.
+
+**Why this matters:** #22 was correct when it was written and is now the wrong answer to the same alert — a documented root cause is a snapshot, not a standing explanation, and the second time the same symptom appears is exactly when the old note is most likely to be believed without re-measuring. The deeper trap is that both obvious instruments, `pg_stat_statements` and table sizes, are blind to the layer that was actually burning the budget: they can only report on the volume Postgres owns, and they will confidently report "idle" while the machine underneath thrashes. When every instrument says the system is doing nothing and the bill says otherwise, the instrument is pointed at the wrong thing.
