@@ -77,6 +77,10 @@ serve(async (req) => {
       segments,
       recallTimeline: config.recall_speaker_timeline || [],
       durationSeconds,
+      // Rebuilt from the stored transcript: the LLM chain runs again, no audio
+      // is re-transcribed. Without this flag every regeneration would book a
+      // second Sarvam charge that never happened.
+      regenerated: true,
     });
 
     // Replace, never stack: saveInsights is insert-only by design.

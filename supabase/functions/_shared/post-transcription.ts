@@ -26,6 +26,7 @@ import { upsertMeetingContacts } from "./contacts.ts";
 import { notifyInsightsReady } from "./webhooks.ts";
 import { recordRecordedSeconds } from "./entitlements.ts";
 import type { SpeakerTimelineEntry } from "./recall-pipeline.ts";
+import { meterOpenAI, newCostMeter, saveCosts } from "./cost.ts";
 
 export interface PostTranscriptionInput {
   supabase: any;
@@ -36,6 +37,12 @@ export interface PostTranscriptionInput {
   segments: SpeakerSegment[];
   recallTimeline: SpeakerTimelineEntry[];
   durationSeconds: number;
+  /**
+   * True when this run is rebuilding insights from a STORED transcript. It pays
+   * the LLM chain again but no audio cost, and conflating the two would make
+   * regenerations look like ordinary meetings in the margin numbers.
+   */
+  regenerated?: boolean;
 }
 
 export interface PostTranscriptionResult {
@@ -50,8 +57,16 @@ export interface PostTranscriptionResult {
 export async function runPostTranscription(
   input: PostTranscriptionInput,
 ): Promise<PostTranscriptionResult> {
-  const { supabase, openai, meeting, durationSeconds } = input;
+  const { supabase, meeting, durationSeconds } = input;
   const config = meeting.processing_config || {};
+
+  // Every LLM call below — leak translation, facts, synthesis, validation,
+  // coaching, boundary estimation — goes through this wrapper, so token counts
+  // are captured without any of those modules knowing about cost. The meter is
+  // per-call, not module-level: isolates serve concurrent requests and a shared
+  // accumulator would bill one meeting's tokens to another.
+  const meter = newCostMeter(meeting.id);
+  const openai = meterOpenAI(input.openai, meter);
 
   const { data: ownerProfile } = await supabase
     .from("profiles")
@@ -154,6 +169,16 @@ export async function runPostTranscription(
     }
   }
   insights.coaching = coaching;
+
+  // Recorded after the work, so a run that failed halfway does not claim the
+  // cost of one that finished. Never throws: losing a cost row must not fail a
+  // meeting that otherwise succeeded.
+  await saveCosts(supabase, meter, {
+    recallSeconds: durationSeconds,
+    sttSeconds: input.regenerated ? 0 : durationSeconds,
+    sttProvider: (config.transcription_provider as string) ?? (config.used_whisper ? "whisper" : "sarvam"),
+    regenerated: input.regenerated === true,
+  });
 
   return { zonedSegments, correctedTranscript, languages, boundaries, entityCorrections, insights };
 }
