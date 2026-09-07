@@ -20,6 +20,7 @@ import { notifyRecentFailures } from "../_shared/failure-notice.ts";
 import { buildAlertHtml, buildAlertSubject } from "./alert-template.ts";
 import { KNOWN_PATTERNS, isKnown, RecoveryAction } from "./known-patterns.ts";
 import { isLongMeeting } from "../_shared/whisper-chunked.ts";
+import { captureError, withObservability } from "../_shared/observability.ts";
 
 const STUCK_AFTER_MIN = 15;
 const SARVAM_TAKING_TOO_LONG_MIN = 30;
@@ -381,7 +382,7 @@ async function sendAlertEmail(
   }
 }
 
-serve(async (req) => {
+serve(withObservability("monitor-stuck-meetings", async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204 });
   }
@@ -500,9 +501,11 @@ serve(async (req) => {
     );
   } catch (err) {
     console.error("[monitor] Fatal:", err);
+    // The console line is ephemeral; this is the one that survives to be queried.
+    await captureError(err, { fn: "monitor-stuck-meetings" });
     return new Response(
       JSON.stringify({ error: err instanceof Error ? err.message : String(err) }),
       { status: 500, headers: { "Content-Type": "application/json" } },
     );
   }
-});
+}));

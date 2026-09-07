@@ -19,8 +19,9 @@ import {
   transcribeMeetingViaSplitAudio,
 } from "../_shared/whisper-chunked.ts";
 import { afterInsightsSaved, meetingPatch, runPostTranscription } from "../_shared/post-transcription.ts";
+import { captureError, withObservability } from "../_shared/observability.ts";
 
-serve(async (req) => {
+serve(withObservability("sarvam-webhook", async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204 });
   }
@@ -565,6 +566,8 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error("Sarvam webhook error:", error);
+    // The console line is ephemeral; this is the one that survives to be queried.
+    await captureError(error, { fn: "sarvam-webhook" });
     if (claimedMeetingId && claimReleaser) {
       await claimReleaser
         .from("meetings")
@@ -582,4 +585,4 @@ serve(async (req) => {
       },
     );
   }
-});
+}));

@@ -1,3 +1,4 @@
+import { withObservability } from "../_shared/observability.ts";
 /**
  * Dodo Payments webhook receiver.
  *
@@ -30,7 +31,7 @@ interface DodoEvent {
   };
 }
 
-serve(async (req) => {
+serve(withObservability("dodo-webhook", async (req) => {
   if (req.method !== "POST") {
     return new Response("Method not allowed", { status: 405 });
   }
@@ -147,4 +148,4 @@ serve(async (req) => {
     status: 200,
     headers: { "Content-Type": "application/json" },
   });
-});
+}));

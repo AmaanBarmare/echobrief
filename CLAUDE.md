@@ -160,6 +160,7 @@ System name **Warm Dispatch**: ember `#D93F0B` (light) / `#E8430A` (dark) on war
 
 **Edge Functions (Supabase secrets):**
 - `AZURE_CLIENT_ID` / `AZURE_CLIENT_SECRET` -- Microsoft Entra app registration (multitenant + personal accounts) behind the Outlook calendar integration. Named `AZURE_*` because that is what the portal calls them. Redirect URI is `https://lekkpfpojlspbuwrtmzt.supabase.co/functions/v1/microsoft-oauth-redirect`, delegated Graph scopes `offline_access User.Read Calendars.Read`. **The client secret expires — 24 months from 2026-09-02**; when it lapses every Outlook sync stops at once.
+- `SENTRY_DSN` -- optional. Edge-function errors go to `function_errors` (queryable history) and `console.error` regardless; setting this adds Sentry alerting. `_shared/observability.ts` is the one place any of it happens, and a missing DSN is a no-op, never a second error inside the error handler.
 - `TOKEN_ENCRYPTION_KEY` -- base64 32-byte AES-256-GCM key sealing the Google/Microsoft OAuth tokens in `user_oauth_tokens` and `calendar_connections` (`_shared/crypto.ts`, written and read only through `_shared/oauth-tokens.ts`). **Losing it means every customer must reconnect their calendar** — it is not derivable from anything else. Rotation is add `TOKEN_ENCRYPTION_KEY_V2`, deploy, re-wrap with `scripts/backfill-token-encryption.ts`, retire v1. `TOKEN_PLAINTEXT_READS=deny` makes an unsealed credential an error rather than a silent plaintext read.
 - `OPENAI_API_KEY` -- Required for Whisper + GPT
 - `SARVAM_API_KEY` -- Required for Sarvam STT

@@ -1,3 +1,4 @@
+import { captureError, withObservability } from "../_shared/observability.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
@@ -168,7 +169,7 @@ function getEventCategory(event: Record<string, any>): string | null {
   return eventName.split(".")[0] || null;
 }
 
-serve(async (req) => {
+serve(withObservability("recall-webhook", async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, {
       headers: {
@@ -328,6 +329,22 @@ serve(async (req) => {
     }
 
     // --- Recording is done — fetch audio from Recall and send to Sarvam ---
+
+    // Stamp when the recording actually finished, before any processing starts.
+    // audio_mixed.done is the authoritative "the call is over and the audio
+    // exists" signal, so it is the only honest zero point for the latency SLO.
+    // `end_time` cannot serve: it is written when insights are saved, which
+    // made "time from recording end to insights" measure itself and report a
+    // p95 of one second. Only set it once — a replayed webhook must not move
+    // the start of the clock forward and flatter the number.
+    if (!meeting.recording_ended_at) {
+      await supabase
+        .from("meetings")
+        .update({ recording_ended_at: new Date().toISOString() })
+        .eq("id", meeting.id)
+        .is("recording_ended_at", null);
+    }
+
     const sarvamJobId = await processRecallAudio(supabase, meeting, botId);
 
     return new Response(
@@ -341,9 +358,11 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error("[recall-webhook] Error:", error);
+    // The console line is ephemeral; this is the one that survives to be queried.
+    await captureError(error, { fn: "recall-webhook" });
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
-});
+}));

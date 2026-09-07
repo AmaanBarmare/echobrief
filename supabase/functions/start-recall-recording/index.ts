@@ -5,6 +5,7 @@ import { authenticate } from "../_shared/auth.ts";
 import { parseMeetingUrl } from "../_shared/validation.ts";
 import { checkRecordingAllowed, recordUsage } from "../_shared/entitlements.ts";
 import { BOT_AVATAR_OUTPUT } from "../_shared/bot-avatar.ts";
+import { captureError, withObservability } from "../_shared/observability.ts";
 
 const RECALL_API_KEY = Deno.env.get("RECALL_API_KEY")!;
 const RECALL_API_BASE_URL =
@@ -22,7 +23,7 @@ const MAX_CONCURRENT_RECORDINGS = 3;
 // own retention is 168 h and our longest observed call is ~1 h).
 const CAP_WINDOW_HOURS = 6;
 
-serve(async (req) => {
+serve(withObservability("start-recall-recording", async (req) => {
   const corsResponse = handleCorsPrelight(req);
   if (corsResponse) return corsResponse;
 
@@ -200,9 +201,11 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error('Start recording error:', error);
+    // The console line is ephemeral; this is the one that survives to be queried.
+    await captureError(error, { fn: "start-recall-recording" });
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : 'Failed to start recording' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
-});
+}));

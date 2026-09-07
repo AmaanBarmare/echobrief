@@ -1,3 +1,4 @@
+import { captureError, withObservability } from "../_shared/observability.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import OpenAI from "https://esm.sh/openai@4.20.1";
@@ -333,7 +334,7 @@ Only include segments where you can make a reasonable attribution.`;
   };
 }
 
-serve(async (req) => {
+serve(withObservability("process-meeting", async (req) => {
   const corsResponse = handleCorsPrelight(req);
   if (corsResponse) return corsResponse;
 
@@ -501,6 +502,8 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error("Process meeting error:", error);
+    // The console line is ephemeral; this is the one that survives to be queried.
+    await captureError(error, { fn: "process-meeting" });
     return new Response(
       JSON.stringify({
         error: error instanceof Error ? error.message : "Unknown error",
@@ -511,4 +514,4 @@ serve(async (req) => {
       },
     );
   }
-});
+}));

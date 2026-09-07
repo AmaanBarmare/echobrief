@@ -13,6 +13,7 @@ import {
 } from "../_shared/calendar-connections.ts"
 import { parseMeetingUrl } from "../_shared/validation.ts"
 import { BOT_AVATAR_OUTPUT } from "../_shared/bot-avatar.ts"
+import { captureError, withObservability } from "../_shared/observability.ts";
 
 const RECALL_API_KEY = Deno.env.get('RECALL_API_KEY')
 const RECALL_API_BASE_URL =
@@ -25,7 +26,7 @@ const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 // The look-ahead window (joinMinutes) must be >= the cron interval so no
 // meeting slips between polls; the per-event dedup guard below prevents the
 // wider window from sending duplicate bots on successive runs.
-serve(async (req) => {
+serve(withObservability("auto-join-meetings", async (req) => {
   try {
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
@@ -274,9 +275,11 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('auto-join-meetings error:', error)
+    // The console line is ephemeral; this is the one that survives to be queried.
+    await captureError(error, { fn: "auto-join-meetings" });
     return new Response(JSON.stringify({ error: error instanceof Error ? error.message : String(error) }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }
     })
   }
-})
+}))

@@ -17,6 +17,7 @@ import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-
 import OpenAI from "https://esm.sh/openai@4.20.1";
 import { getCorsHeaders, handleCorsPrelight } from "../_shared/cors.ts";
 import { checkRateLimit, createRateLimitResponse, RATE_LIMITS } from "../_shared/rate-limit.ts";
+import { captureError, withObservability } from "../_shared/observability.ts";
 
 const MAX_CONTEXT_TOKENS = 100_000;
 
@@ -109,7 +110,7 @@ function renderContext(items: MeetingContext[]): string {
     .join("\n\n");
 }
 
-serve(async (req) => {
+serve(withObservability("chat-transcripts", async (req) => {
   const corsResponse = handleCorsPrelight(req);
   if (corsResponse) return corsResponse;
   const corsHeaders = getCorsHeaders(req.headers.get("origin"));
@@ -233,9 +234,11 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error("[chat-transcripts] error:", error);
+    // The console line is ephemeral; this is the one that survives to be queried.
+    await captureError(error, { fn: "chat-transcripts" });
     return json(
       { error: error instanceof Error ? error.message : "Unknown error" },
       500,
     );
   }
-});
+}));
