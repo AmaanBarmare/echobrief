@@ -16,6 +16,12 @@
  * (user_id) constraint. Microsoft writes `calendar_connections` directly.
  */
 import { parseMeetingUrl } from "./validation.ts";
+import {
+  CONNECTION_TOKEN_COLUMNS,
+  openRows,
+  sealConnectionTokens,
+  sealGoogleTokens,
+} from "./oauth-tokens.ts";
 
 export type CalendarProvider = "google" | "microsoft";
 
@@ -86,7 +92,13 @@ export async function listConnections(
     .select("user_id, provider, access_token, refresh_token, token_expiry, scopes")
     .eq("user_id", userId);
   if (error) throw error;
-  return (data ?? []).map((row: Record<string, string | null>) => ({
+  // Sealed at rest. Decrypt once here so the rest of this module — and every
+  // caller — works with usable tokens and never with ciphertext.
+  const rows = await openRows<Record<string, string | null>>(
+    (data ?? []) as Record<string, string | null>[],
+    CONNECTION_TOKEN_COLUMNS,
+  );
+  return rows.map((row) => ({
     userId: row.user_id as string,
     provider: row.provider as CalendarProvider,
     accessToken: row.access_token,
@@ -186,19 +198,24 @@ export async function getFreshAccessToken(
     // which access token is current.
     await supabase
       .from("user_oauth_tokens")
-      .update({ google_access_token: payload.access_token, google_token_expiry: expiry })
+      .update(await sealGoogleTokens({
+        google_access_token: payload.access_token,
+        google_token_expiry: expiry,
+      }))
       .eq("user_id", conn.userId);
   } else {
     await supabase
       .from("calendar_connections")
-      .update({
+      .update(await sealConnectionTokens({
         access_token: payload.access_token,
         token_expiry: expiry,
         // Microsoft rotates refresh tokens; keep the old one if none came back.
+        // `conn.refreshToken` is already decrypted, so this re-seals it rather
+        // than writing plaintext back over a sealed column.
         refresh_token: payload.refresh_token || conn.refreshToken,
         needs_reconnect: false,
         updated_at: new Date().toISOString(),
-      })
+      }))
       .eq("user_id", conn.userId)
       .eq("provider", "microsoft");
   }

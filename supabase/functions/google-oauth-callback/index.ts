@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsPrelight } from "../_shared/cors.ts";
+import { sealGoogleTokens } from "../_shared/oauth-tokens.ts";
 
 serve(async (req) => {
   const corsResponse = handleCorsPrelight(req);
@@ -82,7 +83,7 @@ serve(async (req) => {
     // Store tokens in secure user_oauth_tokens table (service role only)
     const { error: tokenError } = await supabase
       .from("user_oauth_tokens")
-      .upsert({
+      .upsert(await sealGoogleTokens({
         user_id: user.id,
         google_access_token: tokenData.access_token,
         google_refresh_token: tokenData.refresh_token || null,
@@ -90,7 +91,7 @@ serve(async (req) => {
         // read-only grant from one that can create events, before failing.
         google_scopes: typeof tokenData.scope === "string" ? tokenData.scope : null,
         google_token_expiry: expiryDate.toISOString(),
-      }, { onConflict: 'user_id' });
+      }), { onConflict: 'user_id' });
 
     if (tokenError) {
       console.error("Token storage error:", tokenError);

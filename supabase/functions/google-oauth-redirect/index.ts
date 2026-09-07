@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { checkRateLimit, getClientIdentifier, RATE_LIMITS } from "../_shared/rate-limit.ts";
+import { sealGoogleTokens } from "../_shared/oauth-tokens.ts";
 
 serve(async (req) => {
   // Rate limiting for OAuth redirect (stricter - this is the callback)
@@ -136,7 +137,7 @@ serve(async (req) => {
       }
       const { error: tokenError } = await supabase
         .from("user_oauth_tokens")
-        .upsert(tokenUpsertData, { onConflict: 'user_id' });
+        .upsert(await sealGoogleTokens(tokenUpsertData), { onConflict: 'user_id' });
 
       if (tokenError) {
         console.error("Token storage error:", tokenError);
