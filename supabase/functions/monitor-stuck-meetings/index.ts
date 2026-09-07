@@ -40,6 +40,8 @@ const SARVAM_WEBHOOK_SECRET = Deno.env.get("SARVAM_WEBHOOK_SECRET")!;
 // Excluding by terminal-set means a future code path that introduces a new
 // status string will still be observable to the monitor without an update.
 const TERMINAL_STATUSES = ["completed", "failed", "cancelled"];
+// Uploads are not stuck at 15 minutes — see detectSignature.
+const ABANDONED_UPLOAD_AFTER_MIN = 6 * 60;
 
 interface Meeting {
   id: string;
@@ -65,6 +67,23 @@ interface Detection {
 async function detectSignature(meeting: Meeting): Promise<Detection | null> {
   const lastUpdate = new Date(meeting.updated_at || meeting.created_at);
   const ageMinutes = (Date.now() - lastUpdate.getTime()) / 1000 / 60;
+
+  // An upload gets its own, much longer clock. Nothing touches the row while
+  // the browser is sending bytes, so its age grows *during* a healthy upload —
+  // the 15-minute rule would cancel a large file still in flight over a slow
+  // connection. Six hours is past any plausible upload and still bounded.
+  if (meeting.status === "uploading") {
+    if (ageMinutes < ABANDONED_UPLOAD_AFTER_MIN) return null;
+    return {
+      signature: "stuck:uploading:never_arrived",
+      details: {
+        age_minutes: Math.round(ageMinutes),
+        status: meeting.status,
+        upload: (meeting as Record<string, any>).processing_config?.upload ?? null,
+      },
+      age_minutes: ageMinutes,
+    };
+  }
 
   if (ageMinutes < STUCK_AFTER_MIN) return null;
 
@@ -241,6 +260,20 @@ async function attemptRecovery(
       .update({ status: "failed", error_message: errMsg })
       .eq("id", meeting.id);
     return { ok: true, note: "marked failed" };
+  }
+
+  if (recovery === "mark_cancelled") {
+    // Neutral, like a bot that was never admitted: no audio was captured, so
+    // this is not a failure anyone should be paged about. Recovery "succeeding"
+    // is what keeps it out of the alert mail.
+    await supabase
+      .from("meetings")
+      .update({
+        status: "cancelled",
+        error_message: "Upload never completed — the file was not received.",
+      })
+      .eq("id", meeting.id);
+    return { ok: true, note: "marked cancelled" };
   }
 
   if (recovery === "force_whisper") {

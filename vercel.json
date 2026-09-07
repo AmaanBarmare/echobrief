@@ -11,6 +11,9 @@
     },
     "api/csp-report.ts": {
       "maxDuration": 5
+    },
+    "api/upload.ts": {
+      "maxDuration": 300
     }
   },
   "rewrites": [

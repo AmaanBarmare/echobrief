@@ -5,6 +5,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { ListSkeleton } from '@/components/dashboard/ListSkeleton';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { RecordingButton } from '@/components/dashboard/RecordingButton';
+import { UploadButton } from '@/components/dashboard/UploadButton';
 import { GoogleReconnectBanner } from '@/components/dashboard/GoogleReconnectBanner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -291,12 +292,15 @@ export default function Dashboard() {
               Here's what's happening with your meetings.
             </p>
           </div>
-          <RecordingButton
-            prefillTitle={prefillMeeting?.title}
-            calendarEventId={prefillMeeting?.calendarEventId}
-            meetingLink={prefillMeeting?.meetingLink}
-            attendees={prefillMeeting?.attendees}
-          />
+          <div className="flex items-center gap-2">
+            <UploadButton onUploaded={() => queryClient.invalidateQueries({ queryKey: ['meetings', user?.id] })} />
+            <RecordingButton
+              prefillTitle={prefillMeeting?.title}
+              calendarEventId={prefillMeeting?.calendarEventId}
+              meetingLink={prefillMeeting?.meetingLink}
+              attendees={prefillMeeting?.attendees}
+            />
+          </div>
         </div>
 
         <GoogleReconnectBanner />

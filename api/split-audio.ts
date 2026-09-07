@@ -39,6 +39,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { spawn } from "node:child_process";
 import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { get as blobGet } from "@vercel/blob";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import ffmpegPath from "ffmpeg-static";
@@ -162,10 +163,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(401).json({ error: "Unauthorized" });
   }
 
-  const { audioUrl, callbackUrl, callbackToken, transcribe } = req.body || {};
+  const { audioUrl, callbackUrl, callbackToken, transcribe, audioSource } = req.body || {};
   const whisperMode = transcribe === "whisper";
+  // `audioSource: "blob"` means audioUrl points at a PRIVATE Vercel Blob — a
+  // user upload, which never touches Supabase Storage (50 MiB per file there,
+  // and a 1 GB bucket). A private blob is not fetchable by URL alone; it is read
+  // with the store token, which only exists here.
+  const blobSource = audioSource === "blob";
   if (!audioUrl || (!whisperMode && (!callbackUrl || !callbackToken))) {
     return res.status(400).json({ error: "audioUrl, callbackUrl, callbackToken required" });
+  }
+  if (blobSource && !process.env.BLOB_READ_WRITE_TOKEN) {
+    return res.status(500).json({ error: "Blob source requested but BLOB_READ_WRITE_TOKEN is unset" });
   }
   const openaiKey = process.env.OPENAI_API_KEY;
   if (whisperMode && !openaiKey) {
@@ -175,13 +184,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const t0 = Date.now();
   const workDir = await mkdtemp(path.join(tmpdir(), "split-"));
   try {
-    // 1. Download the audio
-    const audioRes = await fetch(audioUrl);
-    if (!audioRes.ok) {
-      return res.status(502).json({ error: `Audio download failed (${audioRes.status})` });
-    }
+    // 1. Download the audio. A private blob needs the store token; everything
+    // else (Recall's signed URL, a Supabase signed URL) is a plain fetch.
     const inputPath = path.join(workDir, "input.mp3");
-    const inputBytes = Buffer.from(await audioRes.arrayBuffer());
+    let inputBytes: Buffer;
+    if (blobSource) {
+      const found = await blobGet(audioUrl, { token: process.env.BLOB_READ_WRITE_TOKEN });
+      if (!found) {
+        return res.status(502).json({ error: "Blob not found (already deleted, or wrong store)" });
+      }
+      const chunks: Buffer[] = [];
+      // @ts-expect-error - web ReadableStream is async-iterable on Node 18+
+      for await (const c of found.stream) chunks.push(Buffer.from(c));
+      inputBytes = Buffer.concat(chunks);
+    } else {
+      const audioRes = await fetch(audioUrl);
+      if (!audioRes.ok) {
+        return res.status(502).json({ error: `Audio download failed (${audioRes.status})` });
+      }
+      inputBytes = Buffer.from(await audioRes.arrayBuffer());
+    }
     await writeFile(inputPath, inputBytes);
 
     // 2. Probe duration and decide chunking

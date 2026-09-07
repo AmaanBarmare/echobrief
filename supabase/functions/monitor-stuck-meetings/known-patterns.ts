@@ -15,6 +15,7 @@ export type RecoveryAction =
   | "trigger_sarvam_webhook" // POST sarvam-webhook with COMPLETED
   | "check_recall_status"    // POST check-recall-status
   | "mark_failed"            // set status=failed with error_message
+  | "mark_cancelled"         // set status=cancelled — neutral, nothing was captured
   | "none";                  // log only, manual intervention required
 
 export interface KnownPattern {
@@ -24,6 +25,16 @@ export interface KnownPattern {
 }
 
 export const KNOWN_PATTERNS: Record<string, KnownPattern> = {
+  // -- Upload patterns --
+  "stuck:uploading:never_arrived": {
+    signature: "stuck:uploading:never_arrived",
+    recovery: "mark_cancelled",
+    description:
+      "An upload was authorised but the bytes never landed — the user closed the tab or lost connection. " +
+      "Nothing was captured and nothing was spent, so this is CANCELLED, not failed, and must not alert: " +
+      "it is a person changing their mind, not the pipeline breaking.",
+  },
+
   // -- Sarvam patterns --
   "stuck:processing:sarvam_keyerror": {
     signature: "stuck:processing:sarvam_keyerror",

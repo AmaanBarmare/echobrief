@@ -152,3 +152,11 @@ verify_jwt = true
 
 [functions.send-feedback-prompts]
 verify_jwt = true
+
+# Upload ingest. prepare-upload is the entitlement gate and takes a USER jwt
+# only; ingest-upload is called by api/upload.ts with the service bearer.
+[functions.prepare-upload]
+verify_jwt = true
+
+[functions.ingest-upload]
+verify_jwt = true

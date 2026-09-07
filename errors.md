@@ -103,6 +103,21 @@ Audio ≥ ~15 MB blows the budget.
 
 ---
 
+## Upload ingest errors
+
+### `stuck:uploading:never_arrived`
+**What it looks like:** A meeting sits in status `uploading` and nothing else ever happens. No `sarvam_job_id`, no audio, no error.
+
+**Root cause:** Not a fault. `prepare-upload` creates the meeting row *before* the bytes are sent, so that an authorised upload is visible and so `ingest-upload` has something to attach the Sarvam job to. If the user closes the tab, loses connection, or cancels the file picker, the row is all that ever exists.
+
+**Why it is `cancelled`, not `failed`:** nothing was captured and nothing was spent — the same reasoning as a bot that was never admitted to the call (`recall:bot_kicked_silent_failure`). Failing it would put a red row on the user's dashboard for changing their mind, and would page `ALERT_EMAIL_TO` for a person closing a tab.
+
+**Recovery:** automatic. The monitor marks it `cancelled` with `mark_cancelled`. Because the recovery *succeeds*, no alert is sent.
+
+**Why the clock is six hours, not fifteen minutes:** nothing touches the row while the browser is uploading, so its age grows during a perfectly healthy upload. At the 15-minute threshold the monitor would cancel large files still in flight over slow connections. Six hours is past any plausible upload of the 2 GB ceiling and still bounded.
+
+---
+
 ## Speaker mapping errors
 
 ### `speakers:phantom_speaker_when_one_participant`
