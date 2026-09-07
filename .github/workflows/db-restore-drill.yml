@@ -172,6 +172,37 @@ jobs:
             fail=1
           fi
 
+          # --- Credentials must come back SEALED --------------------------------
+          # Row counts prove the dump is structurally sound; they say nothing about
+          # the OAuth tokens, which since 2026-09-07 are AES-256-GCM envelopes
+          # (`v1.<iv>.<ciphertext>`) rather than readable strings. Two failures this
+          # catches and a count never would: a restore that resurrects PLAINTEXT
+          # credentials from a pre-encryption dump — which, with
+          # TOKEN_PLAINTEXT_READS=deny, is a calendar outage rather than a leak — and
+          # a column mangled in transit so the envelope no longer parses and nothing
+          # decrypts. The key itself is deliberately NOT available here: an envelope
+          # is recognisable by shape, so this asserts what it can without putting
+          # TOKEN_ENCRYPTION_KEY in CI.
+          for spec in "user_oauth_tokens:google_access_token,google_refresh_token" \
+                      "calendar_connections:access_token,refresh_token"; do
+            t="${spec%%:*}"
+            exists=$("$PSQL" -tAc "SELECT to_regclass('public.$t') IS NOT NULL")
+            if [ "$exists" != "t" ]; then
+              echo "::error::Table public.$t does NOT exist after restore ($TAG) — stored calendar credentials are not recoverable."
+              fail=1
+              continue
+            fi
+            for col in $(echo "${spec#*:}" | tr ',' ' '); do
+              total=$("$PSQL" -tAc "SELECT count(*) FROM public.$t WHERE $col IS NOT NULL")
+              sealed=$("$PSQL" -tAc "SELECT count(*) FROM public.$t WHERE $col LIKE 'v1.%'")
+              echo "public.$t.$col: $total non-null, $sealed sealed"
+              if [ "$total" -ne "$sealed" ]; then
+                echo "::error::public.$t.$col restored $((total - sealed)) UNSEALED credential(s) ($TAG). Either the dump predates the encryption backfill, or something wrote around seal(). With TOKEN_PLAINTEXT_READS=deny a restore from this backup breaks every calendar sync."
+                fail=1
+              fi
+            done
+          done
+
           if [ "$fail" -ne 0 ]; then
             echo "::error::RESTORE DRILL FAILED for $TAG — the current backups may not be restorable. Fix before trusting them."
             exit 1

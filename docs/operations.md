@@ -291,7 +291,17 @@ run against the production host** unless `--i-really-mean-it` is passed.
 runs every **Monday 05:30 UTC** (and on demand): downloads the newest release,
 decrypts it, restores into a throwaway `postgres:17` service container, and
 **fails unless** `meetings`, `transcripts`, `meeting_insights`, `profiles` and
-`auth.users` all exist with row counts > 0. Check it under Actions → “DB
+`auth.users` all exist with row counts > 0, **and every restored OAuth token comes back
+sealed** (`user_oauth_tokens`, `calendar_connections` — a `v1.` envelope, not a readable
+string).
+
+That last assertion was added on 2026-09-07 with the encryption rollout, because row
+counts say nothing about credentials. It catches two things a count never would: a
+restore that resurrects **plaintext** tokens from a pre-encryption dump — which, with
+`TOKEN_PLAINTEXT_READS=deny`, is a calendar outage on restore rather than a silent leak —
+and a column mangled in transit so the envelope no longer parses and nothing decrypts.
+`TOKEN_ENCRYPTION_KEY` is deliberately **not** available to the drill: an envelope is
+recognisable by shape, so the check costs nothing and puts no key in CI. Check it under Actions → “DB
 restore drill” — a green run is the proof the backups are actually
 restorable; a red run means the backups may be decoration, treat it with
 incident urgency. Some psql errors during the drill are expected (Supabase-only
