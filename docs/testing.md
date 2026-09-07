@@ -1,7 +1,7 @@
 # Testing
 
-> Four tiers plus an output-quality suite. Each answers a different question at a
-> different cost, and none of them substitutes for another.
+> Four tiers, an output-quality suite and a tenant-isolation suite. Each answers a
+> different question at a different cost, and none of them substitutes for another.
 
 - [The pyramid](#the-pyramid)
 - [Tier 0: unit harness](#tier-0-unit-harness)
@@ -9,6 +9,7 @@
 - [Tier 2: live-provider E2E](#tier-2-live-provider-e2e)
 - [Tier 3: full bot drill](#tier-3-full-bot-drill)
 - [Output-quality evals](#output-quality-evals)
+- [Tenant isolation](#tenant-isolation)
 - [Pre-deploy gates](#pre-deploy-gates)
 
 ---
@@ -17,15 +18,18 @@
 
 ```mermaid
 flowchart TB
-    E["Evals — 8 graders<br/><i>Is the output any good?</i>"]
+    E["Evals — 11 graders<br/><i>Is the output any good?</i>"]
     T3["Tier 3 — full bot drill (manual)<br/><i>Does the whole product work?</i>"]
     T2["Tier 2 — live-provider E2E<br/><i>Do the real providers still work?</i>"]
-    T1["Tier 1 — integration harness, 11 scenarios<br/><i>Does the deployed pipeline run correctly?</i>"]
-    T0["Tier 0 — unit harness, 53 tests<br/><i>Is the pure logic correct?</i>"]
+    T1["Tier 1 — integration harness, 12 scenarios<br/><i>Does the deployed pipeline run correctly?</i>"]
+    T0["Tier 0 — unit harness, 326 tests<br/><i>Is the pure logic correct?</i>"]
     M["Production monitor (pg_cron)<br/><i>What slipped past everything?</i>"]
+
+    R["RLS suite — 69 assertions<br/><i>Can one tenant reach another?</i>"]
 
     T0 --> T1 --> T2 --> T3
     T1 -.-> E
+    T0 -.-> R
     T3 --> M
 ```
 
@@ -36,6 +40,7 @@ flowchart TB
 | **2. Live E2E** | `harness.py --live` | ~3 min, pennies | before risky pipeline deploys |
 | **3. Bot drill** | manual runbook | ~5 min human | after bot-flow changes |
 | **Evals** | `python3 scripts/evals/run_evals.py` | seconds | before anything touching transcription or prompts |
+| **Isolation** | `npm run test:rls` | ~30 s, real prod | before anything touching a policy, a table, or sharing |
 
 A meeting can flow through every status correctly and still produce a hallucinated
 summary — the harness stays green, only an eval catches it. Conversely, an idempotency
@@ -48,15 +53,32 @@ the fact.
 ## Tier 0: unit harness
 
 Pure-logic tests with mocked `fetch` — no deployment, no database, no providers.
-**53 tests** across five files:
+**326 tests across 40 files.** The largest, and what each one is really protecting:
 
 | File | Tests | Covers |
 |---|---|---|
-| `metrics_test.ts` | 25 | Participation, silence, gap-aware monologues, null balance, the whitelist merge |
-| `recall_pipeline_test.ts` | 15 | Recall transcript URL discovery + fallbacks, `getAudioMixedStatus` defer semantics |
-| `stitch_test.ts` | 7 | Chunk offsets, time-sorting, empty chunks, legacy keys |
-| `sarvam_test.ts` | 4 | Output-name discovery, **numeric** ordering (`2.json` before `10.json`), error propagation |
-| `harness_email_gate_test.ts` | 2 | `[harness]` title detection and the `HARNESS_EMAILS` gate |
+| `entitlements.test.ts` | 31 | Plan resolution, pooled workspace usage, the fail-open on a usage-read error |
+| `metrics_test.ts` | 28 | Participation, silence, gap-aware monologues, null balance, the whitelist merge |
+| `recall_pipeline_test.ts` | 17 | Recall transcript URL discovery + fallbacks, `getAudioMixedStatus` defer semantics |
+| `calendar_connections_test.ts` | 14 | Provider-neutral connection reads, Google/Microsoft shapes |
+| `crypto_test.ts` | 13 | AES-256-GCM seal/open, key selection, the plaintext-read policy |
+| `zones_test.ts` | 12 | Privacy boundary zones — what counts as pre/meeting/post |
+| `whisper_chunked_test.ts` | 12 | Chunk-wise Whisper fallback ordering and failure paths |
+| `time_test.ts` | 11 | IST formatting and the email subject line |
+| `summary_recipients_test.ts` | 10 | Allowlist ∩ attendees, minus the owner; never throws |
+| `feedback_prompts_test.ts` | 10 | Prompt eligibility and send-once semantics |
+| `cost_test.ts` | 10 | The metering Proxy around the injected OpenAI client |
+
+The remaining 29 files cover the rest of `_shared/` — dates, vocab, coaching, sarvam,
+stitch, share tokens and views, oauth tokens, audit, observability, dodo, webhooks,
+CORS and rate limiting, email brand and delivery, and the `[harness]` email gate.
+Regenerate the totals rather than trusting this table:
+
+```bash
+for f in supabase/functions/tests/*.ts; do
+  printf '%-46s %s\n' "$(basename "$f")" "$(grep -c 'Deno.test' "$f")"
+done | sort -k2 -rn
+```
 
 ```bash
 npm run test:unit        # deno test -A supabase/functions/tests/
@@ -69,7 +91,7 @@ could be tested this way: pure, synchronous, no clock, no randomness.
 
 ## Tier 1: integration harness
 
-**11 scenarios against real infrastructure.**
+**12 scenarios against real infrastructure** (13 with `--live`).
 
 Nothing is mocked. Each scenario inserts a synthetic `[harness]`-prefixed meeting into the production database, fires real signed webhook payloads (captured from prod logs, templated in [`fixtures.py`](../scripts/pipeline-test/fixtures.py)) at the real deployed edge functions, polls for the expected end state, and always cleans up its rows — pass or fail. A run that is killed outright cannot, so every run starts by sweeping `[harness]` rows older than three hours left behind by an earlier one (`--cleanup-only` sweeps them all, at any age).
 
@@ -153,17 +175,56 @@ python3 scripts/evals/run_evals.py --snapshot <id>    # pull a prod meeting into
 ---
 
 
+## Tenant isolation
+
+`npm run test:rls` ([`scripts/rls-test/harness.py`](../scripts/rls-test/harness.py))
+answers the one question no other tier asks: **can one customer reach another's data?**
+
+It creates two real users on the deployed project, gives each a meeting, transcript,
+insight, contact and webhook event, and then asserts across every table PostgREST
+exposes — it enumerates the schema, so a table added next week is either classified or
+reported as uncovered — that neither can read, update, delete or forge ownership of
+the other's rows. It also checks anonymous reads, a random share token and a Supabase
+JWT pasted into the share URL.
+
+**It carries its own controls, and that is the interesting part.** A green isolation
+run proves nothing by itself: *"user A saw none of user B's rows"* is equally true when
+the policy is airtight and when the table is empty. The first version of this suite was
+exactly that — it seeded `transcripts` with a column that does not exist, the insert
+returned 400, nothing checked the status, and the most sensitive table in the product
+reported PASS over zero rows.
+
+| Control | Asserts | Why it exists |
+|---|---|---|
+| Positive | the victim's own token can **see** each seeded row | if the owner cannot read it, the attacker's failure to read it means nothing — the assertion is vacuous, and vacuous fails here |
+| Detection | the **service-role** key, which bypasses RLS, **must** report a leak on every seeded table | if it reports none, the detector is broken and every PASS above it is noise |
+
+The detection control is how "prove it fails when a policy is widened" is satisfied
+without widening a real policy on a production database. Verified 2026-09-07: a clean
+run exits 0 at 69/69; a run with the leak check deliberately broken exits 1 naming the
+offending table.
+
+Every seed insert is status-checked and fatal, because a silent seed failure is
+indistinguishable from a passing test.
+
+Run it for **any migration, any new table, any RLS policy edit, and any change to
+sharing, organisations or the public API**. Like the harness and the evals it is not in
+CI — it creates and deletes real auth users against production.
+
+---
+
 ## Pre-deploy gates
 
 ```bash
 npm run lint             # ESLint
 npm run build            # type-check + production build
-npm run test:unit        # 104 deno tests, <1 s
+npm run test:unit        # 326 deno tests, <1 s
+npm run test:rls         # 69 isolation assertions, if you touched a policy or a table
 python3 scripts/pipeline-test/harness.py     # 12/12 against real prod
-python3 scripts/evals/run_evals.py           # 8 evals, exit code gates the deploy
+python3 scripts/evals/run_evals.py           # 11 evals, exit code gates the deploy
 ```
 
-Run all five before deploying an Edge Function or a migration. Add `--live` to the
+Run these before deploying an Edge Function or a migration. Add `--live` to the
 harness before risky pipeline changes. Full deploy procedure in
 [Operations](operations.md#deploying).
 

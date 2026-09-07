@@ -36,9 +36,10 @@ Run the gates first. All of them.
 ```bash
 npm run lint
 npm run build                                 # type errors surface here, not in CI
-npm run test:unit                             # 53 tests, <1 s
+npm run test:unit                             # 326 tests, <1 s
+npm run test:rls                              # 69 isolation assertions, if a policy or table changed
 python3 scripts/pipeline-test/harness.py      # 12/12, ~90 s against real prod
-python3 scripts/evals/run_evals.py            # 8 evals, exit code gates the deploy
+python3 scripts/evals/run_evals.py            # 11 evals, exit code gates the deploy
 ```
 
 Add `--live` to the harness before any risky pipeline change — it exercises the real

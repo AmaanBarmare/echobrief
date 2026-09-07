@@ -6,15 +6,27 @@ All Supabase Edge Functions run on Deno at
 `verify_jwt` is declared per function in [`supabase/config.toml`](../supabase/config.toml).
 **Since the 2026-08-31 auth audit, `verify_jwt = true` is the default** — the gateway
 verifies the JWT signature, then `_shared/auth.ts` `authenticate()` reads the `role`
-claim to distinguish user tokens from service-role bearers. Only five functions keep
+claim to distinguish user tokens from service-role bearers. **Seven** functions keep
 `verify_jwt = false`, each for a stated reason: the three signature-verified webhooks
-(`recall-webhook`, `sarvam-webhook`, `dodo-webhook`), `google-oauth-redirect` (a
-browser redirect from Google that authenticates via the single-use `state` row), and
-`get-google-client-id` (serves only the public client ID). See
-[Security § function auth](security.md#edge-function-authentication).
+(`recall-webhook`, `sarvam-webhook`, `dodo-webhook`), the two browser redirects that
+authenticate via a single-use `state` row (`google-oauth-redirect`,
+`microsoft-oauth-redirect`), `get-shared-meeting` (public by design — the share token
+*is* the credential), and `get-google-client-id` (serves only the public client ID).
+That list is worth regenerating rather than trusting:
+
+```bash
+awk '/^\[functions\./{f=$0} /verify_jwt *= *false/{print f}' supabase/config.toml
+```
+
+See [Security § function auth](security.md#edge-function-authentication).
+
+**All 44 deployed functions are documented here.** If you add one, add it here too —
+`ls supabase/functions` against this file is the check.
 
 - [Pipeline](#pipeline)
 - [Recording control](#recording-control)
+- [Workspaces](#workspaces)
+- [Billing](#billing)
 - [Intelligence](#intelligence)
 - [Calendar and OAuth](#calendar-and-oauth)
 - [Delivery](#delivery)
@@ -216,6 +228,59 @@ bots across overlapping polls.
 
 ---
 
+## Workspaces
+
+One organisation per user (a unique index on `org_members.user_id`), which is what
+makes pooled quota unambiguous. **Joining a workspace shares nothing** — meetings stay
+private until an explicit `meeting_shares` row exists.
+
+### `manage-organization`
+**Trigger:** Settings → workspace · **Auth:** `verify_jwt = true`, **user JWT only** (a service bearer gets 403 — every action here is "what may *this person* do")
+
+`POST { action }`, defaulting to `get`:
+
+| Action | Who | Effect |
+|---|---|---|
+| `create` | anyone not already in a workspace (409 if they are) | Creates the org, caller becomes `owner` |
+| `get` | any member | The org, the caller's role, members and pending invites. Returns `{ organization: null }` rather than an error when the caller has no workspace |
+| `invite` | admins only (403) | Emails an invite; 409 past `MAX_MEMBERS` or on a duplicate pending invite, 502 if the mail fails |
+| `revoke_invite` | admins only | Withdraws a pending invite |
+| `remove_member` | admins only | Removes someone from the workspace |
+| `leave` | any member | The caller leaves |
+
+Every membership question in the underlying RLS goes through a `SECURITY DEFINER`
+helper (`my_org_id`, `is_org_admin`) — a policy on `org_members` that selects from
+`org_members` is infinite recursion, and Postgres only reports it at query time.
+
+### `accept-org-invite`
+**Trigger:** the invite link · **Auth:** `verify_jwt = true`, **user JWT only** (403 otherwise — an invite is accepted by a signed-in person, not a service)
+
+`POST { token }`. An unknown token is 404, and so is one already used or expired —
+deliberately the same answer, so the endpoint cannot be used to probe which invite
+tokens exist. On success: `{ joined: true, organization, role }`.
+
+---
+
+## Billing
+
+### `manage-billing`
+**Trigger:** Settings → Billing · **Auth:** `verify_jwt = true`, caller's JWT (401 without one, or on an invalid session)
+
+`POST { action }`:
+
+| Action | Effect |
+|---|---|
+| `plan` | `{ plan }` from `planForProfile()` — the resolved entitlement, not what was paid for |
+| `checkout` | Opens a Dodo subscription checkout for a **plan** (`starter` \| `pro`) on a **period** (`monthly` \| `annual`). 400 on an unknown plan or period, 400 if a subscription is already active, 503 when the pair resolves to no product |
+| `portal` | Dodo customer portal link; 400 before the user has a billing profile |
+
+**The client names a plan, never a product.** `productForPlan` resolves the pair
+server-side from the same `DODO_PLAN_PRODUCTS` / `DODO_PLAN_PRODUCTS_ANNUAL` maps that
+`planForProfile` reads in reverse, so what a customer pays for and what they are
+entitled to cannot drift.
+
+---
+
 ## Intelligence
 
 ### `chat-transcripts`
@@ -265,6 +330,9 @@ for service-role bearers.
 | `sync-calendar-events` | Event-level sync into `calendar_events` |
 | `fetch-google-calendars` | Lists calendars available on the Google account |
 | `get-user-calendars` | Reads the user's connected calendars from the DB |
+| `microsoft-oauth-start` | Begins the Microsoft/Entra flow. Requires the caller's JWT; 503 when `AZURE_CLIENT_ID` is unset. Returns `{ authUrl, redirectUri }` — delegated Graph scopes `offline_access User.Read Calendars.Read` |
+| `microsoft-oauth-redirect` | Redirect target from Microsoft — no JWT by design (`verify_jwt = false`); the single-use `state` row authenticates it. Shares the `google_oauth_states` table, and is rate limited before it touches anything |
+| `disconnect-calendar` | Provider-neutral disconnect. **Microsoft only** — it returns 400 for anything else and points at `disconnect-google`, which owns the Google revocation path |
 
 A permanently dead grant (Google answers `invalid_grant`, or a refresh yields no
 `access_token` in a parseable non-5xx response) sets
@@ -308,6 +376,29 @@ cascades clear profiles, meetings and everything hanging off them. Returns
 
 ---
 
+### `manage-api-tokens`
+**Trigger:** Settings → Developer · **Auth:** `verify_jwt = true`, caller's JWT (401 without an `Authorization` header or on an invalid session)
+
+`POST { action }` — `create` \| `list` \| `revoke`, anything else 400:
+
+- `create` — name must be 1–60 characters. **The token is returned exactly once**, in
+  the create response; only its sha256 hash and a display prefix are stored, so a lost
+  token is reissued, never recovered.
+- `list` — id, name, prefix, scopes, created/last-used/revoked/expires. Never the token.
+- `revoke` — by `id`; 400 without one.
+
+These are the personal access tokens the [MCP endpoint](mcp.md) authenticates with.
+
+### `redeem-access-code`
+**Trigger:** the access-code box at sign-up/Settings · **Auth:** `verify_jwt = true`, **user JWT only** (403 for a service bearer — a code is redeemed *by* a signed-in person, and there is no user to attribute it to otherwise)
+
+`POST { code }`. The grant itself lives in the `redeem_access_code` SQL function rather
+than here, so the check-and-claim is one atomic statement and a code cannot be redeemed
+twice by two racing callers. Invalid, spent and expired codes all return the same
+message — the endpoint is not an oracle for which codes exist.
+
+---
+
 ## Operations
 
 ### `monitor-stuck-meetings`
@@ -330,6 +421,32 @@ the email.
 Known signatures live in
 [`known-patterns.ts`](../supabase/functions/monitor-stuck-meetings/known-patterns.ts),
 which **mirrors** [`errors.md`](../errors.md). Update both or they drift.
+
+### `prune-content`
+**Trigger:** pg_cron, daily 04:15 UTC — **currently `active = false`** · **Auth:** `verify_jwt = true`, **service only** (403 for a user token)
+
+Plan-aware retention, and the counterpart to `prune-recordings`: it groups profiles by
+plan and deletes `meeting_insights`, `transcripts` and archived audio past that plan's
+`retentionDays`, stamping `meetings.content_pruned_at` so the history row survives and
+the UI can explain the gap.
+
+`?dry_run=1` reports exactly what would go without deleting anything. **Use it.** The
+job was paused immediately after deploy on 2026-09-01 when a dry run showed 65 meetings
+past the 90-day window, 9 of which still held a transcript — deleting real meeting
+content is not a decision to make on a cron tick. Re-enable with:
+
+```sql
+select cron.alter_job((select jobid from cron.job where jobname='prune-content'),
+                      active := true);
+```
+
+### `send-feedback-prompts`
+**Trigger:** cron, daily · **Auth:** `verify_jwt = true`, **service only** (403 for a user token)
+
+The early-access feedback sequence. It claims a row in `feedback_prompts` **before**
+sending, so a racing or replayed caller collides on `23505` and skips rather than
+mailing a second copy — the same claim-then-send shape as `send-meeting-email`, and for
+the same reason.
 
 ### `prune-recordings`
 **Trigger:** pg_cron, daily 22:00 UTC (03:30 IST) · **Auth:** service-role bearer only (`verify_jwt = true`; the cron job sends the Vault-sourced key)

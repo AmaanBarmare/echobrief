@@ -69,8 +69,8 @@ Full picture: **[docs/architecture.md](docs/architecture.md)**
 | **[Pipeline](docs/pipeline.md)** | Every stage from bot dispatch to delivery, the fallback chain, the races it survives |
 | **[Chat & analytics](docs/chat-and-analytics.md)** | Retrieval strategy, hygiene filters, and why metrics are computed not generated |
 | **[Database](docs/database.md)** | Schema, RLS, migration history |
-| **[Edge functions](docs/edge-functions.md)** | All 27 functions — triggers, auth, request/response shapes |
-| **[Testing](docs/testing.md)** | Four test tiers, 53 unit tests, 11 integration scenarios, 8 evals |
+| **[Edge functions](docs/edge-functions.md)** | All 44 functions — triggers, auth, request/response shapes |
+| **[Testing](docs/testing.md)** | Four test tiers plus evals and tenant isolation — 326 unit tests, 12 integration scenarios, 11 evals, 69 isolation assertions |
 | **[Operations](docs/operations.md)** | Deploying, cron jobs, alerts, incident playbook, quota ceilings |
 | **[Security](docs/security.md)** | Auth, RLS, webhook verification, secrets, data handling |
 | **[Contributing](docs/contributing.md)** | Local setup and the rules that are actually enforced |
@@ -105,9 +105,9 @@ npm run dev              # Vite dev server (:8080)
 npm run build            # production build — also the type-check
 npm run lint             # ESLint
 npm run functions:serve  # Edge Functions locally
-npm run test:unit        # 53 deno tests, mocked fetch, <1 s
+npm run test:unit        # 326 deno tests, mocked fetch, <1 s
 
-python3 scripts/pipeline-test/harness.py    # 11 integration scenarios vs real prod (~90 s)
+python3 scripts/pipeline-test/harness.py    # 12 integration scenarios vs real prod (~90 s)
 python3 scripts/pipeline-test/harness.py --live   # + real Sarvam E2E (~3 min)
 python3 scripts/evals/run_evals.py          # 8 output-quality evals
 ```

@@ -53,7 +53,7 @@ npm run build            # also the type-check
 | `npm run preview` | Preview the built frontend |
 | `npm run lint` | ESLint |
 | `npm run functions:serve` | Serve Edge Functions locally |
-| `npm run test:unit` | 104 deno tests, mocked fetch, <1 s |
+| `npm run test:unit` | 326 deno tests, mocked fetch, <1 s |
 | `python3 scripts/pipeline-test/harness.py` | 11-scenario integration harness against deployed functions |
 | `python3 scripts/evals/run_evals.py` | 8-eval output-quality suite |
 | `python3 scripts/evals/run_evals.py --meeting-id <id>` | Grade a live production meeting |

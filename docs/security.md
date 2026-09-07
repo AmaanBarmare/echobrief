@@ -119,13 +119,24 @@ bearer). Functions then fall into three shapes:
   `authenticate()` returns 401 without a token, 403 for user tokens. The pg_cron
   jobs authenticate with the Vault-sourced `service_role_key`
   (see [Operations § scheduled jobs](operations.md#scheduled-jobs)).
-- **`verify_jwt = false`, exactly five, each with its own verification**:
+- **`verify_jwt = false`, exactly seven, each with its own verification.** This is
+  the complete list of surfaces reachable without a Supabase JWT, so it is worth
+  regenerating rather than trusting — `awk '/^\[functions\./{f=$0} /verify_jwt *= *false/{print f}' supabase/config.toml`:
   - `recall-webhook` — signature checked against the raw body,
   - `sarvam-webhook` — callback `auth_token` issued at job creation,
   - `dodo-webhook` — Standard-Webhooks HMAC,
   - `google-oauth-redirect` — browser redirect from Google, no JWT possible;
     the single-use `state` row in `google_oauth_states` authenticates it,
+  - `microsoft-oauth-redirect` — the same shape for Microsoft, and it shares the
+    `google_oauth_states` table for its single-use `state`,
+  - `get-shared-meeting` — public by design: the reader of a shared link has no
+    account, so the `ebs_live_` token **is** the credential (stored as a sha256
+    digest) and the share row decides what it unlocks,
   - `get-google-client-id` — serves only the public OAuth client ID.
+
+  Counted five here until 2026-09-07. `microsoft-oauth-redirect` and
+  `get-shared-meeting` were both missing — an incomplete list of the unauthenticated
+  surface is precisely what makes the next audit miss something.
 
 This is a real attack surface and should be audited whenever a function is added.
 The rule of thumb: **if the operation is user-scoped, use the caller's token and let
