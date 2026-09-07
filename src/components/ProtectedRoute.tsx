@@ -1,13 +1,14 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loader2 } from 'lucide-react';
+import { MfaChallenge } from '@/components/MfaChallenge';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
 }
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { user, loading } = useAuth();
+  const { user, loading, mfaRequired } = useAuth();
 
   if (loading) {
     return (
@@ -19,6 +20,12 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
 
   if (!user) {
     return <Navigate to="/auth" replace />;
+  }
+
+  // Signed in, but the second factor has not been given yet. Every protected
+  // route goes through here, so there is no page that forgets to ask.
+  if (mfaRequired) {
+    return <MfaChallenge />;
   }
 
   return <>{children}</>;

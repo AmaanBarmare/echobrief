@@ -186,6 +186,38 @@ follows the foreign keys declared in the migrations.
 
 ---
 
+## Multi-factor authentication
+
+TOTP enrolment has existed in Settings → Security for weeks. Until 2026-09-07 it
+was **decorative**: Supabase issues an `aal1` session on a password sign-in even
+for an enrolled account and leaves the decision to the application, nothing ever
+asked for the code again, and every RLS policy asked only whether the row
+belonged to the caller. Enrolling bought the appearance of protection and none
+of the substance — a stolen password still opened every meeting.
+
+Two halves now make it real:
+
+- [`MfaChallenge`](../src/components/MfaChallenge.tsx), rendered by
+  `ProtectedRoute`, so every authenticated route asks and none can forget.
+- [`public.mfa_satisfied()`](../supabase/migrations/20260907101000_mfa_enforcement.sql),
+  ANDed into the five SELECT policies that expose conversation content. **This is
+  the control**; the screen is a convenience. A session token skipped past the UI
+  is still `aal1` and reads nothing.
+
+The rule is asymmetric on purpose: a user with **no** verified factor is
+unaffected, a user **with** one must present `aal2`. So it cannot lock out anyone
+who has not opted in, and it takes effect the moment they do.
+
+Verified against production with a throwaway account: the same token read one
+meeting before enrolment and **zero** immediately after, while the `aal2` token
+from the challenge read it normally.
+
+> **Recovery is manual.** There are no backup codes. A lost authenticator means
+> an operator deletes the factor with the service role. Fine at current scale;
+> it needs a real recovery path before self-serve growth.
+
+---
+
 ## Audit trail
 
 `audit_events` records the consequential actions: a share link minted, widened,

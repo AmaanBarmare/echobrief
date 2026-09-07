@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { displayNameFromUserMetadata } from '@/lib/userDisplayName';
@@ -34,6 +34,14 @@ interface AuthContextType {
   signUp: (email: string, password: string, fullName: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
+  /**
+   * True when this session is aal1 but the account has a verified second
+   * factor — i.e. the password was accepted and the code has not been given
+   * yet. Supabase does not block that sign-in, so the app has to.
+   */
+  mfaRequired: boolean;
+  /** Re-read the assurance level after a challenge is passed. */
+  refreshMfaStatus: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -50,8 +58,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return hash.includes('type=recovery') || search.includes('type=recovery');
   });
   const profileNameSyncedForUserId = useRef<string | null>(null);
+  const [mfaRequired, setMfaRequired] = useState(false);
 
   const clearPasswordRecovery = () => setIsPasswordRecovery(false);
+
+  /**
+   * Ask Supabase what this session is worth.
+   *
+   * `nextLevel` is aal2 exactly when the account has a verified factor, so
+   * "enrolled but not yet challenged" is currentLevel aal1 with nextLevel aal2.
+   * On any error this resolves to NOT required: a network blip must not lock a
+   * user out of their own account, and the database enforces the real boundary
+   * regardless of what this flag says.
+   */
+  const refreshMfaStatus = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      if (error || !data) {
+        setMfaRequired(false);
+        return;
+      }
+      setMfaRequired(data.nextLevel === 'aal2' && data.currentLevel !== 'aal2');
+    } catch {
+      setMfaRequired(false);
+    }
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -68,6 +99,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       if (!nextUser) {
         profileNameSyncedForUserId.current = null;
+        setMfaRequired(false);
+      } else {
+        void refreshMfaStatus();
       }
     };
 
@@ -128,7 +162,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, isPasswordRecovery, clearPasswordRecovery, signUp, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, isPasswordRecovery, clearPasswordRecovery, signUp, signIn, signOut, mfaRequired, refreshMfaStatus }}>
       {children}
     </AuthContext.Provider>
   );
