@@ -20,11 +20,12 @@ awk '/^\[functions\./{f=$0} /verify_jwt *= *false/{print f}' supabase/config.tom
 
 See [Security § function auth](security.md#edge-function-authentication).
 
-**All 44 deployed functions are documented here.** If you add one, add it here too —
+**All 46 deployed functions are documented here.** If you add one, add it here too —
 `ls supabase/functions` against this file is the check.
 
 - [Pipeline](#pipeline)
 - [Recording control](#recording-control)
+- [Upload ingest](#upload-ingest)
 - [Workspaces](#workspaces)
 - [Billing](#billing)
 - [Intelligence](#intelligence)
@@ -225,6 +226,86 @@ rather than rendering an empty page.
 For every profile with `auto_join_enabled`, dispatches a bot to calendar events
 starting within 7 minutes. Per-event dedup guard plus a unique index prevent duplicate
 bots across overlapping polls.
+
+---
+
+## Upload ingest
+
+Recording is bot-only for meetings a bot can join. Upload ingest covers the rest — a
+phone call, an in-person conversation, a file someone sent you.
+
+**The file never touches Supabase Storage, and never passes through our API.** The
+project caps one object at 50 MiB (~55 minutes at 128 kbps) against a 1 GB bucket, so
+the recordings most worth transcribing are exactly the ones Storage refuses; and a
+serverless function's request body is capped at a few megabytes, so a long recording
+could not be POSTed to one either. The browser uploads straight to a **private Vercel
+Blob**, and `split-audio` reads it with the store token — the same shape as the existing
+path where the splitter pulls from Recall's own URL when Storage rejected the file.
+
+```
+browser ──file──► Vercel Blob (private)
+   │                   ▲
+   └─ POST /api/upload ─┘ (token only, never the bytes)
+          │
+          ├─ prepare-upload   (user JWT) → plan gate + meeting row
+          └─ ingest-upload    (service)  → split-audio → Sarvam → sarvam-webhook
+                                              └─ blob deleted
+```
+
+Everything downstream of the Sarvam callback is identical to a bot meeting — an uploaded
+meeting should be indistinguishable from a recorded one once it has a transcript.
+
+### `prepare-upload`
+**Trigger:** `api/upload.ts`, before a blob token exists · **Auth:** `verify_jwt = true`, **user JWT only** (403 for a service bearer — an upload belongs to the person who made it)
+
+`POST { filename, content_type, size_bytes }` → `{ meeting_id, plan, max_meeting_seconds, max_bytes, allowed_content_types }`.
+
+**This is the entitlement gate**, and it is why the endpoint exists at all. Every path
+that spends transcription money calls `checkRecordingAllowed` first; an upload path that
+skipped it would be a way around the plan, since a free account could hand us unlimited
+audio simply by not using a bot. It runs *before* the token is issued, because once the
+client can upload, the transfer is already committed.
+
+| Refusal | Status |
+|---|---|
+| No active subscription / over the plan's allowance | **402** with `code`, `plan`, `usage` |
+| Content type not in the allowlist | **415** |
+| Over the 2 GB transfer ceiling | **413** |
+
+The meeting row is created here, before the bytes exist, with status `uploading` — so an
+authorised upload is visible, and so `ingest-upload` has something to attach the job to.
+`meeting_started` is ledgered immediately, as on the bot path; the seconds are ledgered
+later, once the pipeline knows the real duration.
+
+### `ingest-upload`
+**Trigger:** `api/upload.ts` `onUploadCompleted` · **Auth:** `verify_jwt = true`, **service only** (the caller is our own Vercel function; the user was authenticated when the token was issued)
+
+`POST { meeting_id, blob_url }` → `{ ok, job_id, chunk_count, duration_seconds }`. Hands
+the blob to `split-audio` with `audioSource: "blob"`, then saves `sarvam_job_id`, the
+chunk metadata and `duration_seconds`. Idempotent: a meeting that already has a
+`sarvam_job_id` returns `{ skipped: true, reason: "already_submitted" }`, because Vercel
+Blob can retry its completion callback and two jobs on one meeting means two callbacks
+racing to overwrite each other's transcript.
+
+**There is deliberately no whole-file fallback**, unlike the Recall path. That fallback
+exists because a bot meeting has already happened and a degraded transcript beats none.
+An upload has not been consumed: failing loudly leaves the user a file to re-upload,
+whereas a whole-file submission of long audio returns an *empty* transcript from
+saaras:v3 and silently burns their quota.
+
+### `api/upload.ts` (Vercel)
+Issues the client-upload token and hears the result; the bytes never pass through it.
+The Supabase access token arrives in `clientPayload` and is **not trusted** — it is
+forwarded as a bearer to `prepare-upload`, whose gateway verifies the signature, so a
+forged payload gets a 401 rather than an upload token. On success the blob is deleted:
+its only job was to reach the splitter, and an archive we do not need is an archive that
+can leak. On failure it is kept, because it is the only copy and a retry needs it.
+
+An abandoned upload (tab closed, connection lost) leaves a row in `uploading` forever.
+The monitor resolves it to **`cancelled`** — neutral, nothing captured, nothing spent —
+on a **six-hour** clock rather than the usual fifteen minutes, because nothing touches
+the row while the browser is sending bytes. See
+[`errors.md`](../errors.md) → `stuck:uploading:never_arrived`.
 
 ---
 

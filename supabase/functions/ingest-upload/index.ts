@@ -84,6 +84,8 @@ serve(withObservability("ingest-upload", async (req) => {
   }
 
   try {
+    // Leave `uploading` behind the moment the splitter is engaged, so an
+    // upload that dies mid-split is not mistaken for one that never arrived.
     await admin.from("meetings").update({ status: "processing" }).eq("id", meetingId);
 
     const splitRes = await fetch(splitUrl, {
@@ -111,7 +113,13 @@ serve(withObservability("ingest-upload", async (req) => {
       .from("meetings")
       .update({
         sarvam_job_id: splitData.job_id,
-        status: "transcribing",
+        // STAYS `processing`. `transcribing` is reserved: sarvam-webhook sets
+        // it while the chunk-wise Whisper fallback runs, and skips any meeting
+        // already in it. Setting it here meant Sarvam's callback arrived,
+        // matched that guard and was discarded — the job completed, both chunks
+        // succeeded, and the meeting sat in `transcribing` forever. The Recall
+        // path leaves `processing` for exactly this reason.
+        status: "processing",
         duration_seconds: Math.round(splitData.duration_seconds ?? 0) || null,
         processing_config: {
           ...(meeting.processing_config || {}),

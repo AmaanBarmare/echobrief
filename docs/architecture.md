@@ -88,6 +88,10 @@ is the entire contract.
 stateDiagram-v2
     [*] --> scheduled: calendar sync
     [*] --> joining: user dispatches bot
+    [*] --> uploading: user uploads a file
+
+    uploading --> processing: bytes landed, splitter engaged
+    uploading --> cancelled: never arrived (6 h)
 
     scheduled --> joining: auto-join cron (T-7 min)
     joining --> recording: bot admitted
@@ -105,6 +109,16 @@ stateDiagram-v2
     failed --> [*]
     cancelled --> [*]
 ```
+
+**`transcribing` is reserved, and it is not a synonym for "being transcribed".** It
+means *the chunk-wise Whisper fallback is running* — `sarvam-webhook` sets it before
+that fallback and **skips any meeting already in it**, which is what stops Sarvam's
+retries from trampling a fallback in progress. A meeting waiting on a Sarvam callback
+stays in **`processing`**. Upload ingest learned this the hard way: `ingest-upload`
+briefly set `transcribing` after submitting the job, so the callback arrived, matched
+the skip-guard and was discarded — the Sarvam job completed, both chunks succeeded, and
+the meeting sat in `transcribing` forever with no error anywhere. Only an end-to-end
+upload caught it.
 
 **`cancelled` vs `failed` is a deliberate distinction.** A bot removed from the
 waiting room never recorded anything and nothing in EchoBrief broke — that is
