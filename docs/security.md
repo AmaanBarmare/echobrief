@@ -293,6 +293,12 @@ instead of a hole. It was verified in both directions before being trusted: all
 unsealed value is refused. A setting that has only been shown not to break things has
 not been shown to do anything.
 
+Then the same thing was confirmed in the **deployed** runtime rather than locally: the
+`auto-join-meetings` tick after the flag went live opened the sealed tokens and refreshed
+`calendar_events` (a write timestamped after the change), with no `function_errors` row
+and no connection flipped to `needs_reconnect`. The error capture proven earlier the same
+day is what made that a real check rather than an absence of complaints.
+
 Transcripts and insights are **not** column-encrypted: they are protected by RLS and by
 the platform's at-rest disk encryption, which means anyone holding the service-role key
 can read them. That is a deliberate, revisitable decision, recorded here so it is a
