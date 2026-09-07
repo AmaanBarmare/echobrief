@@ -86,7 +86,19 @@ the `transcribing` deadlock.
 | `SPLIT_AUDIO_SECRET` | Shared bearer secret — must match the Vercel env var |
 | `HARNESS_EMAILS` | `true` only for a deliberate delivery-verification run. Unset it afterwards. |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Calendar OAuth |
+| `AZURE_CLIENT_ID` / `AZURE_CLIENT_SECRET` | Microsoft/Entra calendar OAuth. **The secret expires 24 months from 2026-09-02** — every Outlook sync stops at once when it lapses. |
+| `TOKEN_ENCRYPTION_KEY` | base64 32-byte AES-256-GCM key sealing the OAuth tokens. **Losing it means every customer reconnects their calendar** — it is not derivable from anything else. |
+| `TOKEN_PLAINTEXT_READS` | `deny` (set 2026-09-07) makes an unsealed credential a thrown error rather than a silent plaintext read. |
+| `DODO_PAYMENTS_API_KEY` / `DODO_WEBHOOK_SECRET` | Billing API + Standard-Webhooks verification |
+| `DODO_PLAN_PRODUCTS` / `DODO_PLAN_PRODUCTS_ANNUAL` | `{product id: plan}` per billing period — the one map behind both entitlement resolution and checkout product selection |
+| `DODO_ENVIRONMENT` / `DODO_PRODUCT_ID` / `DODO_DEFAULT_PAID_PLAN` | `live_mode`; fallback product and plan |
+| `SENTRY_DSN` | Optional. **Currently unset**, so Sentry is a no-op and `function_errors` is the record. |
 | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_ANON_KEY` | Injected by the platform |
+| `SUPABASE_DB_URL` / `SUPABASE_JWKS` / `SUPABASE_PUBLISHABLE_KEYS` / `SUPABASE_SECRET_KEYS` | Platform-managed |
+
+The list is worth regenerating rather than trusting — `supabase secrets list` prints
+names and `sha256` digests (never values), which is also how a deployed secret is
+compared to `.env` without overwriting it.
 
 ### Vercel functions
 
@@ -95,6 +107,17 @@ the `transcribing` deadlock.
 | `SARVAM_API_KEY` | `split-audio` submits chunks directly |
 | `SPLIT_AUDIO_SECRET` | Same value as the Supabase secret |
 | `OPENAI_API_KEY` | `transcribe: "whisper"` mode. Missing → the mode 500s and long meetings fail instead of falling through to whole-file Whisper. |
+| `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` / `SUPABASE_JWT_SECRET` / `SUPABASE_ANON_KEY` | MCP and OAuth: the PAT is resolved with the service role, then a **60-second user JWT** is minted so RLS does the scoping |
+| `VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY` / `VITE_GOOGLE_SIGNIN` | Build-time, for the SPA |
+
+That is the whole list — 11 variables. A **13-credential scaffold residue was removed on
+2026-09-07** (seven `POSTGRES_*` including `POSTGRES_PASSWORD`, plus `NEXT_PUBLIC_*` and
+duplicate Supabase keys); see [Security § inventory](security.md#inventory). Check a new
+variable against what the code actually reads before adding it:
+
+```bash
+grep -rn "process\.env" api/ | grep -v /tests/
+```
 
 > **`.env` is the source of truth.** A credential change must be propagated to
 > **both** Supabase secrets and Vercel env, then verified. Supabase secret digests are

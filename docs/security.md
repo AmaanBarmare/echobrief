@@ -251,11 +251,16 @@ local value and matching the digest — `sha256`, no salt.
 | **`DODO_PLAN_PRODUCTS` deployed ≠ `.env`** — still open, see below | Supabase | The monthly product→plan map. The annual map matches byte-exact, so this is content drift, not formatting. `.env` matches the four documented live product IDs, so the deployed value is the stale one. Latent, not active: no profile currently carries a `subscription_product_id` |
 | **Sentry is a no-op on both sides** | `SENTRY_DSN` absent from Supabase secrets, `VITE_SENTRY_DSN` absent from Vercel | Both integrations are deliberately opt-in and silently disabled without a DSN. Backend errors still reach `function_errors` and `console.error` — **verified end-to-end 2026-09-07**, see [Operations § backend error visibility](operations.md#backend-error-visibility); frontend errors reach nobody |
 
-**Blocked on a credential, not on a decision:** the Supabase CLI token in use can *list*
-secrets but not *set* them — `supabase secrets set` returns "Your account does not have
-the necessary privileges to access this endpoint". Two follow-ups therefore need either a
-PAT with write scope or the dashboard: correcting `DODO_PLAN_PRODUCTS`, and setting
-`TOKEN_PLAINTEXT_READS=deny` to close out the encryption rollout.
+**Both follow-ups were closed on 2026-09-07**, once a write-scoped token was available
+(a read-only PAT can `secrets list` but not `secrets set`, which fails with "your account
+does not have the necessary privileges"):
+
+- `DODO_PLAN_PRODUCTS` now matches `.env` byte-for-byte, and all four product IDs were
+  confirmed live and unarchived against the Dodo API at the documented prices
+  (₹799 / ₹1,999 monthly, ₹7,990 / ₹19,990 annual). Exactly one secret changed; the
+  other 28 digests were compared before and after.
+- `TOKEN_PLAINTEXT_READS=deny` is set. It is read per call via `Deno.env.get`, so no
+  redeploy was needed.
 
 What the api/ functions on Vercel actually read is a short list, and it is worth
 checking against the variable list before adding another: `SPLIT_AUDIO_SECRET`,
@@ -278,6 +283,15 @@ customer revokes it. Every read and write goes through
 touching the columns directly, because a forgotten `seal()` is indistinguishable from a
 working write until it leaks. The envelope carries its own key version, so rotation is a
 background re-wrap rather than an outage.
+
+**The rollout is complete.** `TOKEN_PLAINTEXT_READS=deny` (set 2026-09-07) makes an
+unsealed credential a thrown `TokenCryptoError` rather than a silent plaintext read, so a
+row that escapes the backfill — or anything that writes around `seal()` — is an alert
+instead of a hole. It was verified in both directions before being trusted: all
+**10** stored credentials decrypt cleanly (`backfill-token-encryption.ts --verify`), all
+6 `calendar_connections` values still `open()` with `deny` active, and a deliberately
+unsealed value is refused. A setting that has only been shown not to break things has
+not been shown to do anything.
 
 Transcripts and insights are **not** column-encrypted: they are protected by RLS and by
 the platform's at-rest disk encryption, which means anyone holding the service-role key
