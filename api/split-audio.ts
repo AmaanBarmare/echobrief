@@ -189,7 +189,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const inputPath = path.join(workDir, "input.mp3");
     let inputBytes: Buffer;
     if (blobSource) {
-      const found = await blobGet(audioUrl, { token: process.env.BLOB_READ_WRITE_TOKEN });
+      const found = await blobGet(audioUrl, {
+        access: "private",
+        token: process.env.BLOB_READ_WRITE_TOKEN,
+      });
       if (!found) {
         return res.status(502).json({ error: "Blob not found (already deleted, or wrong store)" });
       }
