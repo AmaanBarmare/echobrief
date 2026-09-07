@@ -1,0 +1,23 @@
+{
+  "id": "synthetic_stitch_broken",
+  "description": "Scorer calibration: chunk stitching went wrong — a segment is out of order, one carries a negative timestamp, and one has empty text. stitch_integrity MUST fail, because a bad offset is invisible in the prose and only the timestamps show it.",
+  "duration_seconds": 300,
+  "participants": [],
+  "transcript": "Dan: Let's confirm the launch checklist. Mira: Staging is green and the migration ran clean. Dan: Then we go Thursday. Mira: I'll post the announcement.",
+  "speakers": [
+    {"start": 0.0,   "end": 4.2,   "speaker": "Dan",  "text": "Let's confirm the launch checklist."},
+    {"start": 4.5,   "end": 9.8,   "speaker": "Mira", "text": "Staging is green and the migration ran clean."},
+    {"start": 2.1,   "end": 6.0,   "speaker": "Dan",  "text": "Then we go Thursday."},
+    {"start": -3.0,  "end": 1.0,   "speaker": "Mira", "text": "I'll post the announcement."},
+    {"start": 12.0,  "end": 14.0,  "speaker": "Dan",  "text": "   "}
+  ],
+  "insights": {
+    "summary": "Dan and Mira confirmed the launch checklist. Staging was green and the migration ran cleanly, so they agreed to go on Thursday, with Mira posting the announcement.",
+    "action_items": [],
+    "decisions": []
+  },
+  "gold": {},
+  "expect": {
+    "stitch_integrity": "fail"
+  }
+}

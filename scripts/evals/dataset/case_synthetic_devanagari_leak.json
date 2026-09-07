@@ -1,0 +1,17 @@
+{
+  "id": "synthetic_devanagari_leak",
+  "description": "Scorer calibration: Sarvam left untranslated Devanagari in the transcript and the summary. english_output MUST fail — if it passes, translate-mode regressions ship silently.",
+  "duration_seconds": 420,
+  "participants": [],
+  "transcript": "Priya: Good morning, let's start with the vendor renewal. Raghav: हाँ, मैंने कल उनसे बात की थी और उन्होंने कीमत पंद्रह प्रतिशत बढ़ा दी है। Priya: Fifteen percent is steep. Raghav: मैंने उन्हें बताया कि हमारा बजट इतना नहीं है, तो वे दस प्रतिशत पर आ गए। Priya: Ten is workable. Raghav: ठीक है, मैं उन्हें आज शाम तक पुष्टि भेज दूँगा। Priya: Good. And the warehouse move? Raghav: वह अगले महीने की पहली तारीख को होगा, टीम तैयार है। Priya: Thanks, that's everything.",
+  "speakers": [],
+  "insights": {
+    "summary": "Priya and Raghav reviewed the vendor renewal. The vendor initially raised the price by fifteen percent, and Raghav negotiated them down to ten percent, which Priya accepted. Raghav will send confirmation by this evening. वह अगले महीने की पहली तारीख को होगा — the warehouse move is scheduled for the first of next month and the team is ready.",
+    "action_items": [],
+    "decisions": []
+  },
+  "gold": {},
+  "expect": {
+    "english_output": "fail"
+  }
+}

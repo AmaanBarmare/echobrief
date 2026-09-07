@@ -13,6 +13,9 @@ from __future__ import annotations
 
 import json
 import re
+import ssl
+import time
+import urllib.error
 import urllib.request
 from typing import Any
 
@@ -90,7 +93,16 @@ def speaker_attribution(case: dict[str, Any]) -> dict[str, Any]:
 
 # ---------- LLM-judge scorers ----------
 
-def _judge(api_key: str, system: str, user: str) -> dict[str, Any]:
+def _judge(api_key: str, system: str, user: str, attempts: int = 4) -> dict[str, Any]:
+    """Ask the judge, retrying only TRANSPORT failures.
+
+    The eval suite gates deploys, so a dropped TCP connection must not read as a
+    quality regression. Two different transient errors (`Remote end closed
+    connection`, `SSLV3_ALERT_BAD_RECORD_MAC`) failed the gate on consecutive runs
+    on 2026-09-07 — and every case added makes a spurious failure more likely, not
+    less. A judge that answers and *disagrees* is a real result and is never retried;
+    only the network is.
+    """
     body = {
         "model": JUDGE_MODEL,
         "temperature": 0,
@@ -100,14 +112,28 @@ def _judge(api_key: str, system: str, user: str) -> dict[str, Any]:
             {"role": "user", "content": user},
         ],
     }
-    req = urllib.request.Request(
-        OPENAI_URL,
-        data=json.dumps(body).encode(),
-        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-    )
-    with urllib.request.urlopen(req, timeout=120) as r:
-        data = json.loads(r.read())
-    return json.loads(data["choices"][0]["message"]["content"])
+    last: Exception | None = None
+    for attempt in range(attempts):
+        req = urllib.request.Request(
+            OPENAI_URL,
+            data=json.dumps(body).encode(),
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=120) as r:
+                data = json.loads(r.read())
+            return json.loads(data["choices"][0]["message"]["content"])
+        except urllib.error.HTTPError as e:
+            # 4xx is our bug (bad key, bad request) and will not fix itself.
+            if e.code < 500 and e.code != 429:
+                raise
+            last = e
+        except (urllib.error.URLError, ssl.SSLError, ConnectionError, TimeoutError,
+                json.JSONDecodeError) as e:
+            last = e
+        if attempt < attempts - 1:
+            time.sleep(2 ** attempt)
+    raise RuntimeError(f"judge unreachable after {attempts} attempts: {last}")
 
 
 def action_item_recall(case: dict[str, Any], api_key: str) -> dict[str, Any]:

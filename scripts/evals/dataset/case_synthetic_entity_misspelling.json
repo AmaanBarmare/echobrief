@@ -1,0 +1,19 @@
+{
+  "id": "synthetic_entity_misspelling",
+  "description": "Scorer calibration: the vocabulary-correction pass did not run, so the ASR's mangled company and product names survived into the transcript and the summary. entity_spelling MUST fail — a customer's own company name spelled wrong in their meeting notes is the most obvious possible defect.",
+  "duration_seconds": 480,
+  "participants": [],
+  "transcript": "Nadia: Thanks for making time. We're evaluating Alta Flock for the pilot. Sam: Happy to help. The pilot would run on Eco Brief for the meeting notes side. Nadia: And the integration with Zo Ho CRM, is that ready? Sam: It is, we ship the datacentre-bound token handling for it. Nadia: Good. Send the pilot scope this week.",
+  "speakers": [],
+  "insights": {
+    "summary": "Nadia's team is evaluating Alta Flock for a pilot that would run on Eco Brief for meeting notes, with an integration into Zo Ho CRM. Sam confirmed the integration is ready and will send the pilot scope this week.",
+    "action_items": [],
+    "decisions": []
+  },
+  "gold": {
+    "entity_misspellings": ["Alta Flock", "Eco Brief", "Zo Ho"]
+  },
+  "expect": {
+    "entity_spelling": "fail"
+  }
+}

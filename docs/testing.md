@@ -164,7 +164,27 @@ python3 scripts/evals/run_evals.py --snapshot <id>    # pull a prod meeting into
 7. `summary_faithfulness` — the summary is split into claims and each claim checked against the transcript (gate ≥ 0.9)
 8. `decision_accuracy` — gold decisions covered (gate ≥ 0.7)
 
-**Judge calibration:** LLM judges drift lenient, so the dataset includes a poisoned case — a transcript whose paired insights contain a deliberately invented action item ("hire two backend contractors", never discussed) and a fabricated summary claim ("agreed to double the marketing budget"). The case declares `"expect": {"action_item_precision": "fail", "summary_faithfulness": "fail"}`, and the suite passes **only when the judge catches both plants**. If the poisoned case ever starts passing, the judge broke — fix the judge, not the case.
+**Calibration — a scorer that never fails is indistinguishable from one that cannot fail.** The 9-case dataset carries a **negative control per scorer**: a case built to break exactly one property, declaring `"expect": {"<scorer>": "fail"}`, so the suite passes only when the scorer *catches the plant*.
+
+| Case | Must fail | Stands in for |
+|---|---|---|
+| `synthetic_hallucination` | `action_item_precision`, `summary_faithfulness` | An invented action item ("hire two backend contractors") and a fabricated summary claim ("double the marketing budget") — the judge drifting lenient |
+| `synthetic_devanagari_leak` | `english_output` | Translate mode regressing and leaving Devanagari in the output |
+| `synthetic_stitch_broken` | `stitch_integrity` | A chunk-offset bug — invisible in the prose, visible only in the timestamps |
+| `synthetic_phantom_speakers` | `speaker_attribution` | Speaker mapping leaving raw `SPEAKER_XX` labels when real names are known |
+| `synthetic_entity_misspelling` | `entity_spelling` | The vocabulary pass not running, so a customer's company name stays mangled |
+| `synthetic_boundary_leak` | `boundary_exclusion` | Private waiting-room speech summarised into the insights |
+
+If one of these starts passing, the scorer went blind — **fix the scorer, not the case.**
+
+`synthetic_boundary_leak` is the instructive one: its summary is entirely *faithful* to
+the transcript, because the leaked line really was said. Faithfulness and privacy are
+different properties, and a suite grading only the first would call that output perfect.
+
+The judge retries transport failures (dropped connection, 5xx, 429) with backoff and
+never retries a 4xx or an answer it dislikes. Two different transient network errors
+failed the gate on consecutive runs on 2026-09-07; every case added multiplies the judge
+calls, so an unretried blip would make spurious deploy-blocking failures routine.
 
 **Fixing a failing eval:** first decide which of three things failed — (a) the *pipeline* genuinely regressed → fix the pipeline (this is the eval doing its job); (b) the *judge* mis-graded → tighten the judge prompt and re-verify against the calibration case; (c) the *gold reference* is wrong or stale → fix the dataset case. Never "fix" an eval failure by deleting the case or lowering a gate without understanding which of the three it was.
 

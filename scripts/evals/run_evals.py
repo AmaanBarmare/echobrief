@@ -141,7 +141,7 @@ def main() -> int:
             print("No dataset cases found.")
             return 1
 
-    print(f"Running {len(cases)} case(s) x up to 8 evals")
+    print(f"Running {len(cases)} case(s) x up to 11 evals")
     print("=" * 88)
     all_mismatches: list[str] = []
     for case in cases:

@@ -1,0 +1,22 @@
+{
+  "id": "synthetic_phantom_speakers",
+  "description": "Scorer calibration: real participant names are known but speaker mapping left raw SPEAKER_XX diarization labels on every segment. speaker_attribution MUST fail — unnamed speakers are the single most visible quality regression in the product.",
+  "duration_seconds": 300,
+  "participants": ["Asha", "Vikram"],
+  "transcript": "Asha: Where did we land on the storage cap? Vikram: We're at eighty percent, so I'll raise it before month end. Asha: Good, that one's yours. Vikram: Understood.",
+  "speakers": [
+    {"start": 0.0,  "end": 3.4,  "speaker": "SPEAKER_00", "text": "Where did we land on the storage cap?"},
+    {"start": 3.6,  "end": 9.1,  "speaker": "SPEAKER_01", "text": "We're at eighty percent, so I'll raise it before month end."},
+    {"start": 9.4,  "end": 12.0, "speaker": "SPEAKER_00", "text": "Good, that one's yours."},
+    {"start": 12.2, "end": 13.5, "speaker": "SPEAKER_01", "text": "Understood."}
+  ],
+  "insights": {
+    "summary": "Asha and Vikram reviewed the storage cap, which is currently at eighty percent. Vikram took the task of raising it before the end of the month.",
+    "action_items": [],
+    "decisions": []
+  },
+  "gold": {},
+  "expect": {
+    "speaker_attribution": "fail"
+  }
+}

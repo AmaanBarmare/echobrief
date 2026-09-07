@@ -37,12 +37,39 @@ LLM-judge (gpt-4o-mini, temperature 0, strict JSON):
 10. **decision_accuracy** — gold decisions covered (gate ≥ 0.7)
 11. **numbers_recall** — every gold hard number (`gold.numbers`) must survive into key points, summary or extracted facts, formatting differences allowed (gate ≥ 0.95). Dropped numbers ($5M TTV, $20K average booking) are exactly what the follow-up proposal needs, so this is the headline metric.
 
-## Judge calibration
+## Calibration: proving each scorer actually fires
 
-`case_synthetic_hallucination.json` contains a deliberately invented action item
-and summary claim, with `"expect": {"action_item_precision": "fail", ...}`.
-The suite passes only when the judge CATCHES the plants. If that case ever
-starts "passing", the judge has gone lenient — fix the judge, not the case.
+A scorer that never fails is indistinguishable from a scorer that cannot fail. The
+dataset therefore carries a **negative control per scorer** — a case built to break
+exactly one property, marked `"expect": {"<scorer>": "fail"}`. The suite passes only
+when the scorer CATCHES the plant. If one of these ever starts "passing", the scorer
+has gone blind — **fix the scorer, not the case.**
+
+| Case | Must fail | The regression it stands in for |
+|---|---|---|
+| `case_synthetic_hallucination` | `action_item_precision`, `summary_faithfulness` | An invented action item and an invented summary claim — the judge going lenient |
+| `case_synthetic_devanagari_leak` | `english_output` | Sarvam's translate mode regressing and leaving Devanagari in the output |
+| `case_synthetic_stitch_broken` | `stitch_integrity` | A chunk-offset bug. Invisible in the prose; only the timestamps show it |
+| `case_synthetic_phantom_speakers` | `speaker_attribution` | Speaker mapping failing and leaving raw `SPEAKER_XX` labels when real names are known |
+| `case_synthetic_entity_misspelling` | `entity_spelling` | The vocabulary-correction pass not running, so a customer's own company name stays mangled |
+| `case_synthetic_boundary_leak` | `boundary_exclusion` | Private waiting-room speech summarised into the insights |
+
+`case_synthetic_boundary_leak` is the one worth reading. Its summary is **entirely
+faithful** to the transcript — the leaked line really was said. Faithfulness and privacy
+are different properties, and a suite that only graded faithfulness would call that
+output perfect.
+
+Each negative control is otherwise clean: it skips the scorers it is not testing (no
+`gold` entries, empty `speakers` or `participants`), so exactly one thing fails and the
+signal is unambiguous.
+
+### The judge retries transport, never disagreement
+
+`_judge` retries with backoff on a dropped connection, a 5xx or a 429, and never on a
+4xx or on an answer it dislikes. This is not defensive padding: two different transient
+network errors failed the gate on consecutive runs on 2026-09-07, and each case added
+multiplies the judge calls, so an unretried blip would make spurious deploy-blocking
+failures routine. A judge that answers and disagrees is a real result.
 
 ## Growing the dataset (production → eval feedback loop)
 

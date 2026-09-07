@@ -1,0 +1,22 @@
+{
+  "id": "synthetic_boundary_leak",
+  "description": "Scorer calibration: private waiting-room chatter from before the external guest joined was copied verbatim into the insights. boundary_exclusion MUST fail. Note the summary is entirely FAITHFUL to the transcript — the leaked line really was said, in the room, by the account's own team. That is the point: faithfulness and privacy are different properties, and only this scorer catches the second one.",
+  "duration_seconds": 900,
+  "participants": [],
+  "transcript": "Ravi: While we wait for them to join — honestly our margin on this account is barely four percent and I think we should walk away if they push on price again. Tara: Agreed, but let's not say that out loud. Ravi: Obviously. [guest joins] Tara: Hi Marcus, thanks for joining. Marcus: Good to be here. We'd like to expand the contract to three more regions next quarter. Tara: That's great to hear. We can put together scoping for that. Marcus: Please do, end of month works. Tara: We'll send it by the thirtieth.",
+  "speakers": [],
+  "insights": {
+    "summary": "Ravi noted that our margin on this account is barely four percent and that we should walk away if they push on price again. Marcus asked to expand the contract to three more regions next quarter, and Tara agreed to send scoping by the thirtieth.",
+    "action_items": [],
+    "decisions": []
+  },
+  "gold": {
+    "internal_excerpts": [
+      "our margin on this account is barely four percent",
+      "we should walk away if they push on price again"
+    ]
+  },
+  "expect": {
+    "boundary_exclusion": "fail"
+  }
+}
