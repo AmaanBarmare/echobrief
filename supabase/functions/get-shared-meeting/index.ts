@@ -25,6 +25,7 @@ import { checkRateLimit, createRateLimitResponse, getClientIdentifier, RATE_LIMI
 import { hashShareToken, looksLikeShareToken } from "../_shared/share-token.ts";
 import { resolveRecordingMedia } from "../_shared/recording-media.ts";
 import { publicSegments, type PublicSegment } from "../_shared/share-view.ts";
+import { recordAudit } from "../_shared/audit.ts";
 
 serve(async (req) => {
   const corsResponse = handleCorsPrelight(req);
@@ -93,9 +94,29 @@ serve(async (req) => {
     // ---- the recording ----------------------------------------------------
     if (resource === "recording") {
       if (!share.include_recording) {
+        // A denial is worth more than a success here: repeated attempts to pull
+        // the recording off a link that does not carry it is what probing looks
+        // like, and the recording is the one asset zones cannot protect.
+        await recordAudit(supabase, {
+          action: "recording.accessed",
+          actorType: "share_token",
+          actorToken: token,
+          resourceType: "meeting",
+          resourceId: share.meeting_id,
+          result: "denied",
+          metadata: { reason: "not_included_in_share", share_id: share.id },
+        }, req);
         return json({ error: "The recording is not part of this link." }, 403);
       }
       const media = await resolveRecordingMedia(supabase, meeting);
+      await recordAudit(supabase, {
+        action: "recording.accessed",
+        actorType: "share_token",
+        actorToken: token,
+        resourceType: "meeting",
+        resourceId: share.meeting_id,
+        metadata: { share_id: share.id },
+      }, req);
       return json(media);
     }
 
@@ -126,6 +147,21 @@ serve(async (req) => {
         last_viewed_at: new Date().toISOString(),
       })
       .eq("id", share.id);
+
+    // view_count above answers "how popular"; this answers "by whom, from
+    // where, and which link" — the questions asked after a link leaks.
+    await recordAudit(supabase, {
+      action: "share.viewed",
+      actorType: "share_token",
+      actorToken: token,
+      resourceType: "meeting",
+      resourceId: share.meeting_id,
+      metadata: {
+        share_id: share.id,
+        included_transcript: share.include_transcript,
+        included_recording: share.include_recording,
+      },
+    }, req);
 
     return json({
       meeting: {

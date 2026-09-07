@@ -22,6 +22,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsPrelight } from "../_shared/cors.ts";
 import { resolveRecordingMedia } from "../_shared/recording-media.ts";
+import { recordAudit } from "../_shared/audit.ts";
 
 serve(async (req) => {
   const corsResponse = handleCorsPrelight(req);
@@ -75,6 +76,16 @@ serve(async (req) => {
     }
 
     const media = await resolveRecordingMedia(supabase, meeting);
+    // The mp4 is the whole call, waiting-room audio included — zones cannot
+    // trim it. Every time a playable URL is minted, it is recorded.
+    await recordAudit(supabase, {
+      action: "recording.accessed",
+      actorType: "user",
+      actorUserId: user.id,
+      resourceType: "meeting",
+      resourceId: meeting.id,
+      metadata: { kind: media?.kind ?? null },
+    }, req);
     return new Response(JSON.stringify(media), { headers: jsonHeaders });
   } catch (error) {
     console.error("[get-recording-media] error:", error);

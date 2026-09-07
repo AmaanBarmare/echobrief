@@ -12,6 +12,7 @@ import { getCorsHeaders, handleCorsPrelight } from "../_shared/cors.ts";
 import { authenticate } from "../_shared/auth.ts";
 import { checkRateLimit, createRateLimitResponse, RATE_LIMITS } from "../_shared/rate-limit.ts";
 import { generateShareToken, SHARE_TOKEN_PREFIX } from "../_shared/share-token.ts";
+import { recordAudit } from "../_shared/audit.ts";
 
 const APP_URL = Deno.env.get("APP_URL") || "https://www.echobrief.in";
 
@@ -111,6 +112,21 @@ serve(async (req) => {
 
       // The only time the plaintext exists. It is not stored and cannot be
       // shown again — a lost link is revoked and replaced, not recovered.
+      // Hashed into the trail here so a later share.viewed row can be tied back
+      // to the moment this link was minted, and by whom.
+      await recordAudit(supabase, {
+        action: "share.created",
+        actorType: "user",
+        actorUserId: userId,
+        actorToken: token,
+        resourceType: "meeting",
+        resourceId: meetingId,
+        metadata: {
+          share_id: data?.id,
+          include_transcript: data?.include_transcript ?? false,
+          include_recording: data?.include_recording ?? false,
+        },
+      }, req);
       return json({
         share: data,
         url: `${APP_URL}/share/${token}`,
@@ -173,6 +189,18 @@ serve(async (req) => {
         .maybeSingle();
       if (error) throw error;
       if (!data) return json({ error: "Link not found" }, 404);
+      await recordAudit(supabase, {
+        action: "share.updated",
+        actorType: "user",
+        actorUserId: userId,
+        resourceType: "meeting",
+        resourceId: meetingId,
+        metadata: {
+          share_id: data.id,
+          include_transcript: data.include_transcript,
+          include_recording: data.include_recording,
+        },
+      }, req);
       return json({ share: data });
     }
 
@@ -188,6 +216,14 @@ serve(async (req) => {
         .eq("meeting_id", meetingId)
         .eq("created_by", userId);
       if (error) throw error;
+      await recordAudit(supabase, {
+        action: "share.revoked",
+        actorType: "user",
+        actorUserId: userId,
+        resourceType: "meeting",
+        resourceId: meetingId,
+        metadata: { share_id: shareId },
+      }, req);
       return json({ revoked: true });
     }
 

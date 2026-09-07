@@ -25,6 +25,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsPrelight } from "../_shared/cors.ts";
 import { authenticate } from "../_shared/auth.ts";
 import { openGoogleTokens } from "../_shared/oauth-tokens.ts";
+import { recordAudit } from "../_shared/audit.ts";
 
 // User-scoped tables with no ON DELETE CASCADE path from auth.users
 // (checked against supabase/migrations/, 2026-08-31):
@@ -167,6 +168,17 @@ serve(async (req) => {
         .eq("user_id", userId);
       if (anonError) throw new Error(`anonymise ${table} failed: ${anonError.message}`);
     }
+
+    // Recorded BEFORE the user is deleted: afterwards there is no session left
+    // to attribute it to, and "who deleted this account, from where" is the
+    // single most likely question to be asked of this table.
+    await recordAudit(supabase, {
+      action: "account.deleted",
+      actorType: "user",
+      actorUserId: userId,
+      resourceType: "account",
+      resourceId: userId,
+    }, req);
 
     // 5. The account itself — FK cascades clear everything else.
     const { error: deleteError } = await supabase.auth.admin.deleteUser(userId);

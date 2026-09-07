@@ -13,6 +13,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsPrelight } from "../_shared/cors.ts";
 import { generateToken } from "./token.ts";
+import { recordAudit } from "../_shared/audit.ts";
 
 const MAX_TOKENS_PER_USER = 10;
 
@@ -91,6 +92,17 @@ serve(async (req) => {
       if (error) throw error;
 
       // The one and only time the plaintext exists outside the client's memory.
+      // The token itself is hashed into the trail, so MCP and API reads made
+      // with it later can be tied back to this moment and this user.
+      await recordAudit(admin, {
+        action: "api_token.created",
+        actorType: "user",
+        actorUserId: userId,
+        actorToken: token,
+        resourceType: "api_token",
+        resourceId: data?.id ?? null,
+        metadata: { name: data?.name ?? null },
+      }, req);
       return json({ ...data, token });
     }
 
@@ -103,6 +115,13 @@ serve(async (req) => {
         .eq("id", id)
         .eq("user_id", userId);
       if (error) throw error;
+      await recordAudit(admin, {
+        action: "api_token.revoked",
+        actorType: "user",
+        actorUserId: userId,
+        resourceType: "api_token",
+        resourceId: id,
+      }, req);
       return json({ revoked: true });
     }
 

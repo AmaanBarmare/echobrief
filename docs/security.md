@@ -183,3 +183,29 @@ in-memory sliding-window limiter with per-endpoint configs in `RATE_LIMITS`.
 
 Deleting a meeting removes the row; cascading behaviour for transcripts and insights
 follows the foreign keys declared in the migrations.
+
+---
+
+## Audit trail
+
+`audit_events` records the consequential actions: a share link minted, widened,
+used or revoked; a recording URL handed out; an API token created, revoked, or
+used; workspace invites, joins, role changes and removals; account and meeting
+deletion. Written by [`_shared/audit.ts`](../supabase/functions/_shared/audit.ts),
+never by a call site directly, so the shape of a row is decided once.
+
+It is **append-only in the database**, by RULE rather than by convention —
+`UPDATE` and `DELETE` are refused even for the service role, so a compromised
+service key cannot rewrite history. Users can read their own rows and nothing
+else. Tokens appear only as sha256 digests, which is what makes "what else did
+that leaked link touch?" answerable without the audit table becoming the second
+copy of the credential.
+
+> **What it does not capture, stated plainly:** the dashboard reads meetings,
+> transcripts and insights **directly from PostgREST** with the user's own JWT,
+> and the Settings data export is a client-side bulk select. No Edge Function is
+> in that path, and Postgres cannot trigger on `SELECT`. So an owner reading
+> their own meeting leaves no audit row. Closing that gap means routing those
+> reads through an API — the same work as the public REST API. Until then, this
+> is an audit trail of **actions and of third-party access**, not of owner
+> reads, and it should be described to customers in exactly those terms.
