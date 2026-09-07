@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { authenticate } from "../_shared/auth.ts"
+import { openGoogleTokens } from "../_shared/oauth-tokens.ts";
 
 const supabaseClient = createClient(
   Deno.env.get('SUPABASE_URL')!,
@@ -119,11 +120,12 @@ serve(async (req) => {
 
     // Get access token for fetching calendars from Google
     let googleAccessToken: string | null = null
-    const { data: listTokenData } = await supabaseClient
+    const { data: storedListToken } = await supabaseClient
       .from('user_oauth_tokens')
       .select('google_access_token')
       .eq('user_id', user_id)
       .single()
+    const listTokenData = await openGoogleTokens(storedListToken)
 
     if (listTokenData?.google_access_token) {
       googleAccessToken = listTokenData.google_access_token
@@ -219,11 +221,12 @@ serve(async (req) => {
     }
 
     // Get access token from user's Google OAuth
-    const { data: tokenData, error: tokenError } = await supabaseClient
+    const { data: storedToken, error: tokenError } = await supabaseClient
       .from('user_oauth_tokens')
       .select('google_access_token')
       .eq('user_id', user_id)
       .single()
+    const tokenData = await openGoogleTokens(storedToken)
 
     if (tokenError || !tokenData?.google_access_token) {
       throw new Error('Google access token not found')

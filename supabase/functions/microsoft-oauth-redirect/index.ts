@@ -13,6 +13,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { checkRateLimit, getClientIdentifier, RATE_LIMITS } from "../_shared/rate-limit.ts";
+import { sealConnectionTokens } from "../_shared/oauth-tokens.ts";
 
 const TOKEN = "https://login.microsoftonline.com/common/oauth2/v2.0/token";
 
@@ -110,7 +111,7 @@ serve(async (req) => {
 
     const { error: upsertError } = await supabase
       .from("calendar_connections")
-      .upsert({
+      .upsert(await sealConnectionTokens({
         user_id: stateRow.user_id,
         provider: "microsoft",
         access_token: tokenData.access_token,
@@ -119,7 +120,7 @@ serve(async (req) => {
         scopes: typeof tokenData.scope === "string" ? tokenData.scope : null,
         needs_reconnect: false,
         updated_at: new Date().toISOString(),
-      }, { onConflict: "user_id,provider" });
+      }), { onConflict: "user_id,provider" });
 
     if (upsertError) {
       console.error("[microsoft-oauth-redirect] could not store the grant:", upsertError);

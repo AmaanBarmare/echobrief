@@ -5,6 +5,7 @@
  * new features (follow-up event creation) do not grow a fourth copy of it.
  * Tokens live in user_oauth_tokens (service-role only).
  */
+import { openGoogleTokens, sealGoogleTokens } from "./oauth-tokens.ts";
 export type GoogleTokenResult =
   | { ok: true; accessToken: string }
   | { ok: false; code: "NOT_CONNECTED" | "TOKEN_REFRESH_FAILED" | "SERVER_CONFIG"; error: string };
@@ -13,11 +14,13 @@ export async function getGoogleAccessToken(
   supabase: any,
   userId: string,
 ): Promise<GoogleTokenResult> {
-  const { data: tokens } = await supabase
+  const { data: stored } = await supabase
     .from("user_oauth_tokens")
     .select("google_access_token, google_refresh_token, google_token_expiry")
     .eq("user_id", userId)
     .maybeSingle();
+  // Columns are sealed at rest; every read of them goes through the chokepoint.
+  const tokens = await openGoogleTokens(stored);
 
   if (!tokens?.google_access_token && !tokens?.google_refresh_token) {
     return { ok: false, code: "NOT_CONNECTED", error: "Google Calendar is not connected." };
@@ -71,7 +74,11 @@ export async function getGoogleAccessToken(
   }
   const newExpiry = new Date(Date.now() + (Number(refreshed.expires_in) || 3600) * 1000);
   await supabase.from("user_oauth_tokens").upsert(
-    { user_id: userId, google_access_token: refreshed.access_token, google_token_expiry: newExpiry.toISOString() },
+    await sealGoogleTokens({
+      user_id: userId,
+      google_access_token: refreshed.access_token,
+      google_token_expiry: newExpiry.toISOString(),
+    }),
     { onConflict: "user_id" },
   );
   return { ok: true, accessToken: refreshed.access_token };

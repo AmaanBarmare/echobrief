@@ -24,6 +24,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsPrelight } from "../_shared/cors.ts";
 import { authenticate } from "../_shared/auth.ts";
+import { openGoogleTokens } from "../_shared/oauth-tokens.ts";
 
 // User-scoped tables with no ON DELETE CASCADE path from auth.users
 // (checked against supabase/migrations/, 2026-08-31):
@@ -135,11 +136,12 @@ serve(async (req) => {
 
     // 2. Best-effort Google token revocation (before the tokens row goes).
     try {
-      const { data: tokens } = await supabase
+      const { data: storedTokens } = await supabase
         .from("user_oauth_tokens")
         .select("google_refresh_token, google_access_token")
         .eq("user_id", userId)
         .maybeSingle();
+      const tokens = await openGoogleTokens(storedTokens);
       const revokable = tokens?.google_refresh_token || tokens?.google_access_token;
       if (revokable) {
         await fetch(

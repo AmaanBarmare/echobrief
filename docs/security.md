@@ -129,6 +129,23 @@ deployed secret can be checked against `.env` without overwriting it.
 `SPLIT_AUDIO_SECRET` must be byte-identical on both sides or the splitter 401s and the
 pipeline silently degrades to the empty-transcript path.
 
+**Credentials at rest.** Google and Microsoft OAuth access and refresh tokens are
+sealed with AES-256-GCM before they reach Postgres
+([`_shared/crypto.ts`](../supabase/functions/_shared/crypto.ts)); the key is a Supabase
+secret and never lives in the database. Until 2026-09-07 these were plaintext columns,
+which RLS does nothing to protect against a dump, a leaked service-role key or a
+platform-side compromise — and a leaked refresh token is live calendar access until the
+customer revokes it. Every read and write goes through
+[`_shared/oauth-tokens.ts`](../supabase/functions/_shared/oauth-tokens.ts) rather than
+touching the columns directly, because a forgotten `seal()` is indistinguishable from a
+working write until it leaks. The envelope carries its own key version, so rotation is a
+background re-wrap rather than an outage.
+
+Transcripts and insights are **not** column-encrypted: they are protected by RLS and by
+the platform's at-rest disk encryption, which means anyone holding the service-role key
+can read them. That is a deliberate, revisitable decision, recorded here so it is a
+choice rather than an oversight.
+
 ---
 
 ## CORS and rate limiting

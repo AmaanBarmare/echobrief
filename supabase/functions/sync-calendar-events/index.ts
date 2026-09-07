@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsPrelight } from "../_shared/cors.ts";
+import { openGoogleTokens } from "../_shared/oauth-tokens.ts";
 
 serve(async (req) => {
   const corsResponse = handleCorsPrelight(req);
@@ -52,11 +53,12 @@ serve(async (req) => {
     }
 
     // Get Google access token
-    const { data: tokenData } = await supabase
+    const { data: storedToken } = await supabase
       .from("user_oauth_tokens")
       .select("google_access_token")
       .eq("user_id", user_id)
       .single();
+    const tokenData = await openGoogleTokens(storedToken);
 
     if (!tokenData?.google_access_token) {
       return new Response(

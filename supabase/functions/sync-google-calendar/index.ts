@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getCorsHeaders, handleCorsPrelight } from "../_shared/cors.ts";
 import { pickChangedEvents } from "../_shared/calendar-diff.ts";
+import { openGoogleTokens, sealGoogleTokens } from "../_shared/oauth-tokens.ts";
 
 function extractMeetingUrl(event: Record<string, unknown>): string | null {
   const conferenceData = event.conferenceData as
@@ -61,11 +62,12 @@ serve(async (req) => {
     }
 
     // Get user's Google tokens (service role — not readable from browser when RLS locks the table)
-    let { data: tokenData, error: tokenError } = await supabase
+    let { data: storedTokens, error: tokenError } = await supabase
       .from("user_oauth_tokens")
       .select("google_access_token, google_refresh_token, google_token_expiry")
       .eq("user_id", user.id)
       .maybeSingle();
+    let tokenData = await openGoogleTokens(storedTokens);
 
     if (tokenError || !tokenData?.google_access_token) {
       return new Response(
@@ -108,11 +110,11 @@ serve(async (req) => {
             newExpiry.getSeconds() + (refreshed.expires_in || 3600),
           );
           await supabase.from("user_oauth_tokens").upsert(
-            {
+            await sealGoogleTokens({
               user_id: user.id,
               google_access_token: accessToken,
               google_token_expiry: newExpiry.toISOString(),
-            },
+            }),
             { onConflict: "user_id" },
           );
           console.log(`[sync-google-calendar] Token refreshed successfully`);
