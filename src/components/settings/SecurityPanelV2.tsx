@@ -6,10 +6,8 @@
  * one irreversible control in the app and the work happens server-side in the
  * delete-account edge function.
  *
- * Two-factor enrolment (SecurityCard) and the data export (ExportDataCard) are
- * still their V1 selves, rendered between these sections. They are self-contained
- * cards with their own state, and they work; they get the Console treatment when
- * their turn comes.
+ * Two-factor enrolment and the data export are their own Sections between
+ * these, each keeping its own state and its own calls.
  */
 
 import { useState } from "react";
@@ -22,8 +20,8 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { checkPwnedPassword } from "@/lib/pwned";
-import { ExportDataCard } from "./ExportDataCard";
-import { SecurityCard } from "./SecurityCard";
+import { ExportDataCardV2 } from "./ExportDataCardV2";
+import { SecurityCardV2 } from "./SecurityCardV2";
 import { Button, Field, Input, Section } from "@/ui";
 
 export function SecurityPanelV2() {
@@ -152,8 +150,8 @@ export function SecurityPanelV2() {
         </div>
       </Section>
 
-      <SecurityCard />
-      <ExportDataCard />
+      <SecurityCardV2 />
+      <ExportDataCardV2 />
 
       <Section title="Sign out" description="Sign out of your account on this device.">
         <Button onClick={handleSignOut} icon={<LogOut size={15} strokeWidth={1.75} />}>
