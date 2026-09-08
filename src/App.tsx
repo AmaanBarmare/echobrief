@@ -25,6 +25,7 @@ const Dashboard = lazy(() => import("./pages/Dashboard"));
 const DashboardV2 = lazy(() => import("./pages/DashboardV2"));
 const Recordings = lazy(() => import("./pages/Recordings"));
 const MeetingDetail = lazy(() => import("./pages/MeetingDetail"));
+const MeetingDetailV2 = lazy(() => import("./pages/MeetingDetailV2"));
 const Settings = lazy(() => import("./pages/Settings"));
 const SettingsV2 = lazy(() => import("./pages/SettingsV2"));
 const Calendar = lazy(() => import("./pages/Calendar"));
@@ -132,7 +133,7 @@ function AppRoutes() {
           path="/meeting/:id"
           element={
             <ProtectedRoute>
-              <MeetingDetail />
+              <V2Route v1={<MeetingDetail />} v2={<MeetingDetailV2 />} />
             </ProtectedRoute>
           }
         />
