@@ -18,6 +18,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { isToday, isTomorrow, parseISO } from 'date-fns';
 import { CalendarDays, Loader2, RefreshCw, Video, Mic } from 'lucide-react';
+import { GoogleMeetIcon } from '@/components/icons/GoogleMeetIcon';
 import { useNavigate } from 'react-router-dom';
 import { formatIST } from '@/lib/time';
 import { supabase } from '@/integrations/supabase/client';
@@ -49,9 +50,13 @@ interface Row {
 }
 
 /** Google Meet / Zoom / Teams from the link itself — no icon pack needed. */
+function isGoogleMeet(link: string | null): boolean {
+  return !!link && link.includes('meet.google');
+}
+
 function platformOf(link: string | null): string {
   if (!link) return 'In person';
-  if (link.includes('meet.google')) return 'Google Meet';
+  if (isGoogleMeet(link)) return 'Google Meet';
   if (link.includes('zoom.')) return 'Zoom';
   if (link.includes('teams.microsoft') || link.includes('teams.live')) return 'Teams';
   return 'Video call';
@@ -306,7 +311,11 @@ export default function CalendarV2() {
                           row.meetingLink ? 'text-eb-accent' : 'text-eb-muted',
                         )}
                       >
-                        <Video size={15} strokeWidth={1.75} />
+                        {isGoogleMeet(row.meetingLink) ? (
+                          <GoogleMeetIcon size={16} />
+                        ) : (
+                          <Video size={15} strokeWidth={1.75} />
+                        )}
                       </span>
 
                       <span className="min-w-0 flex-1">

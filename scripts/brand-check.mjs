@@ -39,6 +39,12 @@ collect(palette);
 /** Third-party brand colours we are not free to restyle. */
 const THIRD_PARTY_HEX = new Map([
   ['#4285F4', 'Google brand blue'],
+  ['#00832D', 'Google Meet green'],
+  ['#00AC47', 'Google Meet light green'],
+  ['#0066DA', 'Google Meet blue'],
+  ['#2684FC', 'Google Meet light blue'],
+  ['#E94235', 'Google Meet red'],
+  ['#FFBA00', 'Google Meet yellow'],
   ['#0B57D0', 'Google brand blue (dark)'],
   ['#2D8CFF', 'Zoom brand blue'],
   ['#6264A7', 'Microsoft Teams purple'],
