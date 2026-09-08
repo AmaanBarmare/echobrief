@@ -44,6 +44,7 @@ const Docs = lazy(() => import("./pages/Docs"));
 const OAuthConsent = lazy(() => import("./pages/OAuthConsent"));
 const SharedMeeting = lazy(() => import("./pages/SharedMeeting"));
 const Workspace = lazy(() => import("./pages/Workspace"));
+const WorkspaceV2 = lazy(() => import("./pages/WorkspaceV2"));
 const AcceptInvite = lazy(() => import("./pages/AcceptInvite"));
 
 // Cache server reads so revisiting a page renders instantly from cache and
@@ -194,7 +195,7 @@ function AppRoutes() {
           path="/workspace"
           element={
             <ProtectedRoute>
-              <Workspace />
+              <V2Route v1={<Workspace />} v2={<WorkspaceV2 />} />
             </ProtectedRoute>
           }
         />
