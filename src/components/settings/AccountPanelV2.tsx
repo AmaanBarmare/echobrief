@@ -6,15 +6,14 @@
  *
  *  - The automation webhook moved to the Developer tab, where DESIGN_SPEC §7
  *    puts it. It is the same section, rendered by WebhookSectionV2.
- *  - Preferences gained the two toggles the mockup shows. They write the same
+ *  - Preferences shows the mockup's three toggles. The first two write the same
  *    columns the V1 Integrations and Bot tabs write, so until those tabs move to
- *    V2 the same switch appears in two places. The mockup's third toggle,
- *    "Summaries in Hindi", is NOT here: `preferred_languages` is written by
- *    onboarding and read by nothing in the pipeline, so the switch would be
- *    decorative.
+ *    V2 the same switch appears in two places. The third writes
+ *    profiles.summary_language, which post-transcription.ts reads and passes to
+ *    the synthesis prompt — it was decorative until that landed, and is not now.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Loader2, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -28,7 +27,12 @@ interface PanelProps {
   setProfile: React.Dispatch<React.SetStateAction<Profile | null>>;
 }
 
-type Prefs = { email_summaries_enabled: boolean; auto_join_enabled: boolean };
+type Prefs = {
+  email_summaries_enabled: boolean;
+  auto_join_enabled: boolean;
+  /** profiles.summary_language: 'en' | 'hi'. Held as a boolean for one switch. */
+  summary_in_hindi: boolean;
+};
 
 export function AccountPanelV2({ profile, setProfile }: PanelProps) {
   const { user } = useAuth();
@@ -37,16 +41,25 @@ export function AccountPanelV2({ profile, setProfile }: PanelProps) {
   const [fullName, setFullName] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
+
   const [vocabulary, setVocabulary] = useState<string[]>([]);
   const [vocabInput, setVocabInput] = useState("");
   const [savingVocab, setSavingVocab] = useState(false);
 
-  const [prefs, setPrefs] = useState<Prefs>({ email_summaries_enabled: true, auto_join_enabled: false });
+  const [prefs, setPrefs] = useState<Prefs>({
+    email_summaries_enabled: true,
+    auto_join_enabled: false,
+    summary_in_hindi: false,
+  });
 
   useEffect(() => {
     if (!profile) return;
     setFullName((profile.full_name || "").trim());
     setVocabulary(Array.isArray(profile.custom_vocabulary) ? profile.custom_vocabulary : []);
+    setAvatarUrl(profile.avatar_url ?? null);
   }, [profile]);
 
   // auto_join_enabled is not on the shared Profile shape (the Bot tab owns it),
@@ -57,19 +70,102 @@ export function AccountPanelV2({ profile, setProfile }: PanelProps) {
     void (async () => {
       const { data } = await supabase
         .from("profiles")
-        .select("email_summaries_enabled, auto_join_enabled")
+        .select("email_summaries_enabled, auto_join_enabled, summary_language")
         .eq("user_id", user.id)
         .maybeSingle();
       if (cancelled || !data) return;
       setPrefs({
         email_summaries_enabled: data.email_summaries_enabled !== false,
         auto_join_enabled: data.auto_join_enabled === true,
+        summary_in_hindi: data.summary_language === "hi",
       });
     })();
     return () => {
       cancelled = true;
     };
   }, [user]);
+
+  /**
+   * Profile photo. The path is <user id>/avatar-<timestamp>.<ext>: the bucket is
+   * public and CDN-cached, so a stable filename would keep serving the old face
+   * after a replace. The previous object is removed after the profile row points
+   * at the new one, so a failure mid-way leaves a working avatar, not a broken
+   * link.
+   */
+  const handleAvatarFile = async (file: File) => {
+    if (!user) return;
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Error", description: "Choose an image file.", variant: "destructive" });
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      toast({ title: "Error", description: "Images must be under 2 MB.", variant: "destructive" });
+      return;
+    }
+
+    setUploadingAvatar(true);
+    const previous = avatarUrl;
+    try {
+      const ext = (file.name.split(".").pop() || "png").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const path = `${user.id}/avatar-${Date.now()}.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(path, file, { contentType: file.type, upsert: false });
+      if (uploadError) throw uploadError;
+
+      const { data: publicUrl } = supabase.storage.from("avatars").getPublicUrl(path);
+      const url = publicUrl.publicUrl;
+
+      const { error } = await supabase
+        .from("profiles")
+        .update({ avatar_url: url })
+        .eq("user_id", user.id);
+      if (error) throw error;
+
+      setAvatarUrl(url);
+      setProfile((prev) => (prev ? { ...prev, avatar_url: url } : null));
+      void removeStoredAvatar(previous);
+      toast({ title: "Saved", description: "Your photo has been updated." });
+    } catch (error) {
+      toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
+    } finally {
+      setUploadingAvatar(false);
+      if (fileInput.current) fileInput.current.value = "";
+    }
+  };
+
+  /** Deletes the object a public avatar URL points at. Best effort. */
+  const removeStoredAvatar = async (url: string | null) => {
+    if (!url || !user) return;
+    const marker = "/avatars/";
+    const at = url.indexOf(marker);
+    if (at === -1) return;
+    const path = url.slice(at + marker.length).split("?")[0];
+    if (!path.startsWith(`${user.id}/`)) return;
+    await supabase.storage.from("avatars").remove([path]);
+  };
+
+  const handleRemoveAvatar = async () => {
+    if (!user || !avatarUrl) return;
+    setUploadingAvatar(true);
+    const previous = avatarUrl;
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ avatar_url: null })
+        .eq("user_id", user.id);
+      if (error) throw error;
+      setAvatarUrl(null);
+      setProfile((prev) => (prev ? { ...prev, avatar_url: null } : null));
+      void removeStoredAvatar(previous);
+      toast({ title: "Removed", description: "Your photo has been removed." });
+    } catch (error) {
+      toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
 
   const handleSaveProfile = async () => {
     if (!user) return;
@@ -137,9 +233,14 @@ export function AccountPanelV2({ profile, setProfile }: PanelProps) {
     if (!user) return;
     const previous = prefs;
     setPrefs({ ...prefs, [key]: value });
+    // One switch is not a boolean column: summary_language is text.
+    const patch =
+      key === "summary_in_hindi"
+        ? { summary_language: value ? "hi" : "en" }
+        : { [key]: value };
     const { error } = await supabase
       .from("profiles")
-      .update({ [key]: value })
+      .update(patch)
       .eq("user_id", user.id);
     if (error) {
       setPrefs(previous);
@@ -157,15 +258,44 @@ export function AccountPanelV2({ profile, setProfile }: PanelProps) {
     <>
       <Section title="Profile">
         <div className="mb-5 flex items-center gap-3">
-          {/* Accent-filled, matching the mockup and the sidebar user card —
-              not the pastel Avatar set, which keys colour to the initial so
-              rows of different people stay tellable apart. */}
-          <span className="inline-flex h-12 w-12 flex-none items-center justify-center rounded-full bg-gradient-to-b from-eb-accent-top to-eb-accent font-outfit text-[19px] font-semibold text-white">
-            {(displayName[0] || "?").toUpperCase()}
-          </span>
-          <div className="font-dmsans text-[12.5px] text-eb-muted">
-            Your initial, from your name.
-          </div>
+          {avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt=""
+              className="h-12 w-12 flex-none rounded-full object-cover shadow-[inset_0_0_0_1px_rgba(28,25,23,.08)]"
+            />
+          ) : (
+            /* Accent-filled, matching the mockup and the sidebar user card —
+               not the pastel Avatar set, which keys colour to the initial so
+               rows of different people stay tellable apart. */
+            <span className="inline-flex h-12 w-12 flex-none items-center justify-center rounded-full bg-gradient-to-b from-eb-accent-top to-eb-accent font-outfit text-[19px] font-semibold text-white">
+              {(displayName[0] || "?").toUpperCase()}
+            </span>
+          )}
+          <input
+            ref={fileInput}
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/gif"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) void handleAvatarFile(file);
+            }}
+          />
+          <Button size="sm" onClick={() => fileInput.current?.click()} disabled={uploadingAvatar}>
+            {uploadingAvatar && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            Upload photo
+          </Button>
+          {avatarUrl && (
+            <button
+              type="button"
+              onClick={handleRemoveAvatar}
+              disabled={uploadingAvatar}
+              className="font-dmsans text-[13px] text-eb-secondary hover:text-eb-red disabled:opacity-50"
+            >
+              Remove
+            </button>
+          )}
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -247,6 +377,13 @@ export function AccountPanelV2({ profile, setProfile }: PanelProps) {
           description="The bot joins every meeting with a video link on connected calendars."
           on={prefs.auto_join_enabled}
           onChange={(v) => setPreference("auto_join_enabled", v)}
+        />
+        <Divider className="my-1" />
+        <PreferenceRow
+          title="Summaries in Hindi"
+          description="Keep the transcript in the spoken language; write the summary in Hindi. Action items and decisions stay in the words they were spoken in."
+          on={prefs.summary_in_hindi}
+          onChange={(v) => setPreference("summary_in_hindi", v)}
         />
       </Section>
     </>

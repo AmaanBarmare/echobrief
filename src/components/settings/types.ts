@@ -8,6 +8,7 @@ export interface Profile {
   id: string;
   full_name: string | null;
   email: string | null;
+  avatar_url: string | null;
   google_calendar_connected: boolean;
   google_needs_reconnect: boolean | null;
   email_summaries_enabled: boolean | null;

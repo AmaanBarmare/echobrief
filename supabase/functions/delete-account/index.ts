@@ -6,7 +6,7 @@
  * decision only the owner can make, from their own session).
  *
  * Order matters:
- *   1. Remove every object under recordings/<userId>/ in Storage (audio is
+ *   1. Remove every object under recordings/<userId>/ and avatars/<userId>/ in Storage (audio is
  *      not covered by any DB cascade).
  *   2. Best-effort revoke the Google refresh token at Google — BEFORE the
  *      user_oauth_tokens row is deleted. Failures are ignored: the grant dies
@@ -57,16 +57,17 @@ const ANONYMISE_USER_TABLES = ["billing_events"];
 const STORAGE_PAGE_SIZE = 1000;
 const STORAGE_REMOVE_BATCH = 100;
 
-/** One level of the recordings bucket: files carry an id, folders do not. */
+/** One level of a bucket: files carry an id, folders do not. */
 async function listLevel(
   supabase: any,
+  bucket: string,
   prefix: string,
 ): Promise<{ files: string[]; folders: string[] }> {
   const files: string[] = [];
   const folders: string[] = [];
   for (let offset = 0; ; offset += STORAGE_PAGE_SIZE) {
     const { data, error } = await supabase.storage
-      .from("recordings")
+      .from(bucket)
       .list(prefix, { limit: STORAGE_PAGE_SIZE, offset });
     if (error) throw new Error(`storage list failed for ${prefix}: ${error.message}`);
     for (const entry of data ?? []) {
@@ -78,13 +79,17 @@ async function listLevel(
   return { files, folders };
 }
 
-/** Every object under recordings/<userId>/ (userId/meetingId/file layout). */
-async function collectUserObjects(supabase: any, userId: string): Promise<string[]> {
+/** Every object under <bucket>/<userId>/, at any depth. */
+async function collectUserObjects(
+  supabase: any,
+  bucket: string,
+  userId: string,
+): Promise<string[]> {
   const files: string[] = [];
   const queue = [userId];
   while (queue.length > 0) {
     const prefix = queue.shift()!;
-    const level = await listLevel(supabase, prefix);
+    const level = await listLevel(supabase, bucket, prefix);
     files.push(...level.files);
     queue.push(...level.folders);
   }
@@ -126,14 +131,19 @@ serve(async (req) => {
 
     console.log(`[delete-account] Deleting account ${userId}`);
 
-    // 1. Storage: every object under recordings/<userId>/
-    const objects = await collectUserObjects(supabase, userId);
-    for (let i = 0; i < objects.length; i += STORAGE_REMOVE_BATCH) {
-      const batch = objects.slice(i, i + STORAGE_REMOVE_BATCH);
-      const { error: rmError } = await supabase.storage.from("recordings").remove(batch);
-      if (rmError) throw new Error(`storage remove failed: ${rmError.message}`);
+    // 1. Storage: every object under <bucket>/<userId>/, for every bucket the
+    //    user can write to. `avatars` joined the list when profile photos
+    //    shipped — a deleted account must not leave a face behind in a PUBLIC
+    //    bucket.
+    for (const bucket of ["recordings", "avatars"]) {
+      const objects = await collectUserObjects(supabase, bucket, userId);
+      for (let i = 0; i < objects.length; i += STORAGE_REMOVE_BATCH) {
+        const batch = objects.slice(i, i + STORAGE_REMOVE_BATCH);
+        const { error: rmError } = await supabase.storage.from(bucket).remove(batch);
+        if (rmError) throw new Error(`storage remove failed for ${bucket}: ${rmError.message}`);
+      }
+      console.log(`[delete-account] Removed ${objects.length} object(s) from ${bucket}/`);
     }
-    console.log(`[delete-account] Removed ${objects.length} storage object(s)`);
 
     // 2. Best-effort Google token revocation (before the tokens row goes).
     try {

@@ -72,7 +72,7 @@ export async function runPostTranscription(
 
   const { data: ownerProfile } = await supabase
     .from("profiles")
-    .select("custom_vocabulary")
+    .select("custom_vocabulary, summary_language")
     .eq("user_id", meeting.user_id)
     .maybeSingle();
   const vocabulary = buildVocabulary(meeting.attendees ?? [], ownerProfile?.custom_vocabulary ?? []);
@@ -136,6 +136,7 @@ export async function runPostTranscription(
   const insights = await generateInsights(openai, meeting, insightTranscript, analysisSegments, {
     vocabulary,
     skipValidation: true,
+    summaryLanguage: ownerProfile?.summary_language === "hi" ? "hi" : "en",
   });
 
   // 5. Metrics against the external-facing window.

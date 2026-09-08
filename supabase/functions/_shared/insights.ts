@@ -354,10 +354,28 @@ export function resolveActionItemDates(
  * Pass 2: synthesis. Receives ONLY the facts object — not the transcript —
  * so every sentence it writes is traceable to an extracted, quoted fact.
  */
+export type SummaryLanguage = "en" | "hi";
+
+/**
+ * The output-language clause appended to both synthesis prompts.
+ *
+ * Only the prose fields are translated. Action items and decisions are
+ * assembled from verbatim quoted facts elsewhere in this module, so they stay
+ * in the language they were spoken in — translating a quote would stop it being
+ * one. Names, company and product names and numerals stay as written so entity
+ * correction and the numbers-recall eval still line up.
+ */
+export function summaryLanguageRule(language: SummaryLanguage | undefined): string {
+  if (language !== "hi") return "";
+  return `
+- OUTPUT LANGUAGE: write summary_short, summary_detailed, key_points, strategic_insights and follow_up descriptions in HINDI (Devanagari script). Keep person names, company names, product names, URLs and all numerals exactly as they appear in the facts — do not transliterate or convert them. Every other field keeps its English key names and enum values.`;
+}
+
 async function synthesizeFromFacts(
   openai: OpenAI,
   meeting: Record<string, any>,
   facts: MeetingFacts,
+  summaryLanguage?: SummaryLanguage,
 ): Promise<Record<string, unknown>> {
   const durationLine = Number.isFinite(Number(meeting.duration_seconds))
     ? ` (${Math.round(Number(meeting.duration_seconds) / 60)} minutes)`
@@ -394,7 +412,7 @@ RULES
 - key_points are written as readable sentences that carry the numbers ("Doing $5M TTV a year across 400 clients"), never bare "metric: value" pairs.
 - strategic_insights: at most 3, only if the facts support an implication. Empty for operational meetings.
 - follow_ups: from commitments that need future contact (meetings, sending things). assignee from the commitment's "who".
-- sentiment_score: overall tone from -1 (tense) to 1 (warm). Neutral is ~0.
+- sentiment_score: overall tone from -1 (tense) to 1 (warm). Neutral is ~0.${summaryLanguageRule(summaryLanguage)}
 
 JSON shape:
 {
@@ -490,6 +508,13 @@ export interface GenerateInsightsOptions {
   /** Canonical spellings passed into the extraction prompt. */
   vocabulary?: string[];
   /**
+   * Language the synthesised prose is written in (profiles.summary_language).
+   * Extraction always works in the transcript's own language — only the report
+   * changes. Defaults to English, which is what every meeting before this
+   * option was produced with.
+   */
+  summaryLanguage?: SummaryLanguage;
+  /**
    * Leave the grounding check to the caller (post-transcription.ts runs it
    * in parallel with the coaching pass to shave ~20 s off the callback).
    */
@@ -519,7 +544,7 @@ export async function generateInsights(
   let normalized: Record<string, any> | null = null;
   try {
     facts = await extractFacts(openai, meeting, labeled, options.vocabulary ?? []);
-    const synth = await synthesizeFromFacts(openai, meeting, facts);
+    const synth = await synthesizeFromFacts(openai, meeting, facts, options.summaryLanguage);
     normalized = assembleInsights(facts, synth, speakerSegments);
     if (!normalized.summary_short) {
       throw new Error("synthesis produced no summary");
@@ -534,7 +559,7 @@ export async function generateInsights(
   }
 
   if (!normalized) {
-    normalized = await legacyGenerateInsights(openai, meeting, transcript, speakerSegments);
+    normalized = await legacyGenerateInsights(openai, meeting, transcript, speakerSegments, options.summaryLanguage);
   }
 
   resolveActionItemDates(normalized, meeting.start_time);
@@ -561,6 +586,7 @@ async function legacyGenerateInsights(
   meeting: Record<string, any>,
   transcript: string,
   speakerSegments: SpeakerSegment[],
+  summaryLanguage?: SummaryLanguage,
 ) {
   const attendeesList = (meeting.attendees || [])
     .map((a: any) => a.displayName || a.email)
@@ -600,7 +626,7 @@ RULES
 - strategic_insights: at most 3, and only if the discussion itself supports an implication. Skip if this was operational/casual.
 - speaker_highlights: at most one notable quote per speaker, with why it mattered in this meeting.
 - timeline_entries: 4–8 chapter headings covering the meeting in order. timestamp MUST be a number of seconds copied from a [mm:ss] line above.
-- sentiment_score: overall tone from -1 (tense/negative) to 1 (warm/positive). Neutral meetings are ~0, not 0.5. Do not report talk time or engagement.
+- sentiment_score: overall tone from -1 (tense/negative) to 1 (warm/positive). Neutral meetings are ~0, not 0.5. Do not report talk time or engagement.${summaryLanguageRule(summaryLanguage)}
 
 JSON shape:
 {

@@ -6,8 +6,8 @@
  * local state. Only the frame is new — a 200px chip rail beside a 760px column
  * of Sections, per DESIGN_SPEC §1 and §7.
  *
- * Panels move one at a time. Account is V2; Bot, Integrations, Billing and
- * Security still render their V1 components inside the V2 frame, which is what
+ * Panels move one at a time. Account, Bot and Security are V2; Integrations and
+ * Billing still render their V1 components inside the V2 frame, which is what
  * Phase 1 already does for whole pages. Developer is the V1 token card plus the
  * webhook section, which the spec files here rather than under Account.
  */
@@ -17,14 +17,14 @@ import {
   Bot, CreditCard, Code2, Loader2, Lock, Plug, User, type LucideIcon,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
-import { BotCustomization } from "@/components/dashboard/BotCustomization";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { displayNameFromUserMetadata } from "@/lib/userDisplayName";
 import { ApiTokensCard } from "@/components/settings/ApiTokensCard";
 import { BillingCard } from "@/components/settings/BillingCard";
 import { IntegrationsPanel } from "@/components/settings/IntegrationsPanel";
-import { SecurityPanel } from "@/components/settings/SecurityPanel";
+import { SecurityPanelV2 } from "@/components/settings/SecurityPanelV2";
+import { BotPanelV2 } from "@/components/settings/BotPanelV2";
 import { AccountPanelV2 } from "@/components/settings/AccountPanelV2";
 import { WebhookSectionV2 } from "@/components/settings/WebhookSectionV2";
 import { PageHeader, SettingsLayout } from "@/ui";
@@ -153,7 +153,7 @@ export default function SettingsV2() {
       >
         {activeTab === "account" && <AccountPanelV2 profile={profile} setProfile={setProfile} />}
 
-        {activeTab === "bot" && user && <BotCustomization user_id={user.id} />}
+        {activeTab === "bot" && user && <BotPanelV2 userId={user.id} />}
 
         {activeTab === "integrations" && (
           <IntegrationsPanel profile={profile} setProfile={setProfile} />
@@ -161,7 +161,7 @@ export default function SettingsV2() {
 
         {activeTab === "billing" && <BillingCard />}
 
-        {activeTab === "security" && <SecurityPanel />}
+        {activeTab === "security" && <SecurityPanelV2 />}
 
         {activeTab === "developer" && (
           <>

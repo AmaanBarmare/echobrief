@@ -4,6 +4,7 @@ import {
   Mic, Calendar, SquareCheck, Users, Target, MessageCircle, Building2, Settings,
   ChevronDown, Ellipsis, type LucideIcon,
 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { displayNameFromUserMetadata } from "@/lib/userDisplayName";
 import { fetchUsageMeter, planLabel, type UsageMeter } from "@/lib/usageMeter";
@@ -123,14 +124,37 @@ function UserCard() {
   const { user } = useAuth();
   const name = displayNameFromUserMetadata(user) || user?.email?.split("@")[0] || "User";
   const initial = (name[0] || "?").toUpperCase();
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+
+  // Settings can set a profile photo; without this the sidebar would keep the
+  // initial and uploading one would look like it did nothing outside Settings.
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    void supabase
+      .from("profiles")
+      .select("avatar_url")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!cancelled) setAvatarUrl(data?.avatar_url ?? null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
   return (
     <Link
       to="/settings"
       className="flex items-center gap-2.5 rounded-xl px-1.5 py-1.5 no-underline hover:bg-white/[.04]"
     >
-      <span className="inline-flex h-[30px] w-[30px] flex-none items-center justify-center rounded-full bg-gradient-to-b from-eb-accent-top to-eb-accent font-outfit text-[13px] font-semibold text-white">
-        {initial}
-      </span>
+      {avatarUrl ? (
+        <img src={avatarUrl} alt="" className="h-[30px] w-[30px] flex-none rounded-full object-cover" />
+      ) : (
+        <span className="inline-flex h-[30px] w-[30px] flex-none items-center justify-center rounded-full bg-gradient-to-b from-eb-accent-top to-eb-accent font-outfit text-[13px] font-semibold text-white">
+          {initial}
+        </span>
+      )}
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[12.5px] font-medium text-white">{name}</span>
         <span className="block truncate text-[11.5px] text-eb-on-dark">{user?.email}</span>
