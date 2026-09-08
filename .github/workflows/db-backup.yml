@@ -89,19 +89,40 @@ jobs:
           echo "STAMP=$STAMP" >> "$GITHUB_ENV"
           mkdir -p dump
 
+          # The session-mode pooler has a small, shared pool. When every slot
+          # is checked out the connection is refused outright with
+          # `(ECHECKOUTTIMEOUT) unable to check out connection from the pool
+          # after 15000ms in Session mode` — a transient capacity condition,
+          # not a broken backup. Retry with backoff before giving up; a whole
+          # night's backup should not be lost to one busy moment.
+          dump_with_retry() {
+            local label="$1"; shift
+            local attempt=1 max=5 delay=30
+            while :; do
+              if "$PG_DUMP" -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" \
+                   --no-owner --no-privileges "$@"; then
+                return 0
+              fi
+              if [ "$attempt" -ge "$max" ]; then
+                echo "::error::$label failed after $max attempts."
+                return 1
+              fi
+              echo "$label attempt $attempt/$max failed; retrying in ${delay}s"
+              sleep "$delay"
+              attempt=$((attempt + 1))
+              delay=$((delay * 2))
+            done
+          }
+
           # Everything we own: full schema + data of `public`.
-          "$PG_DUMP" -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" \
-            --schema=public --no-owner --no-privileges \
-            --file=dump/public.sql
+          dump_with_retry "public schema dump" --schema=public --file=dump/public.sql
           echo "public.sql: $(wc -c < dump/public.sql) bytes"
 
           # auth.users (schema + data for just that table). The `postgres`
           # role has SELECT on it, so this works without superuser. If
           # Supabase ever revokes that, we must know — fail loudly rather
           # than ship a backup silently missing every user account.
-          "$PG_DUMP" -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" \
-            --table=auth.users --no-owner --no-privileges \
-            --file=dump/auth_users.sql \
+          dump_with_retry "auth.users dump" --table=auth.users --file=dump/auth_users.sql \
             || { echo "::error::Dumping auth.users failed — backup would be missing all user accounts. Investigate grants on auth.users for the postgres role."; exit 1; }
           echo "auth_users.sql: $(wc -c < dump/auth_users.sql) bytes"
 
