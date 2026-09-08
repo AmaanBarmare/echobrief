@@ -6,10 +6,10 @@
  * local state. Only the frame is new — a 200px chip rail beside a 760px column
  * of Sections, per DESIGN_SPEC §1 and §7.
  *
- * Every panel is V2 except the Developer tab's token list, which is still the V1
- * ApiTokensCard, and the two-factor and data-export cards inside Security. The
- * webhook section under Developer is V2, filed there rather than under Account
- * because that is where the spec puts it.
+ * Every panel is V2. The only V1 components left on this page are the
+ * two-factor and data-export cards inside Security, which are self-contained
+ * and working. The webhook section sits under Developer rather than Account
+ * because that is where the spec files it.
  */
 
 import { useEffect, useState } from "react";
@@ -20,7 +20,7 @@ import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { displayNameFromUserMetadata } from "@/lib/userDisplayName";
-import { ApiTokensCard } from "@/components/settings/ApiTokensCard";
+import { ApiTokensCardV2 } from "@/components/settings/ApiTokensCardV2";
 import { BillingCardV2 } from "@/components/settings/BillingCardV2";
 import { IntegrationsPanelV2 } from "@/components/settings/IntegrationsPanelV2";
 import { SecurityPanelV2 } from "@/components/settings/SecurityPanelV2";
@@ -165,7 +165,7 @@ export default function SettingsV2() {
 
         {activeTab === "developer" && (
           <>
-            <ApiTokensCard />
+            <ApiTokensCardV2 />
             <WebhookSectionV2 profile={profile} setProfile={setProfile} />
           </>
         )}
