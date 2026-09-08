@@ -104,6 +104,10 @@
     "group-label": {
       "hex": "#6E665F",
       "role": "Sidebar nav group labels"
+    },
+    "nav-icon": {
+      "hex": "#8A827A",
+      "role": "Idle nav icon on the dark sidebar. Active is accent-sidebar."
     }
   },
   "semantic": {

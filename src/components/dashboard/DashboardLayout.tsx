@@ -3,12 +3,25 @@ import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { PageTransition } from './PageTransition';
 import { cn } from '@/lib/utils';
+import { useUiVersion } from '@/contexts/UiVersionContext';
+import { AppShellV2 } from '@/components/shell/AppShellV2';
 
 interface DashboardLayoutProps {
   children: ReactNode;
 }
 
+/**
+ * The one place the UI v2 flag switches shells. Every page already renders
+ * inside this component, so the swap needs no page edits and V1 is byte-for-byte
+ * unchanged when the flag is off. Phase 2 replaces the pages themselves.
+ */
 export function DashboardLayout({ children }: DashboardLayoutProps) {
+  const { ui } = useUiVersion();
+  if (ui === 'v2') return <AppShellV2>{children}</AppShellV2>;
+  return <DashboardLayoutV1>{children}</DashboardLayoutV1>;
+}
+
+function DashboardLayoutV1({ children }: DashboardLayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('sidebar-collapsed') === 'true';

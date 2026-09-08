@@ -181,6 +181,7 @@ export default {
           muted: "var(--eb-text-muted)",
           "on-dark": "var(--eb-text-on-dark)",
           "group-label": "var(--eb-group-label)",
+          "nav-icon": "var(--eb-nav-icon)",
           accent: "var(--eb-accent)",
           "accent-hover": "var(--eb-accent-hover)",
           "accent-top": "var(--eb-accent-top)",

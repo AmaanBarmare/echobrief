@@ -1066,6 +1066,7 @@
   --eb-text-muted: #A8A29E;
   --eb-text-on-dark: #B8B0A8;
   --eb-group-label: #6E665F;
+  --eb-nav-icon: #8A827A;      /* idle nav icon on the sidebar */
 
   /* accent (terracotta) */
   --eb-accent: #C2410C;

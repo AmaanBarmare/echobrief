@@ -30,13 +30,20 @@ interface RecordingButtonProps {
   calendarEventId?: string;
   meetingLink?: string;
   attendees?: CalendarAttendee[];
+  /**
+   * Draw a different trigger and keep this component's dialog and start logic.
+   * The V2 shell passes the Console split button; omitting it keeps the V1
+   * button exactly as it was, so no existing call site changes.
+   */
+  renderTrigger?: (open: () => void) => React.ReactNode;
 }
 
 export function RecordingButton({ 
   prefillTitle, 
   calendarEventId, 
   meetingLink: propMeetingLink,
-  attendees 
+  attendees,
+  renderTrigger,
 }: RecordingButtonProps) {
   const [showDialog, setShowDialog] = useState(false);
   const [meetingTitle, setMeetingTitle] = useState(prefillTitle || '');
@@ -114,14 +121,18 @@ export function RecordingButton({
 
   return (
     <>
-      <Button
-        variant="recording"
-        onClick={() => setShowDialog(true)}
-        className="gap-2"
-      >
-        <Mic className="w-4 h-4" />
-        Record
-      </Button>
+      {renderTrigger ? (
+        renderTrigger(() => setShowDialog(true))
+      ) : (
+        <Button
+          variant="recording"
+          onClick={() => setShowDialog(true)}
+          className="gap-2"
+        >
+          <Mic className="w-4 h-4" />
+          Record
+        </Button>
+      )}
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
         <DialogContent className="sm:max-w-md">
