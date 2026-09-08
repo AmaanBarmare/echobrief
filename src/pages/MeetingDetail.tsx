@@ -229,7 +229,11 @@ export default function MeetingDetail() {
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [searchParams] = useSearchParams();
   const initialSeek = (() => {
-    const t = Number(searchParams.get('t'));
+    // No ?t= at all means "no deep link" — Number(null) is 0, which would read
+    // as a valid seek and open every meeting on the Recording tab.
+    const raw = searchParams.get('t');
+    if (raw === null || raw.trim() === '') return null;
+    const t = Number(raw);
     return Number.isFinite(t) && t >= 0 ? Math.floor(t) : null;
   })();
   const [activeTab, setActiveTab] = useState(initialSeek !== null ? 'recording' : 'summary');

@@ -37,11 +37,23 @@ function Placeholder({ children }: { children: React.ReactNode }) {
 export function RecordingPlayer({
   meetingId,
   seekSeconds,
+  seekNonce,
+  onTime,
+  className,
   shareToken,
 }: {
   meetingId: string;
   /** Jump the media here once it can seek — set by deep links (?t=) and timestamp clicks. */
   seekSeconds?: number | null;
+  /**
+   * Bumped by the caller on every seek request, so clicking the same timestamp
+   * twice still jumps — `seekSeconds` alone would be an unchanged prop.
+   */
+  seekNonce?: number;
+  /** Playback position, for views that follow along (the V2 recording panel). */
+  onTime?: (seconds: number) => void;
+  /** Overrides the player chrome; the V2 panel supplies its own card. */
+  className?: string;
   /**
    * Set on the public share page, where there is no session to read. The share
    * token authorises the request instead, and `get-shared-meeting` refuses it
@@ -98,7 +110,7 @@ export function RecordingPlayer({
     if (el.readyState >= 1) apply();
     else el.addEventListener('loadedmetadata', apply, { once: true });
     return () => el.removeEventListener('loadedmetadata', apply);
-  }, [seekSeconds, data?.url]);
+  }, [seekSeconds, seekNonce, data?.url]);
 
   if (isLoading) {
     return (
@@ -132,8 +144,9 @@ export function RecordingPlayer({
         src={data.url}
         controls
         preload="metadata"
-        className="w-full rounded-xl"
-        style={{ background: 'var(--ink)', border: '1px solid var(--rule)' }}
+        onTimeUpdate={onTime ? (e) => onTime(e.currentTarget.currentTime) : undefined}
+        className={className ?? 'w-full rounded-xl'}
+        style={className ? undefined : { background: 'var(--ink)', border: '1px solid var(--rule)' }}
       />
     );
   }
@@ -150,6 +163,7 @@ export function RecordingPlayer({
           src={data.url}
           controls
           preload="metadata"
+          onTimeUpdate={onTime ? (e) => onTime(e.currentTarget.currentTime) : undefined}
           className="w-full"
         />
       </div>

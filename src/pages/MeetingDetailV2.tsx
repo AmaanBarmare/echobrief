@@ -23,6 +23,7 @@ import { MeetingMetrics } from '@/components/meeting/MeetingMetrics';
 import { ShareLinkDialog } from '@/components/meeting/ShareLinkDialog';
 import { InsightSection, InsightItem } from '@/components/meeting/InsightSection';
 import { RecordingPlayer } from '@/components/meeting/RecordingPlayer';
+import { RecordingPanelV2, PanelTopic } from '@/components/meeting/RecordingPanelV2';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Meeting, Transcript, MeetingInsights, StrategicInsight, SpeakerHighlight, ActionItem, FollowUp, TimelineEntry, MeetingFacts, CoachingReport, CoachingVerdict, CoachingFlag } from '@/types/meeting';
@@ -95,6 +96,10 @@ interface MeetingDetailData {
 const IN_PROGRESS_STATUSES = ['joining', 'in_call', 'recording', 'processing', 'transcribing'];
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+
+// Console dialog surface. shadcn's AlertDialogContent paints `bg-background`,
+// which is still the V1 theme value — these dialogs sit on eb paper instead.
+const EB_DIALOG = 'bg-eb-bg border-eb-border text-eb-text';
 
 // ─── Clean modern badges ───
 function StatusBadge({ status }: { status: string }) {
@@ -286,7 +291,11 @@ export default function MeetingDetailV2() {
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [searchParams] = useSearchParams();
   const initialSeek = (() => {
-    const t = Number(searchParams.get('t'));
+    // No ?t= at all means "no deep link" — Number(null) is 0, which would read
+    // as a valid seek and open every meeting on the Recording tab.
+    const raw = searchParams.get('t');
+    if (raw === null || raw.trim() === '') return null;
+    const t = Number(raw);
     return Number.isFinite(t) && t >= 0 ? Math.floor(t) : null;
   })();
   const [activeTab, setActiveTab] = useState(initialSeek !== null ? 'recording' : 'summary');
@@ -896,7 +905,7 @@ export default function MeetingDetailV2() {
                   {regenerating ? 'Regenerating…' : 'Regenerate'}
                 </EbButton>
               </AlertDialogTrigger>
-              <AlertDialogContent>
+              <AlertDialogContent className={EB_DIALOG}>
                 <AlertDialogHeader>
                   <AlertDialogTitle>Regenerate insights?</AlertDialogTitle>
                   <AlertDialogDescription>
@@ -908,6 +917,34 @@ export default function MeetingDetailV2() {
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
                   <AlertDialogAction onClick={handleRegenerate}>Regenerate</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <EbButton size="sm" variant="destructive" icon={<Trash2 size={14} strokeWidth={1.75} />}>
+                  Delete
+                </EbButton>
+              </AlertDialogTrigger>
+              <AlertDialogContent className={EB_DIALOG}>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete this meeting?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Permanently removes the meeting with its transcript, insights and archived
+                    audio. This cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleDelete}
+                    disabled={deleting}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    Delete
+                  </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
@@ -923,6 +960,62 @@ export default function MeetingDetailV2() {
         onSend={handleSendEmail}
       />
       <ShareLinkDialog meetingId={meeting.id} open={shareDialogOpen} onOpenChange={setShareDialogOpen} />
+
+      <AlertDialog open={draftOpen} onOpenChange={setDraftOpen}>
+        <AlertDialogContent className={cn('max-w-2xl', EB_DIALOG)}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Follow-up email draft</AlertDialogTitle>
+            <AlertDialogDescription>
+              Written from the extracted facts only — their own words for what they need, the
+              commitments both ways, and the follow-up time. Edit before sending.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {drafting || !draft ? (
+            <div className="flex items-center justify-center py-10">
+              <Loader2 className="h-6 w-6 animate-spin text-eb-secondary" />
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="font-dmsans text-[13px] text-eb-secondary">
+                To: <span className="text-eb-text">{draft.to?.join(', ') || '—'}</span>
+              </div>
+              <div className="font-dmsans text-sm font-medium text-eb-text">{draft.subject}</div>
+              <textarea
+                readOnly
+                value={draft.body}
+                rows={12}
+                className="w-full rounded-input border border-eb-border bg-eb-paper p-3 font-dmsans text-sm leading-relaxed text-eb-text outline-none"
+              />
+            </div>
+          )}
+          <AlertDialogFooter className="flex-wrap gap-2">
+            <AlertDialogCancel>Close</AlertDialogCancel>
+            {draft && !drafting && (
+              <>
+                <EbButton size="sm" onClick={() => handleDraft(true)} icon={<RefreshCw size={13} strokeWidth={1.75} />}>
+                  Redraft
+                </EbButton>
+                <EbButton
+                  size="sm"
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(`Subject: ${draft.subject}\n\n${draft.body}`);
+                    toast({ title: 'Copied to clipboard' });
+                  }}
+                  icon={<Copy size={13} strokeWidth={1.75} />}
+                >
+                  Copy
+                </EbButton>
+                <a
+                  href={`mailto:${encodeURIComponent((draft.to ?? []).filter((t) => t.includes('@')).join(','))}?subject=${encodeURIComponent(draft.subject)}&body=${encodeURIComponent(draft.body)}`}
+                  className="inline-flex items-center gap-2 rounded-pill bg-gradient-to-b from-eb-accent-top to-eb-accent px-3 py-1.5 font-dmsans text-[13px] font-medium text-white shadow-eb-primary hover:to-eb-accent-hover"
+                >
+                  <Mail size={13} strokeWidth={1.75} /> Open in mail
+                </a>
+              </>
+            )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {insights ? (
         <>
@@ -1005,7 +1098,15 @@ export default function MeetingDetailV2() {
             </div>
           )}
 
-          {activeTab === 'recording' && <RecordingPlayer meetingId={meeting.id} seekSeconds={seekSeconds} />}
+          {activeTab === 'recording' && (
+            <RecordingPanelV2
+              meetingId={meeting.id}
+              segments={visibleSegments}
+              topics={(facts?.topics as PanelTopic[] | undefined) ?? []}
+              seekSeconds={seekSeconds}
+              onSeek={setSeekSeconds}
+            />
+          )}
 
           {activeTab === 'transcript' && (
             <div className="flex flex-col gap-3">

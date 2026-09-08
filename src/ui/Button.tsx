@@ -28,7 +28,9 @@ const variants: Record<Variant, string> = {
   destructive: "bg-white text-eb-red border-eb-red-border shadow-eb-btn hover:bg-eb-red-bg",
 };
 
-export function Button({
+// forwardRef because Radix triggers (`asChild`) hand this component a ref — a
+// plain function component drops it and the trigger never opens its dialog.
+export const Button = React.forwardRef<HTMLButtonElement, Props>(function Button({
   variant = "secondary",
   size = "md",
   icon,
@@ -37,10 +39,11 @@ export function Button({
   className,
   children,
   ...rest
-}: Props) {
+}: Props, ref) {
   const iconOnly = !children;
   return (
     <button
+      ref={ref}
       {...rest}
       className={cn(
         base,
@@ -61,7 +64,7 @@ export function Button({
       {iconRight && <span className="flex">{iconRight}</span>}
     </button>
   );
-}
+});
 
 /**
  * The Record control. Main label and chevron segment share one pill, split by a
