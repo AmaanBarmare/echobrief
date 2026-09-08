@@ -6,10 +6,10 @@
  * local state. Only the frame is new — a 200px chip rail beside a 760px column
  * of Sections, per DESIGN_SPEC §1 and §7.
  *
- * Panels move one at a time. Account, Bot and Security are V2; Integrations and
- * Billing still render their V1 components inside the V2 frame, which is what
- * Phase 1 already does for whole pages. Developer is the V1 token card plus the
- * webhook section, which the spec files here rather than under Account.
+ * Every panel is V2 except the Developer tab's token list, which is still the V1
+ * ApiTokensCard, and the two-factor and data-export cards inside Security. The
+ * webhook section under Developer is V2, filed there rather than under Account
+ * because that is where the spec puts it.
  */
 
 import { useEffect, useState } from "react";
@@ -21,8 +21,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { displayNameFromUserMetadata } from "@/lib/userDisplayName";
 import { ApiTokensCard } from "@/components/settings/ApiTokensCard";
-import { BillingCard } from "@/components/settings/BillingCard";
-import { IntegrationsPanel } from "@/components/settings/IntegrationsPanel";
+import { BillingCardV2 } from "@/components/settings/BillingCardV2";
+import { IntegrationsPanelV2 } from "@/components/settings/IntegrationsPanelV2";
 import { SecurityPanelV2 } from "@/components/settings/SecurityPanelV2";
 import { BotPanelV2 } from "@/components/settings/BotPanelV2";
 import { AccountPanelV2 } from "@/components/settings/AccountPanelV2";
@@ -156,10 +156,10 @@ export default function SettingsV2() {
         {activeTab === "bot" && user && <BotPanelV2 userId={user.id} />}
 
         {activeTab === "integrations" && (
-          <IntegrationsPanel profile={profile} setProfile={setProfile} />
+          <IntegrationsPanelV2 profile={profile} setProfile={setProfile} />
         )}
 
-        {activeTab === "billing" && <BillingCard />}
+        {activeTab === "billing" && <BillingCardV2 />}
 
         {activeTab === "security" && <SecurityPanelV2 />}
 
