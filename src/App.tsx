@@ -33,6 +33,7 @@ const CalendarV2 = lazy(() => import("./pages/CalendarV2"));
 const ActionItems = lazy(() => import("./pages/ActionItems"));
 const ActionItemsV2 = lazy(() => import("./pages/ActionItemsV2"));
 const Contacts = lazy(() => import("./pages/Contacts"));
+const ContactsV2 = lazy(() => import("./pages/ContactsV2"));
 const Coaching = lazy(() => import("./pages/Coaching"));
 const Chat = lazy(() => import("./pages/Chat"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
@@ -167,7 +168,7 @@ function AppRoutes() {
           path="/contacts"
           element={
             <ProtectedRoute>
-              <Contacts />
+              <V2Route v1={<Contacts />} v2={<ContactsV2 />} />
             </ProtectedRoute>
           }
         />
