@@ -186,7 +186,47 @@ external scheduler (cron-job.org, GitHub Actions) calling the Edge Functions dir
 Not Vercel Cron — its free tier caps at once per day. Not a paid compute upgrade.
 
 `cron.schedule()` with an existing job name updates that job in place, which is why
-the frequency migrations re-declare jobs rather than unscheduling first.
+the frequency migrations re-declare jobs rather than unscheduling first. The corollary
+is that a job's body must be **restated in full** to change any part of it — which is
+how a sweep gets silently dropped, so `20260908094500` asserts afterwards that every
+previous `prune-job-logs` sweep survived its reschedule.
+
+### Disk IO: cron is no longer the binding constraint
+
+The above was true in 2026-06 and was **false** when the same alert recurred on
+2026-09-07. Re-measuring found the `pgdata` volume idle at 0.1% busy while the root
+volume ran at 10.5 MB/s: the instance was swapping, and `pg_stat_statements` and table
+sizes cannot see that at all — they only report on the volume Postgres owns.
+
+Diagnose with the per-device split, never with a Postgres view alone:
+
+```bash
+SUPABASE_SERVICE_ROLE_KEY=... ./scripts/disk-io-probe.sh 90
+```
+
+If `nvme1n1` (pgdata) is a small share of the total, **no query or cron change can
+help.** The remedy is a restart, not a plan upgrade:
+
+```bash
+curl -X POST https://api.supabase.com/v1/projects/<ref>/restart \
+  -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN"
+```
+
+On 2026-09-08 that took the draw from 11.85 MB/s (2.4x the Nano baseline of 5 MB/s /
+250 IOPS) to a settled ~2 MB/s — the cost was accumulated state over 165 days of
+uptime. Re-measure ~30 min after the restart; the boot storm is not the steady state.
+Compute only becomes the answer if the recurrence interval gets short, and add-ons
+require the Pro plan.
+
+**This is now watched.** Each `monitor-stuck-meetings` tick samples the raw counters
+into `instance_io_samples` and diffs against the previous tick, emailing
+`instance:disk_io_above_baseline` after two consecutive above-baseline windows with a
+24-hour cooldown. Query the history to find the recurrence interval:
+
+```sql
+select captured_at, above_baseline, rates->>'mbPerSec' mb, rates->>'iops' iops
+from instance_io_samples order by captured_at desc limit 50;
+```
 
 ---
 

@@ -114,12 +114,23 @@ Deno.test("a window shorter than the scrape interval is refused, not reported", 
 Deno.test("classifyIo compares against the tier baseline on both axes", () => {
   const base = { windowSeconds: 900, pgdataMbPerSec: 0, swapInMbPerSec: 0, swapOutMbPerSec: 0, memAvailableMb: 200, memTotalMb: 431, committedRatio: 3 };
   assertEquals(classifyIo({ ...base, mbPerSec: 2, iops: 100 }, "nano"), "ok");
-  // Over on throughput alone.
+  // The incident condition: 2.4x baseline on throughput.
   assertEquals(classifyIo({ ...base, mbPerSec: 11.85, iops: 100 }, "nano"), "above_baseline");
   // Over on IOPS alone.
-  assertEquals(classifyIo({ ...base, mbPerSec: 2, iops: 427 }, "nano"), "above_baseline");
+  assertEquals(classifyIo({ ...base, mbPerSec: 2, iops: 500 }, "nano"), "above_baseline");
   // The same numbers are fine on a bigger tier.
   assertEquals(classifyIo({ ...base, mbPerSec: 11.85, iops: 427 }, "small"), "ok");
+});
+
+Deno.test("a healthy instance idling near baseline does not trip the alert", () => {
+  // Measured on prod right after the 2026-09-08 restart: an idle instance
+  // produces windows at ~2 MB/s with excursions to ~5.4 MB/s against a 5 MB/s
+  // baseline. Alerting at exactly baseline would flap on a healthy machine.
+  const base = { windowSeconds: 177, pgdataMbPerSec: 0.22, swapInMbPerSec: 0.52, swapOutMbPerSec: 0.38, memAvailableMb: 232, memTotalMb: 426, committedRatio: 2.8 };
+  assertEquals(classifyIo({ ...base, mbPerSec: 5.42, iops: 228 }, "nano"), "ok");
+  assertEquals(classifyIo({ ...base, mbPerSec: 2.30, iops: 98 }, "nano"), "ok");
+  // But the real incident still trips it.
+  assertEquals(classifyIo({ ...base, mbPerSec: 11.85, iops: 427 }, "nano"), "above_baseline");
 });
 
 // --- checkInstanceIo orchestration -----------------------------------------
@@ -248,4 +259,25 @@ Deno.test("describeIo names the pgdata share, which is the diagnostic", () => {
   assert(s.includes("427 IOPS"));
   assert(s.includes("pgdata is 4%"));
   assert(s.includes("3.2x RAM"));
+});
+
+Deno.test("an off-cadence invocation keeps the old baseline instead of breaking the streak", async () => {
+  // The pipeline harness calls the monitor twice per run. Before this guard the
+  // second call stored a short-window, not-above-baseline sample, which reset
+  // the consecutive-breach count the alert depends on.
+  const now = Date.parse("2026-09-08T12:00:00Z");
+  const prevCounters = parseMetrics(SCRAPE, now - 40_000);
+  const rows: unknown[] = [];
+  const res = await checkInstanceIo(
+    fakeClient([{
+      captured_at: new Date(now - 40_000).toISOString(),
+      counters: prevCounters,
+      above_baseline: true,
+      alerted: false,
+    }], rows),
+    { supabaseUrl: "https://x.supabase.co", serviceKey: "k", fetchImpl: fetchOk(SCRAPE), now },
+  );
+  assertEquals(res.status, "skipped");
+  assert(res.reason!.includes("too short"));
+  assertEquals(rows.length, 0); // nothing written — the streak survives
 });

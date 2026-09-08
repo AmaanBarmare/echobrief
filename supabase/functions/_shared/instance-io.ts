@@ -134,10 +134,17 @@ const PAGE_BYTES = 4096;
  * short to be meaningful, or when any counter went backwards (the instance
  * rebooted and the since-boot counters restarted).
  */
+/**
+ * Shortest window that can be trusted. The metrics endpoint is scraped about
+ * every 60 s, so a window near that aliases into alternating zero and
+ * double-rate readings; 120 s is comfortably clear of it.
+ */
+export const MIN_WINDOW_SECONDS = 120;
+
 export function computeIoRates(
   prev: IoCounters,
   cur: IoCounters,
-  minWindowSeconds = 120,
+  minWindowSeconds = MIN_WINDOW_SECONDS,
 ): IoRates | null {
   const windowSeconds = (cur.at - prev.at) / 1000;
   if (!(windowSeconds >= minWindowSeconds)) return null;
@@ -185,15 +192,35 @@ export function computeIoRates(
 export type IoVerdict = "ok" | "above_baseline";
 
 /**
- * Whether a measured window is over the tier's sustained baseline.
+ * How far over baseline a window has to be before it counts as a breach.
+ *
+ * Not 1.0. Measured on the healthy instance right after the 2026-09-08 restart,
+ * an idle steady state produces windows of ~2 MB/s with excursions to ~5.4 MB/s
+ * against a 5 MB/s Nano baseline — so a threshold of exactly baseline flaps on
+ * an instance that is completely fine. The condition worth waking someone for
+ * was 2.4x baseline sustained for weeks; 1.5x catches that with margin and
+ * ignores the noise.
+ *
+ * The raw rates are stored on every sample regardless, so history can be
+ * re-analysed at any threshold without re-instrumenting.
+ */
+export const ALERT_MARGIN = 1.5;
+
+/**
+ * Whether a measured window is materially over the tier's sustained baseline.
  *
  * Bursting above baseline is a feature, not a fault — that is what the budget
- * is for. What matters is bursting for a whole 15-minute window, which is why
- * the caller requires consecutive breaches before it emails anyone.
+ * is for. What matters is bursting for a whole window, repeatedly, which is why
+ * the caller also requires consecutive breaches before it emails anyone.
  */
-export function classifyIo(rates: IoRates, tier: Tier = "nano"): IoVerdict {
+export function classifyIo(
+  rates: IoRates,
+  tier: Tier = "nano",
+  margin: number = ALERT_MARGIN,
+): IoVerdict {
   const base = TIER_BASELINES[tier];
-  return rates.mbPerSec > base.mbPerSec || rates.iops > base.iops
+  return rates.mbPerSec > base.mbPerSec * margin ||
+      rates.iops > base.iops * margin
     ? "above_baseline"
     : "ok";
 }
@@ -294,6 +321,22 @@ export async function checkInstanceIo(
 
     const history = (data ?? []) as unknown as SampleRow[];
     const prev = history[0];
+
+    // Anything that invokes the monitor off-cadence — the pipeline harness calls
+    // it twice per run — would otherwise land a sample a few seconds after the
+    // last one. That window is too short to be a rate, and storing it as a
+    // not-above-baseline row would BREAK the consecutive-breach streak the alert
+    // depends on. Keep the older sample as the baseline and record nothing.
+    if (prev) {
+      const gap = (cur.at - Date.parse(prev.captured_at)) / 1000;
+      if (gap < MIN_WINDOW_SECONDS) {
+        return {
+          status: "skipped",
+          reason: `window too short (${Math.round(gap)}s) — keeping previous sample as baseline`,
+        };
+      }
+    }
+
     const rates = prev
       ? computeIoRates(
         { ...prev.counters, at: Date.parse(prev.captured_at) },
@@ -330,11 +373,11 @@ export async function checkInstanceIo(
     });
 
     if (!rates) {
+      // A reboot DOES store its sample: the counters restarted, so the stored
+      // row is the new baseline the next tick measures against.
       return {
         status: "skipped",
-        reason: prev
-          ? "counters reset (reboot) or window too short"
-          : "no previous sample",
+        reason: prev ? "counters reset (reboot)" : "no previous sample",
       };
     }
     return {
@@ -359,7 +402,7 @@ export function describeIo(r: IoRates, tier: Tier = "nano"): string {
   const pct = Math.round((r.pgdataMbPerSec / Math.max(r.mbPerSec, 1e-9)) * 100);
   return [
     `${r.mbPerSec.toFixed(2)} MB/s and ${Math.round(r.iops)} IOPS`,
-    `against a ${tier} baseline of ${b.mbPerSec} MB/s / ${b.iops} IOPS`,
+    `against a ${tier} baseline of ${b.mbPerSec} MB/s / ${b.iops} IOPS (alerting at ${ALERT_MARGIN}x)`,
     `over ${Math.round(r.windowSeconds / 60)} min.`,
     `pgdata is ${pct}% of it`,
     `(swap in ${r.swapInMbPerSec.toFixed(2)} MB/s, out ${r.swapOutMbPerSec.toFixed(2)} MB/s;`,
