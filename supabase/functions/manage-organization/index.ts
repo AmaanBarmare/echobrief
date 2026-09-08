@@ -15,10 +15,63 @@ import { authenticate } from "../_shared/auth.ts";
 import { checkRateLimit, createRateLimitResponse, RATE_LIMITS } from "../_shared/rate-limit.ts";
 import { generateShareToken } from "../_shared/share-token.ts";
 import { sendInviteEmail } from "../_shared/org-invite-email.ts";
+import {
+  planForProfile,
+  seatsForProfile,
+  TEAM_SEAT_PLANS,
+  type BillingProfile,
+} from "../_shared/entitlements.ts";
 
 const APP_URL = Deno.env.get("APP_URL") || "https://www.echobrief.in";
 /** A workspace that can add members without limit is a billing hole. */
 const MAX_MEMBERS = 25;
+
+/**
+ * Is there a paid seat free for one more person?
+ *
+ * Only per-seat plans are gated. Every other plan — including a workspace on a
+ * flat plan or an internal `plan_override` — is limited by MAX_MEMBERS alone,
+ * so this cannot accidentally start refusing invites for accounts that never
+ * bought seats.
+ *
+ * Fails OPEN on a lookup error, exactly as `checkRecordingAllowed` does: a
+ * database hiccup must not stop a customer growing their team.
+ */
+async function seatsAvailable(
+  supabase: any,
+  orgId: string,
+  memberCount: number,
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  try {
+    const { data: owner } = await supabase
+      .from("org_members").select("user_id").eq("org_id", orgId).eq("role", "owner").maybeSingle();
+    if (!owner) return { ok: true };
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("subscription_status, subscription_product_id, subscription_renews_at, plan_override, plan_override_expires_at, subscription_quantity")
+      .eq("user_id", owner.user_id)
+      .maybeSingle();
+
+    const plan = planForProfile(profile as BillingProfile | null);
+    if (!TEAM_SEAT_PLANS.includes(plan)) return { ok: true };
+
+    const seats = seatsForProfile(profile as BillingProfile | null);
+    const { count: pending } = await supabase
+      .from("org_invites").select("id", { count: "exact", head: true })
+      .eq("org_id", orgId).is("accepted_at", null).is("revoked_at", null);
+
+    const taken = memberCount + (pending ?? 0);
+    if (taken < seats) return { ok: true };
+    return {
+      ok: false,
+      message: `All ${seats} of your seats are in use or invited. Add seats from Settings → Billing to invite more people.`,
+    };
+  } catch (err) {
+    console.error("[manage-organization] seat check failed, allowing the invite:", err);
+    return { ok: true };
+  }
+}
 
 serve(async (req) => {
   const corsResponse = handleCorsPrelight(req);
@@ -146,6 +199,15 @@ serve(async (req) => {
       if ((count ?? 0) >= MAX_MEMBERS) {
         return json({ error: `Workspaces are limited to ${MAX_MEMBERS} people. Talk to us if you need more.` }, 409);
       }
+
+      // Seats. Teams is priced per seat, so an invite past the paid count is
+      // refused HERE rather than at the sixth person's first recording — a
+      // colleague who joined a workspace and then cannot record has no idea why,
+      // and no way to fix it. Pending invites count: they are seats about to be
+      // taken, and letting five invites out against three seats just moves the
+      // failure to whoever accepts last.
+      const seatCheck = await seatsAvailable(supabase, orgId, count ?? 0);
+      if (!seatCheck.ok) return json({ error: seatCheck.message }, 402);
 
       const { token, hash } = await generateShareToken();
       const { data: invite, error } = await supabase

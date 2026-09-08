@@ -36,6 +36,9 @@ export interface PlanLimits {
 
 const HOUR = 3600;
 
+/** Hours a single Teams seat buys. See the `teams` entry below. */
+const TEAM_SEAT_HOUR_ALLOWANCE = 20;
+
 export const PLANS: Record<PlanKey, PlanLimits> = {
   // Not a plan you can buy — the state an account is in with no live
   // subscription. There is no free tier: the pricing page sells Starter, Pro
@@ -78,17 +81,60 @@ export const PLANS: Record<PlanKey, PlanLimits> = {
     maxMeetingSeconds: 4 * HOUR,
     retentionDays: 90,
   },
-  // Not self-serve. Present so a manually-provisioned account has somewhere to
-  // point until the organisations schema exists.
+  // Priced PER SEAT. The numbers here are the one-seat allowance; the real
+  // ceiling is this times the paid seat count, resolved by `limitsFor`. Twenty
+  // hours a seat is what makes the tiers coherent — Starter is 10 h for ₹799
+  // and Pro 25 h for ₹1,999, so a ₹999 seat sits between them, and the five
+  // seats the pricing page has always described ("for teams of five or more")
+  // come to the same 100 h Teams was flat-priced at before it was sellable.
   teams: {
     label: "Teams",
     meetingsPerPeriod: null,
-    includedSeconds: 100 * HOUR,
-    overageSeconds: 100 * HOUR,
+    includedSeconds: TEAM_SEAT_HOUR_ALLOWANCE * HOUR,
+    overageSeconds: TEAM_SEAT_HOUR_ALLOWANCE * HOUR,
     maxMeetingSeconds: 6 * HOUR,
     retentionDays: 365,
   },
 };
+
+/** Included (and overage) hours bought by one Teams seat. */
+export const TEAM_SEAT_PLANS: PlanKey[] = ["teams"];
+
+/**
+ * Paid seats on a profile.
+ *
+ * NULL means the subscription is not seat-priced, and every non-Teams plan is
+ * exactly that. The floor of 1 is deliberate: a Teams account whose quantity
+ * never arrived — a webhook we missed, a manual `plan_override` — degrades to a
+ * single seat's allowance rather than to an unlimited one. Under-serving a
+ * customer is a support ticket; over-serving one silently is a bill we cannot
+ * send.
+ */
+export function seatsForProfile(profile: BillingProfile | null | undefined): number {
+  const n = Number(profile?.subscription_quantity);
+  return Number.isFinite(n) && n >= 1 ? Math.floor(n) : 1;
+}
+
+/**
+ * The limits actually in force: the plan's numbers, multiplied by seats when the
+ * plan is seat-priced.
+ *
+ * Only the volume allowances scale. `maxMeetingSeconds` and `retentionDays` are
+ * properties of the product, not of how many people bought it — buying a sixth
+ * seat must not silently extend how long anyone's recordings are kept.
+ */
+export function limitsFor(plan: PlanKey, seats = 1): PlanLimits {
+  const base = PLANS[plan];
+  if (!TEAM_SEAT_PLANS.includes(plan)) return base;
+  const n = Math.max(1, Math.floor(seats));
+  return {
+    ...base,
+    includedSeconds: base.includedSeconds === null ? null : base.includedSeconds * n,
+    // Not nullable on PlanLimits: an uncapped paid plan is an uncapped spend
+    // channel, so every plan has a ceiling and it scales with seats too.
+    overageSeconds: base.overageSeconds * n,
+  };
+}
 
 /**
  * Statuses that still entitle an account. `cancelled` is deliberately included:
@@ -104,6 +150,8 @@ export interface BillingProfile {
   plan_override?: string | null;
   /** When `plan_override` stops applying. NULL = never (internal accounts). */
   plan_override_expires_at?: string | null;
+  /** Paid seats on a per-seat plan. NULL on every flat-priced plan. */
+  subscription_quantity?: number | null;
 }
 
 /**
@@ -169,7 +217,7 @@ export function planForProfile(
 }
 
 /** The plans a customer can actually buy from checkout. */
-export const SELLABLE_PLANS: PlanKey[] = ["starter", "pro"];
+export const SELLABLE_PLANS: PlanKey[] = ["starter", "pro", "teams"];
 
 /** Billing periods a plan can be bought on. Same entitlement, different cadence. */
 export type BillingPeriod = "monthly" | "annual";
@@ -180,7 +228,7 @@ const PRODUCT_MAP_ENV: Record<BillingPeriod, string> = {
   annual: "DODO_PLAN_PRODUCTS_ANNUAL",
 };
 
-/** `{ "<dodo product id>": "starter" | "pro" }` for one billing period. */
+/** `{ "<dodo product id>": "starter" | "pro" | "teams" }` for one billing period. */
 function productMap(
   period: BillingPeriod,
   env: (key: string) => string | undefined,
@@ -345,12 +393,14 @@ export async function checkRecordingAllowed(
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("subscription_status, subscription_product_id, subscription_renews_at, plan_override, plan_override_expires_at")
+    .select("subscription_status, subscription_product_id, subscription_renews_at, plan_override, plan_override_expires_at, subscription_quantity")
     .eq("user_id", billingUserId)
     .maybeSingle();
 
   const plan = planForProfile(profile as BillingProfile | null);
-  const limits = PLANS[plan];
+  // Seats come from the BILLING OWNER's profile, not the caller's — a member of
+  // a workspace has no subscription of their own.
+  const limits = limitsFor(plan, seatsForProfile(profile as BillingProfile | null));
 
   let usage: UsageSnapshot;
   try {
@@ -461,11 +511,13 @@ export async function recordRecordedSeconds(
   try {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("subscription_status, subscription_product_id, subscription_renews_at, plan_override, plan_override_expires_at")
+      .select("subscription_status, subscription_product_id, subscription_renews_at, plan_override, plan_override_expires_at, subscription_quantity")
       .eq("user_id", userId)
       .maybeSingle();
     const plan = planForProfile(profile as BillingProfile | null);
-    const limits = PLANS[plan];
+    // Seat-scaled, or a five-seat workspace would be flagged into overage at a
+    // single seat's allowance.
+    const limits = limitsFor(plan, seatsForProfile(profile as BillingProfile | null));
 
     // Overage is decided against usage BEFORE this meeting, which is what the
     // ledger holds at this moment — this row has not been written yet.

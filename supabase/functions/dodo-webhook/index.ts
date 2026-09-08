@@ -26,6 +26,8 @@ interface DodoEvent {
     subscription_id?: string;
     product_id?: string;
     next_billing_date?: string;
+    /** Seats on a per-seat subscription. Absent on flat-priced plans. */
+    quantity?: number;
     customer?: { customer_id?: string; email?: string };
     metadata?: Record<string, unknown>;
   };
@@ -123,6 +125,17 @@ serve(withObservability("dodo-webhook", async (req) => {
     if (data.product_id) update.subscription_product_id = data.product_id;
     if (data.next_billing_date) {
       update.subscription_renews_at = data.next_billing_date;
+    }
+    // Seats, for the per-seat Teams plan. Dodo carries it as the subscription
+    // `quantity`; we fall back to the seat count manage-billing put on the
+    // checkout metadata, because a payload that omits quantity would otherwise
+    // leave the workspace entitled to a single seat's hours after paying for
+    // five. Absent from BOTH means this is a flat-priced plan, and the column
+    // is deliberately left alone rather than written as 1 — overwriting it on
+    // an unrelated event is how a Teams account silently loses its seats.
+    const seats = Number(data.quantity ?? data.metadata?.seats);
+    if (Number.isFinite(seats) && seats >= 1) {
+      update.subscription_quantity = Math.floor(seats);
     }
 
     const { error: updateError } = await admin

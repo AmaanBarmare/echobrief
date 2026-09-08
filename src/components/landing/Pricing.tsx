@@ -11,7 +11,7 @@ type Billing = 'monthly' | 'annual';
 type Tier = {
   name: string;
   /** Set on tiers that can be bought; the rest route to the contact form. */
-  plan?: Extract<PlanKey, 'starter' | 'pro'>;
+  plan?: Extract<PlanKey, 'starter' | 'pro' | 'teams'>;
   tagline: string;
   monthly: number;
   annualTotal: number | null;
@@ -52,20 +52,17 @@ const tiers: Tier[] = [
   },
   {
     name: 'Teams',
-    tagline: 'For teams of five or more',
-    monthly: 0,
-    annualTotal: null,
-    unit: '',
-    priceLabel: 'Talk to us',
-    priceNote: 'Priced per team',
-    features: [
-      'In build with design partners',
-      'Shared workspace and pooled meeting-hours',
-      'Admin dashboard and usage analytics',
-      'Priority support',
-      'Tell us what your team needs',
-    ],
-    cta: 'Start a conversation',
+    plan: 'teams',
+    tagline: PLAN_COPY.teams.tagline,
+    monthly: PLAN_PRICES.teams.monthly,
+    annualTotal: PLAN_PRICES.teams.annual,
+    // Per SEAT, unlike the tiers above — said in the unit and again in the note,
+    // because a team of eight reading "₹999/month" and being charged ₹7,992 is
+    // a chargeback, not a misunderstanding.
+    unit: '/user/month',
+    priceNote: 'Billed per seat. Hours are pooled across the workspace.',
+    features: [PLAN_COPY.teams.features[0], PLAN_COPY.teams.overage, ...PLAN_COPY.teams.features.slice(1)],
+    cta: 'Get started',
   },
 ];
 

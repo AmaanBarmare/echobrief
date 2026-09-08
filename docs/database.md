@@ -277,6 +277,7 @@ in filename order. The ones that carry non-obvious history:
 | `20260831160000_production_quality_2.sql` | `contacts` + `meeting_contacts` (CRM v1), `webhook_events` + `profiles.webhook_url` / `webhook_secret` (automation), `meeting_insights.followup_draft` |
 | `20260908090000_slack_connections.sql` | `slack_connections` (sealed per-user bot token, one row per user) + `slack_deliveries` (claim-before-send). Slack's second attempt, on a schema where the three failures that got it removed in August cannot recur |
 | `20260908160000_zoho_connections.sql` | `zoho_connections` (sealed tokens **plus the datacentre domain they are valid in**) + `zoho_deliveries` (one note per meeting per CRM record) |
+| `20260908180000_team_seats.sql` | `profiles.subscription_quantity` — the paid seat count behind per-seat Teams pricing. NULL on every flat-priced plan; `seatsForProfile` reads NULL as 1 so a misconfigured account degrades to one seat rather than to unlimited |
 
 `cron.schedule()` with an existing job name **updates that job in place** — that is
 why the frequency migrations re-declare the jobs rather than unscheduling first.

@@ -26,6 +26,34 @@ import type { BillingPeriod, PlanKey } from "../_shared/entitlements.ts";
 
 const APP_URL = Deno.env.get("APP_URL") ?? "https://www.echobrief.in";
 
+/**
+ * How many people are already in this user's workspace.
+ *
+ * Members plus outstanding invites: an invite that has been sent is a seat that
+ * is about to be used, and buying fewer seats than that would fail the moment
+ * somebody accepted. Returns 1 (just the buyer) when there is no workspace, and
+ * on any error — a billing page that cannot load the org must not block a sale.
+ */
+async function workspaceSize(supabase: any, userId: string): Promise<number> {
+  try {
+    const { data: membership } = await supabase
+      .from("org_members").select("org_id").eq("user_id", userId).maybeSingle();
+    if (!membership) return 1;
+    const { count: members } = await supabase
+      .from("org_members").select("user_id", { count: "exact", head: true })
+      .eq("org_id", membership.org_id);
+    const { count: invites } = await supabase
+      .from("org_invites").select("id", { count: "exact", head: true })
+      .eq("org_id", membership.org_id)
+      .is("accepted_at", null)
+      .is("revoked_at", null);
+    return Math.max(1, (members ?? 1) + (invites ?? 0));
+  } catch (err) {
+    console.error("[manage-billing] workspace size lookup failed:", err);
+    return 1;
+  }
+}
+
 serve(async (req) => {
   const preflight = handleCorsPrelight(req);
   if (preflight) return preflight;
@@ -86,6 +114,20 @@ serve(async (req) => {
       if (!productId) {
         return json({ error: "Billing is not configured yet" }, 503);
       }
+
+      // Seats, for the one per-seat plan. The floor is the workspace as it
+      // already stands: selling three seats to a workspace that has five
+      // members would put it instantly over its own limit, and the first
+      // symptom would be recordings refused for people who did nothing wrong.
+      let quantity = 1;
+      if (plan === "teams") {
+        const requested = Math.floor(Number(body?.seats));
+        const existing = await workspaceSize(admin, user.id);
+        quantity = Math.max(Number.isFinite(requested) ? requested : 0, existing, 1);
+        if (quantity > 200) {
+          return json({ error: "That is more seats than checkout supports — talk to us." }, 400);
+        }
+      }
       if (profile?.subscription_status === "active") {
         return json({ error: "Subscription already active" }, 400);
       }
@@ -98,8 +140,12 @@ serve(async (req) => {
         customer: profile?.dodo_customer_id
           ? { customer_id: profile.dodo_customer_id }
           : { email, name: profile?.full_name ?? undefined },
-        metadata: { user_id: user.id },
+        // The seat count is on the metadata as well as the cart: the webhook
+        // reads it back to stamp profiles.subscription_quantity, and a payload
+        // that omits the cart quantity would otherwise leave us guessing.
+        metadata: { user_id: user.id, plan, seats: String(quantity) },
         returnUrl: `${APP_URL}/settings?tab=billing&checkout=success`,
+        quantity,
       });
       if (!session.checkout_url) {
         return json({ error: "Dodo returned no checkout URL" }, 502);

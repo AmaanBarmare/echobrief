@@ -12,15 +12,17 @@ import {
   productForPlan,
   readUsage,
   SELLABLE_PLANS,
+  seatsForProfile,
+  limitsFor,
 } from "../_shared/entitlements.ts";
 
 const noEnv = () => undefined;
 
 const billingEnv = (k: string) =>
   k === "DODO_PLAN_PRODUCTS"
-    ? JSON.stringify({ pdt_starter: "starter", pdt_pro: "pro" })
+    ? JSON.stringify({ pdt_starter: "starter", pdt_pro: "pro", pdt_teams: "teams" })
     : k === "DODO_PLAN_PRODUCTS_ANNUAL"
-    ? JSON.stringify({ pdt_starter_yr: "starter", pdt_pro_yr: "pro" })
+    ? JSON.stringify({ pdt_starter_yr: "starter", pdt_pro_yr: "pro", pdt_teams_yr: "teams" })
     : undefined;
 
 Deno.test("productForPlan: picks the product for the plan and billing period", () => {
@@ -47,13 +49,17 @@ Deno.test("productForPlan: a malformed map still yields the fallback product", (
 });
 
 Deno.test("productForPlan: refuses plans that are not for sale", () => {
+  // Teams JOINED this list on 2026-09-08 when it became self-serve and
+  // per-seat. `free` and `trial` never can: one is the absence of a
+  // subscription, the other is granted by code.
   const env = (k: string) =>
     k === "DODO_PLAN_PRODUCTS"
-      ? JSON.stringify({ pdt_free: "free", pdt_teams: "teams" })
+      ? JSON.stringify({ pdt_free: "free", pdt_trial: "trial", pdt_teams: "teams" })
       : undefined;
   assertEquals(productForPlan("free", "monthly", env), null);
-  assertEquals(productForPlan("teams", "monthly", env), null);
-  assertEquals(SELLABLE_PLANS, ["starter", "pro"]);
+  assertEquals(productForPlan("trial", "monthly", env), null);
+  assertEquals(productForPlan("teams", "monthly", env), "pdt_teams");
+  assertEquals(SELLABLE_PLANS, ["starter", "pro", "teams"]);
 });
 
 Deno.test("productForPlan and planForProfile agree, on both billing periods", () => {
@@ -487,4 +493,53 @@ Deno.test("a workspace lookup failure bills the caller as an individual", async 
   const decision = await checkRecordingAllowed(sb, "solo");
   assert(decision.allowed);
   assertEquals(decision.plan, "pro");
+});
+
+/* ── per-seat Teams ─────────────────────────────────────────────────────── */
+
+Deno.test("seats: a missing quantity is one seat, never unlimited", () => {
+  // Under-serving a customer is a support ticket; over-serving one silently is
+  // a bill we cannot send. So the fallback is the smallest plausible number.
+  assertEquals(seatsForProfile(null), 1);
+  assertEquals(seatsForProfile({}), 1);
+  assertEquals(seatsForProfile({ subscription_quantity: null }), 1);
+  assertEquals(seatsForProfile({ subscription_quantity: 0 }), 1);
+  assertEquals(seatsForProfile({ subscription_quantity: -4 }), 1);
+  assertEquals(seatsForProfile({ subscription_quantity: 5 }), 5);
+  // Whatever Dodo sends, seats are whole people.
+  assertEquals(seatsForProfile({ subscription_quantity: 3.9 } as never), 3);
+});
+
+Deno.test("seats: only the volume allowances scale, not the product limits", () => {
+  const one = limitsFor("teams", 1);
+  const five = limitsFor("teams", 5);
+  assertEquals(five.includedSeconds, (one.includedSeconds ?? 0) * 5);
+  assertEquals(five.overageSeconds, one.overageSeconds * 5);
+  // Buying a sixth seat must not extend how long anyone's recordings are kept,
+  // nor how long a single meeting may run.
+  assertEquals(five.retentionDays, one.retentionDays);
+  assertEquals(five.maxMeetingSeconds, one.maxMeetingSeconds);
+});
+
+Deno.test("seats: five seats reproduce the flat Teams allowance it replaced", () => {
+  // Teams was flat-priced at 100 hours and the page has always said "for teams
+  // of five or more". If this drifts, the plan quietly became a different offer.
+  assertEquals(limitsFor("teams", 5).includedSeconds, 100 * 3600);
+});
+
+Deno.test("seats: flat-priced plans ignore the seat count entirely", () => {
+  // A stray subscription_quantity on a Starter account must not multiply it.
+  for (const plan of ["free", "trial", "starter", "pro"] as const) {
+    assertEquals(limitsFor(plan, 9), PLANS[plan]);
+  }
+});
+
+Deno.test("seats: Teams is sellable and resolves from its own product id", () => {
+  assertEquals(SELLABLE_PLANS.includes("teams"), true);
+  const env = (k: string) =>
+    k === "DODO_PLAN_PRODUCTS" ? '{"prod_teams_m":"teams","prod_pro_m":"pro"}' : undefined;
+  assertEquals(
+    planForProfile({ subscription_status: "active", subscription_product_id: "prod_teams_m" }, env),
+    "teams",
+  );
 });

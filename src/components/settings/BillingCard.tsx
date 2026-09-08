@@ -16,6 +16,7 @@ import {
   periodStart,
   planForProfile,
   SELLABLE_PLANS,
+  PER_SEAT_PLANS,
 } from '@/lib/plans';
 import type { BillingPeriod, PlanKey } from '@/lib/plans';
 
@@ -117,11 +118,16 @@ export function BillingCard() {
     }
   }, [searchParams, setSearchParams, toast, refresh]);
 
+  // Seats for the one per-seat plan. Two by default because a workspace of one
+  // is not a team; the server raises this to the workspace's real size anyway,
+  // so it can never sell fewer seats than the account already uses.
+  const [seats, setSeats] = useState(2);
+
   const invoke = useCallback(async (action: 'checkout' | 'portal', plan?: PlanKey) => {
     setWorking(true);
     try {
       const { data, error } = await supabase.functions.invoke('manage-billing', {
-        body: { action, plan, billing: period },
+        body: { action, plan, billing: period, ...(plan === 'teams' ? { seats } : {}) },
       });
       if (error) throw new Error(error.message);
       if (data?.error) throw new Error(data.error);
@@ -134,7 +140,7 @@ export function BillingCard() {
       });
       setWorking(false);
     }
-  }, [toast, period]);
+  }, [toast, period, seats]);
 
   const [code, setCode] = useState('');
   const [redeeming, setRedeeming] = useState(false);
@@ -336,7 +342,8 @@ export function BillingCard() {
 
           <div className="grid gap-4 sm:grid-cols-2">
             {SELLABLE_PLANS.map((key) => {
-              const plan = key as 'starter' | 'pro';
+              const plan = key as 'starter' | 'pro' | 'teams';
+              const perSeat = PER_SEAT_PLANS.includes(plan);
               const copy = PLAN_COPY[plan];
               const price = PLAN_PRICES[plan][period];
               const isCurrent = isActive && currentPlan === plan;
@@ -373,14 +380,36 @@ export function BillingCard() {
                   <p className="mt-3 text-[24px] font-semibold leading-none text-foreground">
                     ₹{formatINR(price)}
                     <span className="text-[13px] font-normal" style={{ color: 'var(--ink-soft)' }}>
-                      {period === 'annual' ? '/year' : '/month'}
+                      {perSeat
+                        ? period === 'annual' ? '/user/year' : '/user/month'
+                        : period === 'annual' ? '/year' : '/month'}
                     </span>
                   </p>
                   <p className="mt-1 text-[12px]" style={{ color: 'var(--ink-soft)' }}>
-                    {period === 'annual'
+                    {perSeat
+                      ? `${seats} seats — ₹${formatINR(price * seats)} ${period === 'annual' ? 'a year' : 'a month'} in total`
+                      : period === 'annual'
                       ? `Works out to ₹${formatINR(Math.round(price / 12))}/month, billed yearly`
                       : 'Billed monthly'}
                   </p>
+
+                  {perSeat && !isCurrent && (
+                    <label className="mt-3 flex items-center gap-2 text-[12.5px]" style={{ color: 'var(--ink-mid)' }}>
+                      Seats
+                      <input
+                        type="number"
+                        min={1}
+                        max={200}
+                        value={seats}
+                        onChange={(e) => setSeats(Math.min(200, Math.max(1, Number(e.target.value) || 1)))}
+                        className="h-8 w-20 rounded-md border border-border bg-background px-2 text-[13px] text-foreground"
+                        aria-label="Number of seats"
+                      />
+                      <span style={{ color: 'var(--ink-soft)' }}>
+                        × {Math.round((PLANS.teams.includedSeconds ?? 0) / 3600)} hrs each
+                      </span>
+                    </label>
+                  )}
 
                   <ul className="mt-4 flex-1 space-y-2">
                     {[...copy.features, copy.overage].map((feature) => (

@@ -50,11 +50,13 @@ export async function createCheckoutSession(opts: {
   customer: { customer_id: string } | { email: string; name?: string };
   metadata: Record<string, string>;
   returnUrl: string;
+  /** Seats, for a per-seat plan. Defaults to 1, which is every flat plan. */
+  quantity?: number;
 }): Promise<CheckoutSessionResult> {
   return await dodoFetch("/checkouts", {
     method: "POST",
     body: JSON.stringify({
-      product_cart: [{ product_id: opts.productId, quantity: 1 }],
+      product_cart: [{ product_id: opts.productId, quantity: Math.max(1, Math.floor(opts.quantity ?? 1)) }],
       customer: opts.customer,
       metadata: opts.metadata,
       return_url: opts.returnUrl,

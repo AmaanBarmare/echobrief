@@ -21,6 +21,9 @@ export interface PlanLimits {
 
 const HOUR = 3600;
 
+/** Hours a single Teams seat buys. Mirrors entitlements.ts. */
+export const TEAM_SEAT_HOURS = 20;
+
 export const PLANS: Record<PlanKey, PlanLimits> = {
   // Mirrors entitlements.ts: `free` is "no live subscription", not a tier we
   // sell. Zero meetings included.
@@ -58,18 +61,32 @@ export const PLANS: Record<PlanKey, PlanLimits> = {
     maxMeetingSeconds: 4 * HOUR,
     retentionDays: 90,
   },
+  // Per seat. These are the ONE-SEAT numbers; the workspace ceiling is this
+  // times the paid seat count. Mirrors TEAM_SEAT_HOUR_ALLOWANCE and limitsFor()
+  // in supabase/functions/_shared/entitlements.ts.
   teams: {
     label: 'Teams',
     meetingsPerPeriod: null,
-    includedSeconds: 100 * HOUR,
-    overageSeconds: 100 * HOUR,
+    includedSeconds: TEAM_SEAT_HOURS * HOUR,
+    overageSeconds: TEAM_SEAT_HOURS * HOUR,
     maxMeetingSeconds: 6 * HOUR,
     retentionDays: 365,
   },
 };
 
+/** Hours one Teams seat buys, pooled across the workspace. */
+export function teamLimits(seats: number): PlanLimits {
+  const n = Math.max(1, Math.floor(seats));
+  const base = PLANS.teams;
+  return {
+    ...base,
+    includedSeconds: (base.includedSeconds ?? 0) * n,
+    overageSeconds: base.overageSeconds * n,
+  };
+}
+
 /** Mirrors SELLABLE_PLANS in entitlements.ts — the plans checkout can sell. */
-export const SELLABLE_PLANS: PlanKey[] = ['starter', 'pro'];
+export const SELLABLE_PLANS: PlanKey[] = ['starter', 'pro', 'teams'];
 
 /** Mirrors BillingPeriod in entitlements.ts. */
 export type BillingPeriod = 'monthly' | 'annual';
@@ -79,10 +96,15 @@ export type BillingPeriod = 'monthly' | 'annual';
  * src/components/landing/Pricing.tsx and the live Dodo products; the server
  * still decides which product a checkout actually uses.
  */
-export const PLAN_PRICES: Record<'starter' | 'pro', Record<BillingPeriod, number>> = {
+export const PLAN_PRICES: Record<'starter' | 'pro' | 'teams', Record<BillingPeriod, number>> = {
   starter: { monthly: 799, annual: 7990 },
   pro: { monthly: 1999, annual: 19990 },
+  // PER SEAT, not per workspace. Annual is ten months, matching the others.
+  teams: { monthly: 999, annual: 9990 },
 };
+
+/** Plans whose price is multiplied by the number of seats bought. */
+export const PER_SEAT_PLANS: PlanKey[] = ['teams'];
 
 export interface PlanCopy {
   tagline: string;
@@ -97,7 +119,7 @@ export interface PlanCopy {
  * the Settings → Billing plan chooser, so a customer comparing the two never
  * reads two different promises.
  */
-export const PLAN_COPY: Record<'starter' | 'pro', PlanCopy> = {
+export const PLAN_COPY: Record<'starter' | 'pro' | 'teams', PlanCopy> = {
   starter: {
     tagline: 'For individuals',
     features: [
@@ -116,6 +138,16 @@ export const PLAN_COPY: Record<'starter' | 'pro', PlanCopy> = {
       'Everything in Starter',
       'Custom vocabulary and priority processing',
       '90-day retention',
+    ],
+    overage: '₹99/hr after that',
+  },
+  teams: {
+    tagline: 'For teams of five or more',
+    features: [
+      '20 meeting-hours per seat, pooled across the team',
+      'Everything in Pro',
+      'Shared workspace: invite colleagues, share meetings internally',
+      '365-day retention',
     ],
     overage: '₹99/hr after that',
   },
