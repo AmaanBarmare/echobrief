@@ -29,6 +29,7 @@ const MeetingDetailV2 = lazy(() => import("./pages/MeetingDetailV2"));
 const Settings = lazy(() => import("./pages/Settings"));
 const SettingsV2 = lazy(() => import("./pages/SettingsV2"));
 const Calendar = lazy(() => import("./pages/Calendar"));
+const CalendarV2 = lazy(() => import("./pages/CalendarV2"));
 const ActionItems = lazy(() => import("./pages/ActionItems"));
 const ActionItemsV2 = lazy(() => import("./pages/ActionItemsV2"));
 const Contacts = lazy(() => import("./pages/Contacts"));
@@ -150,7 +151,7 @@ function AppRoutes() {
           path="/calendar"
           element={
             <ProtectedRoute>
-              <Calendar />
+              <V2Route v1={<Calendar />} v2={<CalendarV2 />} />
             </ProtectedRoute>
           }
         />
