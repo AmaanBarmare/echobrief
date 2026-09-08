@@ -11,7 +11,8 @@
  *
  * WHAT MAY BE POSTED. A Slack channel is a room full of people, which makes it
  * the least forgiving delivery surface in the product. Only the summary, one
- * highlight drawn from `key_points`, the decisions and the action items go out —
+ * highlight drawn from `key_points`, the decisions, the action items and the
+ * next steps go out —
  * fields the pipeline already computes from the MEETING ZONE ONLY
  * (`_shared/zones.ts`), so internal pre/post-meeting speech cannot reach it. The
  * transcript never goes to Slack, and neither does anything derived from the
@@ -191,6 +192,18 @@ function asActionItems(items: unknown, max: number): ActionItem[] {
   return out;
 }
 
+/**
+ * Decisions arrive as `Decision (Owner) — "the verbatim sentence that settled
+ * it"`. The quote is the evidence, and it belongs in the report; in a channel
+ * it doubles the length of every line and puts someone's exact words in front
+ * of a room. Trimmed only when a real decision is left behind — a line that is
+ * mostly quote keeps it rather than being gutted to nothing.
+ */
+function stripQuoteTail(line: string): string {
+  const trimmed = line.replace(/\s*[—–-]+\s*["\u201C\u2018'][\s\S]*$/, "").trim();
+  return trimmed.length >= 25 ? trimmed : line;
+}
+
 /** Decisions and other list fields that are strings or single-key objects. */
 function asLines(items: unknown, max: number): string[] {
   if (!Array.isArray(items)) return [];
@@ -204,7 +217,48 @@ function asLines(items: unknown, max: number): string[] {
       return "";
     })
     .filter(Boolean)
+    .map(stripQuoteTail)
     .slice(0, max);
+}
+
+/** Normalised for comparison only: punctuation and case carry no meaning here. */
+function sameText(a: string, b: string): boolean {
+  const n = (t: string) => t.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return n(a) === n(b) && n(a).length > 0;
+}
+
+/**
+ * Next steps, from `follow_ups`, minus anything already listed as an action
+ * item.
+ *
+ * The pipeline emits both, and measured across the last eight meetings they
+ * overlap about half the time — "Look into Travify's features" arrived as an
+ * action item and again, word for word, as a follow-up. Printing both would
+ * make the post look padded and, worse, make a reader wonder whether they are
+ * two different tasks. When everything overlaps the section is empty and is
+ * omitted entirely, which is the correct outcome: there was nothing to add.
+ */
+function asNextSteps(
+  followUps: unknown,
+  actions: ActionItem[],
+  max: number,
+): Array<{ text: string; who: string }> {
+  if (!Array.isArray(followUps)) return [];
+  const out: Array<{ text: string; who: string }> = [];
+  for (const item of followUps) {
+    if (out.length >= max) break;
+    const text = typeof item === "string"
+      ? item.trim()
+      : String((item as Record<string, unknown>)?.description ?? "").trim();
+    if (!text) continue;
+    if (actions.some((a) => sameText(a.text, text))) continue;
+    if (out.some((o) => sameText(o.text, text))) continue;
+    const who = typeof item === "string"
+      ? ""
+      : String((item as Record<string, unknown>)?.assignee ?? "").trim();
+    out.push({ text, who });
+  }
+  return out;
 }
 
 /**
@@ -246,8 +300,8 @@ export interface SlackMeeting {
  * Build the Slack message. Pure, so it is unit-tested against the shapes the
  * pipeline actually emits.
  *
- * Four sections, in the order a reader needs them: what happened, the one line
- * worth remembering, what was decided, and who owes what. Empty sections are
+ * Five sections, in the order a reader needs them: what happened, the one line
+ * worth remembering, what was decided, who owes what, and what happens next. Empty sections are
  * OMITTED rather than printed with "None" — a channel post that says
  * "Decisions: none" three times a day trains people to stop reading it, and
  * most meetings genuinely decide nothing.
@@ -266,6 +320,7 @@ export function buildSummaryMessage(
   const decisions = asLines(insights?.decisions, 6);
   const actions = asActionItems(insights?.action_items, 6);
   const totalActions = Array.isArray(insights?.action_items) ? insights.action_items.length : 0;
+  const nextSteps = asNextSteps(insights?.follow_ups, actions, 4);
   const link = `${appUrl.replace(/\/$/, "")}/meetings/${meeting.id}`;
 
   const blocks: unknown[] = [
@@ -329,6 +384,21 @@ export function buildSummaryMessage(
     blocks.push({
       type: "section",
       text: { type: "mrkdwn", text: truncate(`:pushpin: *Action items*\n${lines.join("\n")}`, BLOCK_LIMIT) },
+    });
+  }
+
+  if (nextSteps.length) {
+    blocks.push({
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: truncate(
+          `:arrow_right: *Next steps*\n${
+            nextSteps.map((n) => `•  ${esc(n.text)}${n.who ? `  _— ${esc(n.who)}_` : ""}`).join("\n")
+          }`,
+          BLOCK_LIMIT,
+        ),
+      },
     });
   }
 

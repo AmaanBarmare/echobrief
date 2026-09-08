@@ -210,3 +210,88 @@ Deno.test("slack: the report link is still a real Slack link, not escaped", () =
   const { blocks } = buildSummaryMessage(richMeeting, full, APP);
   assertStringIncludes(textOf(blocks), "<https://www.echobrief.in/meetings/m-9|Open the full report");
 });
+
+/* ── next steps ─────────────────────────────────────────────────────────── */
+
+Deno.test("slack: next steps render with their assignee", () => {
+  const { blocks } = buildSummaryMessage(richMeeting, {
+    summary_short: "s",
+    action_items: [{ task: "Send the deck", owner: "Khush" }],
+    follow_ups: [
+      { type: "meeting", description: "Schedule a follow-up call for Wednesday.", assignee: "Khush Mutha" },
+    ],
+  }, APP);
+  const rendered = textOf(blocks);
+  assertStringIncludes(rendered, "*Next steps*");
+  assertStringIncludes(rendered, "Schedule a follow-up call for Wednesday.");
+  assertStringIncludes(rendered, "Khush Mutha");
+});
+
+Deno.test("slack: a follow-up that repeats an action item is dropped", () => {
+  // Measured across eight real meetings: follow_ups duplicate an action item
+  // about half the time, word for word. Printing both makes a reader wonder
+  // whether they are two different tasks.
+  const { blocks } = buildSummaryMessage(richMeeting, {
+    summary_short: "s",
+    action_items: [{ task: "Look into Travify's features and offerings.", owner: "Barbara Khan" }],
+    follow_ups: [
+      { type: "research", description: "look into travify's features and offerings", assignee: "Barbara Khan" },
+    ],
+  }, APP);
+  const rendered = textOf(blocks);
+  // Nothing left to say, so the whole section goes rather than echoing.
+  assertEquals(rendered.includes("*Next steps*"), false);
+  assertStringIncludes(rendered, "*Action items*");
+});
+
+Deno.test("slack: next steps survive when only some follow-ups are duplicates", () => {
+  // The control for the test above: dedup must not swallow the section whole.
+  const { blocks } = buildSummaryMessage(richMeeting, {
+    summary_short: "s",
+    action_items: [{ task: "Send the documentation", owner: "Khush" }],
+    follow_ups: [
+      { description: "Send the documentation.", assignee: "Khush" },
+      { description: "Prepare and present a proposal.", assignee: "Khush Mutha" },
+    ],
+  }, APP);
+  const rendered = textOf(blocks);
+  assertStringIncludes(rendered, "*Next steps*");
+  assertStringIncludes(rendered, "Prepare and present a proposal.");
+  // The duplicate is gone, the original stays where it belongs.
+  assertEquals(rendered.split("Send the documentation").length - 1, 1);
+});
+
+Deno.test("slack: duplicate follow-ups among themselves collapse to one", () => {
+  const { blocks } = buildSummaryMessage(richMeeting, {
+    summary_short: "s",
+    follow_ups: [
+      { description: "Schedule the call." },
+      { description: "Schedule the call" },
+      { description: "Share the pricing." },
+    ],
+  }, APP);
+  const rendered = textOf(blocks);
+  assertEquals(rendered.split("Schedule the call").length - 1, 1);
+  assertStringIncludes(rendered, "Share the pricing.");
+});
+
+Deno.test("slack: a decision's verbatim quote tail is trimmed, the decision is not", () => {
+  // Real shape from prod: `Decision (Owner) — "the sentence that settled it"`.
+  // The quote is evidence for the report, not for a room full of people.
+  const { blocks } = buildSummaryMessage(richMeeting, {
+    summary_short: "s",
+    decisions: ['Schedule a follow-up call (Khush Mutha) — "can we target a follow-up call for Wednesday?"'],
+  }, APP);
+  const rendered = textOf(blocks);
+  assertStringIncludes(rendered, "Schedule a follow-up call (Khush Mutha)");
+  assertEquals(rendered.includes("can we target"), false);
+});
+
+Deno.test("slack: a decision that is mostly quote keeps its text rather than vanishing", () => {
+  // The control: trimming must never leave a bullet with nothing in it.
+  const { blocks } = buildSummaryMessage(richMeeting, {
+    summary_short: "s",
+    decisions: ['Go ahead — "we will ship on Friday, no further review"'],
+  }, APP);
+  assertStringIncludes(textOf(blocks), "we will ship on Friday");
+});
