@@ -53,7 +53,7 @@ export function HeaderV2({ onMenuClick }: { onMenuClick?: () => void }) {
 
   return (
     <>
-      <header className="sticky top-0 z-30 flex h-[60px] items-center justify-between gap-3 border-b border-eb-border bg-eb-bg/90 px-4 backdrop-blur md:px-8">
+      <header className="sticky top-0 z-30 flex h-[60px] items-center justify-between gap-3 border-b border-eb-border bg-[color-mix(in_srgb,var(--eb-bg)_90%,transparent)] px-4 backdrop-blur md:px-8">
         <div className="flex min-w-0 flex-1 items-center gap-2">
           <button
             type="button"

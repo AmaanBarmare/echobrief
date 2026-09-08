@@ -32,7 +32,7 @@ export function MobileTabBarV2() {
   return (
     <nav
       aria-label="Sections"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-eb-border bg-eb-card/92 backdrop-blur lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-eb-border bg-[color-mix(in_srgb,var(--eb-card)_92%,transparent)] backdrop-blur lg:hidden"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
       <ul className="m-0 flex list-none items-stretch justify-around p-0">

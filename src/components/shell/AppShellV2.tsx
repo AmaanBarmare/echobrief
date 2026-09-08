@@ -40,11 +40,12 @@ export function AppShellV2({ children }: { children: ReactNode }) {
 
       <div className="min-h-screen lg:ml-[232px]">
         <HeaderV2 onMenuClick={() => setMobileNavOpen(true)} />
-        {/* pb-24 below lg keeps the last row clear of the tab bar. */}
+        {/* The 68px bar plus the home indicator, so the last row clears both.
+            A flat pb-24 was 6px short on a device with a safe-area inset. */}
         <main
           id="main-content"
           key={location.pathname}
-          className="px-5 pb-24 pt-4 md:px-8 lg:pb-8"
+          className="px-5 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-4 md:px-8 lg:pb-8"
         >
           {children}
         </main>

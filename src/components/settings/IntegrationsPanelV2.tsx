@@ -330,7 +330,7 @@ export function IntegrationsPanelV2({ profile, setProfile }: PanelProps) {
         {profile?.google_needs_reconnect && (
           <div
             role="alert"
-            className="mt-4 rounded-input border border-eb-amber/40 bg-eb-amber-bg px-4 py-3 font-dmsans text-[13px] text-eb-amber-text"
+            className="mt-4 rounded-input border border-[color-mix(in_srgb,var(--eb-amber)_40%,transparent)] bg-eb-amber-bg px-4 py-3 font-dmsans text-[13px] text-eb-amber-text"
           >
             Google Calendar stopped refreshing — reconnect to keep auto-join working.
           </div>

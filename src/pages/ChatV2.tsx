@@ -225,7 +225,7 @@ export default function ChatV2() {
 
   return (
     <DashboardLayout>
-      <div className="grid h-[calc(100dvh-7.5rem)] grid-cols-1 gap-4 lg:grid-cols-[260px_minmax(0,1fr)]">
+      <div className="grid h-[calc(100dvh-10.75rem-env(safe-area-inset-bottom))] lg:h-[calc(100dvh-6.75rem)] grid-cols-1 gap-4 lg:grid-cols-[260px_minmax(0,1fr)]">
         {/* Conversation rail */}
         <Card padded={false} className="hidden max-h-full flex-col lg:flex">
           <div className="p-3">

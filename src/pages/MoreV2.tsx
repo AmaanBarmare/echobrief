@@ -32,6 +32,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { formatIST } from '@/lib/time';
 import { fetchUsageMeter, planLabel, type UsageMeter } from '@/lib/usageMeter';
 import { Avatar, Badge, Card, Label as EbLabel } from '@/ui';
+import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 
 const db = supabase as unknown as SupabaseClient;
 
@@ -127,7 +128,8 @@ export default function MoreV2() {
   const name = state?.fullName || user?.email || 'Your account';
 
   return (
-    <div className="flex flex-col gap-5">
+    <DashboardLayout>
+      <div className="flex flex-col gap-5">
       <h1 className="m-0 font-outfit text-[26px] font-semibold leading-[1.15] tracking-[-.02em] text-eb-text">
         More
       </h1>
@@ -240,6 +242,7 @@ export default function MoreV2() {
           />
         </Card>
       </div>
-    </div>
+      </div>
+    </DashboardLayout>
   );
 }
