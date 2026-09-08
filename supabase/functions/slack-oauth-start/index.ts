@@ -12,6 +12,14 @@
  * old integration asked users to paste a raw channel ID precisely because it
  * had no read scope, and a pasted ID is unverifiable until the first post
  * fails.
+ *
+ * `chat:write.public` is the fourth, and it is not padding. `chat:write` alone
+ * posts only to channels the bot has JOINED, so a user who picks a public
+ * channel from the picker — a channel the read scope happily listed — gets
+ * `not_in_channel` on their first completed meeting, and the delivery path then
+ * clears their choice. The picker would be offering destinations that do not
+ * work. Private channels still require an explicit `/invite`, which is the
+ * correct boundary: a private room should have to opt in.
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -19,7 +27,7 @@ import { getCorsHeaders, handleCorsPrelight } from "../_shared/cors.ts";
 import { checkRateLimit, getClientIdentifier, createRateLimitResponse, RATE_LIMITS } from "../_shared/rate-limit.ts";
 
 const AUTHORIZE = "https://slack.com/oauth/v2/authorize";
-export const SLACK_SCOPES = "chat:write,channels:read,groups:read";
+export const SLACK_SCOPES = "chat:write,chat:write.public,channels:read,groups:read";
 
 serve(async (req) => {
   const corsResponse = handleCorsPrelight(req);

@@ -170,7 +170,7 @@ System name **Warm Dispatch**: ember `#D93F0B` (light) / `#E8430A` (dark) on war
 - `SARVAM_API_KEY` -- Required for Sarvam STT
 - `RESEND_API_KEY` -- Required for email delivery via Resend
 - `RECALL_API_KEY` -- Required for bot-based meeting recording
-- `SLACK_CLIENT_ID` / `SLACK_CLIENT_SECRET` -- Slack app credentials behind the summary-to-channel integration. Redirect URI is `https://lekkpfpojlspbuwrtmzt.supabase.co/functions/v1/slack-oauth-redirect`, bot scopes `chat:write,channels:read,groups:read`. Unset = `slack-oauth-start` returns 503 and the Settings card cannot connect; nothing else in the pipeline notices.
+- `SLACK_CLIENT_ID` / `SLACK_CLIENT_SECRET` -- Slack app credentials behind the summary-to-channel integration. Redirect URI is `https://lekkpfpojlspbuwrtmzt.supabase.co/functions/v1/slack-oauth-redirect`, bot scopes `chat:write,chat:write.public,channels:read,groups:read`. Unset = `slack-oauth-start` returns 503 and the Settings card cannot connect; nothing else in the pipeline notices.
 - `SPLIT_AUDIO_URL` -- URL of the Vercel split-audio function (`https://www.echobrief.in/api/split-audio`); if unset, recall-pipeline falls back to direct single-file Sarvam submission
 - `SPLIT_AUDIO_SECRET` -- Bearer secret for the split-audio function (must match the Vercel env var of the same name)
 - Google OAuth client ID/secret
