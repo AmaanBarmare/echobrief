@@ -7,7 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { CalendarProvider } from "@/contexts/CalendarContext";
-import { UiVersionProvider } from "@/contexts/UiVersionContext";
+import { UiVersionProvider, useUiVersion } from "@/contexts/UiVersionContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { PreMeetingNotification } from "@/components/dashboard/PreMeetingNotification";
@@ -25,6 +25,7 @@ const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Recordings = lazy(() => import("./pages/Recordings"));
 const MeetingDetail = lazy(() => import("./pages/MeetingDetail"));
 const Settings = lazy(() => import("./pages/Settings"));
+const SettingsV2 = lazy(() => import("./pages/SettingsV2"));
 const Calendar = lazy(() => import("./pages/Calendar"));
 const ActionItems = lazy(() => import("./pages/ActionItems"));
 const Contacts = lazy(() => import("./pages/Contacts"));
@@ -58,6 +59,15 @@ function RouteFallback() {
       <div className="w-6 h-6 border-2 border-accent border-t-transparent rounded-full animate-spin" />
     </div>
   );
+}
+
+/**
+ * Picks the V1 or V2 render of one page. Phase 2 adds a pair here per page; when
+ * V1 is deleted the wrapper goes with it and the V2 file takes the plain name.
+ */
+function V2Route({ v1, v2 }: { v1: React.ReactNode; v2: React.ReactNode }) {
+  const { ui } = useUiVersion();
+  return <>{ui === "v2" ? v2 : v1}</>;
 }
 
 function AppRoutes() {
@@ -129,7 +139,7 @@ function AppRoutes() {
           path="/settings"
           element={
             <ProtectedRoute>
-              <Settings />
+              <V2Route v1={<Settings />} v2={<SettingsV2 />} />
             </ProtectedRoute>
           }
         />
