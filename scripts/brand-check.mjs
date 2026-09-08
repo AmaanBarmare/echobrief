@@ -47,16 +47,16 @@ const THIRD_PARTY_HEX = new Map([
   ['#4A154B', 'Slack aubergine'],
 ]);
 
-/** Retired palette — these must never come back. */
+/** Retired palette — these must never come back.
+ *  #78716C, #A8A29E and #22C55E left this list on 8 Sep 2026: the Console palette
+ *  uses the first two as text-secondary / text-muted and the third as the
+ *  live-recording dot ONLY (success stays #2F7A4D on #E8F3EC). */
 const RETIRED = new Map([
   ['#F97316', 'ember (--ember / #D93F0B)'],
   ['#FB923C', 'warn (--warn) or ember-hi (--ember-hi)'],
   ['#F59E0B', 'gold (--gold / #F5C842) or warn (--warn)'],
   ['#7C2D12', 'ember-ink (--ember-ink)'],
   ['#D4900A', 'gold (--gold / #F5C842)'],
-  ['#A8A29E', 'ink-faint (--ink-faint)'],
-  ['#78716C', 'ink-soft (--ink-soft)'],
-  ['#22C55E', 'ok (--ok / #479C4D)'],
   ['#EF4444', 'stop (--stop / #D7352D)'],
   ['#3B82F6', 'info (--info / #2B88C0)'],
   ['#A855F7', 'violet (--violet / #8A5FC9)'],
@@ -74,15 +74,22 @@ const TAILWIND_PALETTE_RE = new RegExp(
   'g',
 );
 
-const BANNED_FONTS = ['Outfit', 'DM Sans', 'Inter', 'Roboto', 'Poppins', 'Lato', 'Montserrat', 'Open Sans'];
-const APPROVED_FONTS = 'Switzer, DM Serif Display, Manrope, IBM Plex Mono, JetBrains Mono, Noto Sans *';
+// Outfit and DM Sans were banned under Warm Dispatch. Ratified into the brand on
+// 8 Sep 2026 — see echobrief-ui-v2/BRAND_DECISION.md. Instrument Serif is approved
+// for the wordmark only and is deliberately NOT a Tailwind fontFamily utility.
+const BANNED_FONTS = ['Inter', 'Roboto', 'Poppins', 'Lato', 'Montserrat', 'Open Sans'];
+const APPROVED_FONTS = 'Outfit, DM Sans, Instrument Serif (wordmark only), JetBrains Mono, Switzer, DM Serif Display, Manrope, IBM Plex Mono, Noto Sans *';
 
 const BANNED_WORDS = ['AI-powered', 'AI powered', 'cutting-edge', 'cutting edge', 'next-gen',
   'next generation', 'revolutionary', 'revolutionise', 'revolutionize', 'seamless', 'game-changing'];
 
 /* ── file walk ───────────────────────────────────────────────────────────── */
 // 'docs' holds internal engineering notes, not a customer-facing surface.
-const SKIP_DIRS = new Set(['node_modules', 'dist', '.git', 'brand', 'scripts', 'docs', '.next', 'coverage', 'recordings']);
+// 'echobrief-ui-v2' is the design handoff package (mockup HTML, reference kit,
+// brand marks) — documentation, not shipped code. The mockups carry values the
+// product does not ship; the tokens that DO ship live in src/index.css.
+const SKIP_DIRS = new Set(['node_modules', 'dist', '.git', 'brand', 'scripts', 'docs',
+  '.next', 'coverage', 'recordings', 'echobrief-ui-v2']);
 const CODE_EXT = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.css', '.html']);
 
 function walk(dir, out = []) {

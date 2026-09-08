@@ -422,6 +422,7 @@ export type Database = {
           subscription_product_id: string | null
           subscription_renews_at: string | null
           updated_at: string
+          ui_v2: boolean
           user_id: string
           webhook_secret: string | null
           webhook_url: string | null
@@ -452,6 +453,7 @@ export type Database = {
           subscription_product_id?: string | null
           subscription_renews_at?: string | null
           updated_at?: string
+          ui_v2?: boolean
           user_id: string
           webhook_secret?: string | null
           webhook_url?: string | null
@@ -482,6 +484,7 @@ export type Database = {
           subscription_product_id?: string | null
           subscription_renews_at?: string | null
           updated_at?: string
+          ui_v2?: boolean
           user_id?: string
           webhook_secret?: string | null
           webhook_url?: string | null

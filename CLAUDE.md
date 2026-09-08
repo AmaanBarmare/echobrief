@@ -153,9 +153,16 @@ Custom components are in `src/components/dashboard/`, `src/components/meeting/`,
 
 ## Brand
 
-The full brand kit is [`brand/`](brand/README.md) — guidelines PDF, logo files, colour and type tokens. [`BRAND.md`](BRAND.md) is the quick reference.
+**The brand is mid-migration.** Two systems are live at once, both enforced by `npm run brand:check`:
 
-System name **Warm Dispatch**: ember `#D93F0B` (light) / `#E8430A` (dark) on warm paper/char neutrals, gold `#F5C842` accent. Type is Switzer in-app, DM Serif Display + Manrope on brand surfaces. Enforced by `npm run brand:check` — see the rule in Rules below.
+- **Console** (current, ratified 8 Sep 2026) — terracotta `#C2410C` accent on warm paper `#F5F1EC` / char `#1F1B18`, Outfit headings + DM Sans body, Instrument Serif for the wordmark only, JetBrains Mono for timestamps. Tokens are the `--eb-*` block at the bottom of [`src/index.css`](src/index.css), mirrored in `brand/tokens/colors.json` and exposed as Tailwind `eb-*` colours, `rounded-pill/card/input/tile`, `shadow-eb-*`. This is what every UI v2 page is built from. `#22C55E` (`--eb-live`) is the **live-recording dot only** — success is `--eb-green` `#2F7A4D` on `#E8F3EC`.
+- **Warm Dispatch** (legacy) — ember `#D93F0B` (light) / `#E8430A` (dark), gold `#F5C842`, Switzer in-app, DM Serif Display + Manrope on brand surfaces. Kept under the `legacy` key in `colors.json` so V1 pages keep passing the checker. **Marketing surfaces are still on it**: the landing page, the Resend email templates (`_shared/email-brand.ts` + `supabase/auth-emails/`, which read the untouched `email` block of `colors.json`), the Slack Block Kit posts and the brand PDF. Do not run `npm run emails:auth` expecting Console colours — those surfaces migrate separately.
+
+Delete the `legacy` block, the Warm Dispatch imports and this note when the last V1 page is deleted.
+
+The decision and its scope are recorded in [`echobrief-ui-v2/BRAND_DECISION.md`](echobrief-ui-v2/BRAND_DECISION.md); the design handoff (spec, mockups, migration plan, reference kit) is [`echobrief-ui-v2/`](echobrief-ui-v2/README.md), excluded from `brand:check` because it is documentation. The full brand kit is [`brand/`](brand/README.md); [`BRAND.md`](BRAND.md) is the quick reference.
+
+**UI v2 rollout:** pages ship behind `profiles.ui_v2` (per user, default false, founders seeded) with a `?ui=v2` / `?ui=v1` override that beats the column — [`src/lib/uiVersion.ts`](src/lib/uiVersion.ts), [`src/contexts/UiVersionContext.tsx`](src/contexts/UiVersionContext.tsx). The shared kit is [`src/ui/`](src/ui/). Never edit a V1 page while its V2 is in progress.
 
 ## Environment Variables
 

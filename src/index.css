@@ -8,6 +8,10 @@
 @import url('https://api.fontshare.com/v2/css?f[]=switzer@300,400,500,600,700,800&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Manrope:wght@300;400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500&family=Noto+Sans+Tamil:wght@400;500&display=swap');
 
+/* Console (UI v2) type — Outfit headings, DM Sans body, Instrument Serif wordmark.
+   JetBrains Mono already arrives with the brand import above. */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@500;600&family=DM+Sans:opsz,wght@9..40,400;9..40,500&family=Instrument+Serif:ital@0;1&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -1033,4 +1037,93 @@
     .check-box[data-checked="false"]:hover { border-color: var(--ember) !important; }
   }
   .check-box[data-checked="false"]:active { border-color: var(--ember) !important; }
+}
+
+/* ─── Console palette (UI v2) ──────────────────────────────────────────────
+   Ratified 8 Sep 2026 — echobrief-ui-v2/BRAND_DECISION.md. Mirrors
+   brand/tokens/colors.json. Additive: the Warm Dispatch tokens above stay
+   live until the last V1 page is deleted.
+   ────────────────────────────────────────────────────────────────────────── */
+:root {
+  /* surfaces */
+  --eb-bg: #F5F1EC;
+  --eb-card: #FFFFFF;
+  --eb-card-alt: #FBFAF8;
+  --eb-row-hover: #FBF8F4;
+  --eb-border: #E6DFD7;
+  --eb-divider: #EFEAE4;
+  --eb-chip: #EBE5DE;
+  --eb-btn-bottom: #FAF8F5;    /* secondary-button gradient, bottom stop */
+  --eb-toggle-track: #D9D1C8;  /* toggle track, off */
+  --eb-control-edge: #CFC6BC;  /* unchecked checkbox border */
+  --eb-sidebar: #1F1B18;
+  --eb-sidebar-raised: #2A2521;
+
+  /* text */
+  --eb-text: #1C1917;
+  --eb-text-prose: #3F3A36;
+  --eb-text-secondary: #78716C;
+  --eb-text-muted: #A8A29E;
+  --eb-text-on-dark: #B8B0A8;
+  --eb-group-label: #6E665F;
+
+  /* accent (terracotta) */
+  --eb-accent: #C2410C;
+  --eb-accent-hover: #9A3412;
+  --eb-accent-top: #D0521E;
+  --eb-accent-soft: #F7EFE8;
+  --eb-accent-text: #9A3412;
+  --eb-accent-sidebar: #F4A574;
+  --eb-accent-sidebar-bar: #E2825A;
+
+  /* semantic */
+  --eb-green: #2F7A4D;  --eb-green-bg: #E8F3EC;
+  --eb-amber: #B45309;  --eb-amber-bg: #FDF3E1;  --eb-amber-text: #7C4A03;
+  --eb-red: #B42318;    --eb-red-bg: #FBEAE7;    --eb-red-border: #EFC7C0;
+  /* live-recording dot ONLY — never a success colour. Success is --eb-green. */
+  --eb-live: #22C55E;
+
+  /* avatar set (bg / fg) — pick by charCode of initial % 6 */
+  --eb-av-0-bg: #F7EFE8; --eb-av-0-fg: #9A3412;
+  --eb-av-1-bg: #EAF0F7; --eb-av-1-fg: #1E4E8C;
+  --eb-av-2-bg: #EAF3EC; --eb-av-2-fg: #1F5E3A;
+  --eb-av-3-bg: #F3ECF7; --eb-av-3-fg: #5B2E86;
+  --eb-av-4-bg: #FBF1DC; --eb-av-4-fg: #7C4A03;
+  --eb-av-5-bg: #EDEEF2; --eb-av-5-fg: #3B3F4A;
+
+  /* speaker colours (transcript / who-spoke-when) */
+  --eb-speaker-1: #C2410C; --eb-speaker-2: #2E6FB5;
+  --eb-speaker-3: #3A7D44; --eb-speaker-4: #6B46C1;
+
+  /* code block on --eb-sidebar */
+  --eb-code-fg: #E8E1DA; --eb-code-keyword: #F4A574; --eb-code-string: #9FCB8F;
+
+  /* shape */
+  --eb-r-pill: 999px;
+  --eb-r-card: 14px;
+  --eb-r-input: 9px;
+  --eb-r-tile: 9px;
+  --eb-r-code: 10px;
+
+  /* elevation */
+  --eb-shadow-card: 0 1px 2px rgba(28, 25, 23, .04);
+  --eb-shadow-btn: 0 1px 2px rgba(28, 25, 23, .05);
+  --eb-shadow-primary: inset 0 1px 0 rgba(255,255,255,.18), 0 1px 2px rgba(122,40,8,.28), 0 0 0 1px rgba(154,52,18,.35);
+  --eb-shadow-dark: inset 0 1px 0 rgba(255,255,255,.08), 0 1px 2px rgba(28,25,23,.2);
+  --eb-inset-input: inset 0 1px 2px rgba(28, 25, 23, .04);
+
+  /* type */
+  --eb-font-heading: 'Outfit', system-ui, sans-serif;
+  --eb-font-body: 'DM Sans', system-ui, sans-serif;
+  --eb-font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --eb-font-logo: 'Instrument Serif', Georgia, serif;
+
+  /* layout */
+  --eb-sidebar-w: 232px;
+  --eb-header-h: 60px;
+  --eb-gutter: 32px;
+  --eb-control-h: 36px;
+  --eb-control-h-sm: 32px;
+  --eb-input-h: 38px;
+  --eb-mobile-tabbar-h: 84px;
 }

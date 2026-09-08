@@ -1,186 +1,197 @@
 {
   "$schema": "https://echobrief.in/brand/colors.schema.json",
-  "name": "EchoBrief — Warm Dispatch",
-  "version": "1.0.0",
-  "updated": "2026-08-21",
-  "note": "Source of truth is src/index.css. Hex values for warm neutrals are sRGB conversions of the OKLCH originals — use OKLCH on the web, hex in design tools and email.",
+  "name": "EchoBrief — Console",
+  "version": "2.0.0",
+  "updated": "2026-09-08",
+  "note": "Source of truth is src/index.css (--eb-* block). Ratified 8 Sep 2026 per echobrief-ui-v2/BRAND_DECISION.md: terracotta replaces ember, Outfit + DM Sans replace DM Serif Display + Manrope. Marketing surfaces (landing, Resend email templates, Slack Block Kit, brand PDF) are out of scope and still run on `legacy`.",
   "brand": {
-    "ember": {
-      "hex": "#D93F0B",
-      "role": "Primary brand orange (light mode). Buttons, links, active state, the logomark."
+    "accent": {
+      "hex": "#C2410C",
+      "role": "Primary accent (terracotta). Primary action, selected state, eyebrow, active nav icon, one highlighted number per stat row."
     },
-    "ember-deep": {
-      "hex": "#B83508",
-      "role": "Ember pressed / hover (light mode)."
+    "accent-hover": {
+      "hex": "#9A3412",
+      "role": "Accent pressed / hover. Also the text colour on accent-soft."
     },
-    "ember-hi": {
-      "hex": "#E84D1A",
-      "role": "Ember hover (light), and the tint the mark leans to at small sizes."
+    "accent-top": {
+      "hex": "#D0521E",
+      "role": "Top stop of the primary-button gradient."
     },
-    "ember-ink": {
-      "hex": "#8C2F05",
-      "role": "Ember text on tinted ember backgrounds."
+    "accent-soft": {
+      "hex": "#F7EFE8",
+      "role": "Selected chip and soft tile background."
     },
-    "ember-dark": {
-      "hex": "#E8430A",
-      "role": "Primary brand orange in DARK mode and in the app icon."
+    "accent-sidebar": {
+      "hex": "#F4A574",
+      "role": "Accent on the dark sidebar — active nav icon, dark-panel eyebrow, code keywords."
     },
-    "ember-dark-deep": {
-      "hex": "#C23508",
-      "role": "Ember pressed (dark mode)."
-    },
-    "ember-dark-hi": {
-      "hex": "#FF6B35",
-      "role": "Ember hover (dark mode)."
-    },
-    "gold": {
-      "hex": "#F5C842",
-      "role": "Secondary accent. Gradient end, action items, highlights. Never a primary CTA on its own."
-    },
-    "gold-light": {
-      "hex": "#FFE08A",
-      "role": "Gold tint for fills and highlight backgrounds."
-    },
-    "gold-ink": {
-      "hex": "#8A6400",
-      "role": "Gold as TEXT on light (gold itself is 1.5:1 on paper). In dark mode this token resolves to gold."
+    "accent-bar": {
+      "hex": "#E2825A",
+      "role": "The 3x16px active-nav bar on the sidebar's far left edge, and the usage-bar gradient start."
     }
   },
-  "gradient": {
-    "ember-gold-light": "linear-gradient(135deg, #D93F0B 0%, #F5C842 100%)",
-    "ember-gold-dark": "linear-gradient(135deg, #E8430A 0%, #F5C842 100%)"
-  },
-  "neutrals": {
-    "light": {
-      "paper": {
-        "hex": "#FAF4EF",
-        "oklch": "oklch(97% 0.01 60)",
-        "role": "App background"
-      },
-      "paper-raised": {
-        "hex": "#F2E9E4",
-        "oklch": "oklch(94% 0.012 55)",
-        "role": "Raised surface, hover fill"
-      },
-      "paper-deep": {
-        "hex": "#E9DFD9",
-        "oklch": "oklch(91% 0.014 52)",
-        "role": "Inset, inputs"
-      },
-      "paper-card": {
-        "hex": "#FEFBF8",
-        "oklch": "oklch(99% 0.005 65)",
-        "role": "Card fill"
-      },
-      "ink": {
-        "hex": "#190F0B",
-        "oklch": "oklch(18% 0.02 40)",
-        "role": "Primary text"
-      },
-      "ink-mid": {
-        "hex": "#514540",
-        "oklch": "oklch(40% 0.018 42)",
-        "role": "Secondary text"
-      },
-      "ink-soft": {
-        "hex": "#827873",
-        "oklch": "oklch(58% 0.015 45)",
-        "role": "Muted text"
-      },
-      "ink-faint": {
-        "hex": "#AAA39F",
-        "oklch": "oklch(72% 0.01 50)",
-        "role": "Metadata, timestamps"
-      },
-      "rule": {
-        "hex": "#E0D5CF",
-        "oklch": "oklch(88% 0.015 50)",
-        "role": "Borders, dividers"
-      },
-      "rule-soft": {
-        "hex": "#EFE6E0",
-        "oklch": "oklch(93% 0.012 55)",
-        "role": "Faint dividers"
-      }
+  "surfaces": {
+    "bg": {
+      "hex": "#F5F1EC",
+      "role": "App background"
     },
-    "dark": {
-      "char": {
-        "hex": "#120C09",
-        "oklch": "oklch(16% 0.012 40)",
-        "role": "App background"
-      },
-      "char-raised": {
-        "hex": "#1E1613",
-        "oklch": "oklch(21% 0.014 40)",
-        "role": "Raised surface"
-      },
-      "char-deep": {
-        "hex": "#191210",
-        "oklch": "oklch(19% 0.012 40)",
-        "role": "Inset, inputs"
-      },
-      "char-card": {
-        "hex": "#261D1A",
-        "oklch": "oklch(24% 0.015 40)",
-        "role": "Card fill"
-      },
-      "bone": {
-        "hex": "#F1E9E3",
-        "oklch": "oklch(94% 0.012 60)",
-        "role": "Primary text"
-      },
-      "bone-mid": {
-        "hex": "#BDB6B1",
-        "oklch": "oklch(78% 0.01 55)",
-        "role": "Secondary text"
-      },
-      "bone-soft": {
-        "hex": "#8B8581",
-        "oklch": "oklch(62% 0.01 50)",
-        "role": "Muted text"
-      },
-      "bone-faint": {
-        "hex": "#635C59",
-        "oklch": "oklch(48% 0.01 48)",
-        "role": "Metadata"
-      },
-      "rule-dark": {
-        "hex": "#362B27",
-        "oklch": "oklch(30% 0.018 42)",
-        "role": "Borders"
-      },
-      "rule-dark-soft": {
-        "hex": "#2B221E",
-        "oklch": "oklch(26% 0.015 42)",
-        "role": "Faint dividers"
-      }
+    "card": {
+      "hex": "#FFFFFF",
+      "role": "Card fill. One card level only."
+    },
+    "card-alt": {
+      "hex": "#FBFAF8",
+      "role": "Alternate row / group header inside a card"
+    },
+    "row-hover": {
+      "hex": "#FBF8F4",
+      "role": "List row hover fill"
+    },
+    "border": {
+      "hex": "#E6DFD7",
+      "role": "Card and control borders"
+    },
+    "divider": {
+      "hex": "#EFEAE4",
+      "role": "Dividers inside a card"
+    },
+    "chip": {
+      "hex": "#EBE5DE",
+      "role": "Neutral chip fill"
+    },
+    "sidebar": {
+      "hex": "#1F1B18",
+      "role": "Dark sidebar, dark panels, dark buttons, code blocks"
+    },
+    "sidebar-raised": {
+      "hex": "#2A2521",
+      "role": "Raised surface on the dark sidebar"
+    },
+    "btn-bottom": {
+      "hex": "#FAF8F5",
+      "role": "Bottom stop of the secondary-button gradient"
+    },
+    "toggle-track": {
+      "hex": "#D9D1C8",
+      "role": "Toggle track, off state"
+    },
+    "control-edge": {
+      "hex": "#CFC6BC",
+      "role": "Unchecked checkbox / radio border"
+    }
+  },
+  "text": {
+    "primary": {
+      "hex": "#1C1917",
+      "role": "Primary text"
+    },
+    "prose": {
+      "hex": "#3F3A36",
+      "role": "Long-form prose"
+    },
+    "secondary": {
+      "hex": "#78716C",
+      "role": "Secondary text and meta"
+    },
+    "muted": {
+      "hex": "#A8A29E",
+      "role": "Captions, timestamps, faint meta"
+    },
+    "on-dark": {
+      "hex": "#B8B0A8",
+      "role": "Body text on the dark sidebar and dark panels"
+    },
+    "group-label": {
+      "hex": "#6E665F",
+      "role": "Sidebar nav group labels"
     }
   },
   "semantic": {
-    "ok": {
-      "hex": "#479C4D",
-      "oklch": "oklch(62% 0.14 145)",
-      "role": "Success, completed"
+    "green": {
+      "hex": "#2F7A4D",
+      "role": "Success. Done, connected, bot will join. THE success colour — see `live`."
     },
-    "warn": {
-      "hex": "#D6A20A",
-      "oklch": "oklch(74% 0.15 85)",
-      "role": "Warning, processing"
+    "green-bg": {
+      "hex": "#E8F3EC",
+      "role": "Success badge fill"
     },
-    "stop": {
-      "hex": "#D7352D",
-      "oklch": "oklch(58% 0.2 28)",
-      "role": "Error, failed, stop recording"
+    "amber": {
+      "hex": "#B45309",
+      "role": "Attention, medium priority"
     },
-    "info": {
-      "hex": "#2B88C0",
-      "oklch": "oklch(60% 0.12 240)",
-      "role": "Informational"
+    "amber-bg": {
+      "hex": "#FDF3E1",
+      "role": "Attention panel and badge fill"
     },
-    "violet": {
-      "hex": "#8A5FC9",
-      "oklch": "oklch(58% 0.16 300)",
-      "role": "AI / insights tag"
+    "amber-text": {
+      "hex": "#7C4A03",
+      "role": "Risk-flag text on amber-bg"
+    },
+    "red": {
+      "hex": "#B42318",
+      "role": "Destructive, high priority, failed"
+    },
+    "red-bg": {
+      "hex": "#FBEAE7",
+      "role": "Destructive badge fill"
+    },
+    "red-border": {
+      "hex": "#EFC7C0",
+      "role": "Destructive button border"
+    },
+    "live": {
+      "hex": "#22C55E",
+      "role": "LIVE-RECORDING DOT ONLY — the pulsing indicator in the bot preview and the active recording state. Never a success colour: success is green #2F7A4D on green-bg #E8F3EC. If this appears in a badge, a checkmark or a 'connected' state, it is wrong."
+    }
+  },
+  "avatars": {
+    "note": "Six warm bg/fg pairs, picked by charCode of the initial % 6.",
+    "pairs": [
+      {
+        "bg": "#F7EFE8",
+        "fg": "#9A3412"
+      },
+      {
+        "bg": "#EAF0F7",
+        "fg": "#1E4E8C"
+      },
+      {
+        "bg": "#EAF3EC",
+        "fg": "#1F5E3A"
+      },
+      {
+        "bg": "#F3ECF7",
+        "fg": "#5B2E86"
+      },
+      {
+        "bg": "#FBF1DC",
+        "fg": "#7C4A03"
+      },
+      {
+        "bg": "#EDEEF2",
+        "fg": "#3B3F4A"
+      }
+    ]
+  },
+  "speakers": {
+    "note": "Transcript speaker colours and the who-spoke-when bar.",
+    "1": "#C2410C",
+    "2": "#2E6FB5",
+    "3": "#3A7D44",
+    "4": "#6B46C1"
+  },
+  "code": {
+    "fg": {
+      "hex": "#E8E1DA",
+      "role": "Code-block body on #1F1B18"
+    },
+    "keyword": {
+      "hex": "#F4A574",
+      "role": "Keywords"
+    },
+    "string": {
+      "hex": "#9FCB8F",
+      "role": "Strings"
     }
   },
   "tints": {
@@ -218,5 +229,187 @@
     "font-display": "'DM Serif Display',Georgia,'Times New Roman',serif",
     "font-body": "'Manrope',-apple-system,'Segoe UI',Helvetica,Arial,sans-serif",
     "font-mono": "'IBM Plex Mono',Consolas,'Courier New',monospace"
+  },
+  "legacy": {
+    "note": "Warm Dispatch — the brand system in use until the UI v2 migration. Retained so V1 pages keep passing brand:check while both UIs coexist. Delete this block when the last V1 page is deleted.",
+    "brand": {
+      "ember": {
+        "hex": "#D93F0B",
+        "role": "Primary brand orange (light mode). Buttons, links, active state, the logomark."
+      },
+      "ember-deep": {
+        "hex": "#B83508",
+        "role": "Ember pressed / hover (light mode)."
+      },
+      "ember-hi": {
+        "hex": "#E84D1A",
+        "role": "Ember hover (light), and the tint the mark leans to at small sizes."
+      },
+      "ember-ink": {
+        "hex": "#8C2F05",
+        "role": "Ember text on tinted ember backgrounds."
+      },
+      "ember-dark": {
+        "hex": "#E8430A",
+        "role": "Primary brand orange in DARK mode and in the app icon."
+      },
+      "ember-dark-deep": {
+        "hex": "#C23508",
+        "role": "Ember pressed (dark mode)."
+      },
+      "ember-dark-hi": {
+        "hex": "#FF6B35",
+        "role": "Ember hover (dark mode)."
+      },
+      "gold": {
+        "hex": "#F5C842",
+        "role": "Secondary accent. Gradient end, action items, highlights. Never a primary CTA on its own."
+      },
+      "gold-light": {
+        "hex": "#FFE08A",
+        "role": "Gold tint for fills and highlight backgrounds."
+      },
+      "gold-ink": {
+        "hex": "#8A6400",
+        "role": "Gold as TEXT on light (gold itself is 1.5:1 on paper). In dark mode this token resolves to gold."
+      }
+    },
+    "gradient": {
+      "ember-gold-light": "linear-gradient(135deg, #D93F0B 0%, #F5C842 100%)",
+      "ember-gold-dark": "linear-gradient(135deg, #E8430A 0%, #F5C842 100%)"
+    },
+    "neutrals": {
+      "light": {
+        "paper": {
+          "hex": "#FAF4EF",
+          "oklch": "oklch(97% 0.01 60)",
+          "role": "App background"
+        },
+        "paper-raised": {
+          "hex": "#F2E9E4",
+          "oklch": "oklch(94% 0.012 55)",
+          "role": "Raised surface, hover fill"
+        },
+        "paper-deep": {
+          "hex": "#E9DFD9",
+          "oklch": "oklch(91% 0.014 52)",
+          "role": "Inset, inputs"
+        },
+        "paper-card": {
+          "hex": "#FEFBF8",
+          "oklch": "oklch(99% 0.005 65)",
+          "role": "Card fill"
+        },
+        "ink": {
+          "hex": "#190F0B",
+          "oklch": "oklch(18% 0.02 40)",
+          "role": "Primary text"
+        },
+        "ink-mid": {
+          "hex": "#514540",
+          "oklch": "oklch(40% 0.018 42)",
+          "role": "Secondary text"
+        },
+        "ink-soft": {
+          "hex": "#827873",
+          "oklch": "oklch(58% 0.015 45)",
+          "role": "Muted text"
+        },
+        "ink-faint": {
+          "hex": "#AAA39F",
+          "oklch": "oklch(72% 0.01 50)",
+          "role": "Metadata, timestamps"
+        },
+        "rule": {
+          "hex": "#E0D5CF",
+          "oklch": "oklch(88% 0.015 50)",
+          "role": "Borders, dividers"
+        },
+        "rule-soft": {
+          "hex": "#EFE6E0",
+          "oklch": "oklch(93% 0.012 55)",
+          "role": "Faint dividers"
+        }
+      },
+      "dark": {
+        "char": {
+          "hex": "#120C09",
+          "oklch": "oklch(16% 0.012 40)",
+          "role": "App background"
+        },
+        "char-raised": {
+          "hex": "#1E1613",
+          "oklch": "oklch(21% 0.014 40)",
+          "role": "Raised surface"
+        },
+        "char-deep": {
+          "hex": "#191210",
+          "oklch": "oklch(19% 0.012 40)",
+          "role": "Inset, inputs"
+        },
+        "char-card": {
+          "hex": "#261D1A",
+          "oklch": "oklch(24% 0.015 40)",
+          "role": "Card fill"
+        },
+        "bone": {
+          "hex": "#F1E9E3",
+          "oklch": "oklch(94% 0.012 60)",
+          "role": "Primary text"
+        },
+        "bone-mid": {
+          "hex": "#BDB6B1",
+          "oklch": "oklch(78% 0.01 55)",
+          "role": "Secondary text"
+        },
+        "bone-soft": {
+          "hex": "#8B8581",
+          "oklch": "oklch(62% 0.01 50)",
+          "role": "Muted text"
+        },
+        "bone-faint": {
+          "hex": "#635C59",
+          "oklch": "oklch(48% 0.01 48)",
+          "role": "Metadata"
+        },
+        "rule-dark": {
+          "hex": "#362B27",
+          "oklch": "oklch(30% 0.018 42)",
+          "role": "Borders"
+        },
+        "rule-dark-soft": {
+          "hex": "#2B221E",
+          "oklch": "oklch(26% 0.015 42)",
+          "role": "Faint dividers"
+        }
+      }
+    },
+    "semantic": {
+      "ok": {
+        "hex": "#479C4D",
+        "oklch": "oklch(62% 0.14 145)",
+        "role": "Success, completed"
+      },
+      "warn": {
+        "hex": "#D6A20A",
+        "oklch": "oklch(74% 0.15 85)",
+        "role": "Warning, processing"
+      },
+      "stop": {
+        "hex": "#D7352D",
+        "oklch": "oklch(58% 0.2 28)",
+        "role": "Error, failed, stop recording"
+      },
+      "info": {
+        "hex": "#2B88C0",
+        "oklch": "oklch(60% 0.12 240)",
+        "role": "Informational"
+      },
+      "violet": {
+        "hex": "#8A5FC9",
+        "oklch": "oklch(58% 0.16 300)",
+        "role": "AI / insights tag"
+      }
+    }
   }
 }

@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { CalendarProvider } from "@/contexts/CalendarContext";
+import { UiVersionProvider } from "@/contexts/UiVersionContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { PreMeetingNotification } from "@/components/dashboard/PreMeetingNotification";
@@ -198,9 +199,11 @@ const App = () => (
         <ErrorBoundary>
           <BrowserRouter>
             <AuthProvider>
-              <CalendarProvider>
-                <AppRoutes />
-              </CalendarProvider>
+              <UiVersionProvider>
+                <CalendarProvider>
+                  <AppRoutes />
+                </CalendarProvider>
+              </UiVersionProvider>
             </AuthProvider>
           </BrowserRouter>
         </ErrorBoundary>
