@@ -368,7 +368,7 @@ export default function Docs() {
             </aside>
 
             {/* Content */}
-            <article className="max-w-3xl space-y-14 text-[15px] leading-relaxed text-muted-foreground">
+            <article className="min-w-0 max-w-3xl space-y-14 text-[15px] leading-relaxed text-muted-foreground">
               {/* ---------------- Getting started ---------------- */}
               <section className="space-y-4">
                 <SectionHeading id="what-is">What is EchoBrief?</SectionHeading>
@@ -1274,8 +1274,7 @@ export default function Docs() {
                       <Mono>webhook-signature</Mono>,
                       <Mono>v1,base64…</Mono>,
                       <>
-                        HMAC-SHA256 of <Mono>{`${'{'}id{'}'}.${'{'}timestamp{'}'}.${'{'}body{'}'}`}</Mono>{' '}
-                        using your secret.
+                        HMAC-SHA256 of <Mono>{'{id}.{timestamp}.{body}'}</Mono> using your secret.
                       </>,
                     ],
                   ]}
