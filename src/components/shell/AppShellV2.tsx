@@ -3,15 +3,16 @@ import { useLocation } from "react-router-dom";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { SidebarV2 } from "./SidebarV2";
 import { HeaderV2 } from "./HeaderV2";
+import { MobileTabBarV2 } from "./MobileTabBarV2";
 
 /**
  * The Console frame — DESIGN_SPEC §1. Fixed 232px sidebar, 60px header, content
  * padded 16/32/32.
  *
- * Phase 1 renders V1 pages inside it unchanged, so those pages still draw their
- * own headings and padding; each page sheds them when it moves to V2. The frame
- * is light-only, as every mockup is — dark mode is unresolved for V2 and is a
- * decision for the Settings page in Phase 2.
+ * Below `lg` the rail is replaced by the bottom tab bar (DESIGN_SPEC §2) —
+ * Meetings, Calendar, Tasks, Ask, More — with the drawer kept as the way to
+ * reach a destination the five tabs do not carry. The frame is light-only, as
+ * every mockup is; dark mode is still unresolved for V2.
  */
 export function AppShellV2({ children }: { children: ReactNode }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -39,10 +40,17 @@ export function AppShellV2({ children }: { children: ReactNode }) {
 
       <div className="min-h-screen lg:ml-[232px]">
         <HeaderV2 onMenuClick={() => setMobileNavOpen(true)} />
-        <main id="main-content" key={location.pathname} className="px-5 pb-8 pt-4 md:px-8">
+        {/* pb-24 below lg keeps the last row clear of the tab bar. */}
+        <main
+          id="main-content"
+          key={location.pathname}
+          className="px-5 pb-24 pt-4 md:px-8 lg:pb-8"
+        >
           {children}
         </main>
       </div>
+
+      <MobileTabBarV2 />
     </div>
   );
 }

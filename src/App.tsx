@@ -44,6 +44,7 @@ const Docs = lazy(() => import("./pages/Docs"));
 const OAuthConsent = lazy(() => import("./pages/OAuthConsent"));
 const SharedMeeting = lazy(() => import("./pages/SharedMeeting"));
 const Workspace = lazy(() => import("./pages/Workspace"));
+const MoreV2 = lazy(() => import("./pages/MoreV2"));
 const WorkspaceV2 = lazy(() => import("./pages/WorkspaceV2"));
 const AcceptInvite = lazy(() => import("./pages/AcceptInvite"));
 
@@ -140,6 +141,14 @@ function AppRoutes() {
           element={
             <ProtectedRoute>
               <V2Route v1={<MeetingDetail />} v2={<MeetingDetailV2 />} />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/more"
+          element={
+            <ProtectedRoute>
+              <V2Route v1={<Settings />} v2={<MoreV2 />} />
             </ProtectedRoute>
           }
         />
