@@ -26,7 +26,7 @@ flowchart TB
         AUTH["Auth (JWT)"]
         STOR["Storage<br/>recordings bucket"]
         RT["Realtime<br/>postgres_changes"]
-        EF["Edge Functions (Deno)<br/>49 functions"]
+        EF["Edge Functions (Deno)<br/>52 functions"]
         CRON["pg_cron + pg_net<br/>4 scheduled jobs"]
     end
 

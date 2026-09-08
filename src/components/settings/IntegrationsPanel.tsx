@@ -1,5 +1,5 @@
 /**
- * Calendar connections and delivery preferences (email, Slack).
+ * Calendar connections and delivery preferences (email, Slack, Zoho CRM).
  *
  * Google and Microsoft sit side by side here because auto-join treats them the
  * same way — see supabase/functions/_shared/calendar-connections.ts.
@@ -13,6 +13,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { SlackCard } from './SlackCard';
+import { ZohoCard } from './ZohoCard';
 import type { GoogleCalendar, Profile } from './types';
 
 interface PanelProps {
@@ -388,6 +389,9 @@ export function IntegrationsPanel({ profile, setProfile }: PanelProps) {
 
       {/* Slack */}
       <SlackCard />
+
+      {/* Zoho CRM */}
+      <ZohoCard />
 
       {/* Email summaries */}
       <div className="rounded-2xl border border-border bg-card p-6 text-card-foreground shadow-sm">

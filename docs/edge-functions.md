@@ -6,13 +6,13 @@ All Supabase Edge Functions run on Deno at
 `verify_jwt` is declared per function in [`supabase/config.toml`](../supabase/config.toml).
 **Since the 2026-08-31 auth audit, `verify_jwt = true` is the default** — the gateway
 verifies the JWT signature, then `_shared/auth.ts` `authenticate()` reads the `role`
-claim to distinguish user tokens from service-role bearers. **Eight** functions keep
+claim to distinguish user tokens from service-role bearers. **Nine** functions keep
 `verify_jwt = false`, each for a stated reason: the three signature-verified webhooks
-(`recall-webhook`, `sarvam-webhook`, `dodo-webhook`), the three browser redirects that
+(`recall-webhook`, `sarvam-webhook`, `dodo-webhook`), the four browser redirects that
 authenticate via a single-use `state` row (`google-oauth-redirect`,
-`microsoft-oauth-redirect`, `slack-oauth-redirect`), `get-shared-meeting` (public by
-design — the share token *is* the credential), and `get-google-client-id` (serves only
-the public client ID).
+`microsoft-oauth-redirect`, `slack-oauth-redirect`, `zoho-oauth-redirect`),
+`get-shared-meeting` (public by design — the share token *is* the credential), and
+`get-google-client-id` (serves only the public client ID).
 That list is worth regenerating rather than trusting:
 
 ```bash
@@ -21,7 +21,7 @@ awk '/^\[functions\./{f=$0} /verify_jwt *= *false/{print f}' supabase/config.tom
 
 See [Security § function auth](security.md#edge-function-authentication).
 
-**All 49 deployed functions are documented here.** If you add one, add it here too —
+**All 52 deployed functions are documented here.** If you add one, add it here too —
 `ls supabase/functions` against this file is the check.
 
 - [Pipeline](#pipeline)
@@ -416,6 +416,8 @@ for service-role bearers.
 | `microsoft-oauth-redirect` | Redirect target from Microsoft — no JWT by design (`verify_jwt = false`); the single-use `state` row authenticates it. Shares the `google_oauth_states` table, and is rate limited before it touches anything |
 | `slack-oauth-start` | Begins the Slack install. Requires the caller's JWT; 503 when `SLACK_CLIENT_ID` is unset. Scopes `chat:write,chat:write.public,channels:read,groups:read` — the read scopes exist so the channel can be **picked** rather than pasted, and `chat:write.public` so a picked *public* channel works without an invite (without it the picker offers destinations that fail with `not_in_channel` on the first meeting). Reuses `google_oauth_states` |
 | `slack-oauth-redirect` | Redirect target from Slack — no JWT by design (`verify_jwt = false`); the single-use `state` row authenticates it. Seals the bot token into `slack_connections`, and **clears any saved channel when the workspace changed**, because an id from the old workspace still looks configured while being unpostable |
+| `zoho-oauth-start` | Begins the Zoho CRM install. Requires the caller's JWT; 503 when `ZOHO_CLIENT_ID` is unset. Sends `access_type=offline` and `prompt=consent` — **without both, Zoho returns no refresh token** and the connection silently dies an hour later. Read-only scopes plus `ZohoCRM.modules.notes.CREATE` |
+| `zoho-oauth-redirect` | Redirect target from Zoho — no JWT by design (`verify_jwt = false`); the single-use `state` row authenticates it. Stores the grant's **`api_domain`** alongside the sealed tokens: Zoho tokens are datacentre-bound and a token from `.in` is rejected by `.com`. Refuses a grant that arrives without a refresh token rather than storing one that stops working |
 | `disconnect-calendar` | Provider-neutral disconnect. **Microsoft only** — it returns 400 for anything else and points at `disconnect-google`, which owns the Google revocation path |
 
 A permanently dead grant (Google answers `invalid_grant`, or a refresh yields no
@@ -430,6 +432,7 @@ A permanently dead grant (Google answers `invalid_grant`, or a refresh yields no
 
 | Function | Purpose |
 |---|---|
+| `manage-zoho` | Zoho CRM actions for the signed-in user: `status`, `test`, `disconnect`. `verify_jwt = true`, user token only. Never returns a token. `test` refreshes the grant and runs a real search, so a dead connection surfaces in Settings rather than silently at the end of somebody's next meeting; `disconnect` deletes the row, then revokes the refresh token at Zoho best-effort |
 | `manage-slack` | Slack connection actions for the signed-in user: `status`, `channels`, `set_channel`, `disconnect`. `verify_jwt = true`, user token only (service bearers 403). Never returns a token. `set_channel` re-lists the channels and matches the requested id against that list — the removed 2026-08 integration accepted a pasted id, which made a typo indistinguishable from a working setup until a meeting silently failed to deliver. `disconnect` deletes the row (that row's existence *is* "connected"), then revokes the token in Slack best-effort |
 | `send-meeting-email` | The real summary email (HTML). `verify_jwt = true`: service callers keep the full contract — `deliverResults` sends once for the owner, then once per allowlisted reviewer on the invite (`recipientEmail` in the body); a **user token is scoped to its own meetings and the recipient is forced to the owner's profile email**. Claims `email_deliveries` **before** calling Resend, so one recipient gets one summary per meeting no matter how many callers race; returns `{ success: true, skipped: true, reason: "already_sent" }` to a loser. |
 | `send-email-report` | Meeting report mail from the meeting page. `verify_jwt = true`; non-service callers only for meetings they own (404 otherwise), `recipient_email` shape-checked, body `user_id` ignored |

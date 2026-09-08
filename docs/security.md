@@ -47,7 +47,7 @@ slice of content. The repository itself is **public**, so anything committed is 
 | # | Threat | Control | Proven by | Residual gap |
 |---|---|---|---|---|
 | T1 | One authenticated user reads another's meetings | RLS on every user-scoped table; meeting-scoped tables joined through the owning meeting | `npm run test:rls` — 69 assertions, with a positive and a detection control so a green run cannot be vacuous | RLS is only as good as the newest policy. The suite is not in CI (it creates real users), so it depends on someone running it |
-| T2 | An unauthenticated caller reaches a function that assumes the platform called it | `verify_jwt = true` by default; `authenticate()` reads the `role` claim rather than comparing bearers | The eight `verify_jwt = false` functions are enumerable from `config.toml` and each has its own verification | Enumerated by hand until 2026-09-07, when the list turned out to be missing two entries |
+| T2 | An unauthenticated caller reaches a function that assumes the platform called it | `verify_jwt = true` by default; `authenticate()` reads the `role` claim rather than comparing bearers | The nine `verify_jwt = false` functions are enumerable from `config.toml` and each has its own verification | Enumerated by hand until 2026-09-07, when the list turned out to be missing two entries |
 | T3 | A forged webhook injects a fake transcript, status or subscription | Recall signature over the **raw body**; Sarvam callback `auth_token`; Dodo Standard-Webhooks HMAC | Pipeline harness scenarios for replay and concurrency; `dodo-webhook` answering 401 to a bogus signature proves the secret is loaded | A webhook secret that silently goes missing degrades to a 503, not a 401 — the difference is the health check |
 | T4 | A leaked service-role key or database dump reads every transcript | OAuth tokens are sealed with AES-256-GCM before they reach Postgres | `crypto_test.ts` (13 tests); `scripts/backfill-token-encryption.ts --verify` | **Transcripts and insights are not column-encrypted.** Anyone holding the service-role key reads them. Deliberate, and revisitable |
 | T5 | Two live service-role credentials widen the blast radius | Code never string-compares a bearer, so either key authenticates correctly | `two-service-role-jwts` is the reason `authenticate()` exists in its current shape | Both keys remain valid; the legacy one does not expire until 2036 |
@@ -157,7 +157,7 @@ bearer). Functions then fall into three shapes:
   `authenticate()` returns 401 without a token, 403 for user tokens. The pg_cron
   jobs authenticate with the Vault-sourced `service_role_key`
   (see [Operations § scheduled jobs](operations.md#scheduled-jobs)).
-- **`verify_jwt = false`, exactly eight, each with its own verification.** This is
+- **`verify_jwt = false`, exactly nine, each with its own verification.** This is
   the complete list of surfaces reachable without a Supabase JWT, so it is worth
   regenerating rather than trusting — `awk '/^\[functions\./{f=$0} /verify_jwt *= *false/{print f}' supabase/config.toml`:
   - `recall-webhook` — signature checked against the raw body,
@@ -170,6 +170,9 @@ bearer). Functions then fall into three shapes:
   - `slack-oauth-redirect` — the same shape again for the Slack install; the bot
     token is sealed by `_shared/oauth-tokens.ts` before it lands in
     `slack_connections`,
+  - `zoho-oauth-redirect` — the same shape for Zoho CRM; the access and refresh
+    tokens are sealed before they land in `zoho_connections`, next to the
+    datacentre domain they are only valid in,
   - `get-shared-meeting` — public by design: the reader of a shared link has no
     account, so the `ebs_live_` token **is** the credential (stored as a sha256
     digest) and the share row decides what it unlocks,

@@ -66,6 +66,7 @@ const GROUPS: Group[] = [
     items: [
       { id: 'delivery', name: 'Email summaries' },
       { id: 'slack', name: 'Slack' },
+      { id: 'zoho', name: 'Zoho CRM' },
       { id: 'sharing', name: 'Sharing a meeting' },
       { id: 'digests', name: 'Scheduled digests' },
       { id: 'history', name: 'Search & history' },
@@ -775,6 +776,31 @@ export default function Docs() {
                   Each meeting posts once. Regenerating a meeting's insights does not re-post it.
                   Disconnecting removes EchoBrief's access to the workspace immediately.
                 </p>
+              </section>
+
+              <section className="space-y-4">
+                <SectionHeading id="zoho">Zoho CRM</SectionHeading>
+                <p>
+                  Connect Zoho under{' '}
+                  <strong className="text-foreground">Settings → Integrations → Zoho CRM</strong>{' '}
+                  and each finished meeting adds a note to the contact or lead it belongs to:
+                  the summary, the decisions, the action items and the next steps, with a link
+                  back to the full report.
+                </p>
+                <p>
+                  The match is by email. EchoBrief takes the external attendees from the calendar
+                  invite — people whose email domain differs from yours — and looks each one up in
+                  your CRM, contacts first, then leads. An attendee who is not in your CRM is
+                  skipped; a meeting you started manually from the dashboard has no invitee list,
+                  so nothing is matched for it.
+                </p>
+                <Callout title="EchoBrief only ever adds a note">
+                  It does not create contacts, does not edit any field, and does not create tasks
+                  or deals. Your CRM is your system of record. The transcript, the recording and
+                  the coaching notes are never written to it, and a meeting writes to a given
+                  record only once — regenerating a meeting's insights will not add the note
+                  again.
+                </Callout>
               </section>
 
               <section className="space-y-4">

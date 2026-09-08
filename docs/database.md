@@ -184,6 +184,33 @@ channel and cannot be unsent. `message_ts` is null until the post succeeds, so a
 claimed-but-failed row is distinguishable from a sent one, and `error` records why.
 Service-write, user-read.
 
+
+### `zoho_connections`
+One Zoho CRM org per user (UNIQUE on `user_id`). Access and refresh tokens are sealed
+by `_shared/oauth-tokens.ts`. RLS: **SELECT own row only** — writes go through
+`manage-zoho` or `zoho-oauth-redirect` with the service role.
+
+**`api_domain` is a column, not a constant, and that is the whole point.** Zoho runs
+independent datacentres that share nothing: an India account authorises at
+`accounts.zoho.in` and its tokens work only against `www.zohoapis.in`. A token used
+against the wrong domain fails as an ordinary auth error, so a hardcoded domain passes
+every test written against our own account and breaks for every customer elsewhere. The
+domain arrives with the grant and is stored next to the tokens that are only valid
+there; `location` keeps the short DC code for the refresh call.
+
+Access tokens last one hour — shorter than the gap between most people's meetings — so
+refreshing is the normal path. A refresh never returns a new refresh token, so only the
+access token and its expiry are written back.
+
+### `zoho_deliveries`
+Claim-before-write ledger, UNIQUE on `(meeting_id, record_id)`: one note per meeting per
+CRM record, while a meeting with two external attendees can still write to both. Same
+reasoning as `email_deliveries` and `slack_deliveries`, one notch sharper — a Contact
+carrying four identical notes from a regenerated meeting discredits every other thing
+the product writes into that CRM. `note_id` is null until the write succeeds and `error`
+records why it did not; `matched_email` makes "why did this land here?" answerable
+without re-running the match.
+
 ---
 
 ## Operational tables
@@ -249,6 +276,7 @@ in filename order. The ones that carry non-obvious history:
 | `20260831130000_production_quality.sql` | `meetings.languages` / `boundaries`, `meeting_insights.facts` / `coaching`, `profiles.custom_vocabulary` — the columns behind language mix, privacy trim, two-pass insights and coaching |
 | `20260831160000_production_quality_2.sql` | `contacts` + `meeting_contacts` (CRM v1), `webhook_events` + `profiles.webhook_url` / `webhook_secret` (automation), `meeting_insights.followup_draft` |
 | `20260908090000_slack_connections.sql` | `slack_connections` (sealed per-user bot token, one row per user) + `slack_deliveries` (claim-before-send). Slack's second attempt, on a schema where the three failures that got it removed in August cannot recur |
+| `20260908160000_zoho_connections.sql` | `zoho_connections` (sealed tokens **plus the datacentre domain they are valid in**) + `zoho_deliveries` (one note per meeting per CRM record) |
 
 `cron.schedule()` with an existing job name **updates that job in place** — that is
 why the frequency migrations re-declare the jobs rather than unscheduling first.

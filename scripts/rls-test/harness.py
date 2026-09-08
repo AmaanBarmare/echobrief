@@ -214,6 +214,31 @@ def seed(user: dict) -> dict:
             "meeting_id": mid, "status_code": 200,
             "payload": {"secret": "DO-NOT-LEAK"},
         },
+        # The connector grants. These hold OAuth tokens — the most sensitive
+        # rows in the product after transcripts — and until they were seeded the
+        # suite reported PASS over two empty tables, which is the same
+        # non-assertion that made the first version of this harness meaningless.
+        "slack_connections": {
+            "user_id": user["id"], "team_id": f"T-SECRET-{secrets.token_hex(3)}",
+            "team_name": "SECRET-SLACK-DO-NOT-LEAK",
+            "access_token": "v1.SECRET-SLACK-TOKEN.DO-NOT-LEAK",
+            "channel_id": "C-SECRET", "channel_name": "secret-channel",
+        },
+        "slack_deliveries": {
+            "meeting_id": mid, "user_id": user["id"],
+            "channel_id": "C-SECRET", "message_ts": "1.1",
+        },
+        "zoho_connections": {
+            "user_id": user["id"], "api_domain": "https://www.zohoapis.in",
+            "location": "in", "org_name": "SECRET-ZOHO-DO-NOT-LEAK",
+            "access_token": "v1.SECRET-ZOHO-TOKEN.DO-NOT-LEAK",
+            "refresh_token": "v1.SECRET-ZOHO-REFRESH.DO-NOT-LEAK",
+        },
+        "zoho_deliveries": {
+            "meeting_id": mid, "user_id": user["id"],
+            "module": "Contacts", "record_id": f"rec-{secrets.token_hex(3)}",
+            "matched_email": "secret@example.com",
+        },
     }
     for table, body in rows.items():
         status, data = rest("POST", table, SERVICE_KEY, body=body, prefer="return=representation")

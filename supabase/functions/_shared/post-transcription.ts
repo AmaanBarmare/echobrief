@@ -9,7 +9,7 @@
  *
  * Persistence stays at the call sites (they differ: insert vs update), but the
  * `meetingPatch` helper builds the meetings-row update for all of them, and
- * `afterInsightsSaved` runs the shared hooks (contacts, automation webhook, Slack).
+ * `afterInsightsSaved` runs the shared hooks (contacts, automation webhook, Slack, Zoho).
  */
 import OpenAI from "https://esm.sh/openai@4.20.1";
 import { generateInsights, SpeakerSegment, formatLabeledTranscript } from "./insights.ts";
@@ -25,6 +25,7 @@ import { estimateBoundariesWithLLM } from "./boundary-llm.ts";
 import { upsertMeetingContacts } from "./contacts.ts";
 import { notifyInsightsReady } from "./webhooks.ts";
 import { deliverToSlack } from "./slack-delivery.ts";
+import { deliverToZoho } from "./zoho-delivery.ts";
 import { recordRecordedSeconds } from "./entitlements.ts";
 import type { SpeakerTimelineEntry } from "./recall-pipeline.ts";
 import { meterOpenAI, newCostMeter, saveCosts } from "./cost.ts";
@@ -224,6 +225,11 @@ export async function afterInsightsSaved(
   // throws — the insights are already saved and a Slack outage must not undo
   // that.
   await deliverToSlack(supabase, meeting, insights);
+  // Zoho writes ONE note per matched CRM record, claimed in zoho_deliveries
+  // first for the same reason as Slack — and a sharper one: a Contact carrying
+  // four identical notes discredits every other thing the product writes.
+  // Never throws.
+  await deliverToZoho(supabase, meeting, insights);
   if (durationSeconds !== undefined) {
     await recordRecordedSeconds(supabase, meeting.user_id, meeting.id, durationSeconds);
   }
