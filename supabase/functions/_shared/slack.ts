@@ -10,12 +10,17 @@
  * every customer.
  *
  * WHAT MAY BE POSTED. A Slack channel is a room full of people, which makes it
- * the least forgiving delivery surface in the product. Only the summary,
- * decisions and action items go out — the fields the pipeline already computes
- * from the MEETING ZONE ONLY (`_shared/zones.ts`), so internal pre/post-meeting
- * speech cannot reach it. The transcript never goes to Slack, and neither does
- * anything derived from the internal zones: coaching, facts, attendee emails.
+ * the least forgiving delivery surface in the product. Only the summary, one
+ * highlight drawn from `key_points`, the decisions and the action items go out —
+ * fields the pipeline already computes from the MEETING ZONE ONLY
+ * (`_shared/zones.ts`), so internal pre/post-meeting speech cannot reach it. The
+ * transcript never goes to Slack, and neither does anything derived from the
+ * internal zones: coaching, attendee emails. `facts` stays out too, deliberately
+ * — its quotes are people's exact words, whereas `key_points` is already written
+ * for an audience.
  */
+
+import { formatISTDate, formatISTTime } from "./time.ts";
 
 const SLACK_API = "https://slack.com/api";
 
@@ -135,20 +140,66 @@ function truncate(text: string, max: number): string {
 
 /** Slack rejects any single text block over 3000 characters. */
 const BLOCK_LIMIT = 3000;
+/** A header is plain_text and capped much lower. */
+const HEADER_LIMIT = 150;
 
+/** Escape the three characters Slack's mrkdwn parser treats as markup. */
+function esc(text: string): string {
+  return String(text ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+/** "57 min", "1 h 32 min", or "" when the duration is unknown. */
+function formatDuration(seconds: number | null | undefined): string {
+  const s = Number(seconds);
+  if (!Number.isFinite(s) || s < 60) return "";
+  const mins = Math.round(s / 60);
+  if (mins < 90) return `${mins} min`;
+  return `${Math.floor(mins / 60)} h ${mins % 60} min`;
+}
+
+interface ActionItem { text: string; owner: string; due: string; urgent: boolean }
+
+/**
+ * Action items have been plain strings in some meetings and
+ * `{task, owner, due_date, priority}` objects in others since the two-pass
+ * rewrite. A renderer that assumes one of them posts "[object Object]" into a
+ * team channel, so both shapes are handled here and nowhere else.
+ */
+function asActionItems(items: unknown, max: number): ActionItem[] {
+  if (!Array.isArray(items)) return [];
+  const out: ActionItem[] = [];
+  for (const item of items) {
+    // Checked at the TOP: the string branch below `continue`s, so a cap tested
+    // only at the bottom silently never applies to string-shaped items.
+    if (out.length >= max) break;
+    if (typeof item === "string") {
+      if (item.trim()) out.push({ text: item.trim(), owner: "", due: "", urgent: false });
+      continue;
+    }
+    if (item && typeof item === "object") {
+      const o = item as Record<string, unknown>;
+      const text = String(o.task ?? o.text ?? o.title ?? o.description ?? "").trim();
+      if (!text) continue;
+      out.push({
+        text,
+        owner: String(o.owner ?? o.assignee ?? "").trim(),
+        due: String(o.due_date ?? o.due ?? "").trim(),
+        urgent: String(o.priority ?? "").toLowerCase() === "high",
+      });
+    }
+  }
+  return out;
+}
+
+/** Decisions and other list fields that are strings or single-key objects. */
 function asLines(items: unknown, max: number): string[] {
   if (!Array.isArray(items)) return [];
   return items
     .map((item) => {
-      if (typeof item === "string") return item;
+      if (typeof item === "string") return item.trim();
       if (item && typeof item === "object") {
         const o = item as Record<string, unknown>;
-        const task = String(o.task ?? o.text ?? o.title ?? "").trim();
-        const owner = String(o.owner ?? "").trim();
-        const due = String(o.due_date ?? o.due ?? "").trim();
-        if (!task) return "";
-        const suffix = [owner, due].filter(Boolean).join(", ");
-        return suffix ? `${task} — ${suffix}` : task;
+        return String(o.decision ?? o.statement ?? o.text ?? o.title ?? o.task ?? "").trim();
       }
       return "";
     })
@@ -157,36 +208,97 @@ function asLines(items: unknown, max: number): string[] {
 }
 
 /**
+ * The one line worth remembering, drawn from `key_points`.
+ *
+ * A number is what people quote back at each other afterwards — a price, a
+ * headcount, a deadline — so a key point containing one wins over one that does
+ * not. Deterministic on purpose: this runs unattended on every meeting and a
+ * second LLM call to choose a sentence would be cost and latency for a decision
+ * a regex settles.
+ *
+ * It comes from `key_points` rather than `facts` so nothing verbatim leaves for
+ * Slack. `facts` quotes are someone's exact words; a channel is a room full of
+ * people, and the summary fields are already written for an audience.
+ */
+export function pickHighlight(insights: Record<string, any>): string {
+  const points = (Array.isArray(insights?.key_points) ? insights.key_points : [])
+    .map((p: unknown) => String(p ?? "").trim())
+    .filter(Boolean);
+  if (!points.length) return "";
+  const withNumber = points.find((p: string) => /\d/.test(p));
+  return withNumber ?? points[0];
+}
+
+/** How many distinct speakers the metrics saw, or 0 when unknown. */
+function speakerCount(insights: Record<string, any>): number {
+  const share = insights?.meeting_metrics?.speaker_participation;
+  return share && typeof share === "object" ? Object.keys(share).length : 0;
+}
+
+export interface SlackMeeting {
+  id: string;
+  title?: string | null;
+  start_time?: string | null;
+  duration_seconds?: number | null;
+}
+
+/**
  * Build the Slack message. Pure, so it is unit-tested against the shapes the
- * pipeline actually emits — action items have been a string in some meetings
- * and an object in others since the two-pass rewrite, and a delivery path that
- * assumes one of them posts "[object Object]" into somebody's team channel.
+ * pipeline actually emits.
+ *
+ * Four sections, in the order a reader needs them: what happened, the one line
+ * worth remembering, what was decided, and who owes what. Empty sections are
+ * OMITTED rather than printed with "None" — a channel post that says
+ * "Decisions: none" three times a day trains people to stop reading it, and
+ * most meetings genuinely decide nothing.
  */
 export function buildSummaryMessage(
-  meeting: { id: string; title?: string | null },
+  meeting: SlackMeeting,
   insights: Record<string, any>,
   appUrl: string,
 ): { text: string; blocks: unknown[] } {
-  const title = truncate(String(meeting.title || "Meeting"), 150);
+  const title = truncate(String(meeting.title || "Meeting"), HEADER_LIMIT);
   const summary = truncate(
     String(insights?.summary_short || insights?.summary || "").trim(),
-    BLOCK_LIMIT - 100,
+    BLOCK_LIMIT - 200,
   );
-  const actions = asLines(insights?.action_items, 10);
-  const decisions = asLines(insights?.decisions, 10);
+  const highlight = pickHighlight(insights);
+  const decisions = asLines(insights?.decisions, 6);
+  const actions = asActionItems(insights?.action_items, 6);
+  const totalActions = Array.isArray(insights?.action_items) ? insights.action_items.length : 0;
   const link = `${appUrl.replace(/\/$/, "")}/meetings/${meeting.id}`;
 
   const blocks: unknown[] = [
-    {
-      type: "header",
-      text: { type: "plain_text", text: truncate(title, 150), emoji: true },
-    },
+    { type: "header", text: { type: "plain_text", text: title, emoji: true } },
   ];
 
+  // Context line: when, how long, how many voices. Every part is optional
+  // because uploaded meetings have no start time and short ones no duration.
+  const meta: string[] = [];
+  if (meeting.start_time) {
+    const day = formatISTDate(meeting.start_time, { weekday: "short", month: "short", day: "numeric" });
+    const time = formatISTTime(meeting.start_time);
+    if (day) meta.push(`:calendar: ${day}${time ? `, ${time}` : ""}`);
+  }
+  const duration = formatDuration(meeting.duration_seconds);
+  if (duration) meta.push(`:stopwatch: ${duration}`);
+  const speakers = speakerCount(insights);
+  if (speakers) meta.push(`:busts_in_silhouette: ${speakers} ${speakers === 1 ? "speaker" : "speakers"}`);
+  if (meta.length) {
+    blocks.push({ type: "context", elements: [{ type: "mrkdwn", text: meta.join("  ·  ") }] });
+  }
+
+  blocks.push({ type: "divider" });
+
   if (summary) {
+    blocks.push({ type: "section", text: { type: "mrkdwn", text: `*Summary*\n${esc(summary)}` } });
+  }
+
+  if (highlight) {
+    // A blockquote, so the eye lands on it even when the summary above is long.
     blocks.push({
       type: "section",
-      text: { type: "mrkdwn", text: summary },
+      text: { type: "mrkdwn", text: truncate(`:bulb: *Highlight*\n>${esc(highlight)}`, BLOCK_LIMIT) },
     });
   }
 
@@ -196,7 +308,7 @@ export function buildSummaryMessage(
       text: {
         type: "mrkdwn",
         text: truncate(
-          `*Decisions*\n${decisions.map((d) => `• ${d}`).join("\n")}`,
+          `:white_check_mark: *Decisions*\n${decisions.map((d) => `•  ${esc(d)}`).join("\n")}`,
           BLOCK_LIMIT,
         ),
       },
@@ -204,26 +316,32 @@ export function buildSummaryMessage(
   }
 
   if (actions.length) {
+    const lines = actions.map((a) => {
+      // Owner and due date are metadata about the task, so they sit after an
+      // em dash in italics rather than competing with the task itself.
+      const tail = [a.owner, a.due].filter(Boolean).join(" · ");
+      const flag = a.urgent ? ":exclamation: " : "";
+      return `•  ${flag}*${esc(a.text)}*${tail ? `  _— ${esc(tail)}_` : ""}`;
+    });
+    if (totalActions > actions.length) {
+      lines.push(`_…and ${totalActions - actions.length} more_`);
+    }
     blocks.push({
       type: "section",
-      text: {
-        type: "mrkdwn",
-        text: truncate(
-          `*Action items*\n${actions.map((a) => `• ${a}`).join("\n")}`,
-          BLOCK_LIMIT,
-        ),
-      },
+      text: { type: "mrkdwn", text: truncate(`:pushpin: *Action items*\n${lines.join("\n")}`, BLOCK_LIMIT) },
     });
   }
 
   blocks.push({
     type: "context",
-    elements: [{ type: "mrkdwn", text: `<${link}|Open in EchoBrief>` }],
+    elements: [{ type: "mrkdwn", text: `<${link}|Open the full report in EchoBrief>` }],
   });
 
   // `text` is the notification preview and the accessible fallback; a message
-  // with blocks but no text shows as a blank line in the sidebar.
-  const text = summary ? `${title} — ${truncate(summary, 200)}` : title;
+  // with blocks but no text shows as a blank line in the sidebar and in
+  // notifications.
+  const preview = summary || highlight;
+  const text = preview ? `${title} — ${truncate(preview, 200)}` : title;
   return { text, blocks };
 }
 

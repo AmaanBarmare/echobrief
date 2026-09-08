@@ -9,6 +9,9 @@
  * times. A duplicate email is a minor annoyance in one inbox; a duplicate Slack
  * message is visible to everyone in the room and cannot be unsent.
  *
+ * The message itself is built by `buildSummaryMessage` in `slack.ts` — summary,
+ * one highlight, decisions, action items, all from meeting-zone fields only.
+ *
  * NEVER THROWS. Delivery is the last step of a meeting that has already
  * succeeded — a Slack outage, a revoked token or a deleted channel must not
  * fail the meeting or lose the insights that are already saved.
@@ -65,7 +68,14 @@ export async function deliverToSlack(
 
     const appUrl = Deno.env.get("APP_URL") ?? "https://www.echobrief.in";
     const message = buildSummaryMessage(
-      { id: String(meeting.id), title: meeting.title ?? null },
+      {
+        id: String(meeting.id),
+        title: meeting.title ?? null,
+        // Both optional in the builder: an uploaded meeting has no start time,
+        // and duration is missing until the pipeline computes it.
+        start_time: meeting.start_time ?? null,
+        duration_seconds: meeting.duration_seconds ?? null,
+      },
       insights,
       appUrl,
     );

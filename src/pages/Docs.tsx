@@ -751,8 +751,11 @@ export default function Docs() {
                 <p>
                   Connect a Slack workspace under{' '}
                   <strong className="text-foreground">Settings → Integrations → Slack</strong> and
-                  EchoBrief posts each finished meeting to a channel: the summary, the decisions
-                  and the action items, with a link back to the full report.
+                  EchoBrief posts each finished meeting to a channel: the summary, one
+                  highlight, the decisions and the action items, with a link back to the full
+                  report. Sections a meeting does not have are left out rather than printed
+                  empty — most meetings decide nothing, and a daily "Decisions: none" teaches a
+                  channel to stop reading.
                 </p>
                 <p>
                   Connecting the workspace and choosing the channel are two separate steps.
