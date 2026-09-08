@@ -65,6 +65,7 @@ const GROUPS: Group[] = [
     icon: <Mail size={18} />,
     items: [
       { id: 'delivery', name: 'Email summaries' },
+      { id: 'slack', name: 'Slack' },
       { id: 'sharing', name: 'Sharing a meeting' },
       { id: 'digests', name: 'Scheduled digests' },
       { id: 'history', name: 'Search & history' },
@@ -743,6 +744,34 @@ export default function Docs() {
                   be turned off in <strong className="text-foreground">Settings → Email summaries</strong>.
                 </p>
                 <p>Reports are always available in the dashboard, whether or not email is enabled.</p>
+              </section>
+
+              <section className="space-y-4">
+                <SectionHeading id="slack">Slack</SectionHeading>
+                <p>
+                  Connect a Slack workspace under{' '}
+                  <strong className="text-foreground">Settings → Integrations → Slack</strong> and
+                  EchoBrief posts each finished meeting to a channel: the summary, the decisions
+                  and the action items, with a link back to the full report.
+                </p>
+                <p>
+                  Connecting the workspace and choosing the channel are two separate steps.
+                  Nothing is posted until you pick a channel from the list — EchoBrief will not
+                  guess a destination. The list shows every public channel plus any private
+                  channel you have invited EchoBrief to; if a private channel is missing, invite
+                  the app to it in Slack and reopen the picker.
+                </p>
+                <Callout title="The transcript never goes to Slack">
+                  A channel is a room full of people, so only the summary, decisions and action
+                  items are posted, and only from the meeting itself — anything said before the
+                  first external participant joined or after the last one left is excluded, the
+                  same boundary the summary email uses. Coaching notes, the underlying quotes and
+                  attendee email addresses are never sent.
+                </Callout>
+                <p>
+                  Each meeting posts once. Regenerating a meeting's insights does not re-post it.
+                  Disconnecting removes EchoBrief's access to the workspace immediately.
+                </p>
               </section>
 
               <section className="space-y-4">
