@@ -197,6 +197,16 @@ def seed(user: dict) -> dict:
     mid = meeting[0]["id"]
     created = {"meeting_id": mid}
 
+    # A conversation has to exist before its messages can hang off it, and its
+    # id is needed below — so it is inserted here rather than in the flat batch.
+    status, conv = rest("POST", "chat_conversations", SERVICE_KEY, body={
+        "user_id": user["id"], "title": "SECRET-CHAT-TITLE-DO-NOT-LEAK",
+    }, prefer="return=representation")
+    if status >= 300 or not conv:
+        print(f"seed failed on chat_conversations: {status} {conv}")
+        sys.exit(2)
+    cid = conv[0]["id"]
+
     rows = {
         "transcripts": {
             "meeting_id": mid, "content": "SECRET-TRANSCRIPT-DO-NOT-LEAK",
@@ -239,6 +249,13 @@ def seed(user: dict) -> dict:
             "module": "Contacts", "record_id": f"rec-{secrets.token_hex(3)}",
             "matched_email": "secret@example.com",
         },
+        # Ask stores the question, the answer and the quotes it showed — the
+        # same meeting content transcripts hold, in a second place.
+        "chat_messages": {
+            "conversation_id": cid, "user_id": user["id"], "role": "assistant",
+            "content": "SECRET-CHAT-ANSWER-DO-NOT-LEAK",
+            "citations": [{"meeting_id": mid, "title": "SECRET", "quote": "SECRET-QUOTE"}],
+        },
     }
     for table, body in rows.items():
         status, data = rest("POST", table, SERVICE_KEY, body=body, prefer="return=representation")
@@ -247,7 +264,7 @@ def seed(user: dict) -> dict:
             # meaningless. It is fatal on purpose.
             print(f"seed failed on {table}: {status} {json.dumps(data)[:300]}")
             sys.exit(2)
-    created["seeded"] = ["meetings", *rows]
+    created["seeded"] = ["meetings", "chat_conversations", *rows]
     return created
 
 
