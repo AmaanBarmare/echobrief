@@ -36,9 +36,15 @@ const ACCEPT = [
 
 interface UploadButtonProps {
   onUploaded?: (meetingId: string) => void;
+  /**
+   * Draw a different trigger and keep this component's picker and upload logic.
+   * The V2 shell passes the Console icon button; omitting it keeps the V1
+   * button exactly as it was, so no existing call site changes.
+   */
+  renderTrigger?: (open: () => void, busy: boolean) => React.ReactNode;
 }
 
-export function UploadButton({ onUploaded }: UploadButtonProps) {
+export function UploadButton({ onUploaded, renderTrigger }: UploadButtonProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -105,15 +111,19 @@ export function UploadButton({ onUploaded }: UploadButtonProps) {
         }}
       />
 
-      <Button
-        variant="outline"
-        className="gap-2"
-        disabled={busy}
-        onClick={() => inputRef.current?.click()}
-      >
-        {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-        Upload
-      </Button>
+      {renderTrigger ? (
+        renderTrigger(() => inputRef.current?.click(), busy)
+      ) : (
+        <Button
+          variant="outline"
+          className="gap-2"
+          disabled={busy}
+          onClick={() => inputRef.current?.click()}
+        >
+          {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+          Upload
+        </Button>
+      )}
 
       <Dialog open={busy} onOpenChange={() => { /* not dismissable mid-transfer */ }}>
         <DialogContent className="sm:max-w-md">

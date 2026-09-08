@@ -31,7 +31,6 @@ import { useToast } from "@/hooks/use-toast";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { GoogleReconnectBanner } from "@/components/dashboard/GoogleReconnectBanner";
 import { ListSkeleton } from "@/components/dashboard/ListSkeleton";
-import { UploadButton } from "@/components/dashboard/UploadButton";
 import { Meeting } from "@/types/meeting";
 import {
   Avatar, Badge, Card, CardHeader, Chip, DarkPanel, Divider, PageHeader, StatTile, TwoColumn,
@@ -350,13 +349,6 @@ export default function DashboardV2() {
       <PageHeader
         title="Meetings"
         subtitle="Everything EchoBrief recorded and summarized for you."
-        actions={
-          /* Record lives in the shell header now; upload has no home there, and
-             this is the only screen it was ever reachable from. */
-          <UploadButton
-            onUploaded={() => queryClient.invalidateQueries({ queryKey: ["meetings", user?.id] })}
-          />
-        }
       />
 
       <GoogleReconnectBanner />

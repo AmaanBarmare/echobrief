@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { Menu, Mic, Search } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/contexts/AuthContext";
+import { Loader2, Menu, Mic, Search, Upload } from "lucide-react";
 import { GlobalSearch } from "@/components/dashboard/GlobalSearch";
 import { RecordingButton } from "@/components/dashboard/RecordingButton";
-import { SplitButton } from "@/ui";
+import { UploadButton } from "@/components/dashboard/UploadButton";
+import { Button, SplitButton } from "@/ui";
 
 /**
  * Routes whose primary action is Record. Settings has no primary action, and
@@ -24,6 +27,8 @@ type PrefillMeeting = {
 
 export function HeaderV2({ onMenuClick }: { onMenuClick?: () => void }) {
   const location = useLocation();
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
   const [searchOpen, setSearchOpen] = useState(false);
 
   // "Record this meeting" from a pre-meeting notification navigates to
@@ -73,17 +78,31 @@ export function HeaderV2({ onMenuClick }: { onMenuClick?: () => void }) {
         </div>
 
         {showRecord && (
-          <RecordingButton
-            prefillTitle={prefill?.title}
-            calendarEventId={prefill?.calendarEventId}
-            meetingLink={prefill?.meetingLink}
-            attendees={prefill?.attendees}
-            renderTrigger={(open) => (
-              <SplitButton icon={<Mic size={15} strokeWidth={2} />} onMain={open} onMenu={open}>
-                Record
-              </SplitButton>
-            )}
-          />
+          <div className="flex flex-none items-center gap-2">
+            <UploadButton
+              onUploaded={() => queryClient.invalidateQueries({ queryKey: ["meetings", user?.id] })}
+              renderTrigger={(open, busy) => (
+                <Button
+                  onClick={open}
+                  disabled={busy}
+                  aria-label="Upload a recording"
+                  title="Upload a recording"
+                  icon={busy ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} strokeWidth={1.75} />}
+                />
+              )}
+            />
+            <RecordingButton
+              prefillTitle={prefill?.title}
+              calendarEventId={prefill?.calendarEventId}
+              meetingLink={prefill?.meetingLink}
+              attendees={prefill?.attendees}
+              renderTrigger={(open) => (
+                <SplitButton icon={<Mic size={15} strokeWidth={2} />} onMain={open} onMenu={open}>
+                  Record
+                </SplitButton>
+              )}
+            />
+          </div>
         )}
       </header>
 
