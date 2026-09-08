@@ -36,9 +36,18 @@ verify_jwt = true
 [functions.microsoft-oauth-start]
 verify_jwt = true
 
+[functions.slack-oauth-start]
+verify_jwt = true
+
 # Browser redirect target from Microsoft — arrives with no JWT by design; the
 # single-use `state` row in google_oauth_states is what authenticates it.
 [functions.microsoft-oauth-redirect]
+verify_jwt = false
+
+# Browser navigation back from Slack: no Authorization header exists. The
+# single-use google_oauth_states row created by slack-oauth-start is the
+# authentication.
+[functions.slack-oauth-redirect]
 verify_jwt = false
 
 # Browser redirect target from Google — arrives with no JWT by design; the
@@ -109,6 +118,9 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.manage-meeting-share]
+verify_jwt = true
+
+[functions.manage-slack]
 verify_jwt = true
 
 [functions.manage-organization]

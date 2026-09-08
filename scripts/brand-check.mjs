@@ -44,6 +44,7 @@ const THIRD_PARTY_HEX = new Map([
   ['#6264A7', 'Microsoft Teams purple'],
   ['#0078D4', 'Microsoft Outlook blue'],
   ['#25D366', 'WhatsApp green'],
+  ['#4A154B', 'Slack aubergine'],
 ]);
 
 /** Retired palette — these must never come back. */

@@ -9,7 +9,7 @@
  *
  * Persistence stays at the call sites (they differ: insert vs update), but the
  * `meetingPatch` helper builds the meetings-row update for all of them, and
- * `afterInsightsSaved` runs the shared hooks (contacts, automation webhook).
+ * `afterInsightsSaved` runs the shared hooks (contacts, automation webhook, Slack).
  */
 import OpenAI from "https://esm.sh/openai@4.20.1";
 import { generateInsights, SpeakerSegment, formatLabeledTranscript } from "./insights.ts";
@@ -24,6 +24,7 @@ import { applySpeakerOverrides } from "./rename.ts";
 import { estimateBoundariesWithLLM } from "./boundary-llm.ts";
 import { upsertMeetingContacts } from "./contacts.ts";
 import { notifyInsightsReady } from "./webhooks.ts";
+import { deliverToSlack } from "./slack-delivery.ts";
 import { recordRecordedSeconds } from "./entitlements.ts";
 import type { SpeakerTimelineEntry } from "./recall-pipeline.ts";
 import { meterOpenAI, newCostMeter, saveCosts } from "./cost.ts";
@@ -217,6 +218,12 @@ export async function afterInsightsSaved(
 ): Promise<void> {
   await upsertMeetingContacts(supabase, meeting);
   await notifyInsightsReady(supabase, meeting, insights, eventType);
+  // Slack posts on regeneration too, which is why `deliverToSlack` claims a row
+  // in `slack_deliveries` before it posts: the claim, not this call site, is
+  // what stops a three-week-old meeting reappearing in a team channel. It never
+  // throws — the insights are already saved and a Slack outage must not undo
+  // that.
+  await deliverToSlack(supabase, meeting, insights);
   if (durationSeconds !== undefined) {
     await recordRecordedSeconds(supabase, meeting.user_id, meeting.id, durationSeconds);
   }

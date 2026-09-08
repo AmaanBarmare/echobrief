@@ -261,3 +261,16 @@ export const CHANNEL_ERRORS = new Set([
   "is_archived",
   "restricted_action",
 ]);
+
+/**
+ * Revoke the bot token in Slack.
+ *
+ * Disconnect deletes our row either way — the old integration's Disconnect
+ * button never wrote to the database at all, and "connected" must mean "a row
+ * exists" and nothing else. This is the courtesy half: without it the app stays
+ * installed in the workspace with a live token that nothing will ever use.
+ * Best-effort by design; the caller must not fail a disconnect on it.
+ */
+export async function revokeToken(token: string): Promise<void> {
+  await call("auth.revoke", token, {}, true);
+}

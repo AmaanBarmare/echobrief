@@ -154,8 +154,35 @@ The endpoint and secret live on `profiles.webhook_url` / `webhook_secret`.
 | `scheduled_emails` / `email_messages` | Delivery queue and log |
 
 **Removed 2026-08-20:** `slack_messages`, `notion_connections`, and the Slack columns
-on `profiles`. Those integrations are gone from the product — see migrations
-`20260820130000_remove_slack.sql` and `20260820140000_remove_notion.sql`.
+on `profiles` — see migrations `20260820130000_remove_slack.sql` and
+`20260820140000_remove_notion.sql`. Notion is not coming back. **Slack did**, on a
+different schema, on 2026-09-08 (see below); nothing from the removed shape was
+revived.
+
+### `slack_connections`
+One Slack workspace install per user (UNIQUE on `user_id`, which is what makes
+"connected" the existence of the row rather than a boolean that can disagree with it).
+`access_token` / `refresh_token` are AES-256-GCM sealed by `_shared/oauth-tokens.ts` —
+the columns are named to match `calendar_connections` so the same sealer applies
+unchanged. `channel_id` / `channel_name` are null until the user picks a destination:
+connecting a workspace and choosing where summaries land are two separate decisions,
+and there is no safe default channel. RLS: **SELECT own row only** — every write goes
+through `manage-slack` or `slack-oauth-redirect` with the service role, because a
+browser must never be able to UPDATE a token column.
+
+The three failures of the removed integration are structurally impossible here: the
+token belongs to the row rather than to one global `SLACK_BOT_TOKEN`, the channel comes
+from a picker backed by `channels:read`, and Disconnect deletes the row.
+
+### `slack_deliveries`
+Claim-before-send ledger, UNIQUE on `(meeting_id, channel_id)` — the same shape as
+`email_deliveries` and for a sharper reason. `afterInsightsSaved` runs on every
+completion path *including regeneration*, and Sarvam has replayed a single callback
+three times; without the claim, regenerating a three-week-old meeting re-posts it. A
+duplicate email annoys one inbox, a duplicate Slack message is visible to the whole
+channel and cannot be unsent. `message_ts` is null until the post succeeds, so a
+claimed-but-failed row is distinguishable from a sent one, and `error` records why.
+Service-write, user-read.
 
 ---
 
@@ -221,6 +248,7 @@ in filename order. The ones that carry non-obvious history:
 | `20260821180000_email_delivery_dedup.sql` | `email_deliveries` claim table + `meetings.sarvam_webhook_claimed_at`. Makes three identical summary emails for one meeting impossible rather than merely unlikely |
 | `20260831130000_production_quality.sql` | `meetings.languages` / `boundaries`, `meeting_insights.facts` / `coaching`, `profiles.custom_vocabulary` — the columns behind language mix, privacy trim, two-pass insights and coaching |
 | `20260831160000_production_quality_2.sql` | `contacts` + `meeting_contacts` (CRM v1), `webhook_events` + `profiles.webhook_url` / `webhook_secret` (automation), `meeting_insights.followup_draft` |
+| `20260908090000_slack_connections.sql` | `slack_connections` (sealed per-user bot token, one row per user) + `slack_deliveries` (claim-before-send). Slack's second attempt, on a schema where the three failures that got it removed in August cannot recur |
 
 `cron.schedule()` with an existing job name **updates that job in place** — that is
 why the frequency migrations re-declare the jobs rather than unscheduling first.
