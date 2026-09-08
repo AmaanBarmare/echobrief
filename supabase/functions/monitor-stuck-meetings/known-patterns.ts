@@ -25,6 +25,20 @@ export interface KnownPattern {
 }
 
 export const KNOWN_PATTERNS: Record<string, KnownPattern> = {
+  // -- Instance / platform patterns --
+  // Not a meeting signature: the monitor raises this from instance telemetry,
+  // with a NULL meeting_id. Listed here so it is never reported as a NEW
+  // pattern, and so errors.md and this file stay mirrored.
+  "instance:disk_io_above_baseline": {
+    signature: "instance:disk_io_above_baseline",
+    recovery: "none",
+    description:
+      "Sustained disk IO over the compute tier's baseline for two consecutive 15-minute windows. " +
+      "Usually NOT the database: check the per-device split first (scripts/disk-io-probe.sh) — if the " +
+      "pgdata volume is a small share, it is swap on the root volume and no query or cron change helps. " +
+      "The 2026-09-08 fix was restarting the instance, not upgrading the plan.",
+  },
+
   // -- Upload patterns --
   "stuck:uploading:never_arrived": {
     signature: "stuck:uploading:never_arrived",

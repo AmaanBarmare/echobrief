@@ -278,6 +278,25 @@ Five separate failures chained, every one of them silent. The bucket being full 
 
 ---
 
+## Instance / platform errors
+
+### `instance:disk_io_above_baseline`
+**What it looks like:** Supabase emails "your project is depleting its Disk IO Budget", or — if nobody acted on that — the API simply stops answering: PostgREST returns **HTTP 522 after ~90 s** and the metrics endpoint hangs, while the Management API still reports `ACTIVE_HEALTHY`. The monitor now catches the condition before that, emailing `[ECHOBRIEF] Disk IO above baseline` once sustained IO exceeds the compute tier's baseline for two consecutive 15-minute windows.
+
+**Root cause:** usually **not the database.** The instance has two block devices and Postgres only owns one of them. On 2026-09-08 the `pgdata` volume was idle at 0.1% busy while the root volume ran at 10.5 MB/s, because a free-tier Nano (431 MB RAM against ~1.4 GB committed) was swapping continuously. `pg_stat_statements` and table sizes cannot see this — they only report on the volume Postgres owns, and will say "idle" while the machine thrashes.
+
+**Recovery:** `none` — the monitor logs and emails, it does not act. Then:
+1. Run **`scripts/disk-io-probe.sh`** and read the per-device split. If `nvme1n1` (pgdata) is a small share, no query or cron change can help.
+2. **Restart the instance:** `POST https://api.supabase.com/v1/projects/<ref>/restart`. Takes ~5 min. On 2026-09-08 this took the draw from 11.85 MB/s (2.4x the Nano baseline) to a settled ~2 MB/s, because the cost was accumulated state over 165 days of uptime — not an undersized tier.
+3. Re-measure after ~30 min; the boot storm is not the steady state.
+4. Only if the recurrence interval becomes short is a compute upgrade the answer. Nano baseline is 5 MB/s / 250 IOPS, Micro 11/500, Small 22/1000, and add-ons require the Pro plan.
+
+**If pgdata IS a large share,** the database really is implicated and this is the 2026-06 situation instead (see engineering-notes #22): check `pg_stat_statements`, keyed on `(userid, dbid, toplevel, queryid)` — **the same queryid appears more than once**, and diffing on queryid alone invents runaways that are not there.
+
+**Detection detail:** rates come from diffing raw counters between two monitor ticks (~15 min apart), stored in `instance_io_samples`. The counters are since-boot, so a restart makes the delta negative — that is a reboot, not a rate, and is discarded. Do not shorten the sampling window: the metrics endpoint is scraped about every 60 s, so anything under ~75 s aliases into alternating zero and double-rate readings that look exactly like a bursty workload.
+
+---
+
 ## How this file is maintained
 
 1. The `monitor-stuck-meetings` cron carries a `KNOWN_SIGNATURES` set in code. When it detects a stuck meeting whose signature is **not** in that set, it sends an email to `ALERT_EMAIL_TO` (default `admin@oltaflock.ai`) with subject `[ECHOBRIEF NEW ERROR] <signature>`.

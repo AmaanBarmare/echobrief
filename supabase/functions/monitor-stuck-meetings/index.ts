@@ -21,6 +21,7 @@ import { buildAlertHtml, buildAlertSubject } from "./alert-template.ts";
 import { KNOWN_PATTERNS, isKnown, RecoveryAction } from "./known-patterns.ts";
 import { isLongMeeting } from "../_shared/whisper-chunked.ts";
 import { captureError, withObservability } from "../_shared/observability.ts";
+import { buildIoAlert, checkInstanceIo, describeIo, IO_SIGNATURE } from "../_shared/instance-io.ts";
 
 const STUCK_AFTER_MIN = 15;
 const SARVAM_TAKING_TOO_LONG_MIN = 30;
@@ -357,6 +358,34 @@ async function attemptRecovery(
   return { ok: false, note: `unknown recovery action: ${recovery}` };
 }
 
+/**
+ * Send an already-built alert. Split out of sendAlertEmail so the instance-IO
+ * alert — which has no meeting behind it — reuses the same Resend call, the
+ * same from-address, and the same failure handling rather than a second copy.
+ * `echobrief.in` is the only verified sending domain; an oltaflock.ai
+ * from-address 403s.
+ */
+async function sendRawAlert(subject: string, html: string): Promise<boolean> {
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${RESEND_KEY}`,
+      },
+      body: JSON.stringify({ from: ALERT_FROM, to: ALERT_TO, subject, html }),
+    });
+    if (!res.ok) {
+      console.error("[monitor] Resend error:", res.status, await res.text());
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error("[monitor] Resend exception:", err);
+    return false;
+  }
+}
+
 async function sendAlertEmail(
   meeting: Meeting,
   detection: Detection,
@@ -514,6 +543,35 @@ serve(withObservability("monitor-stuck-meetings", async (req) => {
       });
     }
 
+    // Instance telemetry. Not about meetings at all — it rides this tick because
+    // the alternative is another pg_cron job, and cron write-churn is the thing
+    // the low cadence exists to avoid. Two consecutive samples 15 min apart give
+    // a clean rate without the function ever sleeping. See engineering-notes #25.
+    const io = await checkInstanceIo(supabase, {
+      supabaseUrl: SUPABASE_URL,
+      serviceKey: SERVICE_KEY,
+    });
+    if (io.rates) {
+      console.log(`[monitor] instance io: ${describeIo(io.rates)}`);
+    }
+    if (io.shouldAlert && io.rates) {
+      const { subject, html } = buildIoAlert(io.rates, io.consecutiveBreaches ?? 0);
+      const sent = await sendRawAlert(subject, html);
+      // Audit row with a NULL meeting_id — this is an instance condition, not a
+      // meeting one. The dedup index is per (meeting, signature, hour) and NULLs
+      // are distinct there, so the cooldown in checkInstanceIo is what actually
+      // stops repeats; this row is the record, not the guard.
+      await supabase.from("monitor_events").insert({
+        meeting_id: null,
+        error_signature: IO_SIGNATURE,
+        is_new_pattern: false,
+        recovery_attempted: "none",
+        recovery_succeeded: null,
+        email_sent: sent,
+        details: { ...io.rates, consecutive_breaches: io.consecutiveBreaches },
+      });
+    }
+
     // Second pass: tell users about their own failed meetings. Until now the
     // only failure email in the system went to ALERT_EMAIL_TO — us — and the
     // person whose meeting failed was never told anything. Runs here rather
@@ -528,6 +586,7 @@ serve(withObservability("monitor-stuck-meetings", async (req) => {
         scanned: meetings?.length || 0,
         events: summary.length,
         summary,
+        instance_io: io,
         failure_notices: failureNotices,
       }),
       { headers: { "Content-Type": "application/json" } },
