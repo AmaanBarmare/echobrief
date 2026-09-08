@@ -5,7 +5,10 @@ import { Navbar } from '@/components/landing/Navbar';
 import { Footer } from '@/components/landing/Footer';
 import {
   Bot,
+  Braces,
   CalendarClock,
+  Check,
+  Copy,
   ChevronDown,
   HelpCircle,
   Languages,
@@ -20,6 +23,8 @@ import {
   Settings as SettingsIcon,
   Shield,
   Sparkles,
+  Terminal,
+  Webhook,
 } from 'lucide-react';
 
 type Section = { id: string; name: string };
@@ -54,6 +59,8 @@ const GROUPS: Group[] = [
       { id: 'action-items', name: 'Action items' },
       { id: 'metrics', name: 'Conversation metrics' },
       { id: 'transcripts', name: 'Transcripts & speakers' },
+      { id: 'contacts', name: 'Contacts & account briefs' },
+      { id: 'coaching', name: 'Coaching scorecard' },
       { id: 'playback', name: 'Watching the recording' },
       { id: 'ask', name: 'Ask: chat with your meetings' },
       { id: 'connect', name: 'Connect Claude & other AI tools' },
@@ -70,6 +77,18 @@ const GROUPS: Group[] = [
       { id: 'sharing', name: 'Sharing a meeting' },
       { id: 'digests', name: 'Scheduled digests' },
       { id: 'history', name: 'Search & history' },
+    ],
+  },
+  {
+    title: 'Developers',
+    icon: <Terminal size={18} />,
+    items: [
+      { id: 'dev-overview', name: 'Developer overview' },
+      { id: 'dev-tokens', name: 'Access tokens' },
+      { id: 'dev-mcp', name: 'MCP endpoint' },
+      { id: 'dev-tools', name: 'MCP tool reference' },
+      { id: 'automation', name: 'Automation webhook' },
+      { id: 'dev-limits', name: 'Limits & scoping' },
     ],
   },
   {
@@ -114,6 +133,85 @@ function Callout({
       <p className="mb-1 text-sm font-semibold text-foreground">{title}</p>
       <div className="text-sm leading-relaxed text-muted-foreground [&_a]:underline">{children}</div>
     </div>
+  );
+}
+
+/**
+ * A copyable code block. Docs that make you retype a bearer header get the
+ * header retyped wrong, so every snippet here is one click to the clipboard.
+ */
+function Code({ children, label }: { children: string; label?: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(children.trim());
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    } catch {
+      /* clipboard blocked — the text is selectable either way */
+    }
+  };
+  return (
+    <div className="my-4 overflow-hidden rounded-lg border border-border bg-card">
+      <div className="flex items-center justify-between border-b border-border px-3 py-1.5">
+        <span className="font-mono text-xs text-muted-foreground">{label ?? 'shell'}</span>
+        <button
+          type="button"
+          onClick={copy}
+          aria-label="Copy code"
+          className="surface-hover inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
+        >
+          {copied ? <Check size={13} /> : <Copy size={13} />}
+          {copied ? 'Copied' : 'Copy'}
+        </button>
+      </div>
+      <pre className="overflow-x-auto px-3 py-3 text-[13px] leading-relaxed text-foreground">
+        <code className="font-mono">{children.trim()}</code>
+      </pre>
+    </div>
+  );
+}
+
+function ArgTable({
+  rows,
+  headers,
+}: {
+  headers: [string, string, string];
+  rows: [React.ReactNode, React.ReactNode, React.ReactNode][];
+}) {
+  return (
+    <div className="my-5 overflow-x-auto rounded-lg border border-border">
+      <table className="w-full min-w-[560px] border-collapse text-left text-sm">
+        <thead>
+          <tr className="border-b border-border bg-muted/40">
+            {headers.map((h) => (
+              <th key={h} className="px-3 py-2 text-xs font-semibold uppercase tracking-wider text-foreground">
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, i) => (
+            <tr key={i} className="border-b border-border last:border-0 align-top">
+              {row.map((cell, j) => (
+                <td key={j} className="px-3 py-2 text-muted-foreground">
+                  {cell}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function Mono({ children }: { children: React.ReactNode }) {
+  return (
+    <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-[13px] text-foreground">
+      {children}
+    </code>
   );
 }
 
@@ -611,18 +709,6 @@ export default function Docs() {
               </section>
 
               <section className="space-y-4">
-                <SectionHeading id="automation">Automation webhook</SectionHeading>
-                <p>
-                  Under <strong className="text-foreground">Settings → Automation webhook</strong> you
-                  can give EchoBrief a URL. Within a minute of a meeting's insights being ready it POSTs
-                  a JSON payload — summary, action items with resolved dates, the extracted numbers,
-                  commitments and asks, the coaching summary; never the transcript — signed with
-                  Standard Webhooks headers so n8n, Make, Zapier or your CRM bridge can verify it. Every
-                  delivery is logged on the same settings card.
-                </p>
-              </section>
-
-              <section className="space-y-4">
                 <SectionHeading id="playback">Watching the recording</SectionHeading>
                 <p>
                   Open a meeting and choose the{' '}
@@ -868,6 +954,388 @@ export default function Docs() {
                   Recorded audio is deleted after about 30 days. Transcripts, summaries, and
                   insights are kept — they are the part you come back to.
                 </Callout>
+              </section>
+
+              {/* ---------------- Developers ---------------- */}
+              <section className="space-y-4">
+                <SectionHeading id="dev-overview">Developer overview</SectionHeading>
+                <div className="mb-2 flex items-center gap-2">
+                  <Terminal size={18} style={{ color: 'var(--ember)' }} />
+                  <span className="text-sm font-medium text-foreground">Build on your own meetings</span>
+                </div>
+                <p>
+                  EchoBrief exposes your meetings two ways, and both are scoped to your own account
+                  at the database level:
+                </p>
+                <ul className="ml-5 list-disc space-y-1.5">
+                  <li>
+                    <strong className="text-foreground">Pull</strong> — an{' '}
+                    <a href="https://modelcontextprotocol.io" target="_blank" rel="noreferrer" className="underline">MCP</a>{' '}
+                    endpoint at <Mono>https://www.echobrief.in/api/mcp</Mono>, which any MCP client
+                    (Claude, Cursor, your own agent) can read with an access token.
+                  </li>
+                  <li>
+                    <strong className="text-foreground">Push</strong> — a signed webhook fired at
+                    your endpoint when a meeting's insights are ready, for n8n, Make, Zapier or a
+                    CRM bridge.
+                  </li>
+                </ul>
+                <Callout title="There is no separate REST API yet">
+                  Everything a program can read today, it reads through the MCP endpoint — it is a
+                  plain HTTP JSON-RPC service, so a non-agent script can call it too (there is a
+                  curl example below). If you need a conventional REST surface, tell us at{' '}
+                  <a href="mailto:hello@echobrief.in" className="underline">hello@echobrief.in</a>{' '}
+                  and it will be built against real use, not guessed at.
+                </Callout>
+              </section>
+
+              <section className="space-y-4">
+                <SectionHeading id="dev-tokens">Access tokens</SectionHeading>
+                <div className="mb-2 flex items-center gap-2">
+                  <Shield size={18} style={{ color: 'var(--ember)' }} />
+                  <span className="text-sm font-medium text-foreground">Settings → Developer</span>
+                </div>
+                <p>
+                  A personal access token stands in for you and nobody else. Create one under{' '}
+                  <strong className="text-foreground">Settings → Developer</strong>; it looks like{' '}
+                  <Mono>eb_live_…</Mono> and is <strong className="text-foreground">shown once</strong>.
+                  Only a SHA-256 digest is stored, so a lost token cannot be recovered — revoke it and
+                  mint another.
+                </p>
+                <p>Send it as a bearer token:</p>
+                <Code label="http">{`Authorization: Bearer eb_live_xxxxxxxxxxxxxxxxxxxxxxxxxxxx`}</Code>
+                <ul className="ml-5 list-disc space-y-1.5">
+                  <li>Up to <strong className="text-foreground">10 active tokens</strong> per account.</li>
+                  <li>Revocation takes effect on the next request — there is no cache to wait out.</li>
+                  <li>
+                    Each token's last use is shown on the same page, refreshed at most hourly, so an
+                    unused token is easy to spot and retire.
+                  </li>
+                  <li>
+                    A token carries your permissions, not more: it reads your meetings and can tick an
+                    action item. It cannot start a recording, spend money, or delete anything.
+                  </li>
+                </ul>
+                <Callout tone="warn" title="Treat it like a password">
+                  Anyone holding the token can read every meeting in your account. Keep it in an
+                  environment variable or a secret store, never in a committed file, and revoke it the
+                  moment a laptop or a CI job goes missing.
+                </Callout>
+              </section>
+
+              <section className="space-y-4">
+                <SectionHeading id="dev-mcp">MCP endpoint</SectionHeading>
+                <div className="mb-2 flex items-center gap-2">
+                  <Plug size={18} style={{ color: 'var(--ember)' }} />
+                  <span className="text-sm font-medium text-foreground">
+                    https://www.echobrief.in/api/mcp
+                  </span>
+                </div>
+                <p>
+                  One stateless Streamable-HTTP MCP server. Point any MCP client at it with a token,
+                  or — for Claude on the web and mobile — connect over OAuth with no token at all.
+                </p>
+
+                <h3 className="pt-2 text-base font-semibold text-foreground">Claude Code</h3>
+                <Code>{`claude mcp add --transport http echobrief https://www.echobrief.in/api/mcp \\
+  --header "Authorization: Bearer eb_live_..."`}</Code>
+
+                <h3 className="pt-2 text-base font-semibold text-foreground">Claude Desktop / Cursor</h3>
+                <p className="text-sm">In the MCP config file:</p>
+                <Code label="json">{`{
+  "mcpServers": {
+    "echobrief": {
+      "type": "http",
+      "url": "https://www.echobrief.in/api/mcp",
+      "headers": { "Authorization": "Bearer eb_live_..." }
+    }
+  }
+}`}</Code>
+
+                <h3 className="pt-2 text-base font-semibold text-foreground">
+                  claude.ai web &amp; mobile — no token needed
+                </h3>
+                <p>
+                  Add a custom connector with the URL above and leave the client ID and secret empty.
+                  Claude discovers the authorization server, registers itself, and sends you to an
+                  EchoBrief consent screen to approve. What it receives is an ordinary access token,
+                  listed in Settings → Developer as{' '}
+                  <Mono>Claude (OAuth)</Mono>, revocable from the same place.
+                </p>
+                <p className="text-sm">
+                  For your own OAuth client: the issuer is <Mono>https://www.echobrief.in</Mono>,
+                  metadata lives at <Mono>/.well-known/oauth-authorization-server</Mono> and{' '}
+                  <Mono>/.well-known/oauth-protected-resource</Mono>, dynamic registration is open
+                  (RFC 7591, public clients), PKCE S256 is mandatory, and{' '}
+                  <Mono>resource</Mono> must be the MCP URL. Authorization codes are single-use with
+                  a 5-minute life, access tokens last 30 days, and refresh tokens rotate on every use —
+                  replaying one revokes the grant.
+                </p>
+              </section>
+
+              <section className="space-y-4">
+                <SectionHeading id="dev-tools">MCP tool reference</SectionHeading>
+                <div className="mb-2 flex items-center gap-2">
+                  <Braces size={18} style={{ color: 'var(--ember)' }} />
+                  <span className="text-sm font-medium text-foreground">Eight tools, one write</span>
+                </div>
+                <ArgTable
+                  headers={['Tool', 'Arguments', 'Returns']}
+                  rows={[
+                    [
+                      <Mono>list_meetings</Mono>,
+                      <>
+                        <Mono>status?</Mono>, <Mono>from?</Mono>, <Mono>to?</Mono>,{' '}
+                        <Mono>query?</Mono> (title substring), <Mono>limit</Mono> ≤ 100
+                      </>,
+                      'Metadata rows, newest first. No transcript or summary text. Cancelled meetings are left out unless you ask for that status.',
+                    ],
+                    [
+                      <Mono>get_meeting</Mono>,
+                      <Mono>meeting_id</Mono>,
+                      'Metadata, the short summary, and counts of decisions, action items and segments.',
+                    ],
+                    [
+                      <Mono>get_meeting_insights</Mono>,
+                      <Mono>meeting_id</Mono>,
+                      'The full analysis: summary, key points, decisions, risks, timeline, conversation metrics.',
+                    ],
+                    [
+                      <Mono>search_meetings</Mono>,
+                      <>
+                        <Mono>query</Mono>, <Mono>limit</Mono> ≤ 25
+                      </>,
+                      'Ranked snippets, each with a meeting_id to fetch. Full-text over transcripts and summaries.',
+                    ],
+                    [
+                      <Mono>get_transcript</Mono>,
+                      <>
+                        <Mono>meeting_id</Mono>, <Mono>format</Mono> (<Mono>text</Mono> |{' '}
+                        <Mono>segments</Mono>), <Mono>include_internal?</Mono>,{' '}
+                        <Mono>speaker?</Mono>, <Mono>offset?</Mono>, <Mono>limit?</Mono>
+                      </>,
+                      <>
+                        <Mono>text</Mono> is <Mono>[m:ss] Speaker:</Mono> paragraphs;{' '}
+                        <Mono>segments</Mono> is structured. Both drop the internal pre- and
+                        post-meeting zones unless <Mono>include_internal</Mono> is true, and say how
+                        many were excluded.
+                      </>,
+                    ],
+                    [
+                      <Mono>get_action_items</Mono>,
+                      <>
+                        <Mono>meeting_id?</Mono>, <Mono>status</Mono> (<Mono>open</Mono> |{' '}
+                        <Mono>done</Mono> | <Mono>all</Mono>), <Mono>from?</Mono>, <Mono>to?</Mono>,{' '}
+                        <Mono>limit</Mono> ≤ 50
+                      </>,
+                      <>
+                        Items addressed by the <Mono>(meeting_id, index)</Mono> pair, with owner, due
+                        date and completion state.
+                      </>,
+                    ],
+                    [
+                      <Mono>complete_action_item</Mono>,
+                      <>
+                        <Mono>meeting_id</Mono>, <Mono>index</Mono>, <Mono>completed</Mono>
+                      </>,
+                      'The new completion state. The only write in the whole surface, and reversible.',
+                    ],
+                    [
+                      <Mono>get_meeting_facts</Mono>,
+                      <Mono>meeting_id</Mono>,
+                      'The verbatim-grounded facts — every number spoken, commitments with dates, objections, explicit asks — each with a quote and a timestamp, plus the coaching report. This is what the summary was written from.',
+                    ],
+                  ]}
+                />
+
+                <h3 className="pt-2 text-base font-semibold text-foreground">Calling it directly</h3>
+                <p className="text-sm">
+                  It is ordinary JSON-RPC over HTTP, so you do not need an MCP client to script
+                  against it:
+                </p>
+                <Code>{`curl -s -X POST https://www.echobrief.in/api/mcp \\
+  -H "Authorization: Bearer $ECHOBRIEF_TOKEN" \\
+  -H 'Content-Type: application/json' \\
+  -H 'Accept: application/json, text/event-stream' \\
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "tools/call",
+    "params": {
+      "name": "list_meetings",
+      "arguments": { "status": "completed", "limit": 5 }
+    }
+  }'`}</Code>
+                <p className="text-sm">
+                  Use <Mono>{`"method": "tools/list"`}</Mono> to read the live schemas — they are the
+                  authority if this table ever falls behind.
+                </p>
+
+                <h3 className="pt-2 text-base font-semibold text-foreground">Errors and paging</h3>
+                <ul className="ml-5 list-disc space-y-1.5">
+                  <li>
+                    Failures come back as tool content with <Mono>isError: true</Mono> and a readable
+                    message, not as protocol errors — an agent can read it and recover instead of
+                    losing its turn.
+                  </li>
+                  <li>
+                    A meeting that is not yours is indistinguishable from one that does not exist.
+                    Both answer <em>“it does not exist, or it is not yours”</em>.
+                  </li>
+                  <li>
+                    No response is unbounded. <Mono>get_transcript</Mono> caps a reply at 40,000
+                    characters and returns <Mono>truncated: true</Mono> with a{' '}
+                    <Mono>next_offset</Mono> — it never cuts off silently.
+                  </li>
+                </ul>
+                <Callout tone="warn" title="Transcripts are untrusted input">
+                  A transcript is whatever someone said into a meeting, and it lands straight in a
+                  model's context. Transcript and snippet payloads arrive wrapped in a delimited block
+                  labelled untrusted, but if you build on this, keep treating that text as data —
+                  never as instructions.
+                </Callout>
+              </section>
+
+              <section className="space-y-4">
+                <SectionHeading id="automation">Automation webhook</SectionHeading>
+                <div className="mb-2 flex items-center gap-2">
+                  <Webhook size={18} style={{ color: 'var(--ember)' }} />
+                  <span className="text-sm font-medium text-foreground">Settings → Developer</span>
+                </div>
+                <p>
+                  Give EchoBrief an HTTPS URL and it POSTs a JSON payload there within a minute of a
+                  meeting's insights being ready. A signing secret is minted the first time you save a
+                  URL; every delivery attempt is logged on the same card with its status code.
+                </p>
+                <ArgTable
+                  headers={['Event', 'When', 'Notes']}
+                  rows={[
+                    [
+                      <Mono>meeting.insights_ready</Mono>,
+                      'The first time a meeting finishes processing',
+                      'The normal case.',
+                    ],
+                    [
+                      <Mono>meeting.insights_regenerated</Mono>,
+                      'Insights were rebuilt for a meeting you already received',
+                      'Fires on a speaker rename or a manual regenerate. Same shape — upsert on meeting.id rather than inserting again.',
+                    ],
+                  ]}
+                />
+
+                <h3 className="pt-2 text-base font-semibold text-foreground">Payload</h3>
+                <Code label="json">{`{
+  "event": "meeting.insights_ready",
+  "occurred_at": "2026-09-08T11:31:07.914Z",
+  "meeting": {
+    "id": "f09a4803-....",
+    "title": "Acme — pricing review",
+    "start_time": "2026-09-08T10:30:00Z",
+    "end_time": "2026-09-08T11:12:00Z",
+    "duration_seconds": 2520,
+    "attendees": ["priya@acme.com"],
+    "languages": { "en": 0.78, "hi": 0.22 },
+    "url": "https://www.echobrief.in/meeting/f09a4803-...."
+  },
+  "summary_short": "Acme agreed to the annual plan ...",
+  "action_items": [
+    { "task": "Send the revised quote", "owner": "You", "due_date": "2026-09-10" }
+  ],
+  "decisions": ["Move to annual billing from October"],
+  "facts": {
+    "meeting_type": "sales_call",
+    "numbers": [{ "value": "18%", "context": "discount asked for", "quote": "...", "ts": 742 }],
+    "commitments": [],
+    "explicit_asks": [],
+    "objections": []
+  },
+  "coaching_summary": "Strong discovery; the next step was not dated."
+}`}</Code>
+                <p className="text-sm">
+                  <strong className="text-foreground">The transcript is never sent.</strong> The
+                  payload is deliberately compact: enough to file a CRM note or open a ticket, not a
+                  copy of the meeting. Fetch the rest over MCP if you need it.
+                </p>
+
+                <h3 className="pt-2 text-base font-semibold text-foreground">Verifying the signature</h3>
+                <p className="text-sm">
+                  Deliveries are signed with{' '}
+                  <a href="https://www.standardwebhooks.com" target="_blank" rel="noreferrer" className="underline">
+                    Standard Webhooks
+                  </a>{' '}
+                  headers, so most libraries verify them out of the box:
+                </p>
+                <ArgTable
+                  headers={['Header', 'Example', 'Meaning']}
+                  rows={[
+                    [<Mono>webhook-id</Mono>, <Mono>msg_3f9a…</Mono>, 'Unique per delivery. Use it to de-duplicate.'],
+                    [<Mono>webhook-timestamp</Mono>, <Mono>1757330267</Mono>, 'Unix seconds. Reject anything far from now.'],
+                    [
+                      <Mono>webhook-signature</Mono>,
+                      <Mono>v1,base64…</Mono>,
+                      <>
+                        HMAC-SHA256 of <Mono>{`${'{'}id{'}'}.${'{'}timestamp{'}'}.${'{'}body{'}'}`}</Mono>{' '}
+                        using your secret.
+                      </>,
+                    ],
+                  ]}
+                />
+                <Code label="javascript">{`import crypto from 'node:crypto';
+
+function verify(rawBody, headers, secret) {
+  const id = headers['webhook-id'];
+  const ts = headers['webhook-timestamp'];
+  const expected =
+    'v1,' +
+    crypto.createHmac('sha256', secret)
+      .update(\`\${id}.\${ts}.\${rawBody}\`)
+      .digest('base64');
+
+  // Reject replays before comparing.
+  if (Math.abs(Date.now() / 1000 - Number(ts)) > 300) return false;
+
+  const a = Buffer.from(expected);
+  const b = Buffer.from(headers['webhook-signature']);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}`}</Code>
+                <p className="text-sm">
+                  Sign over the <strong className="text-foreground">raw request body</strong>, before
+                  any JSON parsing — re-serialising changes the bytes and the signature will never
+                  match.
+                </p>
+
+                <Callout tone="warn" title="One attempt, no retries">
+                  EchoBrief POSTs once, with a 10-second timeout, and records the outcome. It does not
+                  retry — a slow or sleeping endpoint misses that meeting. Answer{' '}
+                  <Mono>2xx</Mono> immediately and do your work afterwards, and treat the webhook as a
+                  nudge: the meeting is always readable over MCP if a delivery was missed.
+                </Callout>
+              </section>
+
+              <section className="space-y-4">
+                <SectionHeading id="dev-limits">Limits &amp; scoping</SectionHeading>
+                <ArgTable
+                  headers={['Limit', 'Value', 'What happens at the edge']}
+                  rows={[
+                    ['MCP requests', '60 per minute per token', 'Approximate rather than a hard global cap — you are identified and revocable, so it exists to catch runaway loops, not to ration you.'],
+                    ['Active tokens', '10 per account', 'Revoke one to mint another.'],
+                    [<><Mono>list_meetings</Mono> / <Mono>search_meetings</Mono> / <Mono>get_action_items</Mono></>, '100 / 25 / 50 rows', 'Page with from and to rather than raising the limit.'],
+                    [<Mono>get_transcript</Mono>, '40,000 characters per reply', <>Returns <Mono>truncated: true</Mono> and a <Mono>next_offset</Mono>.</>],
+                    ['Webhook delivery', '10-second timeout, no retry', 'Logged with its status code in Settings → Developer.'],
+                  ]}
+                />
+                <p>
+                  <strong className="text-foreground">Scoping is enforced by the database.</strong>{' '}
+                  A token is exchanged for a short-lived identity that is you, and every query runs
+                  under the same row-level rules the web app does — so a bug in a tool returns nothing
+                  rather than somebody else's meeting. Internal pre- and post-meeting zones stay out of
+                  anything shared or automated unless you explicitly ask for them.
+                </p>
+                <p className="text-sm">
+                  Retention follows your plan: once a meeting's content passes the retention window it
+                  is removed from the API too, and the meeting row stays with a note that its content
+                  expired. See <a href="#privacy" className="underline">Privacy &amp; data</a>.
+                </p>
               </section>
 
               {/* ---------------- Support ---------------- */}

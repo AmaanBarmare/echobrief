@@ -15,9 +15,23 @@ import { SplitButton } from "@/ui";
  */
 const RECORD_ROUTES = ["/dashboard", "/meeting", "/calendar", "/contacts", "/coaching", "/chat", "/workspace"];
 
+type PrefillMeeting = {
+  title: string;
+  calendarEventId?: string;
+  meetingLink?: string;
+  attendees?: Array<{ email: string; displayName?: string | null; responseStatus?: string | null; organizer?: boolean }>;
+};
+
 export function HeaderV2({ onMenuClick }: { onMenuClick?: () => void }) {
   const location = useLocation();
   const [searchOpen, setSearchOpen] = useState(false);
+
+  // "Record this meeting" from a pre-meeting notification navigates to
+  // /dashboard carrying the calendar event in router state. V1 read that in the
+  // page, because the page owned the Record button; the shell owns it now, so
+  // the prefill has to be read here or the flow silently starts a blank
+  // recording.
+  const prefill = (location.state as { prefillMeeting?: PrefillMeeting } | null)?.prefillMeeting;
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -60,6 +74,10 @@ export function HeaderV2({ onMenuClick }: { onMenuClick?: () => void }) {
 
         {showRecord && (
           <RecordingButton
+            prefillTitle={prefill?.title}
+            calendarEventId={prefill?.calendarEventId}
+            meetingLink={prefill?.meetingLink}
+            attendees={prefill?.attendees}
             renderTrigger={(open) => (
               <SplitButton icon={<Mic size={15} strokeWidth={2} />} onMain={open} onMenu={open}>
                 Record

@@ -22,6 +22,7 @@ import NotFound from "./pages/NotFound";
 
 const Onboarding = lazy(() => import("./pages/Onboarding"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
+const DashboardV2 = lazy(() => import("./pages/DashboardV2"));
 const Recordings = lazy(() => import("./pages/Recordings"));
 const MeetingDetail = lazy(() => import("./pages/MeetingDetail"));
 const Settings = lazy(() => import("./pages/Settings"));
@@ -115,7 +116,7 @@ function AppRoutes() {
           path="/dashboard"
           element={
             <ProtectedRoute>
-              <Dashboard />
+              <V2Route v1={<Dashboard />} v2={<DashboardV2 />} />
             </ProtectedRoute>
           }
         />
