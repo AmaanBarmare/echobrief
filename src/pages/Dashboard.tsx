@@ -11,6 +11,17 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Meeting } from '@/types/meeting';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { ChevronRight, Mic, Clock, CheckCircle2, Sparkles, AlertTriangle, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -408,17 +419,40 @@ export default function Dashboard() {
                         {reason}
                       </p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleDismissAttention(meeting)}
-                      disabled={dismissingId === meeting.id}
-                      className="inline-flex shrink-0 items-center gap-1 rounded-md px-2.5 py-1 text-[12.5px] font-medium transition-colors disabled:opacity-50"
-                      style={{ border: '1px solid var(--rule)', background: 'transparent', color: 'var(--ink-mid)' }}
-                      title="Remove this meeting"
-                    >
-                      <X className="h-3 w-3" strokeWidth={2} />
-                      Dismiss
-                    </button>
+                    {/* Removes the meeting for good — transcript, insights and
+                        archived audio included — so it asks first. */}
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <button
+                          type="button"
+                          disabled={dismissingId === meeting.id}
+                          className="inline-flex shrink-0 items-center gap-1 rounded-md px-2.5 py-1 text-[12.5px] font-medium transition-colors disabled:opacity-50"
+                          style={{ border: '1px solid var(--rule)', background: 'transparent', color: 'var(--ink-mid)' }}
+                          title="Delete this meeting"
+                        >
+                          <X className="h-3 w-3" strokeWidth={2} />
+                          Delete
+                        </button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete this meeting?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Removes “{meeting.title || 'Untitled meeting'}” along with its
+                            transcript, insights and archived audio. This cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => handleDismissAttention(meeting)}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 );
               })}

@@ -36,6 +36,17 @@ import {
   Avatar, Badge, Card, CardHeader, Chip, DarkPanel, Divider, PageHeader, StatTile, TwoColumn,
 } from "@/ui";
 import { cn } from "@/lib/utils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 /** Same rule as V1: a meeting that produced no content is not listed here. */
 const HIDDEN_STATUSES = new Set<string>(["cancelled", "failed"]);
@@ -485,15 +496,39 @@ export default function DashboardV2() {
                   <Badge tone={meeting.status === "cancelled" ? "neutral" : "red"} dot>
                     {meeting.status === "cancelled" ? "Cancelled" : "Failed"}
                   </Badge>
-                  <button
-                    type="button"
-                    onClick={() => handleDismissAttention(meeting)}
-                    disabled={dismissingId === meeting.id}
-                    aria-label={`Dismiss ${meeting.title || "meeting"}`}
-                    className="flex-none text-eb-muted hover:text-eb-red disabled:opacity-50"
-                  >
-                    <X size={16} strokeWidth={1.75} />
-                  </button>
+                  {/* This removes the meeting for good — transcript, insights and
+                      archived audio included — so it asks first. */}
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <button
+                        type="button"
+                        disabled={dismissingId === meeting.id}
+                        aria-label={`Delete ${meeting.title || "meeting"}`}
+                        title="Delete this meeting"
+                        className="flex-none text-eb-muted hover:text-eb-red disabled:opacity-50"
+                      >
+                        <X size={16} strokeWidth={1.75} />
+                      </button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent className="bg-eb-bg border-eb-border text-eb-text">
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete this meeting?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Removes “{meeting.title || "Untitled meeting"}” along with its
+                          transcript, insights and archived audio. This cannot be undone.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => handleDismissAttention(meeting)}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          Delete
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </div>
               ))}
             </Card>
