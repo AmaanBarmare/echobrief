@@ -35,6 +35,7 @@ const ActionItemsV2 = lazy(() => import("./pages/ActionItemsV2"));
 const Contacts = lazy(() => import("./pages/Contacts"));
 const ContactsV2 = lazy(() => import("./pages/ContactsV2"));
 const Coaching = lazy(() => import("./pages/Coaching"));
+const CoachingV2 = lazy(() => import("./pages/CoachingV2"));
 const Chat = lazy(() => import("./pages/Chat"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const Terms = lazy(() => import("./pages/Terms"));
@@ -176,7 +177,7 @@ function AppRoutes() {
           path="/coaching"
           element={
             <ProtectedRoute>
-              <Coaching />
+              <V2Route v1={<Coaching />} v2={<CoachingV2 />} />
             </ProtectedRoute>
           }
         />
