@@ -30,6 +30,7 @@ const Settings = lazy(() => import("./pages/Settings"));
 const SettingsV2 = lazy(() => import("./pages/SettingsV2"));
 const Calendar = lazy(() => import("./pages/Calendar"));
 const ActionItems = lazy(() => import("./pages/ActionItems"));
+const ActionItemsV2 = lazy(() => import("./pages/ActionItemsV2"));
 const Contacts = lazy(() => import("./pages/Contacts"));
 const Coaching = lazy(() => import("./pages/Coaching"));
 const Chat = lazy(() => import("./pages/Chat"));
@@ -157,7 +158,7 @@ function AppRoutes() {
           path="/action-items"
           element={
             <ProtectedRoute>
-              <ActionItems />
+              <V2Route v1={<ActionItems />} v2={<ActionItemsV2 />} />
             </ProtectedRoute>
           }
         />
