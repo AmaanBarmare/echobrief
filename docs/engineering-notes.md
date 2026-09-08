@@ -434,6 +434,24 @@ Against Nano's baseline of **5 MB/s and 250 IOPS**, the measured **11.85 MB/s an
 
 **What I changed:** added [`scripts/disk-io-probe.sh`](../scripts/disk-io-probe.sh), which takes a two-point delta off the metrics endpoint and prints per-device throughput and IOPS, swap rate, memory oversubscription, and the tier baselines to compare against. It encodes both traps above — the 75 s minimum window, and the fact that the per-device split is the whole point.
 
-**What I did *not* change:** anything about cron, queries, or indexes. There is no query-side fix for this, and cutting cron further would have cost product behaviour for a rounding error. The real options are to reduce the memory footprint or to move off Nano — and compute add-ons require the Pro plan, so this is a **billing** decision, not an engineering one, and it belongs to whoever owns the budget.
+**What I did *not* change:** anything about cron, queries, or indexes. There is no query-side fix for this, and cutting cron further would have cost product behaviour for a rounding error.
 
-**Why this matters:** #22 was correct when it was written and is now the wrong answer to the same alert — a documented root cause is a snapshot, not a standing explanation, and the second time the same symptom appears is exactly when the old note is most likely to be believed without re-measuring. The deeper trap is that both obvious instruments, `pg_stat_statements` and table sizes, are blind to the layer that was actually burning the budget: they can only report on the volume Postgres owns, and they will confidently report "idle" while the machine underneath thrashes. When every instrument says the system is doing nothing and the bill says otherwise, the instrument is pointed at the wrong thing.
+**What actually fixed it: restarting the instance.** The first conclusion drawn here was that Nano is structurally too small and the only remaining choice was a billing one — Pro plus a compute add-on. That was wrong, and it was wrong in the direction that costs money.
+
+While preparing to test it, the instance stopped responding altogether: PostgREST returned **HTTP 522 after 90 s** and the metrics endpoint hung, while the Management API still reported `ACTIVE_HEALTHY`. This is the failure mode the alert email actually warns about — budget exhausted, throttled to baseline, then unresponsive. A restart (`POST /v1/projects/<ref>/restart`, ~5 min, no in-flight meetings, 7/7 cron jobs came back active) resolved it:
+
+| minutes after boot | combined | IOPS | swap in/out |
+|---|---|---|---|
+| ~1 (boot storm) | 61.61 MB/s | 3,487 | 8.85 / 8.05 MB/s |
+| ~10 | 17.41 MB/s | 631 | 1.27 / 1.27 MB/s |
+| ~22 | 5.15 MB/s | 183 | 0.33 / 0.35 MB/s |
+| ~33 | **1.82 MB/s** | **66** | 0.07 / 0.14 MB/s |
+| ~46 (settled) | **2.30 MB/s** | **98** | 0.23 / 0.06 MB/s |
+
+From **11.85 MB/s (2.4x baseline) to a settled ~2 MB/s (under 0.5x baseline)** — a 5-6x reduction, with swap effectively stopped and the `pgdata` volume at 0 IOPS. So the cost was **accumulated state across 165 days of uptime**, not a compute tier that is too small for the workload.
+
+The caveat is that committed address space is still **3.0x RAM**, so the headroom that was just reclaimed is thin and this will recur. The cheap remedy is a periodic restart, not a plan upgrade; the tier only becomes the answer if the interval between recurrences gets short enough to matter. Measure the interval before buying anything.
+
+**So the remedy order is: restart first, measure, and only then consider compute.** A restart is free, takes five minutes, and is decisive — which makes recommending a $40/mo upgrade before trying it a straightforwardly bad call.
+
+**Why this matters:** the diagnosis here was right and the *recommendation* built on it was still wrong — "the database is not the cause" does not imply "only money can fix it," and the cheapest intervention went untried because the measurement felt conclusive. Correct root cause, unearned conclusion. Beyond that: #22 was correct when it was written and is now the wrong answer to the same alert — a documented root cause is a snapshot, not a standing explanation, and the second time the same symptom appears is exactly when the old note is most likely to be believed without re-measuring. The deeper trap is that both obvious instruments, `pg_stat_statements` and table sizes, are blind to the layer that was actually burning the budget: they can only report on the volume Postgres owns, and they will confidently report "idle" while the machine underneath thrashes. When every instrument says the system is doing nothing and the bill says otherwise, the instrument is pointed at the wrong thing.
